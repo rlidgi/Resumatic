@@ -157,12 +157,14 @@ export default function Editor() {
                                 onChange={(e) => setTemplate(e.target.value as any)}
                                 className="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:border-slate-400 transition-colors"
                             >
-                                <option value="modern">Modern</option>
                                 <option value="classic">Classic</option>
-                                <option value="timelineBlue">Timeline Blue</option>
-                                <option value="minimal">Minimal</option>
                                 <option value="professional">Professional</option>
+                                <option value="elegant">Elegant</option>
                                 <option value="creative">Creative</option>
+                                <option value="boldProfessional">Bold Professional</option>
+                                <option value="traditional">Traditional</option>
+                                <option value="modern">Modern</option>
+                                <option value="executive">Executive</option>
                             </select>
 
                             <div className="relative group">

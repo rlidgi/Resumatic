@@ -25,7 +25,7 @@ export default function NotFound() {
           </a>
         </div>
         <p className="text-xs text-gray-500 mt-6">
-          Tip: Template viewer URLs look like <span className="font-mono">/react/template-viewer/modern</span>.
+          Tip: Template viewer URLs look like <span className="font-mono">/react/template-viewer/professional</span>.
         </p>
       </div>
     </div>

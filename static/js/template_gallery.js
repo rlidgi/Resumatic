@@ -2,50 +2,6 @@
 // ----- Data (replace thumbs/links with your real assets) -----
 const TEMPLATES = [
   {
-    id: "modern-citrus",
-    name: "Modern Citrus",
-    style: "Modern",
-    thumbnail: "modern-citrus-thumb.jpg",
-    tags: ["ATS-friendly", "2-column", "Accent header"],
-    description: "Fresh, contemporary layout with bold section headings and clear hierarchy.",
-    formats: ["PDF", "DOCX", "Google Docs"],
-    demoUrl: "/app/builder?template=modern-citrus",
-    downloadUrls: {
-      "PDF": "modern-citrus.pdf",
-      "DOCX": "modern-citrus.docx",
-      "Google Docs": "/docs/modern-citrus"
-    }
-  },
-  {
-    id: "modern-slate",
-    name: "Modern Slate",
-    style: "Modern",
-    thumbnail: "modern-slate-thumb.jpg",
-    tags: ["Single-column", "Minimal"],
-    description: "Minimalist single-column design focused on readability and quick scanning.",
-    formats: ["PDF", "DOCX"],
-    demoUrl: "/app/builder?template=modern-slate",
-    downloadUrls: {
-      "PDF": "modern-slate.pdf",
-      "DOCX": "modern-slate.docx"
-    }
-  },
-  {
-    id: "modern-aurora",
-    name: "Modern Aurora",
-    style: "Modern",
-    thumbnail: "modern-aurora-thumb.jpg",
-    tags: ["Color accents", "Timeline"],
-    description: "Subtle color accents and optional timeline visuals for experience.",
-    formats: ["PDF", "DOCX", "Google Docs"],
-    demoUrl: "/app/builder?template=modern-aurora",
-    downloadUrls: {
-      "PDF": "modern-aurora.pdf",
-      "DOCX": "modern-aurora.docx",
-      "Google Docs": "/docs/modern-aurora"
-    }
-  },
-  {
     id: "classic-elegant",
     name: "Classic Elegant",
     style: "Classic",
@@ -87,53 +43,11 @@ const TEMPLATES = [
       "DOCX": "classic-structure.docx"
     }
   },
-  {
-    id: "creative-pastel",
-    name: "Creative Pastel",
-    style: "Creative",
-    thumbnail: "creative-pastel-thumb.jpg",
-    tags: ["Color accents", "Header bar"],
-    description: "Soft color palette and expressive headers ideal for creative roles.",
-    formats: ["PDF", "DOCX", "Google Docs"],
-    demoUrl: "/app/builder?template=creative-pastel",
-    downloadUrls: {
-      "PDF": "creative-pastel.pdf",
-      "DOCX": "creative-pastel.docx",
-      "Google Docs": "/docs/creative-pastel"
-    }
-  },
-  {
-    id: "creative-neo",
-    name: "Creative Neo",
-    style: "Creative",
-    thumbnail: "creative-neo-thumb.jpg",
-    tags: ["Iconography", "Accent sidebar"],
-    description: "Bold sidebar with iconography and section chips to guide the eye.",
-    formats: ["PDF", "DOCX"],
-    demoUrl: "/app/builder?template=creative-neo",
-    downloadUrls: {
-      "PDF": "creative-neo.pdf",
-      "DOCX": "creative-neo.docx"
-    }
-  },
-  {
-    id: "creative-spark",
-    name: "Creative Spark",
-    style: "Creative",
-    thumbnail: "creative-spark-thumb.jpg",
-    tags: ["Photo optional", "2-column"],
-    description: "Vibrant headings with optional photo area and tight sectioning.",
-    formats: ["PDF", "DOCX"],
-    demoUrl: "/app/builder?template=creative-spark",
-    downloadUrls: {
-      "PDF": "creative-spark.pdf",
-      "DOCX": "creative-spark.docx"
-    }
-  }
+
 ];
 
 // ----- Utilities -----
-function resolveBuilder(t){
+function resolveBuilder(t) {
   // Prefer explicit demoUrl if provided; else construct from BUILDER_BASE + ?template=<id>
   if (t.demoUrl) return t.demoUrl;
   const base = (window.BUILDER_BASE || "/builder");
@@ -141,17 +55,17 @@ function resolveBuilder(t){
   return base + sep + "template=" + encodeURIComponent(t.id);
 }
 
-function resolveThumb(t){
+function resolveThumb(t) {
   if (!t.thumbnail) return "";
   if (/^https?:\/\//.test(t.thumbnail)) return t.thumbnail;
   const base = (window.STATIC_BASE || "/static/");
   return base + "images/templates/" + t.thumbnail;
 }
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
-const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 
-function uniq(arr){ return Array.from(new Set(arr)); }
+function uniq(arr) { return Array.from(new Set(arr)); }
 
 // ----- Render -----
 const grid = $("#cardsGrid");
@@ -167,7 +81,7 @@ allTags.forEach(t => {
   tagFilter.appendChild(opt);
 });
 
-function card(t){
+function card(t) {
   const el = document.createElement("article");
   el.className = "bg-white rounded-2xl shadow hover:shadow-lg border overflow-hidden transition";
   el.innerHTML = `
@@ -181,10 +95,10 @@ function card(t){
       </div>
       <p class="text-sm text-gray-600 mt-1 line-clamp-2">${t.description}</p>
       <div class="flex flex-wrap gap-1 mt-2">
-        ${t.tags.map(x=>`<span class="text-xs px-2 py-0.5 rounded-full border">${x}</span>`).join("")}
+        ${t.tags.map(x => `<span class="text-xs px-2 py-0.5 rounded-full border">${x}</span>`).join("")}
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 mt-2">
-        ${t.formats.map(f=>`<span class="rounded-full border px-2 py-0.5">${f}</span>`).join("")}
+        ${t.formats.map(f => `<span class="rounded-full border px-2 py-0.5">${f}</span>`).join("")}
       </div>
       <div class="flex gap-2 pt-3">
         <a href="${resolveBuilder(t)}" class="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90">Use this template</a>
@@ -195,20 +109,20 @@ function card(t){
   return el;
 }
 
-function applyFilters(){
+function applyFilters() {
   const q = searchInput.value.trim().toLowerCase();
   const style = styleFilter.value;
   const tag = tagFilter.value;
-  let res = TEMPLATES.filter(t => 
+  let res = TEMPLATES.filter(t =>
     (style === "All" || t.style === style) &&
     (tag === "All" || t.tags.includes(tag)) &&
     (q === "" ||
-     t.name.toLowerCase().includes(q) ||
-     t.description.toLowerCase().includes(q) ||
-     t.tags.some(x => x.toLowerCase().includes(q)))
+      t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.tags.some(x => x.toLowerCase().includes(q)))
   );
-  if (sortSelect.value === "name"){
-    res = res.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  if (sortSelect.value === "name") {
+    res = res.slice().sort((a, b) => a.name.localeCompare(b.name));
   }
   grid.innerHTML = "";
   res.forEach(t => grid.appendChild(card(t)));
@@ -228,20 +142,20 @@ const modalTags = $("#modalTags");
 const modalFormats = $("#modalFormats");
 const modalUseBtn = $("#modalUseBtn");
 const modalDownload = $("#modalDownload");
-$("#modalClose").addEventListener("click", ()=> modal.classList.add("hidden"));
-modal.addEventListener("click", (e)=>{ if(e.target===modal) modal.classList.add("hidden"); });
+$("#modalClose").addEventListener("click", () => modal.classList.add("hidden"));
+modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
 
-document.addEventListener("click", (e)=>{
+document.addEventListener("click", (e) => {
   const btn = e.target.closest(".preview-btn");
-  if(!btn) return;
+  if (!btn) return;
   const t = TEMPLATES.find(x => x.id === btn.dataset.id);
-  if(!t) return;
+  if (!t) return;
   modalTitle.textContent = t.name;
   modalImg.src = resolveThumb(t);
   modalImg.alt = `${t.name} full preview`;
   modalDesc.textContent = t.description;
-  modalTags.innerHTML = t.tags.map(x=>`<span class="text-xs px-2 py-0.5 rounded-full border">${x}</span>`).join("");
-  modalFormats.innerHTML = t.formats.map(f=>`<span class="text-xs rounded-full border px-2 py-0.5">${f}</span>`).join("");
+  modalTags.innerHTML = t.tags.map(x => `<span class="text-xs px-2 py-0.5 rounded-full border">${x}</span>`).join("");
+  modalFormats.innerHTML = t.formats.map(f => `<span class="text-xs rounded-full border px-2 py-0.5">${f}</span>`).join("");
   modalUseBtn.href = resolveBuilder(t);
   modalDownload.innerHTML = `<option value="">Download</option>` + t.formats
     .filter(f => t.downloadUrls && t.downloadUrls[f])
@@ -256,7 +170,7 @@ document.addEventListener("click", (e)=>{
 });
 
 
-function resolveDownload(filename){
+function resolveDownload(filename) {
   if (!filename) return "";
   if (/^https?:\/\//.test(filename)) return filename;
   const base = (window.DOWNLOAD_BASE || "/static/templates/");

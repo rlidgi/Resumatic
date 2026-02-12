@@ -1,0 +1,43 @@
+Professional Summary
+Actor-turned-data scientist, equipped with graduate-level knowledge in Applied Statistics. Proven capability of delivering comprehensive data analysis through
+freelance ventures utilizing Python, R, and SQL with advanced ML/NLP tools. Possess robust problem-solving skills combined with outstanding interpersonal abilities
+honed from an extensive acting career.
+Work History
+Freelance Data Scientist                                                                                                                                               07/2024 — Present
+Fiverr.com/Upwork.com
+
+e Developed custom predictive models using statistical methods and machine learning techniques to meet clients’ unique requirements.
+
+e Conducted data cleaning, exploratory analysis, and model evaluations to guarantee accurate and reliable outcomes.
+Student Central Summer Program Participant                                                                                                                     06/2025 — 08/2025
+Casualty Actuarial Society
+
+e Gained critical professional and academic experience over an eight-week interactive program conducted by the Casualty Actuarial Society.
+Projects
+Actuarial Risk Modeling
+
+e Analyzed proposed reinsurance and treaty structures, and formed strategic suggestions that yielded a substantial growth in market reach while adhering to the
+
+company’s risk tolerance.
+
+Skills
+Python (Pandas, NumPy, SciPy, Statsmodels,
+
+re         yoy          TTT TTT |      R                        TTT TT |
+Scikit-learn)
+SQL                         EEE           SAS                         EEREE
+Microsoft Excel                                           BEER EE              Power BI                                                   EERE
+Tableau                                                    EEE                        Flask                                                       EERE
+Git                           ERE            Web App Dev                     EERE ES
+Certifications
+
+e Machine Learning Specialization — coursera.com
+
+e Deep Learning Specialization — coursera.com
+
+e Advanced TensorFlow Specialization — coursera.com
+
+e Natural Language Processing Specialization — coursera.com
+Education
+M.S. in Applied Statistics — California State University, East Bay
+B.S. in Business Administration — University of California, Berkeley

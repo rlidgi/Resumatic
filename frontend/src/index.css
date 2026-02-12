@@ -1,2 +1,13 @@
 @import "tailwindcss";
 
+/* ContentEditable placeholder support (used by EditableText) */
+[contenteditable].editable-text--placeholder:empty::before {
+	content: attr(data-placeholder);
+	color: rgba(100, 116, 139, 0.75);
+	/* slate-500-ish */
+	pointer-events: none;
+}
+
+[contenteditable].editable-text--placeholder:focus:empty::before {
+	content: '';
+}

@@ -77,6 +77,9 @@ interface EditableTextProps {
     className?: string;
     as?: 'h1' | 'h2' | 'h3' | 'p' | 'span' | 'div';
     multiline?: boolean;
+    liveUpdate?: boolean;
+    layoutSafe?: boolean;
+    placeholder?: string;
 }
 
 export function EditableText({
@@ -86,11 +89,35 @@ export function EditableText({
     className = '',
     as: Component = 'p',
     multiline = false,
+    liveUpdate = false,
+    layoutSafe = false,
+    placeholder,
 }: EditableTextProps) {
     const [isFocused, setIsFocused] = React.useState(false);
+    const elementRef = React.useRef<HTMLElement | null>(null);
+
+    // Keep the DOM in sync with `value` only when NOT focused.
+    // When focused, React-driven updates to innerHTML/text can reset the caret/selection,
+    // causing the cursor to jump (commonly to the beginning) after typing.
+    React.useLayoutEffect(() => {
+        const el = elementRef.current;
+        if (!el) return;
+        if (isFocused) return;
+
+        const current = multiline ? (el.innerText ?? '') : (el.textContent ?? '');
+        const next = String(value ?? '');
+        if (current !== next) {
+            // Use innerText for multiline so newlines are preserved.
+            if (multiline) {
+                el.innerText = next;
+            } else {
+                el.textContent = next;
+            }
+        }
+    }, [value, isFocused, multiline]);
 
     const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
-        const newValue = e.currentTarget.textContent || '';
+        const newValue = multiline ? (e.currentTarget.innerText || '') : (e.currentTarget.textContent || '');
         if (newValue !== value) {
             onChange(newValue);
         }
@@ -101,23 +128,44 @@ export function EditableText({
         setIsFocused(true);
     };
 
+    const handleInput = (e: React.FormEvent<HTMLElement>) => {
+        if (!editMode || !liveUpdate) return;
+        const newValue = multiline ? (e.currentTarget.innerText || '') : (e.currentTarget.textContent || '');
+        if (newValue !== value) {
+            onChange(newValue);
+        }
+    };
+
     if (!editMode) {
         return React.createElement(Component, { className }, value);
     }
 
-    return React.createElement('div', {
-        className: 'relative',
-        children: [
-            React.createElement(Component, {
-                key: 'field',
-                contentEditable: true,
-                suppressContentEditableWarning: true,
-                onBlur: handleBlur,
-                onFocus: handleFocus,
-                className: `${className} ${editMode ? 'cursor-text hover:bg-yellow-50/50 outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white rounded px-2 py-1 transition-colors' : ''}`,
-                dangerouslySetInnerHTML: { __html: value },
-            })
-        ]
-    });
+    const editClasses = editMode
+        ? (layoutSafe
+            // Layout-safe: do NOT add padding/margins that could change line-wrapping or page height.
+            ? 'cursor-text outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white'
+            // Default: slightly padded for easier click/visual affordance (may affect layout).
+            : 'cursor-text outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white rounded px-2 py-1 transition-colors')
+        : '';
+
+    const multilineWhitespace = multiline ? 'whitespace-pre-wrap' : '';
+
+    // Important: do not wrap with an extra <div>. Wrapping changes layout (e.g. span becomes block-like),
+    // which can cause content to spill to an extra page in edit mode.
+    const Tag = Component as keyof JSX.IntrinsicElements;
+    return (
+        <Tag
+            ref={(node: any) => {
+                elementRef.current = node as HTMLElement | null;
+            }}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            onInput={handleInput}
+            data-placeholder={placeholder ? String(placeholder) : undefined}
+            className={`${className} ${editClasses} ${multilineWhitespace} ${placeholder ? 'editable-text--placeholder' : ''}`.trim()}
+        />
+    );
 }
 

@@ -1,129 +1,14 @@
 import React from 'react';
 // NOTE: This is an on-screen preview component. We keep the resume shape permissive because
 // resumes can come from multiple sources/versions and the UI tolerates missing fields.
-import TimelineBlueTemplate from './templates/TimelineBlueTemplate';
+import ExecutiveTemplate from './templates/ExecutiveTemplate';
+import BoldProfessionalTemplate from './templates/BoldProfessionalTemplate';
+import TraditionalTemplate from './templates/TraditionalTemplate';
+import ModernTemplate from './templates/ModernTemplate';
 
 interface ResumePreviewProps {
     resume: any;
 }
-
-const ModernTemplate = ({ resume }: ResumePreviewProps) => (
-    <div className="bg-white p-12 font-sans text-gray-800">
-        <div className="border-b-4 border-blue-600 pb-6 mb-6">
-            <h1 className="text-4xl font-bold text-blue-600 mb-2">{resume.name}</h1>
-            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                {resume.email && <span>{resume.email}</span>}
-                {resume.phone && <span>•</span>}
-                {resume.phone && <span>{resume.phone}</span>}
-                {resume.location && <span>•</span>}
-                {resume.location && <span>{resume.location}</span>}
-                {resume.website && <span>•</span>}
-                {resume.website && <span>{resume.website}</span>}
-            </div>
-        </div>
-
-        {resume.summary && (
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-blue-600 mb-2">PROFESSIONAL SUMMARY</h2>
-                <p className="text-sm text-gray-700 leading-relaxed">{resume.summary}</p>
-            </div>
-        )}
-
-        {resume.education.length > 0 && (
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-blue-600 mb-3">EDUCATION</h2>
-                <div className="space-y-3">
-                    {resume.education.map((edu) => (
-                        <div key={edu.id}>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-bold text-gray-900">{edu.degree}</h3>
-                                    {edu.field && <p className="text-sm text-gray-700">{edu.field}</p>}
-                                    <p className="text-sm text-gray-600">{edu.school}</p>
-                                </div>
-                                <span className="text-sm text-gray-600">{edu.graduationDate}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )}
-
-        {resume.experience.length > 0 && (
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-blue-600 mb-3">EXPERIENCE</h2>
-                <div className="space-y-4">
-                    {resume.experience.map((exp) => (
-                        <div key={exp.id}>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-bold text-gray-900">{exp.position}</h3>
-                                    <p className="text-sm text-gray-600">{exp.company}</p>
-                                </div>
-                                <span className="text-sm text-gray-600">
-                                    {exp.startDate} - {exp.currentlyWorking ? 'Present' : exp.endDate}
-                                </span>
-                            </div>
-                            {exp.description && <p className="text-sm text-gray-700 mt-1">{exp.description}</p>}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )}
-
-        {resume.skills.length > 0 && (
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-blue-600 mb-2">SKILLS</h2>
-                <div className="flex flex-wrap gap-2">
-                    {resume.skills.map((skill, idx) => (
-                        <span key={idx} className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded">
-                            {skill}
-                        </span>
-                    ))}
-                </div>
-            </div>
-        )}
-
-        {resume.projects.length > 0 && (
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-blue-600 mb-3">PROJECTS</h2>
-                <div className="space-y-3">
-                    {resume.projects.map((proj) => (
-                        <div key={proj.id}>
-                            <h3 className="font-bold text-gray-900">{proj.title}</h3>
-                            {proj.technologies.length > 0 && (
-                                <p className="text-sm text-gray-600">
-                                    {proj.technologies.join(' • ')}
-                                </p>
-                            )}
-                            {proj.description && <p className="text-sm text-gray-700 mt-1">{proj.description}</p>}
-                            {proj.link && (
-                                <p className="text-sm text-blue-600 mt-1">{proj.link}</p>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )}
-
-        {resume.certifications.length > 0 && (
-            <div>
-                <h2 className="text-xl font-bold text-blue-600 mb-3">CERTIFICATIONS</h2>
-                <div className="space-y-2">
-                    {resume.certifications.map((cert) => (
-                        <div key={cert.id}>
-                            <h3 className="font-bold text-gray-900">{cert.title}</h3>
-                            <p className="text-sm text-gray-600">
-                                {cert.issuer} • {cert.issueDate}
-                                {cert.expirationDate && ` - ${cert.expirationDate}`}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )}
-    </div>
-);
 
 const ClassicTemplate = ({ resume }: ResumePreviewProps) => (
     <div className="bg-white p-12 font-serif text-gray-800">
@@ -520,28 +405,153 @@ const CreativeTemplate = ({ resume }: ResumePreviewProps) => (
     </div>
 );
 
-export default function ResumePreview({ resume }: ResumePreviewProps) {
-    // Normalize old/unsupported template ids to keep previews working for older saved resumes.
-    const template =
-        resume.template === 'executive'
-            ? 'professional'
-            : resume.template === 'ats' || resume.template === 'two-column' || resume.template === 'compact'
-                ? 'modern'
-                : resume.template;
+const LavenderClassicTemplate = ({ resume }: ResumePreviewProps) => (
+    <div className="bg-[#f6f1fb] p-8 font-serif text-[#3b2a52]">
+        <div className="grid grid-cols-12 gap-4">
+            <aside className="col-span-4 bg-[#b8a4dc] text-white p-4 rounded">
+                <div className="w-10 h-10 bg-[#6b4c9a] mb-3 rounded-sm" />
+                <h1 className="text-lg font-semibold uppercase tracking-wide mb-3">
+                    {resume.name || 'Your Name'}
+                </h1>
+                <div className="space-y-1 text-[11px] text-white/90">
+                    {resume.email && <div>{resume.email}</div>}
+                    {resume.phone && <div>{resume.phone}</div>}
+                    {resume.location && <div>{resume.location}</div>}
+                </div>
+                {resume.education.length > 0 && (
+                    <div className="mt-4 text-[11px]">
+                        <div className="uppercase tracking-[0.2em] text-white/90 text-[10px]">Education</div>
+                        <div className="mt-2 space-y-2">
+                            {resume.education.slice(0, 2).map((edu) => (
+                                <div key={edu.id}>
+                                    <div className="font-semibold">{edu.school}</div>
+                                    <div className="italic">{edu.degree}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </aside>
+            <section className="col-span-8">
+                {resume.summary && (
+                    <div className="mb-4">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em]">Resume Objective</h2>
+                        <p className="text-[11px] leading-relaxed mt-2">{resume.summary}</p>
+                    </div>
+                )}
+                {resume.experience.length > 0 && (
+                    <div className="mb-4">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em]">Volunteer Experience</h2>
+                        <div className="mt-2 space-y-3 text-[11px]">
+                            {resume.experience.slice(0, 2).map((exp) => (
+                                <div key={exp.id}>
+                                    <div className="font-semibold">{exp.company}</div>
+                                    <div className="text-[#6c5a86]">{exp.position}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </section>
+        </div>
+    </div>
+);
 
-    const supported = new Set(['modern', 'classic', 'timelineBlue', 'minimal', 'professional', 'creative']);
-    const normalizedTemplate = supported.has(template) ? template : 'modern';
+const PopArtTemplate = ({ resume }: ResumePreviewProps) => (
+    <div className="bg-[#f6efe4] p-6">
+        <div className="border-[8px] border-[#00a99d]">
+            <div className="grid grid-cols-12">
+                <div className="col-span-4 border-r border-black/20">
+                    <div className="grid grid-cols-3">
+                        <div className="h-10 bg-[#f25a4b]" />
+                        <div className="h-10 bg-[#ffcc4d]" />
+                        <div className="h-10 bg-[#00a99d]" />
+                    </div>
+                    <div className="bg-[#00a99d] p-4">
+                        <div className="text-xs font-semibold">Hello world! I&apos;m</div>
+                        <div className="text-2xl font-black leading-tight">{resume.name || "Your Name"}</div>
+                    </div>
+                </div>
+                <div className="col-span-8 p-4">
+                    <div className="text-sm font-bold">Work experience</div>
+                    <div className="mt-2 h-px bg-black/40" />
+                    <div className="mt-2 text-xs text-black/70">
+                        {resume.experience?.[0]?.position || resume.experience?.[0]?.company || "Add experience to preview"}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+export default function ResumePreview({ resume }: ResumePreviewProps) {
+    // Normalize canonical + legacy template ids to the preview template components.
+    const rawTemplate = (resume.template || '').trim();
+    const key = rawTemplate.toLowerCase();
+    const template = (() => {
+        switch (key) {
+            // Canonical names (and legacy aliases)
+            case 'executive':
+            case 'timelineblue':
+            case 'timeline-blue':
+            case 'timeline_blue':
+                return 'timelineBlue';
+            case 'elegant':
+            case 'lavenderclassic':
+            case 'lavender-classic':
+            case 'lavender_classic':
+                return 'lavenderClassic';
+            case 'creative':
+            case 'popart':
+            case 'pop-art':
+            case 'pop_art':
+                return 'popArt';
+            case 'boldprofessional':
+            case 'bold-professional':
+            case 'bold_professional':
+            case 'orangeheader':
+            case 'orange-header':
+            case 'orange_header':
+                return 'orangeHeader';
+            case 'traditional':
+            case 'bluelineclassic':
+            case 'blue-line-classic':
+            case 'blue_line_classic':
+                return 'blueLineClassic';
+            case 'modern':
+            case 'cleansidebar':
+            case 'clean-sidebar':
+            case 'clean_sidebar':
+                return 'cleanSidebar';
+            // Other legacy/unsupported ids
+            case 'ats':
+            case 'two-column':
+            case 'compact':
+            case 'minimal':
+            case 'darksidebarprogress':
+            case 'dark-sidebar-progress':
+            case 'dark_sidebar_progress':
+                return 'professional';
+            default:
+                return rawTemplate || 'professional';
+        }
+    })();
+
+    const supported = new Set(['classic', 'timelineBlue', 'professional', 'lavenderClassic', 'popArt', 'orangeHeader', 'blueLineClassic', 'cleanSidebar']);
+    const normalizedTemplate = supported.has(template) ? template : 'professional';
 
     return (
         <div id="resume-preview" className="bg-white rounded-lg shadow-lg overflow-hidden">
-            {normalizedTemplate === 'modern' && <ModernTemplate resume={resume} />}
             {normalizedTemplate === 'classic' && <ClassicTemplate resume={resume} />}
             {normalizedTemplate === 'timelineBlue' && (
-                <TimelineBlueTemplate content={JSON.stringify(resume)} />
+                <ExecutiveTemplate content={JSON.stringify(resume)} />
             )}
-            {normalizedTemplate === 'minimal' && <MinimalTemplate resume={resume} />}
             {normalizedTemplate === 'professional' && <ProfessionalTemplate resume={resume} />}
-            {normalizedTemplate === 'creative' && <CreativeTemplate resume={resume} />}
+            {normalizedTemplate === 'lavenderClassic' && <LavenderClassicTemplate resume={resume} />}
+            {normalizedTemplate === 'popArt' && <PopArtTemplate resume={resume} />}
+            {normalizedTemplate === 'orangeHeader' && <BoldProfessionalTemplate content={JSON.stringify(resume)} />}
+            {normalizedTemplate === 'blueLineClassic' && <TraditionalTemplate content={JSON.stringify(resume)} />}
+            {normalizedTemplate === 'cleanSidebar' && <ModernTemplate content={JSON.stringify(resume)} />}
         </div>
     );
 }

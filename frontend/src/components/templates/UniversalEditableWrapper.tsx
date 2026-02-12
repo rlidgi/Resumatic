@@ -5,6 +5,7 @@ interface UniversalEditableWrapperProps {
     data: any;
     editMode: boolean;
     onDataChange?: (newData: any) => void;
+    activationSelection?: 'all' | 'caret';
 }
 
 /**
@@ -14,7 +15,8 @@ export function UniversalEditableWrapper({
     children,
     data,
     editMode,
-    onDataChange
+    onDataChange,
+    activationSelection = 'all'
 }: UniversalEditableWrapperProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [editedData, setEditedData] = useState(data);
@@ -42,6 +44,12 @@ export function UniversalEditableWrapper({
 
         let editableCount = 0;
 
+        const applyActiveStyles = (element: HTMLElement) => {
+            element.style.outline = '2px solid #6366f1';
+            element.style.outlineOffset = '2px';
+            element.style.background = '#fef3c7';
+        };
+
         textElements.forEach((el) => {
             const element = el as HTMLElement;
 
@@ -67,21 +75,43 @@ export function UniversalEditableWrapper({
             editableCount++;
 
             // Make editable on click
-            element.addEventListener('click', function makeEditable(e) {
+            const makeEditableSelectAll = (e: MouseEvent) => {
                 e.stopPropagation();
                 element.contentEditable = 'true';
-                element.style.outline = '2px solid #6366f1';
-                element.style.outlineOffset = '2px';
-                element.style.background = '#fef3c7';
+                applyActiveStyles(element);
                 element.focus();
 
-                // Select all text
                 const range = document.createRange();
                 range.selectNodeContents(element);
                 const sel = window.getSelection();
                 sel?.removeAllRanges();
                 sel?.addRange(range);
-            });
+            };
+
+            // For caret mode: enable contentEditable on mousedown so the browser can place the caret
+            // naturally at the click location (no manual selection needed).
+            const makeEditableCaret = (e: MouseEvent) => {
+                e.stopPropagation();
+                element.contentEditable = 'true';
+                applyActiveStyles(element);
+                // Let the subsequent mouseup/click position the caret.
+                // Focus after enabling editability.
+                try {
+                    element.focus();
+                } catch {
+                    // ignore focus errors
+                }
+            };
+
+            if (activationSelection === 'all') {
+                // @ts-ignore
+                element.__uewMakeEditable = makeEditableSelectAll;
+                element.addEventListener('click', makeEditableSelectAll);
+            } else {
+                // @ts-ignore
+                element.__uewMakeEditable = makeEditableCaret;
+                element.addEventListener('mousedown', makeEditableCaret);
+            }
 
             // Show hover hint
             element.addEventListener('mouseenter', function () {
@@ -120,6 +150,16 @@ export function UniversalEditableWrapper({
             const editableElements = container.querySelectorAll('[data-editable="true"]');
             editableElements.forEach((el) => {
                 const element = el as HTMLElement;
+                // Remove event listeners we added
+                // @ts-ignore
+                if (element.__uewMakeEditable) {
+                    // @ts-ignore
+                    element.removeEventListener('click', element.__uewMakeEditable);
+                    // @ts-ignore
+                    element.removeEventListener('mousedown', element.__uewMakeEditable);
+                    // @ts-ignore
+                    delete element.__uewMakeEditable;
+                }
                 element.style.cursor = '';
                 element.style.outline = '';
                 element.style.background = '';
@@ -127,7 +167,7 @@ export function UniversalEditableWrapper({
                 element.removeAttribute('data-editable');
             });
         };
-    }, [editMode, onDataChange]);
+    }, [editMode, onDataChange, activationSelection]);
 
     if (!editMode) {
         return <>{children}</>;

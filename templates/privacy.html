@@ -417,13 +417,32 @@
 			<a class="block text-gray-600 hover:text-primary" href="/">Home</a>
 			<a class="block text-gray-600 hover:text-primary" href="/#features">Features</a>
 			<a class="block text-gray-600 hover:text-primary" href="/#how-it-works">How it Works</a>
+			<a class="block text-gray-600 hover:text-primary" href="/plans">Pricing</a>
 			<a class="block text-gray-600 hover:text-primary" href="/blog">Blog</a>
 			<a class="block text-gray-600 hover:text-primary" href="/about">About</a>
 			<a class="block text-gray-600 hover:text-primary" href="/#faq">FAQ</a>
 
+			{% if current_user.is_authenticated %}
+			<a class="block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
+				href="/my_revisions">
+				My Account
+			</a>
+			<a class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2"
+				href="/settings">
+				Settings
+			</a>
+			<a class="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center mt-2" href="/logout">
+				Logout
+			</a>
+			{% else %}
 			<a href="/login" class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center">
 				Login
 			</a>
+			<a href="/login"
+				class="block px-4 py-2 bg-white text-primary border border-primary rounded hover:bg-primary/10 text-center mt-2">
+				Free Account
+			</a>
+			{% endif %}
 
 		</nav>
 	</div>

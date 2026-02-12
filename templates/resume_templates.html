@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -25,6 +26,7 @@
     }
   </style>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
   <!-- Simple top bar -->
   <nav class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
@@ -47,15 +49,12 @@
       <div>
         <h1 class="text-3xl md:text-4xl font-bold tracking-tight">Resume Templates</h1>
         <p class="mt-2 text-gray-600 max-w-prose">
-          Pick from ATS-friendly templates in Modern, Classic, and Creative styles. Customize in our builder or
-          download in your preferred format.
+          Pick from ATS-friendly Classic templates. Customize in our builder or download in your preferred format.
         </p>
         <div class="mt-4 flex flex-wrap gap-3">
           <select id="styleFilter" class="w-40 border rounded-md px-3 py-2">
             <option value="All">All styles</option>
-            <option>Modern</option>
             <option>Classic</option>
-            <option>Creative</option>
           </select>
           <select id="tagFilter" class="w-56 border rounded-md px-3 py-2">
             <option value="All">All tags</option>
@@ -67,7 +66,8 @@
         </div>
       </div>
       <div class="rounded-2xl border p-4 bg-white/60">
-        <div class="flex items-center gap-2 text-sm font-medium"><span class="text-primary">ℹ</span> ATS-friendly by design</div>
+        <div class="flex items-center gap-2 text-sm font-medium"><span class="text-primary">ℹ</span> ATS-friendly by
+          design</div>
         <ul class="mt-2 text-sm text-gray-600 list-disc pl-5 space-y-1">
           <li>Clean typography and logical headings</li>
           <li>Export to PDF & DOCX; Google Docs handoff</li>
@@ -79,10 +79,10 @@
     <!-- Search -->
     <div class="relative max-w-xl">
       <input id="searchInput" placeholder="Search templates by name, tag, or feature…"
-             class="pl-9 w-full border rounded-md px-3 py-2" />
+        class="pl-9 w-full border rounded-md px-3 py-2" />
       <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" viewBox="0 0 24 24" fill="none">
         <path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-              d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+          d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
       </svg>
     </div>
 
@@ -96,8 +96,7 @@
         Start with relevance and readability. Recruiters skim in seconds, so favor clear headings, sensible spacing,
         and a hierarchy that highlights impact. All ResumaticAI templates are designed to parse reliably in most
         Applicant Tracking Systems, and export cleanly to PDF and DOCX. Use color accents sparingly unless you are
-        targeting creative roles. When in doubt, Classic styles are a safe bet; Modern adds polish; Creative works
-        well when design is part of the job.
+        targeting creative roles. When in doubt, Classic styles are a safe bet.
       </p>
     </section>
   </main>
@@ -116,7 +115,9 @@
           <div id="modalTags" class="flex flex-wrap gap-1 my-3"></div>
           <div id="modalFormats" class="flex flex-wrap items-center gap-2 text-xs text-gray-600"></div>
           <div class="grid grid-cols-2 gap-2 pt-2">
-            <a id="modalUseBtn" href="#" class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-primary text-white hover:bg-primary/90">Open in Builder</a>
+            <a id="modalUseBtn" href="#"
+              class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-primary text-white hover:bg-primary/90">Open
+              in Builder</a>
             <select id="modalDownload" class="border rounded-md px-3 py-2">
               <option value="">Download</option>
             </select>
@@ -126,15 +127,13 @@
     </div>
   </div>
 
-  <script>window.DOWNLOAD_BASE = "{{ url_for('static', filename='templates/') }}";</script>
-  <script>window.BUILDER_BASE = "{{ url_for('resume_builder') }}";</script>
+  <script>
+    window.STATIC_BASE = "{{ url_for('static', filename='') }}";
+    window.DOWNLOAD_BASE = "{{ url_for('static', filename='templates/') }}";
+    // Default to a conventional builder path; template gallery JS will append ?template=<id>.
+    window.BUILDER_BASE = "/builder";
+  </script>
   <script src="/static/js/template_gallery.js"></script>
+</body>
 
-  <script>window.STATIC_BASE = "{{ url_for('static', filename='') }}";</script>
-  <script>window.DOWNLOAD_BASE = "{{ url_for('static', filename='templates/') }}";</script>
-  <script>window.BUILDER_BASE = "{{ url_for('resume_builder') }}";</script>
-  <script src="/static/js/template_gallery.js"></script>
-
-  <script>window.DOWNLOAD_BASE = "{{ url_for('static', filename='templates/') }}";</script>
-  </body>
 </html>

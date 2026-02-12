@@ -1,4 +1,5 @@
 ﻿from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, jsonify, Response, make_response
+from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
 import pdfplumber
@@ -29,6 +30,7 @@ from flask_login import LoginManager, login_required, login_user, logout_user, U
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import calendar
 import openai
 import os
 import json
@@ -77,6 +79,17 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or 'a-very-secret-random-key'
+
+# Local-dev ergonomics: auto-reload templates/static caching unless running on Azure App Service.
+_ON_AZURE = bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'))
+if not _ON_AZURE:
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    try:
+        app.jinja_env.auto_reload = True
+    except Exception:
+        pass
+    # Reduce stale static assets during local debugging
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 
 def _is_safe_next_url(target: str) -> bool:
@@ -234,16 +247,33 @@ USERS_FILE = "users_data.json"
 RESET_TOKENS_FILE = "reset_tokens.json"
 RESET_TOKEN_EXPIRY_HOURS = 24  # Tokens expire after 24 hours
 
+# Email verification
+EMAIL_VERIFY_TOKEN_EXPIRY_HOURS = int(os.getenv('EMAIL_VERIFY_TOKEN_EXPIRY_HOURS', '48'))
+
 
 
 class User(UserMixin):
-    def __init__(self, id, name, email, password_hash=None, is_new=False, created_at=None):
+    def __init__(
+        self,
+        id,
+        name,
+        email,
+        password_hash=None,
+        is_new=False,
+        created_at=None,
+        email_verified=True,
+        email_verified_at=None,
+        email_verification_sent_at=None,
+    ):
         self.id = id
         self.name = name
         self.email = email
         self.password_hash = password_hash
         self.is_new = is_new
         self.created_at = created_at or datetime.now(timezone.utc).isoformat()
+        self.email_verified = bool(email_verified)
+        self.email_verified_at = email_verified_at
+        self.email_verification_sent_at = email_verification_sent_at
         # Determine if the user is an admin based on their email
         self.is_admin = email in ADMIN_EMAILS
     
@@ -265,20 +295,207 @@ class User(UserMixin):
             'email': self.email,
             'password_hash': self.password_hash,
             'created_at': self.created_at,
+            'email_verified': getattr(self, 'email_verified', True),
+            'email_verified_at': getattr(self, 'email_verified_at', None),
+            'email_verification_sent_at': getattr(self, 'email_verification_sent_at', None),
             'is_admin': self.is_admin
         }
     
     @classmethod
     def from_dict(cls, data):
         """Create user from dictionary"""
+        def _coerce_bool(val, default=False):
+            if val is None:
+                return default
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, (int, float)):
+                return bool(val)
+            if isinstance(val, str):
+                s = val.strip().lower()
+                if s in ('1', 'true', 'yes', 'y', 'on'):
+                    return True
+                if s in ('0', 'false', 'no', 'n', 'off', ''):
+                    return False
+            return default
+
+        # Backward-compatibility + security:
+        # - Social logins (no password_hash) are treated as verified.
+        # - Legacy email/password accounts that predate verification are treated as unverified,
+        #   forcing them to confirm their email on next login.
+        raw_verified = data.get('email_verified', None)
+        if raw_verified is None:
+            inferred_verified = not bool(data.get('password_hash'))
+        else:
+            inferred_verified = _coerce_bool(raw_verified, default=False)
+
         user = cls(
             id=data['id'],
             name=data['name'],
             email=data['email'],
             password_hash=data.get('password_hash'),
-            created_at=data.get('created_at')
+            created_at=data.get('created_at'),
+            email_verified=inferred_verified,
+            email_verified_at=data.get('email_verified_at'),
+            email_verification_sent_at=data.get('email_verification_sent_at'),
         )
         return user
+
+
+@app.before_request
+def _enforce_email_verification_gate():
+    """If a user is authenticated but not verified, force them to verify before using the site."""
+    try:
+        if not current_user.is_authenticated:
+            return None
+
+        if not _requires_email_verification(current_user):
+            return None
+
+        # Allowlist: routes required to complete verification or sign out.
+        endpoint = (request.endpoint or '').strip()
+        allowed_endpoints = {
+            'verify_email',
+            'verify_email_token',
+            'resend_verification',
+            'logout',
+            'login',
+            'forgot_password',
+            'reset_password',
+        }
+        if endpoint in allowed_endpoints:
+            return None
+
+        # Allow static assets
+        if endpoint.startswith('static'):
+            return None
+
+        return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
+    except Exception:
+        return None
+
+
+def _requires_email_verification(user: 'User') -> bool:
+    """Only require verification for email/password accounts."""
+    try:
+        is_email_password = bool(getattr(user, 'password_hash', None))
+        verified = bool(getattr(user, 'email_verified', True))
+        return bool(is_email_password and not verified)
+    except Exception:
+        return False
+
+
+def _get_external_url(endpoint: str, **values) -> str:
+    """Generate an absolute URL suitable for email links."""
+    try:
+        return url_for(endpoint, _external=True, **values)
+    except Exception:
+        # Fallback (very rare): use request.url_root if available.
+        try:
+            root = str(getattr(request, 'url_root', '') or '').rstrip('/')
+            path = url_for(endpoint, _external=False, **values)
+            return f"{root}{path}"
+        except Exception:
+            return url_for(endpoint, _external=False, **values)
+
+
+def generate_email_verification_token(user: 'User') -> str:
+    from itsdangerous import URLSafeTimedSerializer
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    payload = {
+        'user_id': str(user.id),
+        'email': str(user.email or '').strip().lower(),
+    }
+    return serializer.dumps(payload, salt='email-verify')
+
+
+def confirm_email_verification_token(token: str, max_age_seconds: int) -> dict | None:
+    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    try:
+        return serializer.loads(token, salt='email-verify', max_age=max_age_seconds)
+    except SignatureExpired:
+        return None
+    except BadSignature:
+        return None
+    except Exception:
+        return None
+
+
+def send_email_verification_email(email: str, token: str, user_name: str) -> bool:
+    """Send email verification link to user."""
+    try:
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = os.getenv('NEWSLETTER_EMAIL', '').strip()
+        auth_password = os.getenv('NEWSLETTER_PASSWORD', '').strip().replace(' ', '')
+
+        if not auth_email or not auth_password:
+            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+        verify_url = _get_external_url('verify_email_token', token=token)
+        subject = 'Verify your email - ResumaticAI'
+
+        html_body = f"""
+        <html>
+        <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
+            <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
+                <h2 style=\"color: #2563eb;\">Verify your email</h2>
+                <p>Hello {user_name},</p>
+                <p>Thanks for registering with ResumaticAI. Please verify your email address to finish setting up your account.</p>
+                <div style=\"margin: 30px 0;\">
+                    <a href=\"{verify_url}\" style=\"background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;\">Verify Email</a>
+                </div>
+                <p>Or copy and paste this link into your browser:</p>
+                <p style=\"word-break: break-all; color: #666;\">{verify_url}</p>
+                <p>This link will expire in {EMAIL_VERIFY_TOKEN_EXPIRY_HOURS} hours.</p>
+                <p>If you didn't create an account, you can ignore this email.</p>
+                <hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">
+                <p style=\"color: #666; font-size: 12px;\">ResumaticAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = f"""
+Verify your email - ResumaticAI
+
+Hello {user_name},
+
+Thanks for registering with ResumaticAI. Please verify your email address to finish setting up your account:
+
+{verify_url}
+
+This link will expire in {EMAIL_VERIFY_TOKEN_EXPIRY_HOURS} hours.
+
+If you didn't create an account, you can ignore this email.
+
+ResumaticAI Team
+        """.strip()
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"ResumaticAI <{auth_email}>"
+        msg['To'] = email
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(auth_email, auth_password)
+        server.send_message(msg)
+        server.quit()
+
+        logger.info(f"Verification email sent to {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error sending verification email: {str(e)}")
+        return False
 
 def load_users():
     """Load users from JSON file"""
@@ -323,6 +540,8 @@ def load_user(user_id):
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
+        if _requires_email_verification(current_user):
+            return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
         # If already logged in and a next is provided, honor it.
         _set_auth_next_from_request()
         nxt = _pop_auth_next()
@@ -354,6 +573,10 @@ def login():
                     break
             
             if user and user.password_hash and user.check_password(password):
+                if _requires_email_verification(user):
+                    flash('Please verify your email before logging in. We can resend the verification email below.', 'danger')
+                    return redirect(url_for('verify_email', email=user.email))
+
                 login_user(user)
                 # Save pending revision if it exists
                 pending = session.pop('pending_revision', None)
@@ -389,26 +612,26 @@ def login():
             # Validation
             if not name or not email or not password:
                 flash('Please fill in all fields.', 'danger')
-                return render_template("login.html")
+                return render_template("login.html", active_tab='register')
             
             if len(password) < 8:
                 flash('Password must be at least 8 characters long.', 'danger')
-                return render_template("login.html")
+                return render_template("login.html", active_tab='register')
             
             if password != confirm_password:
                 flash('Passwords do not match.', 'danger')
-                return render_template("login.html")
+                return render_template("login.html", active_tab='register')
             
             # Check if email already exists
             for user_id, u in users.items():
                 if u.email.lower() == email:
                     flash('An account with this email already exists. Please login instead.', 'danger')
-                    return render_template("login.html")
+                    return render_template("login.html", active_tab='register')
             
-            # Create new user
+            # Create new user (requires email verification)
             import uuid
             user_id = f"email_{uuid.uuid4().hex[:16]}"
-            user = User(user_id, name, email, is_new=True)
+            user = User(user_id, name, email, is_new=True, email_verified=False)
             user.set_password(password)
             add_user(user)
             
@@ -418,30 +641,109 @@ def login():
             except Exception:
                 pass
             
-            login_user(user)
-            flash('Account created successfully! Welcome to ResumaticAI!', 'success')
-            
-            # Save pending revision if it exists
-            pending = session.pop('pending_revision', None)
-            if pending:
-                try:
-                    save_resume_revision(
-                        user.id,
-                        str(uuid.uuid4()),
-                        pending['revised_resume'],
-                        feedback=pending.get('feedback'),
-                        original_resume=pending.get('original_resume'),
-                        job_description=pending.get('job_description')
-                    )
-                except FreeTierLimitReached:
-                    flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
-                except Exception:
-                    pass
-            
-            nxt = _pop_auth_next()
-            return redirect(nxt or url_for('my_revisions'))
+            # Send verification email
+            token = generate_email_verification_token(user)
+            sent_ok = send_email_verification_email(user.email, token, user.name)
+            user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
+            add_user(user)  # persist sent timestamp + verified flag
+
+            if sent_ok:
+                flash('Account created! Please check your email to verify your address before logging in.', 'success')
+            else:
+                flash('Account created, but we could not send a verification email. Please try resending below or contact support.', 'danger')
+
+            return redirect(url_for('verify_email', email=user.email))
 
     return render_template("login.html")
+
+
+@app.route('/verify-email')
+def verify_email():
+    """Show verification instructions + resend form."""
+    email = (request.args.get('email') or '').strip().lower()
+    return render_template('verify_email.html', email=email)
+
+
+@app.route('/verify-email/<token>')
+def verify_email_token(token):
+    """Verify email token, mark user verified, then log them in."""
+    payload = confirm_email_verification_token(token, max_age_seconds=EMAIL_VERIFY_TOKEN_EXPIRY_HOURS * 3600)
+    if not payload:
+        flash('This verification link is invalid or has expired. Please request a new one.', 'danger')
+        return redirect(url_for('verify_email'))
+
+    user_id = str(payload.get('user_id') or '').strip()
+    email = str(payload.get('email') or '').strip().lower()
+    user = users.get(user_id)
+
+    if not user or (str(getattr(user, 'email', '') or '').strip().lower() != email):
+        flash('We could not verify that account. Please request a new verification email.', 'danger')
+        return redirect(url_for('verify_email', email=email))
+
+    # If already verified, just proceed.
+    if not getattr(user, 'email_verified', True):
+        user.email_verified = True
+        user.email_verified_at = datetime.now(timezone.utc).isoformat()
+        add_user(user)
+
+    login_user(user)
+
+    # Save pending revision if it exists
+    pending = session.pop('pending_revision', None)
+    if pending:
+        import uuid
+        try:
+            save_resume_revision(
+                user.id,
+                str(uuid.uuid4()),
+                pending['revised_resume'],
+                feedback=pending.get('feedback'),
+                original_resume=pending.get('original_resume'),
+                job_description=pending.get('job_description')
+            )
+        except FreeTierLimitReached:
+            flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+        except Exception:
+            pass
+
+    flash('Email verified successfully! You can now use your account.', 'success')
+    nxt = _pop_auth_next()
+    return redirect(nxt or url_for('my_revisions'))
+
+
+@app.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    """Resend verification email for an email/password account."""
+    email = (request.form.get('email') or '').strip().lower()
+    if not email:
+        flash('Please enter your email address.', 'danger')
+        return redirect(url_for('verify_email'))
+
+    # Find user by email
+    user = None
+    for _, u in users.items():
+        if str(getattr(u, 'email', '') or '').strip().lower() == email:
+            user = u
+            break
+
+    # Always show a generic message to avoid user enumeration.
+    generic_msg = 'If an account exists with that email, a verification link has been sent.'
+
+    if not user or not getattr(user, 'password_hash', None):
+        flash(generic_msg, 'success')
+        return redirect(url_for('verify_email', email=email))
+
+    if getattr(user, 'email_verified', True):
+        flash('That email is already verified. You can log in.', 'success')
+        return redirect(url_for('login'))
+
+    token = generate_email_verification_token(user)
+    sent_ok = send_email_verification_email(user.email, token, user.name)
+    user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
+    add_user(user)
+
+    flash(generic_msg if sent_ok else 'We could not send a verification email right now. Please try again later.', 'success' if sent_ok else 'danger')
+    return redirect(url_for('verify_email', email=email))
 
 # Password Reset Functions
 def load_reset_tokens():
@@ -943,12 +1245,22 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
 
 
 def revised_resume_formatted(revised_resume):
-    
+
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+
+    client = OpenAI(
+        api_key=api_key,
+        timeout=60.0,
+        max_retries=3,
+    )
+
     prompt2 = f"Please format the following resume for better readability:\n\n{revised_resume}"
     response2 = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt2}]
-            )
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt2}],
+    )
     return response2.choices[0].message.content
 
 
@@ -990,6 +1302,311 @@ def index():
 def start():
     current_year = datetime.now().year
     return render_template("start.html", year=current_year, user=current_user)
+
+
+@app.route("/get-started")
+def get_started():
+    """Entry point CTA: let the user choose new resume vs revise existing."""
+    current_year = datetime.now().year
+    return render_template("get_started.html", year=current_year, user=current_user)
+
+
+def _clean_lines(value: str) -> list:
+    lines = []
+    for raw in (value or '').splitlines():
+        s = str(raw).strip()
+        if not s:
+            continue
+        lines.append(s)
+    return lines
+
+
+def _split_skills(value: str) -> list:
+    # Accept newline-separated or comma-separated.
+    if not value:
+        return []
+    if '\n' in value:
+        parts = _clean_lines(value)
+        # Also split any comma-separated lines.
+        out = []
+        for p in parts:
+            if ',' in p:
+                out.extend([x.strip() for x in p.split(',') if x.strip()])
+            else:
+                out.append(p)
+        # de-dupe while preserving order
+        seen = set()
+        deduped = []
+        for x in out:
+            k = x.lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            deduped.append(x)
+        return deduped
+    return [x.strip() for x in value.split(',') if x.strip()]
+
+
+def _build_compiled_resume_text(structured: dict) -> str:
+    name = str(structured.get('name') or '').strip()
+    title = str(structured.get('title') or '').strip()
+    email = str(structured.get('email') or '').strip()
+    phone = str(structured.get('phone') or '').strip()
+    location = str(structured.get('location') or '').strip()
+    linkedin = str(structured.get('linkedin') or '').strip()
+    website = str(structured.get('website') or '').strip()
+
+    lines = []
+    if name:
+        lines.append(name)
+    if title:
+        lines.append(title)
+    contact_bits = [b for b in [location, email, phone] if b]
+    if contact_bits:
+        lines.append(' | '.join(contact_bits))
+    link_bits = [b for b in [linkedin, website] if b]
+    if link_bits:
+        lines.append(' | '.join(link_bits))
+
+    summary = str(structured.get('summary') or '').strip()
+    if summary:
+        lines.append('')
+        lines.append('PROFESSIONAL SUMMARY')
+        lines.append(summary)
+
+    exp = structured.get('experience') or []
+    if isinstance(exp, list) and any((e.get('title') or e.get('company') or e.get('description') or e.get('duration')) for e in exp if isinstance(e, dict)):
+        lines.append('')
+        lines.append('WORK EXPERIENCE')
+        for e in exp:
+            if not isinstance(e, dict):
+                continue
+            role = str(e.get('title') or '').strip()
+            company = str(e.get('company') or '').strip()
+            duration = str(e.get('duration') or '').strip()
+            header = ' — '.join([x for x in [role, company] if x])
+            if header:
+                if duration:
+                    header = f"{header} ({duration})"
+                lines.append(header)
+            desc = str(e.get('description') or '').strip()
+            if desc:
+                # Normalize bullets if user used '•'
+                for dl in desc.splitlines():
+                    dls = dl.strip()
+                    if not dls:
+                        continue
+                    lines.append(dls)
+            lines.append('')
+        while lines and lines[-1] == '':
+            lines.pop()
+
+    edu = structured.get('education') or []
+    if isinstance(edu, list) and any((d.get('degree') or d.get('institution') or d.get('year')) for d in edu if isinstance(d, dict)):
+        lines.append('')
+        lines.append('EDUCATION')
+        for d in edu:
+            if not isinstance(d, dict):
+                continue
+            degree = str(d.get('degree') or '').strip()
+            inst = str(d.get('institution') or '').strip()
+            year = str(d.get('year') or '').strip()
+            bits = [b for b in [degree, inst] if b]
+            if year:
+                bits.append(year)
+            if bits:
+                lines.append(' — '.join(bits))
+
+    certs = structured.get('certifications') or []
+    if isinstance(certs, list) and any((c.get('name') or c.get('issuer') or c.get('year')) for c in certs if isinstance(c, dict)):
+        lines.append('')
+        lines.append('CERTIFICATIONS')
+        for c in certs:
+            if not isinstance(c, dict):
+                continue
+            name2 = str(c.get('name') or '').strip()
+            issuer = str(c.get('issuer') or '').strip()
+            year2 = str(c.get('year') or '').strip()
+            bits = [b for b in [name2, issuer] if b]
+            if year2:
+                bits.append(year2)
+            if bits:
+                lines.append(' — '.join(bits))
+
+    custom_sections = structured.get('custom_sections') or []
+    if isinstance(custom_sections, list) and any(isinstance(cs, dict) and (cs.get('heading') or cs.get('items')) for cs in custom_sections):
+        for cs in custom_sections:
+            if not isinstance(cs, dict):
+                continue
+            heading = str(cs.get('heading') or '').strip()
+            items = cs.get('items') or []
+            if not heading and not items:
+                continue
+            lines.append('')
+            lines.append(heading.upper() if heading else 'ADDITIONAL')
+            if isinstance(items, list):
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    it_title = str(it.get('title') or '').strip()
+                    it_sub = str(it.get('subtitle') or '').strip()
+                    it_date = str(it.get('date') or '').strip()
+                    it_content = str(it.get('content') or '').strip()
+                    header_bits = [b for b in [it_title, it_sub] if b]
+                    header = ' — '.join(header_bits)
+                    if header and it_date:
+                        header = f"{header} ({it_date})"
+                    elif (not header) and it_date:
+                        header = it_date
+                    if header:
+                        lines.append(header)
+                    if it_content:
+                        for dl in it_content.splitlines():
+                            dls = dl.strip()
+                            if not dls:
+                                continue
+                            lines.append(dls)
+            lines.append('')
+        while lines and lines[-1] == '':
+            lines.pop()
+
+    skills = structured.get('skills') or []
+    if isinstance(skills, list) and any(str(s).strip() for s in skills):
+        lines.append('')
+        lines.append('SKILLS')
+        cleaned = [str(s).strip() for s in skills if str(s).strip()]
+        lines.append(', '.join(cleaned))
+
+    return '\n'.join(lines).strip() + '\n'
+
+
+@app.route('/resume/new', methods=['GET', 'POST'])
+@app.route('/resume/new/', methods=['GET', 'POST'])
+@app.route('/create-resume', methods=['GET', 'POST'])
+@app.route('/create-resume/', methods=['GET', 'POST'])
+def resume_new():
+    """Collect standard resume sections and compile into resume text."""
+    current_year = datetime.now().year
+    if request.method == 'GET':
+        return render_template('resume_new.html', year=current_year, user=current_user)
+
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Name is required.', 'danger')
+        return redirect(url_for('resume_new'))
+
+    job_description = (request.form.get('jobDescription') or '').strip()
+
+    structured = {
+        'name': name,
+        'title': (request.form.get('title') or '').strip(),
+        'email': (request.form.get('email') or '').strip(),
+        'phone': (request.form.get('phone') or '').strip(),
+        'location': (request.form.get('location') or '').strip(),
+        'linkedin': (request.form.get('linkedin') or '').strip(),
+        'website': (request.form.get('website') or '').strip(),
+        'summary': (request.form.get('summary') or '').strip(),
+        'experience': [],
+        'education': [],
+        'projects': [],
+        'certifications': [],
+        'skills': _split_skills(request.form.get('skills') or ''),
+        'custom_sections': [],
+    }
+
+    exp_titles = request.form.getlist('exp_title')
+    exp_companies = request.form.getlist('exp_company')
+    exp_durations = request.form.getlist('exp_duration')
+    exp_descs = request.form.getlist('exp_description')
+    for i in range(max(len(exp_titles), len(exp_companies), len(exp_durations), len(exp_descs))):
+        title = (exp_titles[i] if i < len(exp_titles) else '').strip()
+        company = (exp_companies[i] if i < len(exp_companies) else '').strip()
+        duration = (exp_durations[i] if i < len(exp_durations) else '').strip()
+        desc = (exp_descs[i] if i < len(exp_descs) else '').strip()
+        if not any([title, company, duration, desc]):
+            continue
+        structured['experience'].append({
+            'title': title,
+            'company': company,
+            'duration': duration,
+            'description': desc,
+        })
+
+    edu_degrees = request.form.getlist('edu_degree')
+    edu_years = request.form.getlist('edu_year')
+    edu_insts = request.form.getlist('edu_institution')
+    for i in range(max(len(edu_degrees), len(edu_years), len(edu_insts))):
+        degree = (edu_degrees[i] if i < len(edu_degrees) else '').strip()
+        year = (edu_years[i] if i < len(edu_years) else '').strip()
+        inst = (edu_insts[i] if i < len(edu_insts) else '').strip()
+        if not any([degree, year, inst]):
+            continue
+        structured['education'].append({
+            'degree': degree,
+            'institution': inst,
+            'year': year,
+        })
+
+    cert_names = request.form.getlist('cert_name')
+    cert_years = request.form.getlist('cert_year')
+    cert_issuers = request.form.getlist('cert_issuer')
+    for i in range(max(len(cert_names), len(cert_years), len(cert_issuers))):
+        cname = (cert_names[i] if i < len(cert_names) else '').strip()
+        cyear = (cert_years[i] if i < len(cert_years) else '').strip()
+        issuer = (cert_issuers[i] if i < len(cert_issuers) else '').strip()
+        if not any([cname, cyear, issuer]):
+            continue
+        structured['certifications'].append({
+            'name': cname,
+            'issuer': issuer,
+            'year': cyear,
+        })
+
+    custom_headings = request.form.getlist('custom_heading')
+    custom_contents = request.form.getlist('custom_content')
+    for i in range(max(len(custom_headings), len(custom_contents))):
+        heading = (custom_headings[i] if i < len(custom_headings) else '').strip()
+        content = (custom_contents[i] if i < len(custom_contents) else '').strip()
+        if not any([heading, content]):
+            continue
+        structured['custom_sections'].append({
+            'heading': heading or 'Additional',
+            'items': [
+                {
+                    'title': '',
+                    'subtitle': '',
+                    'date': '',
+                    'content': content,
+                }
+            ],
+        })
+
+    compiled_text = _build_compiled_resume_text(structured)
+
+    # Seed the normal template-selection pipeline.
+    session['results_data'] = {
+        'original_resume': '',
+        'revised_resume': compiled_text,
+        'feedback': {},
+        'job_description': job_description,
+        # Let /api/parse-resume-for-template reuse this (avoids an extra OpenAI parsing call).
+        'structured_resume': structured,
+    }
+    session.pop('template_data', None)
+    session.modified = True
+    return redirect(url_for('resume_choose_template'))
+
+
+@app.route('/resume/templates')
+@app.route('/resume/templates/')
+def resume_choose_template():
+    current_year = datetime.now().year
+    results_data = session.get('results_data') or {}
+    resume_text = str(results_data.get('revised_resume') or '')
+    if not resume_text.strip():
+        flash('Please create a resume first.', 'danger')
+        return redirect(url_for('get_started'))
+    return render_template('resume_choose_template.html', year=current_year, user=current_user, resume_text=resume_text)
 
 @app.route("/plans")
 def plans():
@@ -1118,15 +1735,22 @@ def _get_paid_until_from_stripe(subscription_id: str) -> str:
 
 
 def _add_interval_approx(dt: datetime, interval: str, interval_count: int) -> datetime:
-    """Approximate interval math without extra deps (good enough for UI labels)."""
+    """Calendar-accurate interval math without extra deps."""
     c = int(interval_count or 1)
     if c < 1:
         c = 1
     interval = (interval or '').strip().lower()
     if interval == 'year':
-        return dt + timedelta(days=365 * c)
+        # Add years by adding months to preserve behavior around Feb 29.
+        interval = 'month'
+        c = 12 * c
     if interval == 'month':
-        return dt + timedelta(days=30 * c)
+        # Add months while clamping day-of-month to the last valid day.
+        month_index = (dt.month - 1) + c
+        year = dt.year + (month_index // 12)
+        month = (month_index % 12) + 1
+        day = min(dt.day, calendar.monthrange(year, month)[1])
+        return dt.replace(year=year, month=month, day=day)
     if interval == 'week':
         return dt + timedelta(days=7 * c)
     if interval == 'day':
@@ -1142,7 +1766,7 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
       - status
       - interval_label (e.g. 'Annual'/'Monthly'/'' )
       - next_billing_iso (trial_end if trialing else current_period_end)
-      - paid_through_est_iso (if trialing, trial_end + interval; else current_period_end)
+            - paid_through_est_iso (trial_end if trialing; else current_period_end)
     """
     cid = (customer_id or '').strip()
     if not cid or not _stripe_enabled():
@@ -1214,8 +1838,8 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
 
         paid_through_est_ts = None
         if str(status).lower() == 'trialing' and trial_end:
-            base = datetime.fromtimestamp(int(trial_end), tz=timezone.utc)
-            paid_through_est_ts = int(_add_interval_approx(base, interval, interval_count).timestamp())
+            # During trial, access is valid through trial_end (not trial_end + first paid interval).
+            paid_through_est_ts = int(trial_end)
         elif current_period_end:
             paid_through_est_ts = int(current_period_end)
 
@@ -1249,6 +1873,7 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
         status = str(getattr(sub, 'status', '') or '')
         trial_end = getattr(sub, 'trial_end', None)
         current_period_end = getattr(sub, 'current_period_end', None)
+        start_date = getattr(sub, 'start_date', None) or getattr(sub, 'billing_cycle_anchor', None)
 
         interval = ''
         interval_count = 1
@@ -1282,13 +1907,25 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
             next_ts = int(trial_end)
         elif current_period_end:
             next_ts = int(current_period_end)
+        elif start_date and interval:
+            try:
+                base_dt = datetime.fromtimestamp(int(start_date), tz=timezone.utc)
+                next_ts = int(_add_interval_approx(base_dt, interval, interval_count).timestamp())
+            except Exception:
+                next_ts = int(start_date)
 
         paid_through_est_ts = None
         if str(status).lower() == 'trialing' and trial_end:
-            base = datetime.fromtimestamp(int(trial_end), tz=timezone.utc)
-            paid_through_est_ts = int(_add_interval_approx(base, interval, interval_count).timestamp())
+            # During trial, access is valid through trial_end (not trial_end + first paid interval).
+            paid_through_est_ts = int(trial_end)
         elif current_period_end:
             paid_through_est_ts = int(current_period_end)
+        elif start_date and interval:
+            try:
+                base_dt = datetime.fromtimestamp(int(start_date), tz=timezone.utc)
+                paid_through_est_ts = int(_add_interval_approx(base_dt, interval, interval_count).timestamp())
+            except Exception:
+                paid_through_est_ts = int(start_date)
 
         def _ts_to_iso(ts: Optional[int]) -> str:
             try:
@@ -1547,6 +2184,60 @@ def checkout():
             pass
 
     # Preferred: Stripe Payment Links (fastest, no API calls required here).
+    # NOTE: For monthly/annual subscriptions we prefer the API-based Checkout Session.
+    # Payment Links can be configured in Stripe to align billing cycles (e.g., to the 1st of the month),
+    # which can make a brand-new subscription show a near-immediate renewal date.
+    if _stripe_enabled() and plan_id in ("monthly_10_95", "annual_6_95"):
+        price_id = _get_stripe_price_id(plan_id)
+        if not price_id:
+            # If Price IDs aren't configured but Payment Links exist, fall back so the UI still works.
+            pl_redirect = _redirect_to_stripe_payment_link(plan_id)
+            if pl_redirect:
+                flash("Checkout is temporarily using a hosted payment link.", "info")
+                return pl_redirect
+            flash("Checkout is not configured. Please contact support.", "danger")
+            return redirect(url_for("plans"))
+
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
+            cancel_url = url_for('plans', _external=True, _scheme=request.scheme)
+            base_kwargs = dict(
+                mode="subscription",
+                line_items=[{"price": price_id, "quantity": 1}],
+                customer_email=(getattr(current_user, 'email', '') or None),
+                client_reference_id=str(current_user.id),
+                metadata={"plan_id": plan_id},
+                success_url=success_url,
+                cancel_url=cancel_url,
+                allow_promotion_codes=True,
+            )
+
+            # Try to anchor billing to "now" (prevents Stripe from aligning billing to the 1st of the month).
+            # Use an explicit UNIX timestamp because some Stripe API/Checkout configurations reject the string "now".
+            session_obj = None
+            try:
+                anchor_ts = int(datetime.now(timezone.utc).timestamp())
+                session_obj = stripe.checkout.Session.create(
+                    **base_kwargs,
+                    subscription_data={
+                        "billing_cycle_anchor": anchor_ts,
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Checkout Session create with billing anchor failed; retrying without anchor: {type(e).__name__}: {str(e)}")
+                session_obj = stripe.checkout.Session.create(**base_kwargs)
+            return redirect(session_obj.url, code=303)
+        except Exception as e:
+            logger.error(f"Stripe checkout session create failed (subscription): {str(e)}")
+            # Fall back to Payment Link for monthly/annual if Checkout Session creation fails.
+            pl_redirect = _redirect_to_stripe_payment_link(plan_id)
+            if pl_redirect:
+                flash("Checkout session failed; using hosted payment link instead.", "warning")
+                return pl_redirect
+            flash("Checkout is temporarily unavailable. Please try again.", "danger")
+            return redirect(url_for("plans"))
+
     pl_redirect = _redirect_to_stripe_payment_link(plan_id)
     if pl_redirect:
         return pl_redirect
@@ -1944,12 +2635,14 @@ def results_route():
         print(json.dumps(feedback, indent=2))
         
         # Save to user account if authenticated
+        source_revision_id = None
         if current_user.is_authenticated:
             import uuid
+            source_revision_id = str(uuid.uuid4())
             try:
                 save_resume_revision(
                     current_user.id,
-                    str(uuid.uuid4()),
+                    source_revision_id,
                     revised_resume,
                     feedback=feedback,
                     original_resume=resume_text,
@@ -1958,8 +2651,9 @@ def results_route():
             except FreeTierLimitReached:
                 # Still show results, but do not persist a new revision.
                 flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+                source_revision_id = None
             except Exception:
-                pass
+                source_revision_id = None
         else:
             # Store revision in session for post-signup saving
             session['pending_revision'] = {
@@ -1981,6 +2675,8 @@ def results_route():
             'feedback': feedback,
             'job_description': job_description,
         }
+        if source_revision_id:
+            session['results_data']['source_revision_id'] = source_revision_id
         # Ensure session persistence + clear stale template data (prevents old template snapshot confusion)
         session.pop('template_data', None)
         session.modified = True
@@ -2024,48 +2720,140 @@ def results_get():
     resp.headers['Vary'] = 'Cookie'
     return resp
 
+
+def _canonical_template_id(raw: str) -> str:
+    """Convert old/internal template IDs to the current canonical IDs used in UI + URLs.
+
+    Canonical IDs:
+    - professional, elegant, creative, boldProfessional, traditional, modern, executive
+
+    Old IDs are kept as aliases for backward compatibility.
+    """
+    tid = str(raw or '').strip()
+    if not tid:
+        return 'professional'
+
+    key = tid.lower()
+
+    alias_to_canonical = {
+        # Canonical
+        'professional': 'professional',
+        'elegant': 'elegant',
+        'creative': 'creative',
+        'boldprofessional': 'boldProfessional',
+        'bold-professional': 'boldProfessional',
+        'bold_professional': 'boldProfessional',
+        'traditional': 'traditional',
+        'modern': 'modern',
+        'executive': 'executive',
+
+        # Old IDs (and dash/underscore variants) -> canonical
+        'lavenderclassic': 'elegant',
+        'lavender-classic': 'elegant',
+        'lavender_classic': 'elegant',
+
+        'popart': 'creative',
+        'pop-art': 'creative',
+        'pop_art': 'creative',
+
+        'orangeheader': 'boldProfessional',
+        'orange-header': 'boldProfessional',
+        'orange_header': 'boldProfessional',
+
+        'bluelineclassic': 'traditional',
+        'blue-line-classic': 'traditional',
+        'blue_line_classic': 'traditional',
+
+        'cleansidebar': 'modern',
+        'clean-sidebar': 'modern',
+        'clean_sidebar': 'modern',
+
+        'timelineblue': 'executive',
+        'timeline-blue': 'executive',
+        'timeline_blue': 'executive',
+
+        # Optional/experimental
+        'minimal': 'minimal',
+        'darksidebarprogress': 'darkSidebarProgress',
+        'dark-sidebar-progress': 'darkSidebarProgress',
+        'dark_sidebar_progress': 'darkSidebarProgress',
+    }
+    return alias_to_canonical.get(key, 'professional')
+
 @app.route("/api/parse-resume-for-template", methods=["POST"])
 def parse_resume_for_template():
     """Parse resume and store structured data in session for template viewing"""
     try:
-        data = request.get_json()
-        template_name = data.get('template', 'modern')
-        
-        # Validate template name
-        valid_templates = [
-            'modern',
+        data = request.get_json(force=True, silent=True) or {}
+        template_name = _canonical_template_id(data.get('template', 'professional'))
+        requested_source_revision_id = str(data.get('source_revision_id') or '').strip()
+
+        # Validate template name (canonical IDs only)
+        valid_templates = {
             'professional',
-            'minimal',
+            'elegant',
             'creative',
+            'boldProfessional',
+            'traditional',
+            'modern',
+            'executive',
+            # Optional/experimental
+            'minimal',
             'darkSidebarProgress',
-            'dark-sidebar-progress',
-            'dark_sidebar_progress',
-            'timelineBlue',
-            'timeline-blue',
-            'timeline_blue',
-        ]
+        }
+        # Be fail-safe: if anything upstream sends an unexpected template id,
+        # default to a safe/known template rather than hard-failing the flow.
         if template_name not in valid_templates:
-            return jsonify({"success": False, "error": "Invalid template name"}), 400
+            template_name = 'professional'
         
         # Get revised resume from session
-        results_data = session.get('results_data')
+        results_data = session.get('results_data') or {}
         if not results_data:
             return jsonify({"success": False, "error": "Resume data not found"}), 404
+
+        # If the client provided a source revision id, and the user is authenticated,
+        # validate ownership and attach it to the session so template saves can persist.
+        if requested_source_revision_id and current_user.is_authenticated:
+            try:
+                table_client = get_table_client()
+                table_client.get_entity(
+                    partition_key=str(current_user.id),
+                    row_key=str(requested_source_revision_id),
+                )
+                results_data['source_revision_id'] = str(requested_source_revision_id)
+                session['results_data'] = results_data
+                session.modified = True
+            except Exception:
+                # Ignore invalid/non-owned revision ids
+                pass
         
         revised_resume = results_data.get('revised_resume', '')
         if not revised_resume:
             return jsonify({"success": False, "error": "Revised resume not found"}), 404
         
-        # Parse resume to get structured data
-        parsed_result = parse_resume(revised_resume)
-        structured_resume = parsed_result.get('resume', {})
+        # Parse resume to get structured data.
+        # If the resume was created via our builder, we already have a structured object.
+        structured_resume = None
+        try:
+            sr = results_data.get('structured_resume') if isinstance(results_data, dict) else None
+            if isinstance(sr, dict) and sr:
+                structured_resume = sr
+        except Exception:
+            structured_resume = None
+
+        if structured_resume is None:
+            parsed_result = parse_resume(revised_resume)
+            structured_resume = parsed_result.get('resume', {})
         
         # Store in session for template viewer
         session['template_data'] = {
             'structured_resume': structured_resume,
             'template_name': template_name,
-            'revised_resume': revised_resume  # Keep original text as fallback
+            'revised_resume': revised_resume,  # Keep original text as fallback
+            # Carry the hub linkage through the SPA so template saves can persist.
+            'source_revision_id': str(results_data.get('source_revision_id') or '').strip(),
         }
+        session.modified = True
         
         return jsonify({
             "success": True,
@@ -2084,18 +2872,31 @@ def get_template_data():
     template_data = session.get('template_data')
     if not template_data:
         return jsonify({"error": "Template data not found"}), 404
+
+    results_data = session.get('results_data') or {}
+    source_revision_id = str(
+        (results_data.get('source_revision_id') if isinstance(results_data, dict) else None)
+        or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
+        or ''
+    ).strip()
     
     return jsonify({
         "success": True,
         "resume": template_data['structured_resume'],
         "template": template_data['template_name'],
-        "revised_resume": template_data.get('revised_resume', '')
+        "revised_resume": template_data.get('revised_resume', ''),
+        "source_revision_id": source_revision_id,
     })
 
 
 @app.route("/api/template-data", methods=["POST"])
 def update_template_data():
-    """Update structured resume data for template viewer (stored in session)."""
+    """Update structured resume data for template viewer.
+
+    Always stores into session. If the session is linked to a persisted revision
+    (session['results_data']['source_revision_id']), also persists a structured snapshot to
+    Azure Table Storage for future reopening/editing.
+    """
     try:
         template_data = session.get('template_data')
         if not template_data:
@@ -2103,6 +2904,7 @@ def update_template_data():
 
         data = request.get_json(force=True, silent=True) or {}
         resume = data.get("resume")
+        requested_source_revision_id = str(data.get('source_revision_id') or '').strip()
         if not isinstance(resume, dict):
             return jsonify({"success": False, "error": "Invalid resume payload"}), 400
 
@@ -2111,10 +2913,246 @@ def update_template_data():
         session["template_data"] = template_data
         session.modified = True
 
-        return jsonify({"success": True})
+        # Best-effort persistence back to the stored revision (if any).
+        persisted_to_hub = False
+        persist_reason = None
+        persisted_format = None
+        try:
+            if not current_user.is_authenticated:
+                persist_reason = 'not_authenticated'
+            else:
+                results_data = session.get('results_data') or {}
+                source_revision_id = str(
+                    results_data.get('source_revision_id')
+                    or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
+                    or ''
+                ).strip()
+
+                # If the client provided a source revision id, validate it and prefer it.
+                if requested_source_revision_id and requested_source_revision_id != source_revision_id:
+                    try:
+                        table_client = get_table_client()
+                        table_client.get_entity(
+                            partition_key=str(current_user.id),
+                            row_key=str(requested_source_revision_id),
+                        )
+                        source_revision_id = str(requested_source_revision_id)
+                        # Repair session linkage for subsequent requests.
+                        if isinstance(results_data, dict):
+                            results_data['source_revision_id'] = source_revision_id
+                            session['results_data'] = results_data
+                        if isinstance(template_data, dict):
+                            template_data['source_revision_id'] = source_revision_id
+                            session['template_data'] = template_data
+                        session.modified = True
+                    except Exception:
+                        # Ignore invalid/non-owned revision ids.
+                        pass
+
+                if not source_revision_id:
+                    persist_reason = 'missing_source_revision_id'
+                else:
+                    template_id = _canonical_template_id(template_data.get('template_name') or 'professional')
+
+                    snapshot = json.dumps(resume, ensure_ascii=False)
+                    snapshot_bytes = snapshot.encode('utf-8')
+
+                    table_client = get_table_client()
+                    try:
+                        existing = table_client.get_entity(partition_key=str(current_user.id), row_key=source_revision_id)
+                    except Exception:
+                        existing = None
+
+                    if existing is None:
+                        persist_reason = 'revision_not_found'
+                    else:
+                        existing['template_id'] = template_id
+                        existing['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+
+                        # Azure Table Storage string properties have tight size limits.
+                        # Prefer plain JSON when small; otherwise fall back to gzipped base64.
+                        if len(snapshot_bytes) <= 60_000:
+                            existing['template_structured_resume'] = snapshot
+                            existing['template_structured_resume_gz_b64'] = ''
+                            table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                            persisted_to_hub = True
+                            persisted_format = 'plain'
+                        else:
+                            import base64
+                            import gzip
+                            gz = gzip.compress(snapshot_bytes, compresslevel=9)
+                            b64 = base64.b64encode(gz).decode('ascii')
+                            if len(b64.encode('ascii')) <= 60_000:
+                                existing['template_structured_resume'] = ''
+                                existing['template_structured_resume_gz_b64'] = b64
+                                table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                                persisted_to_hub = True
+                                persisted_format = 'gz_b64'
+                            else:
+                                persist_reason = 'snapshot_too_large'
+
+        except Exception:
+            persisted_to_hub = False
+            if not persist_reason:
+                persist_reason = 'exception'
+
+        if persisted_to_hub:
+            persist_reason = None
+
+        return jsonify({
+            "success": True,
+            "persisted_to_hub": bool(persisted_to_hub),
+            "persist_reason": persist_reason,
+            "persisted_format": persisted_format,
+        })
     except Exception as e:
         logger.error(f"Error updating template data: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ai/resume-edit', methods=['POST'])
+@login_required
+def api_ai_resume_edit():
+    """Rewrite a specific text field using OpenAI.
+
+    Used by:
+    - React template viewer edit mode (summary + experience descriptions)
+    - Create-resume page (summary + job description helper)
+    """
+    try:
+        if not current_user.is_authenticated:
+            return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+        # If you want to enforce verification here too, keep the gate consistent with the rest of the app.
+        try:
+            if _requires_email_verification(current_user):
+                return jsonify({"success": False, "error": "Email verification required"}), 403
+        except Exception:
+            pass
+
+        payload = request.get_json(force=True, silent=True) or {}
+        field_raw = str(payload.get('field') or '')
+        field = field_raw.strip().lower()
+        text = str(payload.get('text') or '')
+        meta = payload.get('meta') or {}
+        if not isinstance(meta, dict):
+            meta = {}
+
+        # Be tolerant of small client-side variations.
+        field_aliases = {
+            'custom': 'custom_section',
+            'customs': 'custom_section',
+            'customsections': 'custom_section',
+            'custom_sections': 'custom_section',
+            'customsection': 'custom_section',
+            'custom_section_content': 'custom_section',
+            'additional_section': 'custom_section',
+            'additional_sections': 'custom_section',
+        }
+        field = field_aliases.get(field, field)
+
+        allowed_fields = {'summary', 'experience_description', 'job_description', 'custom_section'}
+        if field not in allowed_fields:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid field: {field_raw.strip() or '(empty)'}",
+            }), 400
+
+        text = text.strip()
+        if not text:
+            return jsonify({"success": False, "error": "Missing text"}), 400
+        if len(text) > 12000:
+            return jsonify({"success": False, "error": "Text too long"}), 400
+
+        api_key = (os.getenv('OPENAI_API_KEY') or '').strip()
+        api_key = api_key.strip('"').strip("'").strip()
+        if not api_key:
+            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, timeout=60.0, max_retries=2)
+        model = (os.getenv('OPENAI_RESUME_EDIT_MODEL') or 'gpt-4o').strip()
+
+        if field == 'summary':
+            jd = str(meta.get('job_description') or '').strip()
+            sys_msg = (
+                "You are a resume writing assistant. Rewrite text to be concise, professional, ATS-friendly, and truthful. "
+                "Do NOT invent facts, metrics, tools, employers, titles, dates, or credentials. Preserve the user's meaning. "
+                "Return ONLY the rewritten summary text (no commentary)."
+            )
+            user_msg = (
+                "Rewrite this Professional Summary. Keep it 2-4 lines (or 3-5 bullets). "
+                "Prefer strong action verbs and concrete skills mentioned in the original. "
+                "If a job description is provided, you may align wording to it WITHOUT adding new claims.\n\n"
+                + (f"JOB DESCRIPTION (context only):\n{jd}\n\n" if jd else "")
+                + f"SUMMARY:\n{text}"
+            )
+        elif field == 'job_description':
+            sys_msg = (
+                "You are a helpful assistant for job seekers. Rewrite job descriptions to be clearer and easier to scan. "
+                "Do NOT add requirements or responsibilities that aren't present. Preserve meaning. "
+                "Return ONLY the rewritten job description text (no commentary)."
+            )
+            user_msg = (
+                "Rewrite the following job description so it's clean and scannable. "
+                "Use short paragraphs and/or bullets. Keep the same responsibilities, requirements, and technologies.\n\n"
+                f"JOB DESCRIPTION:\n{text}"
+            )
+        elif field == 'custom_section':
+            heading = str(meta.get('heading') or meta.get('section') or '').strip()
+            sys_msg = (
+                "You are a resume writing assistant. Rewrite content for a resume section to be concise, ATS-friendly, and truthful. "
+                "Do NOT invent facts, metrics, titles, dates, awards, credentials, or organizations. Preserve the user's meaning. "
+                "Return ONLY the rewritten content (no commentary)."
+            )
+            user_msg = (
+                "Rewrite the following resume section content to be more professional and scannable. "
+                "Prefer bullets where appropriate. Keep it consistent with a resume tone.\n\n"
+                + (f"SECTION TITLE (context): {heading}\n\n" if heading else "")
+                + f"ORIGINAL CONTENT:\n{text}"
+            )
+        else:
+            title = str(meta.get('title') or meta.get('role') or '').strip()
+            company = str(meta.get('company') or meta.get('organization') or '').strip()
+            dates = str(meta.get('dates') or '').strip()
+            context = " · ".join([x for x in [title, company, dates] if x])
+            sys_msg = (
+                "You are a resume writing assistant. Rewrite experience descriptions into strong, ATS-friendly bullets. "
+                "Do NOT invent facts or metrics. If the original lacks metrics, keep it factual without adding numbers. "
+                "Return ONLY the rewritten bullets, each starting with '- '."
+            )
+            user_msg = (
+                "Rewrite the following experience description into 3-6 concise bullets. "
+                "Keep the same meaning and technologies already mentioned.\n"
+                f"ROLE CONTEXT: {context}\n\n"
+                f"ORIGINAL DESCRIPTION:\n{text}"
+            )
+
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.4,
+            max_tokens=700 if field in {'job_description', 'custom_section'} else 500,
+        )
+
+        out = (resp.choices[0].message.content or '').strip()
+        if not out:
+            return jsonify({"success": False, "error": "Empty AI response"}), 502
+
+        # Safety: keep responses bounded.
+        if len(out) > 20000:
+            out = out[:20000]
+        return jsonify({"success": True, "text": out})
+
+    except Exception as e:
+        try:
+            logger.error(f"AI resume edit failed: {type(e).__name__}: {str(e)}")
+        except Exception:
+            pass
+        return jsonify({"success": False, "error": "AI edit failed"}), 500
 
 @app.route("/termsprivacy")
 def termsprivacy():
@@ -2502,6 +3540,8 @@ def admin_stats():
     try:
         # Get comprehensive analytics data
         analytics_data = analytics.get_full_analytics()
+
+        # Registered Users are available on /admin/registered_users (Azure table: Users)
         # Load recent feedback submissions from CSV (if present)
         feedback_rows = []
         try:
@@ -2679,7 +3719,7 @@ def feedback_download_api():
 AZURE_TABLE_NAME = os.getenv('AZURE_TABLE_NAME', 'ResumeRevisions')
 AZURE_STORAGE_ACCOUNT = os.getenv('AZURE_STORAGE_ACCOUNT')
 
-def get_table_client(table_name: str = None):
+def get_table_client(table_name: str = None, create_if_missing: bool = True):
     connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
     if connection_string:
         service = TableServiceClient.from_connection_string(conn_str=connection_string)
@@ -2687,10 +3727,11 @@ def get_table_client(table_name: str = None):
         credential = DefaultAzureCredential()
         service = TableServiceClient(endpoint=f"https://{AZURE_STORAGE_ACCOUNT}.table.core.windows.net", credential=credential)
     table_client = service.get_table_client(table_name or AZURE_TABLE_NAME)
-    try:
-        table_client.create_table()
-    except Exception:
-        pass  # Table may already exist
+    if create_if_missing:
+        try:
+            table_client.create_table()
+        except Exception:
+            pass  # Table may already exist
     return table_client
 
 # Azure Users table helpers
@@ -2698,6 +3739,102 @@ AZURE_USERS_TABLE = os.getenv('AZURE_USERS_TABLE', 'Users')
 
 def get_users_table_client():
     return get_table_client(AZURE_USERS_TABLE)
+
+def _collect_registered_users_from_azure_users_table(table_override: str = None):
+    """Collect user profiles directly from the Azure Users table.
+
+    Expected schema (as written by upsert_user_profile_azure):
+      PartitionKey=<user_id>, RowKey='profile', name, email, created_at, is_admin, provider
+    """
+    tried_tables = []
+    if table_override:
+        tried_tables = [table_override]
+    else:
+        env_table = (os.getenv('AZURE_USERS_TABLE') or '').strip()
+        if env_table:
+            tried_tables.append(env_table)
+        # Back-compat / common variants
+        tried_tables.extend(['user', 'Users'])
+
+    # de-dupe in order
+    seen = set()
+    table_names = []
+    for t in tried_tables:
+        tt = (t or '').strip()
+        if not tt or tt in seen:
+            continue
+        seen.add(tt)
+        table_names.append(tt)
+
+    last_error = None
+
+    for table_name in table_names:
+        try:
+            table_client = get_table_client(table_name, create_if_missing=False)
+            results = []
+            # Prefer server-side filtering; fallback to client-side filter.
+            try:
+                pager = table_client.query_entities("RowKey eq 'profile'")
+            except Exception:
+                pager = table_client.list_entities()
+            user_profiles = {}
+            for e in pager:
+                if str(e.get('RowKey') or '') != 'profile':
+                    continue
+                uid = str(e.get('PartitionKey') or '').strip()
+                if not uid:
+                    continue
+                # Copy all profile fields
+                profile_fields = dict(e)
+                profile_fields['id'] = uid
+                user_profiles[uid] = profile_fields
+
+            # Join with ResumeRevisions: get all revisions for each user, pick latest
+            revision_table_name = 'ResumeRevisions'
+            revision_client = get_table_client(revision_table_name, create_if_missing=False)
+            user_latest_revision = {}
+            try:
+                rev_pager = revision_client.list_entities()
+                for entity in rev_pager:
+                    uid = str(entity.get("PartitionKey") or '').strip()
+                    if not uid:
+                        continue
+                    # Pick latest revision by Timestamp
+                    ts = entity.get('Timestamp')
+                    prev = user_latest_revision.get(uid)
+                    if prev is None or (ts and prev.get('Timestamp') and ts > prev.get('Timestamp')):
+                        user_latest_revision[uid] = dict(entity)
+            except Exception:
+                pass
+
+            results = []
+            for uid, profile in user_profiles.items():
+                merged = dict(profile)
+                revision = user_latest_revision.get(uid)
+                if revision:
+                    for k, v in revision.items():
+                        merged[f'revision_{k}'] = v
+                merged['revisions'] = sum(1 for r in user_latest_revision if r == uid)
+                results.append(merged)
+
+            # Build all_keys from the union of all keys across all rows
+            all_keys = set()
+            for row in results:
+                all_keys.update(row.keys())
+
+            if results:
+                results.sort(key=lambda r: (r.get('created_at') or ''), reverse=True)
+                return results, table_name, sorted(all_keys)
+        except Exception as e:
+            last_error = e
+            continue
+
+    if last_error:
+        try:
+            logger.warning(f"Failed to read Azure users table profiles: {str(last_error)}")
+        except Exception:
+            pass
+    return [], (table_names[0] if table_names else (os.getenv('AZURE_USERS_TABLE') or 'Users'))
 
 FREE_REVISION_LIMIT = int(os.getenv('FREE_REVISION_LIMIT', '2'))
 PAID_EMAILS = set([e.strip().lower() for e in (os.getenv('PAID_EMAILS', '') or '').split(',') if e.strip()])
@@ -2891,6 +4028,13 @@ def get_user_revisions(user_id):
             'notes': e.get('notes', ''),
             'job_description': e.get('job_description', ''),
             'applications': _parse_applications(e.get('applications', '')),
+            # Optional: persisted template edit-mode snapshot
+            'template_id': str(e.get('template_id', '') or '').strip(),
+            'template_saved_at': str(e.get('template_saved_at', '') or '').strip(),
+            'has_template_snapshot': bool(
+                str(e.get('template_structured_resume', '') or '').strip()
+                or str(e.get('template_structured_resume_gz_b64', '') or '').strip()
+            ),
         })
     utc_min = datetime.min.replace(tzinfo=timezone.utc)
     revisions.sort(key=lambda x: x['timestamp'] or utc_min, reverse=True)
@@ -2906,6 +4050,9 @@ def get_user_revisions(user_id):
 @app.route('/my_revisions')
 @login_required
 def my_revisions():
+    if _requires_email_verification(current_user):
+        flash('Please verify your email to access your account.', 'danger')
+        return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
     revisions = get_user_revisions(current_user.id)
     return render_template('my_revisions.html', revisions=revisions, user=current_user, is_paid=is_paid_user(current_user))
 
@@ -2913,12 +4060,29 @@ def my_revisions():
 @app.route('/settings')
 @login_required
 def settings_page():
+    if _requires_email_verification(current_user):
+        flash('Please verify your email to access settings.', 'danger')
+        return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
     prof = get_user_profile_azure(getattr(current_user, 'id', '')) or {}
     paid_until_raw = str(prof.get('paid_until') or '').strip()
     customer_id = str(prof.get('stripe_customer_id') or '').strip()
     subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
     plan_status_raw = str(prof.get('plan_status') or '').strip()
     debug = str(request.args.get('debug') or '').strip() == '1'
+    # Avoid exposing Stripe/customer diagnostics in production.
+    # Enable only for localhost or when explicitly allowed via env var.
+    try:
+        host = str(getattr(request, "host", "") or "").lower()
+    except Exception:
+        host = ""
+    debug_allowed = bool(
+        debug
+        and (
+            host.startswith("127.0.0.1")
+            or host.startswith("localhost")
+            or (os.getenv("ENABLE_SETTINGS_DEBUG") or "").strip() == "1"
+        )
+    )
     debug_info = None
 
     paid_flag = bool(is_paid_user(current_user))
@@ -2977,6 +4141,7 @@ def settings_page():
     next_billing_iso = str(stripe_dates.get('next_billing_iso') or '').strip()
     paid_through_est_iso = str(stripe_dates.get('paid_through_est_iso') or '').strip()
     interval_label = str(stripe_dates.get('interval_label') or '').strip()
+    stripe_status = str(stripe_dates.get('status') or '').strip().lower()
 
     # Strongest source of truth: compute directly from the stored Stripe subscription_id.
     # This avoids cases where precomputed stripe_dates degrade to "trial end" due to missing interval info.
@@ -3006,8 +4171,25 @@ def settings_page():
 
             # Stripe can sometimes return plain dicts; handle both dict and StripeObject.
             status = str(_stripe_obj_get(sub_obj, "status", "") or "").strip().lower()
+            stripe_status = status or stripe_status
             trial_end = _stripe_obj_get(sub_obj, "trial_end", None)
             current_period_end = _stripe_obj_get(sub_obj, "current_period_end", None)
+            current_period_start = _stripe_obj_get(sub_obj, "current_period_start", None)
+            billing_cycle_anchor = _stripe_obj_get(sub_obj, "billing_cycle_anchor", None)
+            start_date = _stripe_obj_get(sub_obj, "start_date", None)
+
+            # Determine price + interval early so all fallbacks can use it.
+            price_id, interval, interval_count = _get_subscription_price_id_and_recurring(sub_obj)
+            if not price_id and si_price_id:
+                price_id = si_price_id
+
+            annual_pid = _get_stripe_price_id('annual_6_95') or ''
+            monthly_pid = _get_stripe_price_id('monthly_10_95') or ''
+            # Infer interval if Stripe didn't provide recurring info
+            if not interval and price_id and annual_pid and price_id == annual_pid:
+                interval, interval_count = 'year', 1
+            if not interval and price_id and monthly_pid and price_id == monthly_pid:
+                interval, interval_count = 'month', 1
 
             # Some Stripe setups can surface an "active" subscription where current_period_end is not populated
             # in our retrieved object. Fallback to upcoming invoice period_end for accurate renewal timing.
@@ -3017,6 +4199,7 @@ def settings_page():
             raw_sub_cpe = None
             raw_sub_billing_anchor = None
             raw_sub_current_period_start = None
+            raw_sub_start_date = None
             raw_sub_err = ""
             latest_inv_period_end = None
             latest_inv_err = ""
@@ -3039,6 +4222,7 @@ def settings_page():
                     raw_sub_cpe = _stripe_obj_get(raw_sub, "current_period_end", None)
                     raw_sub_billing_anchor = _stripe_obj_get(raw_sub, "billing_cycle_anchor", None)
                     raw_sub_current_period_start = _stripe_obj_get(raw_sub, "current_period_start", None)
+                    raw_sub_start_date = _stripe_obj_get(raw_sub, "start_date", None)
                     if raw_sub_cpe:
                         current_period_end = raw_sub_cpe
                 except Exception:
@@ -3065,10 +4249,17 @@ def settings_page():
             if not current_period_end:
                 try:
                     base_ts = None
-                    if raw_sub_billing_anchor:
-                        base_ts = int(raw_sub_billing_anchor)
-                    elif raw_sub_current_period_start:
-                        base_ts = int(raw_sub_current_period_start)
+                    for candidate in (
+                        current_period_start,
+                        start_date,
+                        billing_cycle_anchor,
+                        raw_sub_current_period_start,
+                        raw_sub_start_date,
+                        raw_sub_billing_anchor,
+                    ):
+                        if candidate:
+                            base_ts = int(candidate)
+                            break
                     if base_ts:
                         base_dt = datetime.fromtimestamp(base_ts, tz=timezone.utc)
                         if interval:
@@ -3085,10 +4276,17 @@ def settings_page():
                     sanity_prev_cpe = cpe
                     anchor_ts = None
                     try:
-                        if raw_sub_billing_anchor:
-                            anchor_ts = int(raw_sub_billing_anchor)
-                        elif raw_sub_current_period_start:
-                            anchor_ts = int(raw_sub_current_period_start)
+                        for candidate in (
+                            current_period_start,
+                            start_date,
+                            billing_cycle_anchor,
+                            raw_sub_current_period_start,
+                            raw_sub_start_date,
+                            raw_sub_billing_anchor,
+                        ):
+                            if candidate:
+                                anchor_ts = int(candidate)
+                                break
                     except Exception:
                         anchor_ts = None
                     # If cpe is not meaningfully after anchor, or it's already due/expired, recompute.
@@ -3100,18 +4298,6 @@ def settings_page():
                         sanity_new_cpe = int(current_period_end)
             except Exception:
                 pass
-
-            price_id, interval, interval_count = _get_subscription_price_id_and_recurring(sub_obj)
-            if not price_id and si_price_id:
-                price_id = si_price_id
-
-            annual_pid = _get_stripe_price_id('annual_6_95') or ''
-            monthly_pid = _get_stripe_price_id('monthly_10_95') or ''
-            # Infer interval if Stripe didn't provide recurring info
-            if not interval and price_id and annual_pid and price_id == annual_pid:
-                interval, interval_count = 'year', 1
-            if not interval and price_id and monthly_pid and price_id == monthly_pid:
-                interval, interval_count = 'month', 1
 
             # Compute next_billing / paid_through from subscription directly.
             next_ts = None
@@ -3125,11 +4311,8 @@ def settings_page():
 
             if status == "trialing" and trial_end:
                 base = datetime.fromtimestamp(int(trial_end), tz=timezone.utc)
-                if interval:
-                    paid_through_est_iso = _add_interval_approx(base, interval, interval_count).isoformat()
-                else:
-                    # Worst-case fallback: show trial end (better than blank)
-                    paid_through_est_iso = base.isoformat()
+                # During trial, access is valid through trial_end.
+                paid_through_est_iso = base.isoformat()
             elif current_period_end:
                 paid_through_est_iso = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc).isoformat()
 
@@ -3140,7 +4323,7 @@ def settings_page():
                 interval_label = interval_label or 'Monthly'
                 plan_status_raw = plan_status_raw or 'monthly_10_95'
 
-            if debug:
+            if debug_allowed:
                 # also show what Stripe returned around items
                 sub_items_len = 0
                 try:
@@ -3148,7 +4331,12 @@ def settings_page():
                 except Exception:
                     sub_items_len = 0
                 debug_info = {
-                    "settings_debug_version": "sanitycheck_v2",
+                    "settings_debug_version": "sanitycheck_v3",
+                    "runtime_app_file": __file__,
+                    "runtime_app_mtime_utc": datetime.fromtimestamp(os.path.getmtime(__file__), tz=timezone.utc).isoformat() if os.path.exists(__file__) else "",
+                    "runtime_cwd": os.getcwd(),
+                    "runtime_python": getattr(__import__('sys'), 'executable', ''),
+                    "runtime_request_host": str(request.host_url or ''),
                     "azure_plan_status": str(prof.get("plan_status") or ""),
                     "azure_paid_until": str(prof.get("paid_until") or ""),
                     "stripe_customer_id": customer_id,
@@ -3156,12 +4344,16 @@ def settings_page():
                     "stripe_status": status,
                     "stripe_trial_end": str(trial_end or ""),
                     "stripe_current_period_end": str(current_period_end or ""),
+                    "stripe_current_period_start": str(current_period_start or ""),
+                    "stripe_billing_cycle_anchor": str(billing_cycle_anchor or ""),
+                    "stripe_start_date": str(start_date or ""),
                     "stripe_upcoming_invoice_period_end": str(inv_period_end or ""),
                     "stripe_upcoming_invoice_next_payment_attempt": str(inv_next_payment_attempt or ""),
                     "stripe_upcoming_invoice_error": inv_err,
                     "stripe_raw_subscription_current_period_end": str(raw_sub_cpe or ""),
                     "stripe_raw_subscription_billing_cycle_anchor": str(raw_sub_billing_anchor or ""),
                     "stripe_raw_subscription_current_period_start": str(raw_sub_current_period_start or ""),
+                    "stripe_raw_subscription_start_date": str(raw_sub_start_date or ""),
                     "stripe_raw_subscription_error": raw_sub_err,
                     "stripe_latest_invoice_period_end": str(latest_inv_period_end or ""),
                     "stripe_latest_invoice_error": latest_inv_err,
@@ -3183,26 +4375,7 @@ def settings_page():
     except Exception:
         pass
 
-    # If Stripe didn't provide recurring interval details (common with some setups),
-    # paid_through_est_iso can end up equal to trial_end. In that case, infer based on our plan_id.
-    try:
-        if (
-            is_paid_user(current_user)
-            and next_billing_iso
-            and paid_through_est_iso
-            and paid_through_est_iso == next_billing_iso
-            and plan_status_raw in ('annual_6_95', 'monthly_10_95')
-        ):
-            trial_end_dt = _parse_iso_dt(next_billing_iso.replace('Z', '+00:00'))
-            if trial_end_dt is not None:
-                if plan_status_raw == 'annual_6_95':
-                    paid_through_est_iso = _add_interval_approx(trial_end_dt, 'year', 1).isoformat()
-                    interval_label = interval_label or 'Annual'
-                elif plan_status_raw == 'monthly_10_95':
-                    paid_through_est_iso = _add_interval_approx(trial_end_dt, 'month', 1).isoformat()
-                    interval_label = interval_label or 'Monthly'
-    except Exception:
-        pass
+    # Note: For trialing subscriptions, it's expected that paid_through == next_billing == trial_end.
 
     # Back-compat: keep paid_until_display populated (prefer Stripe paid-through estimate if it exists)
     if paid_flag:
@@ -3286,6 +4459,151 @@ def view_revision(revision_id):
         original_resume=rev.get('original_resume', ''),
         user=current_user
     )
+
+
+@app.route('/edit_revision_template/<revision_id>')
+@login_required
+def edit_revision_template(revision_id):
+    """Open a saved revision directly in the React template viewer.
+
+    Uses a persisted structured snapshot if available; otherwise falls back to parsing the
+    stored revised resume text.
+    """
+    template_id = str(request.args.get('template') or '').strip() or None
+    try:
+        table_client = get_table_client()
+        entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(revision_id))
+    except Exception:
+        flash('Revision not found.', 'danger')
+        return redirect(url_for('my_revisions'))
+
+    resume_text = str(entity.get('resume_content', '') or '')
+    job_description = str(entity.get('job_description', '') or '')
+
+    feedback = {}
+    if entity.get('feedback'):
+        try:
+            feedback = json.loads(entity.get('feedback') or '')
+        except Exception:
+            feedback = {}
+
+    stored_template_id = str(entity.get('template_id', '') or '').strip()
+    if not template_id:
+        template_id = stored_template_id or 'professional'
+    template_id = _canonical_template_id(template_id)
+
+    structured_resume = None
+    raw_snapshot = str(entity.get('template_structured_resume', '') or '').strip()
+    raw_snapshot_gz_b64 = str(entity.get('template_structured_resume_gz_b64', '') or '').strip()
+    if raw_snapshot:
+        try:
+            structured_resume = json.loads(raw_snapshot)
+        except Exception:
+            structured_resume = None
+    elif raw_snapshot_gz_b64:
+        try:
+            import base64
+            import gzip
+            decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
+            inflated = gzip.decompress(decoded).decode('utf-8')
+            structured_resume = json.loads(inflated)
+        except Exception:
+            structured_resume = None
+    if structured_resume is None:
+        try:
+            structured_resume = parse_resume(resume_text).get('resume', {})
+        except Exception:
+            structured_resume = {}
+
+    # Seed session so React can load + saves persist back to this revision.
+    session['results_data'] = {
+        'original_resume': str(entity.get('original_resume', '') or ''),
+        'revised_resume': resume_text,
+        'feedback': feedback,
+        'job_description': job_description,
+        'source_revision_id': str(revision_id),
+    }
+    session['template_data'] = {
+        'structured_resume': structured_resume,
+        'template_name': template_id,
+        'revised_resume': resume_text,
+        'source_revision_id': str(revision_id),
+    }
+    session.modified = True
+    return redirect(url_for('react_app', subpath=f"template-viewer/{template_id}"))
+
+
+@app.route('/download_revision_template_pdf/<revision_id>')
+@login_required
+def download_revision_template_pdf(revision_id):
+    """Download a saved revision as a PDF.
+
+    Uses a download-only React route that auto-downloads (no editor UI, no print dialog).
+    """
+    template_id = str(request.args.get('template') or '').strip() or None
+    try:
+        table_client = get_table_client()
+        entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(revision_id))
+    except Exception:
+        flash('Revision not found.', 'danger')
+        return redirect(url_for('my_revisions'))
+
+    resume_text = str(entity.get('resume_content', '') or '')
+    job_description = str(entity.get('job_description', '') or '')
+
+    feedback = {}
+    if entity.get('feedback'):
+        try:
+            feedback = json.loads(entity.get('feedback') or '')
+        except Exception:
+            feedback = {}
+
+    stored_template_id = str(entity.get('template_id', '') or '').strip()
+    if not template_id:
+        template_id = stored_template_id or 'professional'
+    template_id = _canonical_template_id(template_id)
+
+    structured_resume = None
+    raw_snapshot = str(entity.get('template_structured_resume', '') or '').strip()
+    raw_snapshot_gz_b64 = str(entity.get('template_structured_resume_gz_b64', '') or '').strip()
+    if raw_snapshot:
+        try:
+            structured_resume = json.loads(raw_snapshot)
+        except Exception:
+            structured_resume = None
+    elif raw_snapshot_gz_b64:
+        try:
+            import base64
+            import gzip
+            decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
+            inflated = gzip.decompress(decoded).decode('utf-8')
+            structured_resume = json.loads(inflated)
+        except Exception:
+            structured_resume = None
+    if structured_resume is None:
+        try:
+            structured_resume = parse_resume(resume_text).get('resume', {})
+        except Exception:
+            structured_resume = {}
+
+    session['results_data'] = {
+        'original_resume': str(entity.get('original_resume', '') or ''),
+        'revised_resume': resume_text,
+        'feedback': feedback,
+        'job_description': job_description,
+        'source_revision_id': str(revision_id),
+    }
+    session['template_data'] = {
+        'structured_resume': structured_resume,
+        'template_name': template_id,
+        'revised_resume': resume_text,
+        'source_revision_id': str(revision_id),
+    }
+    session.modified = True
+
+    download_url = url_for('react_app', subpath=f"template-download/{template_id}")
+    # rid is a client-side fallback if session linkage is lost.
+    return redirect(f"{download_url}?autodownload=1&rid={revision_id}&return=%2Fmy_revisions")
 
 @app.route('/update_notes/<revision_id>', methods=['POST'])
 @login_required
@@ -3396,8 +4714,9 @@ def _collect_registered_users(table_override: str = None):
 def registered_users_json():
     if not getattr(current_user, "is_admin", False):
         return jsonify({"error": "Forbidden"}), 403
-    data = _collect_registered_users(request.args.get('table') or None)
-    return jsonify({"users": data})
+    table_name = (request.args.get('table') or '').strip() or 'Users'
+    users_rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    return jsonify({"table": resolved_table, "columns": all_keys, "users": users_rows})
 
 @app.route('/admin/registered_users')
 @login_required
@@ -3405,29 +4724,29 @@ def registered_users_view():
     if not getattr(current_user, "is_admin", False):
         flash("You do not have permission to view this page.", "danger")
         return redirect(url_for("index"))
-    data = _collect_registered_users()
-    return render_template('admin_registered_users.html', users=data)
+    table_name = (request.args.get('table') or '').strip() or 'Users'
+    data, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    return render_template('admin_registered_users.html', users=data, azure_users_table_name=resolved_table, columns=all_keys)
 
 @app.route('/admin/registered_users.csv')
 @login_required
 def registered_users_csv():
     if not getattr(current_user, "is_admin", False):
         return jsonify({"error": "Forbidden"}), 403
-    rows = _collect_registered_users(request.args.get('table') or None)
+    table_name = (request.args.get('table') or '').strip() or 'Users'
+    rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
     # Build CSV in-memory
-    lines = ["id,name,email,provider,revisions"]
+    lines = [','.join([f'"{k}"' for k in all_keys])]
     for r in rows:
-        # naive CSV escaping for commas and quotes
         def esc(v):
             s = str(v or "")
-            if any(c in s for c in [',','"','\n','\r']):
-                s = '"' + s.replace('"','""') + '"'
-            return s
-        line = ",".join([esc(r["id"]), esc(r["name"]), esc(r["email"]), esc(r["provider"]), str(r["revisions"])])
+            s = s.replace('"','""')
+            return f'"{s}"'
+        line = ','.join([esc(r.get(k, '')) for k in all_keys])
         lines.append(line)
-    csv_data = "\n".join(lines) + "\n"
+    csv_data = "\r\n".join(lines) + "\r\n"
     return Response(csv_data, mimetype='text/csv', headers={
-        'Content-Disposition': 'attachment; filename=registered_users.csv'
+        'Content-Disposition': f'attachment; filename=registered_users_{resolved_table}.csv'
     })
 
 @app.route('/admin/google_emails.json')
@@ -4422,7 +5741,6 @@ def export_pdf():
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=f"{tpl_id}.pdf", mimetype="application/pdf")
 
-from jinja2 import TemplateNotFound
 import os
 
 @app.route("/", endpoint="home")
@@ -4460,7 +5778,12 @@ from flask import send_file
 @app.route("/react")
 @app.route("/react/<path:subpath>")
 def react_app(subpath=None):
-    return send_file(os.path.join("static", "react", "index.html"))
+    resp = send_file(os.path.join("static", "react", "index.html"))
+    # Ensure the SPA shell isn't cached (it points at hashed JS/CSS assets).
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 
@@ -4581,9 +5904,11 @@ Rules:
         import traceback
         traceback.print_exc()
         raise
-           
+
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    # Disable the auto-reloader to avoid running multiple processes locally (which can
+    # cause confusing behavior when testing settings debug output / Stripe callbacks).
+    app.run(debug=True, host='127.0.0.1', port=5000, use_reloader=False)
 

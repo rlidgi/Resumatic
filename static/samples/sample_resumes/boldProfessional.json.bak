@@ -1,0 +1,83 @@
+{
+  "_show_empty_sections": true,
+  "name": "Actor-turned-data scientist, equipped with graduate-level knowledge in Applied Statistics. Proven capability of delivering comprehensive data analysis through",
+  "title": "Freelance Data Scientist",
+  "email": "",
+  "phone": "",
+  "location": "",
+  "summary": "Actor-turned data scientist, equipped with graduate-level knowledge in Applied Statistics. Proven capability of delivering comprehensive data analysis through\nfreelance ventures utilizing Python, R, and SQL with advanced ML/NLP tools. Possess robust problem-solving skills combined with outstanding interpersonal abilities\nhoned from an extensive acting career.",
+  "experience": [
+    {
+      "title": "Freelance Data Scientist",
+      "company": "Fiverr.com/Upwork.com",
+      "location": "",
+      "duration": "07/2024 — Present",
+      "description": "• Developed custom predictive models using statistical methods and machine learning techniques to meet clients’ unique requirements.\n• Conducted data cleaning, exploratory analysis, and model evaluations to guarantee accurate and reliable outcomes."
+    },
+    {
+      "title": "Student Central Summer Program Participant",
+      "company": "Casualty Actuarial Society",
+      "location": "",
+      "duration": "06/2025 — 08/2025",
+      "description": "• Gained critical professional and academic experience over an eight-week interactive program conducted by the Casualty Actuarial Society."
+    }
+  ],
+  "education": [
+    {
+      "degree": "M.S. in Applied Statistics",
+      "institution": "California State University, East Bay",
+      "year": "",
+      "location": ""
+    }
+  ],
+  "projects": [
+    {
+      "title": "Actuarial Risk Modeling",
+      "description": "• Analyzed proposed reinsurance and treaty structures, and formed strategic suggestions that yielded a substantial growth in market reach while adhering to the company’s risk tolerance.",
+      "technologies": "",
+      "link": ""
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Machine Learning Specialization",
+      "issuer": "Coursera",
+      "year": ""
+    },
+    {
+      "name": "Deep Learning Specialization",
+      "issuer": "Coursera",
+      "year": ""
+    },
+    {
+      "name": "Advanced TensorFlow Specialization",
+      "issuer": "Coursera",
+      "year": ""
+    },
+    {
+      "name": "Natural Language Processing Specialization",
+      "issuer": "Coursera",
+      "year": ""
+    }
+  ],
+  "skills": [
+    "Python",
+    "SQL",
+    "SAS",
+    "NumPy",
+    "SciPy",
+    "Statsmodels",
+    "Tableau",
+    "Flask",
+    "Git",
+    "Microsoft Excel",
+    "Power BI",
+    "R",
+    "Pandas",
+    "Scikit-learn"
+  ],
+  "languages": [],
+  "links": [],
+  "custom_sections": [],
+  "section_headings": {}
+}

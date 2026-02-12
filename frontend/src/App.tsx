@@ -11,6 +11,7 @@ function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/editor" element={<Editor />} />
                 <Route path="/template-viewer/:templateName" element={<TemplateViewer />} />
+                <Route path="/template-download/:templateName" element={<TemplateViewer />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </Router>

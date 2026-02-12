@@ -1,29 +1,50 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 
-export default function TemplateSelector({ selectedTemplate, onSelect }) {
+type TemplateSelectorProps = {
+    selectedTemplate: string;
+    onSelect: (templateId: string) => void;
+};
+
+export default function TemplateSelector({ selectedTemplate, onSelect }: TemplateSelectorProps) {
+    const canonicalSelectedTemplate = (() => {
+        const template = (selectedTemplate || '').trim();
+        const key = template.toLowerCase();
+        switch (key) {
+            case 'lavenderclassic':
+            case 'lavender-classic':
+            case 'lavender_classic':
+                return 'elegant';
+            case 'popart':
+            case 'pop-art':
+            case 'pop_art':
+                return 'creative';
+            case 'orangeheader':
+            case 'orange-header':
+            case 'orange_header':
+                return 'boldProfessional';
+            case 'boldprofessional':
+            case 'bold-professional':
+            case 'bold_professional':
+                return 'boldProfessional';
+            case 'bluelineclassic':
+            case 'blue-line-classic':
+            case 'blue_line_classic':
+                return 'traditional';
+            case 'cleansidebar':
+            case 'clean-sidebar':
+            case 'clean_sidebar':
+                return 'modern';
+            case 'timelineblue':
+            case 'timeline-blue':
+            case 'timeline_blue':
+                return 'executive';
+            default:
+                return template;
+        }
+    })();
+
     const templates = [
-        {
-            id: 'modern',
-            name: 'Modern',
-            description: 'Clean and contemporary design with accent colors',
-            preview: (
-                <div className="bg-white p-4 rounded-lg border border-slate-200 h-32">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-teal-500" />
-                        <div className="space-y-1">
-                            <div className="h-2 bg-slate-800 rounded w-16" />
-                            <div className="h-1.5 bg-slate-400 rounded w-12" />
-                        </div>
-                    </div>
-                    <div className="space-y-1 mt-3">
-                        <div className="h-1.5 bg-blue-200 rounded w-full" />
-                        <div className="h-1.5 bg-slate-200 rounded w-3/4" />
-                        <div className="h-1.5 bg-slate-200 rounded w-5/6" />
-                    </div>
-                </div>
-            )
-        },
         {
             id: 'professional',
             name: 'Professional',
@@ -60,31 +81,131 @@ export default function TemplateSelector({ selectedTemplate, onSelect }) {
             )
         },
         {
-            id: 'creative',
-            name: 'Creative',
-            description: 'Bold design for creative and design roles',
+            id: 'elegant',
+            name: 'Elegant',
+            description: 'Soft pastel sidebar with elegant serif typography',
             preview: (
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200 h-32">
-                    <div className="flex gap-2 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500" />
-                        <div className="space-y-1">
-                            <div className="h-2 bg-purple-600 rounded w-16" />
-                            <div className="h-1.5 bg-purple-400 rounded w-12" />
+                <div className="bg-[#f6f1fb] p-4 rounded-lg border border-purple-200 h-32 overflow-hidden">
+                    <div className="grid grid-cols-12 gap-2 h-full">
+                        <div className="col-span-4 bg-[#b8a4dc] rounded-md p-2 flex flex-col gap-2">
+                            <div className="w-6 h-6 bg-[#6b4c9a] rounded-sm" />
+                            <div className="h-2 bg-white/90 rounded w-10" />
+                            <div className="space-y-1 mt-1">
+                                <div className="h-1.5 bg-white/70 rounded w-full" />
+                                <div className="h-1.5 bg-white/70 rounded w-4/5" />
+                                <div className="h-1.5 bg-white/70 rounded w-3/4" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 mt-2">
-                        <div className="h-1.5 bg-purple-200 rounded" />
-                        <div className="h-1.5 bg-pink-200 rounded" />
-                        <div className="h-1.5 bg-purple-300 rounded" />
-                        <div className="h-1.5 bg-pink-300 rounded" />
+                        <div className="col-span-8 bg-[#f6f1fb] rounded-md p-2">
+                            <div className="h-1.5 bg-purple-200 rounded w-20 mb-2" />
+                            <div className="space-y-1.5">
+                                <div className="h-1.5 bg-purple-100 rounded w-full" />
+                                <div className="h-1.5 bg-purple-100 rounded w-5/6" />
+                                <div className="h-1.5 bg-purple-100 rounded w-4/6" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )
         },
         {
-            id: 'timelineBlue',
-            name: 'Timeline Blue',
-            description: 'Blue header with vertical timeline and section labels',
+            id: 'creative',
+            name: 'Creative',
+            description: 'Bold editorial grid with vibrant blocks and accents',
+            preview: (
+                <div className="bg-[#f6efe4] p-4 rounded-lg border border-emerald-200 h-32 overflow-hidden">
+                    <div className="grid grid-cols-12 gap-2 h-full">
+                        <div className="col-span-4 rounded-md overflow-hidden border border-black/10">
+                            <div className="grid grid-cols-3">
+                                <div className="h-8 bg-[#f25a4b]" />
+                                <div className="h-8 bg-[#ffcc4d]" />
+                                <div className="h-8 bg-[#00a99d]" />
+                            </div>
+                            <div className="h-full bg-[#00a99d]" />
+                        </div>
+                        <div className="col-span-8 rounded-md border border-black/10 bg-[#f6efe4] p-2">
+                            <div className="h-2 bg-black/30 rounded w-24 mb-2" />
+                            <div className="space-y-1">
+                                <div className="h-1.5 bg-black/15 rounded w-full" />
+                                <div className="h-1.5 bg-black/15 rounded w-5/6" />
+                                <div className="h-1.5 bg-black/15 rounded w-4/6" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'boldProfessional',
+            name: 'Bold Professional',
+            description: 'Bold header with strong accents and clean section rules',
+            preview: (
+                <div className="bg-white p-4 rounded-lg border border-orange-200 h-32 overflow-hidden">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 border-2 border-black grid place-items-center text-[10px] font-bold">DR</div>
+                        <div className="h-2 bg-black rounded w-16" />
+                        <div className="h-2 bg-[#f36b1c] rounded w-20" />
+                    </div>
+                    <div className="mt-2 h-3 bg-black rounded" />
+                    <div className="mt-3 space-y-1.5">
+                        <div className="h-1.5 bg-black/15 rounded w-full" />
+                        <div className="h-1.5 bg-black/15 rounded w-5/6" />
+                        <div className="h-1.5 bg-black/15 rounded w-4/6" />
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'traditional',
+            name: 'Traditional',
+            description: 'Classic serif with clean section rules and spacing',
+            preview: (
+                <div className="bg-white p-4 rounded-lg border border-slate-200 h-32 overflow-hidden">
+                    <div className="text-center">
+                        <div className="h-2 bg-[#243c6b] rounded w-24 mx-auto" />
+                        <div className="mt-2 h-1.5 bg-slate-300 rounded w-40 mx-auto" />
+                    </div>
+                    <div className="mt-3">
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 bg-[#243c6b] rounded w-16" />
+                            <div className="h-px bg-[#243c6b]/60 flex-1" />
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                            <div className="h-1.5 bg-slate-200 rounded w-full" />
+                            <div className="h-1.5 bg-slate-200 rounded w-5/6" />
+                            <div className="h-1.5 bg-slate-200 rounded w-3/4" />
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'modern',
+            name: 'Modern',
+            description: 'Modern two-column layout with a tidy sidebar',
+            preview: (
+                <div className="bg-white p-4 rounded-lg border border-slate-200 h-32 overflow-hidden">
+                    <div className="h-2 bg-slate-800 rounded w-24 mb-1" />
+                    <div className="h-1.5 bg-slate-300 rounded w-40" />
+                    <div className="mt-3 grid grid-cols-12 gap-2 h-[70px]">
+                        <div className="col-span-7 space-y-2">
+                            <div className="h-1.5 bg-slate-200 rounded w-full" />
+                            <div className="h-1.5 bg-slate-200 rounded w-5/6" />
+                            <div className="h-1.5 bg-slate-200 rounded w-4/6" />
+                        </div>
+                        <div className="col-span-5 space-y-2">
+                            <div className="h-1.5 bg-slate-200 rounded w-full" />
+                            <div className="h-1.5 bg-slate-200 rounded w-4/6" />
+                            <div className="h-1.5 bg-slate-200 rounded w-5/6" />
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 'executive',
+            name: 'Executive',
+            description: 'Clean header with timeline styling and section labels',
             preview: (
                 <div className="bg-white p-4 rounded-lg border border-slate-200 h-32 overflow-hidden">
                     <div className="flex items-center gap-2">
@@ -119,7 +240,7 @@ export default function TemplateSelector({ selectedTemplate, onSelect }) {
             {templates.map((template) => (
                 <div
                     key={template.id}
-                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${selectedTemplate === template.id
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${canonicalSelectedTemplate === template.id
                         ? 'ring-2 ring-blue-500 shadow-md'
                         : 'hover:shadow-sm'
                         }`}
@@ -128,7 +249,7 @@ export default function TemplateSelector({ selectedTemplate, onSelect }) {
                     <div className="p-4">
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="font-semibold text-slate-800">{template.name}</h3>
-                            {selectedTemplate === template.id && (
+                            {canonicalSelectedTemplate === template.id && (
                                 <Check className="w-5 h-5 text-blue-500" />
                             )}
                         </div>
@@ -140,3 +261,4 @@ export default function TemplateSelector({ selectedTemplate, onSelect }) {
         </div>
     );
 }
+

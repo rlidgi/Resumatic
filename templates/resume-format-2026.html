@@ -66,6 +66,7 @@
 
   <!-- Canonical URL -->
   <link rel="canonical" href="https://resumaticai.com/blog/resume-format-2026" />
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon2.ico') }}" type="image/x-icon" />
 
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
@@ -1140,9 +1141,9 @@
             <div class="action-section">
               <h4>Start Optimizing Today</h4>
               <p>Ready to transform your resume with AI-powered optimization?</p>
-              <button class="cta-button" onclick="window.location.href='/'">
+              <a href="{{ url_for('start') }}" class="cta-button" style="display: inline-block; text-decoration: none;">
                 Optimize My Resume Now →
-              </button>
+              </a>
             </div>
           </div>
         </section>
@@ -1280,4 +1281,3 @@
 </body>
 
 </html>
-

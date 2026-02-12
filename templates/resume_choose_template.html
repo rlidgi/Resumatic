@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <link href="/static/images/favicon2.ico" rel="icon" type="image/x-icon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow">
+    <title>Choose a Template | Resumatic AI</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans" data-is-auth="{{ 'true' if current_user.is_authenticated else 'false' }}">
+    <header class="border-b bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <a href="/" class="inline-flex items-center gap-3">
+                <img src="/static/images/logo23_small.png" alt="Resumatic AI" width="40" height="40">
+                <span class="text-xl font-bold">Resumatic AI</span>
+            </a>
+            <div class="flex items-center gap-3">
+                <a href="/resume/new" class="text-gray-700 hover:text-gray-900 text-sm font-semibold">Back</a>
+                {% if current_user.is_authenticated %}
+                <a href="/my_revisions"
+                    class="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700 text-sm font-semibold">My
+                    Account</a>
+                {% else %}
+                <a href="/login"
+                    class="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700 text-sm font-semibold">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="py-8">
+        <div class="max-w-6xl mx-auto px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="mb-4 space-y-2">
+                {% for category, message in messages %}
+                <div
+                    class="rounded-xl border px-4 py-3 text-sm bg-white {% if category == 'danger' %}border-red-200 text-red-800{% elif category == 'success' %}border-emerald-200 text-emerald-800{% else %}border-gray-200 text-gray-800{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <div class="text-center mb-6">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Choose a resume template</h1>
+                <p class="text-gray-600 mt-2">After you pick a template, you can edit fields and use AI assistance in
+                    Edit Mode.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow p-4 sm:p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-palette text-purple-500 mr-2 text-sm"></i>
+                        Templates
+                    </h2>
+                    <p class="text-xs text-gray-500 sm:hidden">Swipe to see more</p>
+                </div>
+
+                <div class="relative">
+                    <button type="button" id="templateCarouselPrev"
+                        class="hidden sm:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Previous templates">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button type="button" id="templateCarouselNext"
+                        class="hidden sm:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Next templates">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                    <div aria-hidden="true"
+                        class="pointer-events-none hidden sm:block absolute left-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-r from-white to-transparent">
+                    </div>
+                    <div aria-hidden="true"
+                        class="pointer-events-none hidden sm:block absolute right-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-l from-white to-transparent">
+                    </div>
+
+                    <div id="templateCarousel"
+                        class="no-scrollbar flex gap-3 overflow-x-auto py-6 -mx-1 px-1 scroll-smooth snap-x snap-mandatory"
+                        role="list" aria-label="Resume templates">
+                        <button data-template="professional" onclick="selectTemplate('professional', this)"
+                            role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Professional</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/professional.jpg') }}"
+                                    alt="Professional template" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="elegant" onclick="selectTemplate('elegant', this)" role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Elegant</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/elegant.jpg') }}" alt="Elegant template"
+                                    class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="creative" onclick="selectTemplate('creative', this)" role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Creative</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/creative.jpg') }}"
+                                    alt="Creative template" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="boldProfessional" onclick="selectTemplate('boldProfessional', this)"
+                            role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Bold Professional</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/Boldprofessional.jpg') }}"
+                                    alt="Bold Professional template" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="traditional" onclick="selectTemplate('traditional', this)"
+                            role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Traditional</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/traditional.jpg') }}"
+                                    alt="Traditional template" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="modern" onclick="selectTemplate('modern', this)" role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Modern</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/modern.jpg') }}" alt="Modern template"
+                                    class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="executive" onclick="selectTemplate('executive', this)" role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Executive</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/executive.jpg') }}"
+                                    alt="Executive template" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const IS_AUTH = (document.body.getAttribute('data-is-auth') === 'true');
+        const SOURCE_REVISION_ID = '';
+
+        function selectTemplate(templateName, buttonElement) {
+            if (!IS_AUTH) {
+                try {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('auto_template', templateName);
+                    const nextPath = u.pathname + u.search;
+                    window.location.href = '/login?next=' + encodeURIComponent(nextPath);
+                } catch (e) {
+                    window.location.href = '/login';
+                }
+                return;
+            }
+
+            const originalContent = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+            buttonElement.disabled = true;
+            document.querySelectorAll('.template-card').forEach(btn => { btn.disabled = true; });
+
+            fetch('/api/parse-resume-for-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ template: templateName, source_revision_id: SOURCE_REVISION_ID })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const targetTemplate = (data.template || templateName || '').toString();
+                        window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}?edit=1`;
+                    } else {
+                        alert('Error: ' + (data.error || 'Failed to parse resume'));
+                        buttonElement.innerHTML = originalContent;
+                        buttonElement.disabled = false;
+                        document.querySelectorAll('.template-card').forEach(btn => { btn.disabled = false; });
+                    }
+                })
+                .catch(() => {
+                    alert('An error occurred. Please try again.');
+                    buttonElement.innerHTML = originalContent;
+                    buttonElement.disabled = false;
+                    document.querySelectorAll('.template-card').forEach(btn => { btn.disabled = false; });
+                });
+        }
+
+        // Auto-continue after login
+        (function () {
+            try {
+                if (!IS_AUTH) return;
+                const params = new URLSearchParams(window.location.search || '');
+                const t = params.get('auto_template');
+                if (!t) return;
+                const btn = document.querySelector('.template-card[data-template="' + t + '"]');
+                if (btn) selectTemplate(t, btn);
+            } catch (e) { }
+        })();
+
+        // Carousel controls
+        (function () {
+            try {
+                var carousel = document.getElementById('templateCarousel');
+                var prevBtn = document.getElementById('templateCarouselPrev');
+                var nextBtn = document.getElementById('templateCarouselNext');
+                if (!carousel || !prevBtn || !nextBtn) return;
+
+                function setDisabledStates() {
+                    var maxScrollLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth);
+                    prevBtn.disabled = carousel.scrollLeft <= 1;
+                    nextBtn.disabled = carousel.scrollLeft >= (maxScrollLeft - 1);
+                    prevBtn.style.opacity = prevBtn.disabled ? '0.35' : '1';
+                    nextBtn.style.opacity = nextBtn.disabled ? '0.35' : '1';
+                }
+
+                prevBtn.addEventListener('click', function () {
+                    carousel.scrollBy({ left: -Math.max(280, Math.round(carousel.clientWidth * 0.8)), behavior: 'smooth' });
+                });
+                nextBtn.addEventListener('click', function () {
+                    carousel.scrollBy({ left: Math.max(280, Math.round(carousel.clientWidth * 0.8)), behavior: 'smooth' });
+                });
+
+                carousel.addEventListener('scroll', function () { window.requestAnimationFrame(setDisabledStates); }, { passive: true });
+                window.addEventListener('resize', setDisabledStates);
+                setDisabledStates();
+            } catch (e) { }
+        })();
+    </script>
+</body>
+
+</html>

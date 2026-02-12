@@ -363,6 +363,30 @@
                 width: 100%;
             }
         }
+
+        .alert {
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin: 12px 0;
+            font-size: 0.95rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .alert-danger {
+            border-color: rgba(255, 70, 70, 0.35);
+            background: rgba(255, 70, 70, 0.10);
+        }
+
+        .alert-warning {
+            border-color: rgba(255, 193, 7, 0.35);
+            background: rgba(255, 193, 7, 0.10);
+        }
+
+        .alert-info {
+            border-color: rgba(13, 202, 240, 0.35);
+            background: rgba(13, 202, 240, 0.10);
+        }
     </style>
 </head>
 
@@ -380,6 +404,14 @@
 
             <!-- Trust badges removed -->
         </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
 
         <div class="grid">
             <!-- Free -->

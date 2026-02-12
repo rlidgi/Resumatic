@@ -11,6 +11,7 @@
     </script>
 
     <meta charset="utf-8">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Start | Resumatic AI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -93,6 +94,57 @@
         .bg-pos-100 {
             background-position: 100% 50%;
         }
+
+        /* Custom border utilities */
+        .border-3 {
+            border-width: 3px;
+        }
+
+        /* Cute SVG loader (used in Loading Overlay) */
+        .loading-illu .scan {
+            animation: scan-move 1.2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        .loading-illu .pulse {
+            animation: pulse-pop 1s ease-in-out infinite;
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+
+        @keyframes scan-move {
+            0% {
+                transform: translateX(-7px);
+            }
+
+            50% {
+                transform: translateX(7px);
+            }
+
+            100% {
+                transform: translateX(-7px);
+            }
+        }
+
+        @keyframes pulse-pop {
+
+            0%,
+            100% {
+                transform: scale(.96);
+                opacity: .65;
+            }
+
+            50% {
+                transform: scale(1.03);
+                opacity: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .loading-illu * {
+                animation: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -129,24 +181,6 @@
 
                 <div class="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 backdrop-blur-sm"
                     id="resumeFormContainer">
-                    <div class="mb-8">
-                        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mb-6">
-                            <div class="flex items-center space-x-2 text-green-600">
-                                <i class="fas fa-shield-check text-lg sm:text-xl"></i>
-                                <span class="font-medium sm:font-semibold text-sm sm:text-base">100% Secure</span>
-                            </div>
-                            <div class="hidden sm:block w-1 h-6 bg-gray-300"></div>
-                            <div class="flex items-center space-x-2 text-blue-600">
-                                <i class="fas fa-clock text-lg sm:text-xl"></i>
-                                <span class="font-medium sm:font-semibold text-sm sm:text-base">Instant Results</span>
-                            </div>
-                            <div class="hidden sm:block w-1 h-6 bg-gray-300"></div>
-                            <div class="flex items-center space-x-2 text-purple-600">
-                                <i class="fas fa-gift text-lg sm:text-xl"></i>
-                                <span class="font-medium sm:font-semibold text-sm sm:text-base">Completely Free</span>
-                            </div>
-                        </div>
-                    </div>
                     <form id="resumeForm" class="space-y-6" action="/results" method="POST"
                         enctype="multipart/form-data">
                         <div class="relative mb-8">
@@ -311,7 +345,7 @@
                                     </div>
                                 </div>
                                 <button id="submitButton" type="submit"
-                                    class="group relative inline-flex items-center px-8 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary via-secondary to-primary bg-size-200 bg-pos-0 hover:bg-pos-100 focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-500 hover:shadow-2xl transform hover:scale-105 animate-pulse">
+                                    class="group relative inline-flex items-center px-8 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary via-secondary to-primary bg-size-200 bg-pos-0 hover:bg-pos-100 hover:from-primary/80 hover:via-secondary/80 hover:to-primary/80 focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-500 hover:shadow-2xl transform hover:scale-105">
                                     <div class="relative flex items-center space-x-3">
                                         <i
                                             class="fas fa-wand-magic-sparkles text-2xl group-hover:rotate-12 transition-transform duration-300"></i>
@@ -335,13 +369,32 @@
         class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] hidden flex items-center justify-center"
         aria-live="polite">
         <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4 text-center shadow-2xl">
-            <div class="relative w-16 h-16 mx-auto mb-6">
-                <div class="absolute inset-0 rounded-full border-4 border-primary/20"></div>
-                <div class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin">
-                </div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <i class="fas fa-wand-magic-sparkles text-primary text-2xl"></i>
-                </div>
+            <p class="inline-block text-base sm:text-lg font-semibold tracking-wide px-4 py-1 rounded-full bg-gradient-to-r from-indigo-50 via-purple-50 to-emerald-50 border border-indigo-200 text-indigo-700 shadow-sm mb-2"
+                id="loadingMicrocopy">Reviewing now…</p>
+            <div class="mx-auto mb-2 w-28 h-28">
+                <svg class="loading-illu w-full h-full" viewBox="0 0 120 120" fill="none"
+                    xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M20 52c0-20 14-34 34-34h12c20 0 34 14 34 34v12c0 20-14 34-34 34H54c-20 0-34-14-34-34V52z"
+                        fill="url(#g)" opacity=".18" />
+                    <rect x="34" y="24" width="44" height="62" rx="10" stroke="#4F46E5" stroke-width="3" />
+                    <path d="M44 42h24M44 52h30M44 62h20" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"
+                        opacity=".8" />
+                    <g class="scan">
+                        <circle cx="78" cy="76" r="14" stroke="#10B981" stroke-width="4" />
+                        <path d="M88 86l12 12" stroke="#10B981" stroke-width="4" stroke-linecap="round" />
+                        <path d="M70 76h16" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity=".8" />
+                    </g>
+                    <g class="pulse" opacity=".9">
+                        <path d="M26 38l2.2 5.2L34 45l-5.8 1.8L26 52l-2.2-5.2L18 45l5.8-1.8L26 38z" fill="#F59E0B" />
+                        <circle cx="92" cy="34" r="3.5" fill="#3B82F6" />
+                    </g>
+                    <defs>
+                        <linearGradient id="g" x1="20" y1="18" x2="100" y2="98" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5" />
+                            <stop offset="1" stop-color="#10B981" />
+                        </linearGradient>
+                    </defs>
+                </svg>
             </div>
             <h3 class="text-xl font-semibold text-gray-900 mb-1">Enhancing your resume</h3>
             <p class="text-gray-600 mb-4" id="loadingSubtitle">Getting things ready…</p>
@@ -352,41 +405,14 @@
                         class="h-2 bg-primary rounded-full transition-all duration-500 ease-out" style="width: 0%">
                     </div>
                 </div>
-                <div class="mt-2 text-sm text-gray-600"><span id="loadingProgressLabel">0%</span> complete</div>
+                <div class="mt-2 text-sm text-gray-600"><span id="loadingProgressLabel">0%</span><span
+                        id="loadingProgressSuffix"> complete</span></div>
             </div>
 
-            <ul class="mt-6 space-y-3 text-left">
-                <li id="step-upload" class="flex items-center gap-3 text-gray-600">
-                    <span
-                        class="step-icon w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600"
-                        data-step="1">1</span>
-                    <span>Uploading file</span>
-                </li>
-                <li id="step-analyze" class="flex items-center gap-3 text-gray-600">
-                    <span
-                        class="step-icon w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600"
-                        data-step="2">2</span>
-                    <span>Analyzing content</span>
-                </li>
-                <li id="step-optimize" class="flex items-center gap-3 text-gray-600">
-                    <span
-                        class="step-icon w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600"
-                        data-step="3">3</span>
-                    <span>Optimizing for ATS</span>
-                </li>
-                <li id="step-score" class="flex items-center gap-3 text-gray-600">
-                    <span
-                        class="step-icon w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600"
-                        data-step="4">4</span>
-                    <span>Scoring and feedback</span>
-                </li>
-                <li id="step-prepare" class="flex items-center gap-3 text-gray-600">
-                    <span
-                        class="step-icon w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600"
-                        data-step="5">5</span>
-                    <span>Preparing results</span>
-                </li>
-            </ul>
+            <div class="mt-6 text-xs text-gray-500">
+                <i class="fas fa-shield-alt mr-1"></i>
+                Your data is processed securely
+            </div>
         </div>
     </div>
 
@@ -463,39 +489,64 @@
                     if (isUploadMode && !resumeFileInput.files[0]) { e.preventDefault(); alert('Please select a resume file to upload.'); return; }
                     if (isTextMode && (!resumeTextarea.value || resumeTextarea.value.trim().length === 0)) { e.preventDefault(); alert('Please paste your resume content.'); return; }
                     const overlay = document.getElementById('loadingOverlay');
-                    const fill = document.getElementById('loadingProgressFill');
-                    const label = document.getElementById('loadingProgressLabel');
-                    const subtitle = document.getElementById('loadingSubtitle');
                     overlay.classList.remove('hidden');
 
+                    // Cute rotating microcopy (separate from loadingSubtitle which is used for step updates)
+                    try {
+                        const micro = document.getElementById('loadingMicrocopy');
+                        if (micro) {
+                            try {
+                                if (window.__loadingMicrocopyTimer) {
+                                    clearInterval(window.__loadingMicrocopyTimer);
+                                    window.__loadingMicrocopyTimer = null;
+                                }
+                            } catch (_) { /* ignore */ }
+
+                            const messages = [
+                                'Reviewing now…',
+                                'Finding useful information…',
+                                'Spotting strong action verbs…',
+                                'Tuning keywords for ATS…',
+                                'Polishing clarity and impact…'
+                            ];
+                            let i = 0;
+                            micro.textContent = messages[0];
+
+                            const t = setInterval(() => {
+                                i += 1;
+                                if (i >= messages.length) {
+                                    clearInterval(t);
+                                    try { window.__loadingMicrocopyTimer = null; } catch (_) { /* ignore */ }
+                                    return;
+                                }
+                                micro.textContent = messages[i];
+                            }, 2000);
+                            try { window.__loadingMicrocopyTimer = t; } catch (_) { /* ignore */ }
+
+                            window.addEventListener('pagehide', () => {
+                                try {
+                                    clearInterval(t);
+                                    window.__loadingMicrocopyTimer = null;
+                                } catch (_) { /* ignore */ }
+                            }, { once: true });
+                        }
+                    } catch (_) { /* ignore */ }
+
+                    const fill = document.getElementById('loadingProgressFill');
+                    const label = document.getElementById('loadingProgressLabel');
+                    const suffix = document.getElementById('loadingProgressSuffix');
+                    const subtitle = document.getElementById('loadingSubtitle');
+
                     const steps = [
-                        { id: 'step-upload', text: 'Uploading file', target: 5 },
-                        { id: 'step-analyze', text: 'Analyzing content', target: 10 },
-                        { id: 'step-optimize', text: 'Optimizing for ATS', target: 15 },
-                        { id: 'step-score', text: 'Scoring and feedback', target: 20 },
-                        { id: 'step-prepare', text: 'Preparing results', target: 20 }
+                        { text: 'Uploading file', target: 5 },
+                        { text: 'Analyzing content', target: 10 },
+                        { text: 'Optimizing for ATS', target: 15 },
+                        { text: 'Scoring and feedback', target: 20 },
+                        { text: 'Preparing results', target: 20 }
                     ];
 
-                    function activateStep(stepId, subtitleText) {
+                    function activateStep(subtitleText) {
                         try {
-                            steps.forEach(s => {
-                                const li = document.getElementById(s.id);
-                                const icon = li && li.querySelector('.step-icon');
-                                if (!li || !icon) return;
-                                li.classList.remove('text-primary', 'font-medium');
-                                li.classList.add('text-gray-600');
-                                icon.classList.remove('bg-primary', 'text-white');
-                                icon.classList.add('bg-gray-200', 'text-gray-600');
-                            });
-
-                            const li = document.getElementById(stepId);
-                            const icon = li && li.querySelector('.step-icon');
-                            if (li && icon) {
-                                li.classList.remove('text-gray-600');
-                                li.classList.add('text-primary', 'font-medium');
-                                icon.classList.remove('bg-gray-200', 'text-gray-600');
-                                icon.classList.add('bg-primary', 'text-white');
-                            }
                             if (subtitle) subtitle.textContent = subtitleText;
                         } catch (_) { /* no-op */ }
                     }
@@ -507,8 +558,10 @@
                             if (label) {
                                 if (clamped >= 96 && clamped < 100) {
                                     label.textContent = 'Almost there…';
+                                    if (suffix) suffix.style.display = 'none';
                                 } else {
                                     label.textContent = clamped + '%';
+                                    if (suffix) suffix.style.display = '';
                                 }
                             }
                         } catch (_) { /* no-op */ }
@@ -517,26 +570,71 @@
                     let delay = 250;
                     steps.forEach((s, idx) => {
                         setTimeout(() => {
-                            activateStep(s.id, s.text + '…');
+                            activateStep(s.text + '…');
                             setProgress(s.target);
                         }, delay);
                         delay += idx === 0 ? 700 : 900;
                     });
 
-                    // Smooth automatic progression toward completion
-                    const startTime = Date.now();
-                    let rafId;
-                    function tick() {
-                        const elapsed = Date.now() - startTime;
-                        const target = Math.min(99, Math.floor(20 + 79 * (1 - Math.exp(-elapsed / 2000))));
-                        setProgress(target);
-                        if (target < 99) {
-                            rafId = requestAnimationFrame(tick);
-                        }
+                    // After step 5 becomes active, ramp from 20% towards 99% until navigation completes
+                    function startFinalRamp() {
+                        try {
+                            let rafId;
+                            let startTs = 0;
+                            let oscillate = false;
+                            const loop = (ts) => {
+                                if (!startTs) startTs = ts;
+                                const elapsed = ts - startTs;
+                                if (!oscillate) {
+                                    const target = Math.min(99, Math.floor(20 + 79 * (1 - Math.exp(-elapsed / 2000))));
+                                    setProgress(target);
+                                    if (target >= 96) {
+                                        oscillate = true;
+                                        if (subtitle) subtitle.textContent = 'Finalizing your results…';
+                                    }
+                                } else {
+                                    const width = 98 + 1 * Math.sin(ts / 450);
+                                    if (fill) fill.style.width = Math.max(97, Math.min(99, width)).toFixed(2) + '%';
+                                    if (label && label.textContent !== 'Almost there…') label.textContent = 'Almost there…';
+                                    if (suffix) suffix.style.display = 'none';
+                                }
+                                rafId = requestAnimationFrame(loop);
+                            };
+                            rafId = requestAnimationFrame(loop);
+
+                            function finish() {
+                                if (rafId) cancelAnimationFrame(rafId);
+                                setProgress(100);
+                            }
+
+                            window.addEventListener('beforeunload', finish, { once: true });
+                            window.addEventListener('pagehide', finish, { once: true });
+                            document.addEventListener('visibilitychange', function onVis() {
+                                if (document.hidden) {
+                                    document.removeEventListener('visibilitychange', onVis);
+                                    finish();
+                                }
+                            });
+                        } catch (_) { /* no-op */ }
                     }
-                    rafId = requestAnimationFrame(tick);
+
+                    // Schedule the final ramp to begin just after the last step activates
+                    setTimeout(() => startFinalRamp(), delay + 200);
                 });
             }
+
+            // If the user hits Back and the page is restored from cache (bfcache),
+            // ensure we don't get stuck with the processing overlay visible.
+            function hideLoadingOverlay() {
+                try {
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.classList.add('hidden');
+                } catch (_) { /* ignore */ }
+            }
+
+            window.addEventListener('pageshow', function () {
+                hideLoadingOverlay();
+            });
 
             // Word count + preview
             function countWords(txt) { return (txt.trim().match(/\S+/g) || []).length; }

@@ -83,8 +83,8 @@ export function RenderMaybeBullets({
       if (sentenceParts.length >= 2) {
         items.length = 0;
         items.push(...sentenceParts);
-      }
-    }
+            }
+        }
         if (items.length === 0) return null;
         return (
             <ul className={`${baseTextClass} list-disc pl-5`.trim()}>
