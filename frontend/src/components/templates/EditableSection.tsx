@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { Grip } from 'lucide-react';
 
 interface EditableSectionProps {
     id: string;
@@ -11,11 +11,6 @@ interface EditableSectionProps {
 }
 
 export function EditableSection({ id, children, editMode, sectionTitle }: EditableSectionProps) {
-    // Debug logging
-    React.useEffect(() => {
-        console.log(`EditableSection[${id}]: editMode=${editMode}, sectionTitle=${sectionTitle}`);
-    }, [id, editMode, sectionTitle]);
-
     const {
         attributes,
         listeners,
@@ -31,10 +26,7 @@ export function EditableSection({ id, children, editMode, sectionTitle }: Editab
         opacity: isDragging ? 0.5 : 1,
     };
 
-    console.log(`EditableSection[${id}]: Rendering with editMode=${editMode}`);
-
     if (!editMode) {
-        console.log(`EditableSection[${id}]: Returning plain children (editMode is false)`);
         return <>{children}</>;
     }
 
@@ -46,7 +38,7 @@ export function EditableSection({ id, children, editMode, sectionTitle }: Editab
         >
             {/* Drag handle - absolutely positioned outside the content flow */}
             <div
-                className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                className="absolute -left-8 top-0 opacity-100 transition-opacity z-20"
                 style={{ width: '32px' }}
             >
                 <button
@@ -56,7 +48,7 @@ export function EditableSection({ id, children, editMode, sectionTitle }: Editab
                     aria-label={`Drag to reorder ${sectionTitle || 'section'}`}
                     type="button"
                 >
-                    <GripVertical className="w-4 h-4 text-indigo-600" />
+                    <Grip className="w-4 h-4 text-indigo-600" />
                 </button>
             </div>
 

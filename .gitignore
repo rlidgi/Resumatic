@@ -41,3 +41,11 @@ env/
 # OS
 .DS_Store
 Thumbs.db 
+
+# Flask server-side session files (runtime)
+.flask_session/
+
+# Local temp uploads / script outputs
+temp_uploads/
+scripts/temp_uploads/
+scripts/counter.json

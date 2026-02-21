@@ -494,14 +494,16 @@
             </h2>
             {% set desired_categories = ['Content', 'Format', 'Optimization', 'Best Practices', 'Application Readiness']
             %}
+            {% set subscores = feedback.get('subscores', {}) %}
+            {% set improvement_items = feedback.get('improvement_items', []) %}
             <!-- Mobile category picker (better than swipe tabs) -->
             <div class="sm:hidden mb-4">
                 <label for="categorySelect" class="block text-sm font-semibold text-gray-800 mb-2">Category</label>
                 <select id="categorySelect"
                     class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600">
                     {% for category in desired_categories %}
-                    {% if category in feedback['subscores'] %}
-                    {% set score = feedback['subscores'][category] | int %}
+                    {% if category in subscores %}
+                    {% set score = subscores[category] | int %}
                     <option value="{{ category }}">{{ category }} ({{ score }})</option>
                     {% endif %}
                     {% endfor %}
@@ -513,9 +515,9 @@
                 <div id="categoryTabs" role="tablist" aria-label="Category Breakdown"
                     class="no-scrollbar flex w-full max-w-full items-stretch gap-2 overflow-x-auto rounded-full border border-gray-200 bg-gray-50 p-1 sm:w-fit sm:mx-auto">
                     {% for category in desired_categories %}
-                    {% if category in feedback['subscores'] %}
-                    {% set score = feedback['subscores'][category] | int %}
-                    {% set count = (feedback['improvement_items'] | selectattr('category', 'equalto', category) | list |
+                    {% if category in subscores %}
+                    {% set score = subscores[category] | int %}
+                    {% set count = (improvement_items | selectattr('category', 'equalto', category) | list |
                     length) %}
                     <button type="button" role="tab" data-category="{{ category }}" aria-selected="false"
                         class="category-tab group inline-flex flex-none items-center gap-2 rounded-full px-3 py-2 text-xs sm:px-4 sm:text-sm font-semibold bg-white text-gray-800 ring-1 ring-gray-200 shadow-sm transition-all transform-gpu cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:bg-emerald-200 hover:text-emerald-950 hover:ring-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-600">
@@ -542,7 +544,7 @@
                 </div>
 
                 <div id="categoryItems" class="space-y-4">
-                    {% for item in feedback['improvement_items'] %}
+                    {% for item in improvement_items %}
                     <div class="category-item hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all transform-gpu hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-200/40 hover:shadow-lg"
                         data-category="{{ item.category }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -736,11 +738,11 @@
 
         <!-- Resume Comparison Section -->
         <div class="bg-white rounded-lg shadow p-6 mt-10">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center">
                     <i class="fas fa-balance-scale text-purple-500 mr-3"></i>Resume Comparison
                 </h2>
-                <div class="flex space-x-3">
+                <div class="hidden md:flex space-x-3">
                     <button id="sideBySideBtn" onclick="toggleComparison('side-by-side')"
                         class="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md">
                         <i class="fas fa-columns mr-2"></i>Side by Side
@@ -752,46 +754,71 @@
                 </div>
             </div>
 
-            <!-- Side by Side Comparison -->
-            <div id="sideBySideComparison" class="comparison-view">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="border-r border-gray-200 pr-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
-                            <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
-                        </h3>
-                        <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                            <pre id="originalResumeOutput"
-                                class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
-                        </div>
+            <!-- Mobile: simple single-column (no side-by-side / overlay) -->
+            <div class="md:hidden space-y-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
+                    </h3>
+                    <div class="bg-green-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <pre id="resumeOutputMobile"
+                            class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
                     </div>
-                    <div class="pl-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
-                            <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
-                        </h3>
-                        <div class="bg-green-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                            <pre id="resumeOutput"
-                                class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
-                        </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
+                    </h3>
+                    <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <pre id="originalResumeOutputMobile"
+                            class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
                     </div>
                 </div>
             </div>
 
-            <!-- Overlay Comparison -->
-            <div id="overlayComparison" class="comparison-view hidden">
-                <div class="relative">
-                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                            <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
-                        </h3>
-                        <pre id="originalResumeOverlay"
-                            class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
+            <!-- Side by Side Comparison -->
+            <div class="hidden md:block">
+                <div id="sideBySideComparison" class="comparison-view">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="border-r border-gray-200 pr-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
+                                <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
+                            </h3>
+                            <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                <pre id="originalResumeOutput"
+                                    class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
+                            </div>
+                        </div>
+                        <div class="pl-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
+                                <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
+                            </h3>
+                            <div class="bg-green-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                <pre id="resumeOutput"
+                                    class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                            <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
-                        </h3>
-                        <pre id="revisedResumeOverlay"
-                            class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
+                </div>
+
+                <!-- Overlay Comparison -->
+                <div id="overlayComparison" class="comparison-view hidden">
+                    <div class="relative">
+                        <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                                <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
+                            </h3>
+                            <pre id="originalResumeOverlay"
+                                class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                                <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
+                            </h3>
+                            <pre id="revisedResumeOverlay"
+                                class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
+                        </div>
                     </div>
                 </div>
             </div>

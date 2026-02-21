@@ -116,6 +116,8 @@
                 Dashboard</a>
             <a class="btn" style="margin-left:8px;background:#16a34a" href="/admin/registered_users.csv"><i
                     class="fas fa-file-csv" style="margin-right:8px"></i>Download CSV</a>
+            <a class="btn" style="margin-left:8px;background:#dc2626" href="/admin/delete_user"><i
+                    class="fas fa-user-slash" style="margin-right:8px"></i>Delete User</a>
         </div>
         <h1>Registered Users</h1>
         <div class="meta">Total: {{ users|length }} • Azure Table: {{ azure_users_table_name or

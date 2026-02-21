@@ -1187,6 +1187,12 @@
             background-color: rgba(79, 70, 229, 0.05);
         }
 
+        /* Persistent highlight when "Upload" tab is selected */
+        .file-drop-zone.upload-active {
+            border-color: #4F46E5;
+            background-color: rgba(79, 70, 229, 0.05);
+        }
+
         .resume-input-section {
             transition: opacity 0.3s ease;
         }
@@ -3944,9 +3950,14 @@
 
                         <div class="flex justify-center">
                             <a id="getStartedNowCta" href="{{ url_for('get_started') }}"
-                                class="group inline-flex items-center justify-center px-8 py-4 sm:px-10 sm:py-5 text-base sm:text-lg font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl cta-pulse ">
+                                class="group inline-flex items-center justify-center px-8 py-4 sm:px-10 sm:py-5 text-base sm:text-lg font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl">
+                                {% if user and user.is_authenticated %}
+                                <span class="hidden sm:inline">Create Resume</span>
+                                <span class="sm:hidden">Create Resume</span>
+                                {% else %}
                                 <span class="hidden sm:inline">Get Started Now</span>
                                 <span class="sm:hidden">Get Started</span>
+                                {% endif %}
                                 <i
                                     class="fas fa-arrow-right ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform"></i>
                             </a>
@@ -4124,8 +4135,11 @@
                                 class="w-24 h-24 rounded-xl object-cover mb-6 group-hover:scale-110 transition-transform duration-300"
                                 loading="lazy" decoding="async">
                             <h3 class="text-2xl font-bold text-gray-900 mb-4">Keyword Optimization</h3>
-                            <p class="text-gray-600 text-lg leading-relaxed mb-6">Our keyword engine analyzes your
-                                resume to ensure it
+                            <p class="text-gray-600 text-lg leading-relaxed mb-6">Our process includes keyword
+                                optimization,
+                                where
+                                your
+                                resume is analyzed to ensure it
                                 aligns with
                                 common industry terms and roles. When a job description is provided, we further tailor
                                 your content to reflect the specific language and priorities of that position, improving
@@ -5208,7 +5222,7 @@
                                     their careers.
                                 </p>
                                 <a id="startNowCta" href="{{ url_for('get_started') }}"
-                                    class="group inline-flex items-center justify-center px-8 py-4 sm:px-10 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl cta-pulse ">
+                                    class="group inline-flex items-center justify-center px-8 py-4 sm:px-10 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl">
                                     Start Now
                                     <i class="fas fa-rocket ml-3"></i>
                                 </a>
@@ -5497,6 +5511,38 @@
 
                             <!-- FAQ Item 3 -->
                             <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
+                                style="transition-delay: 400ms;">
+                                <div
+                                    class="flex flex-col sm:flex-row items-center sm:items-start space-y-2.5 sm:space-y-0 sm:space-x-3 text-center sm:text-left">
+                                    <div class="flex-shrink-0">
+                                        <div
+                                            class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                            <i class="fas fa-robot text-white text-sm"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h3
+                                            class="text-sm sm:text-base font-bold text-gray-900 mb-1.5 sm:mb-2 group-hover:text-primary transition-colors">
+                                            How do we compare with ChatGPT?
+                                        </h3>
+                                        <p class="text-xs sm:text-sm text-gray-600 leading-snug">
+                                            The quality of ChatGPT’s output depends entirely on the prompt it receives,
+                                            a practice known as prompt engineering.
+                                            By combining research-backed resume optimization strategies with expert
+                                            prompt
+                                            engineering, we generate significantly more effective outputs from the AI
+                                            language model.
+                                            In addition,
+                                            we use a finely tuned AI model specifically optimized for resume
+                                            enhancement,
+                                            ensuring results that are targeted, impactful, and recruiter-ready.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- FAQ Item 4 -->
+                            <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
                                 style="transition-delay: 500ms;">
                                 <div
                                     class="flex flex-col sm:flex-row items-center sm:items-start space-y-2.5 sm:space-y-0 sm:space-x-3 text-center sm:text-left">
@@ -5716,6 +5762,14 @@
                                 <i
                                     class="fas fa-chevron-right mr-2 text-primary group-hover:text-secondary text-sm"></i>
                                 Contact Support
+                            </a>
+                        </li>
+                        <li>
+                            <a class="text-gray-300 hover:text-white hover:translate-x-1 transform transition-all duration-200 flex items-center group"
+                                href="/feedback">
+                                <i
+                                    class="fas fa-chevron-right mr-2 text-primary group-hover:text-secondary text-sm"></i>
+                                Feedback
                             </a>
                         </li>
                     </ul>
@@ -5965,11 +6019,15 @@
                     try {
                         var dz = uploadSection && uploadSection.querySelector('.border-dashed');
                         if (!dz) return;
+                        // Keep the drop zone highlighted while "Upload" is selected
+                        dz.classList.add('upload-active');
                         // Add a visible ring and subtle background, plus a short pulse
-                        dz.classList.add('ring-2', 'ring-primary/50', 'bg-primary/5', 'animate-pulse');
-                        // Stop pulsing quickly, keep ring a bit longer
-                        setTimeout(function () { dz.classList.remove('animate-pulse'); }, 900);
-                        setTimeout(function () { dz.classList.remove('ring-2', 'ring-primary/50'); }, 2000);
+                        if (isTouchMobile()) {
+                            dz.classList.add('ring-2', 'ring-primary/50', 'bg-primary/5', 'animate-pulse');
+                            // Stop pulsing quickly, keep ring a bit longer
+                            setTimeout(function () { dz.classList.remove('animate-pulse'); }, 900);
+                            setTimeout(function () { dz.classList.remove('ring-2', 'ring-primary/50'); }, 2000);
+                        }
                     } catch (e) { /* no-op */ }
                 }
 
@@ -6000,9 +6058,7 @@
                     } catch (e) { /* no-op */ }
 
                     // Mobile-only: add brief highlight
-                    if (isTouchMobile()) {
-                        highlightDropZone();
-                    }
+                    highlightDropZone();
                 });
 
                 pasteTab.addEventListener('click', function () {
@@ -6010,6 +6066,12 @@
                     uploadTab.classList.remove('active');
                     pasteSection.classList.remove('hidden');
                     uploadSection.classList.add('hidden');
+
+                    // Remove persistent highlight when leaving upload mode
+                    try {
+                        var dz = uploadSection && uploadSection.querySelector('.border-dashed');
+                        if (dz) dz.classList.remove('upload-active');
+                    } catch (e) { /* no-op */ }
 
                     // Clear file input when switching to paste
                     if (resumeFileInput) {

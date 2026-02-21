@@ -70,6 +70,12 @@
             background-color: rgba(79, 70, 229, 0.05);
         }
 
+        /* Persistent highlight when "Upload" tab is selected */
+        .file-drop-zone.upload-active {
+            border-color: #4F46E5;
+            background-color: rgba(79, 70, 229, 0.05);
+        }
+
         .resume-input-section {
             transition: opacity 0.3s ease;
         }
@@ -443,6 +449,14 @@
                 uploadSection.classList.remove('hidden');
                 pasteSection.classList.add('hidden');
                 if (resumeTextarea) resumeTextarea.value = '';
+
+                // Keep the drop zone highlighted so it's clear where to click to upload
+                try {
+                    const dz = uploadSection && uploadSection.querySelector('.border-dashed');
+                    if (dz) {
+                        dz.classList.add('upload-active');
+                    }
+                } catch (_) { /* no-op */ }
             });
 
             pasteTab.addEventListener('click', function () {
@@ -450,6 +464,15 @@
                 uploadTab.classList.remove('active');
                 pasteSection.classList.remove('hidden');
                 uploadSection.classList.add('hidden');
+
+                // Remove persistent highlight when leaving upload mode
+                try {
+                    const dz = uploadSection && uploadSection.querySelector('.border-dashed');
+                    if (dz) {
+                        dz.classList.remove('upload-active');
+                    }
+                } catch (_) { /* no-op */ }
+
                 if (resumeFileInput) {
                     resumeFileInput.value = '';
                     fileInfo.classList.add('hidden');

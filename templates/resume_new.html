@@ -19,6 +19,14 @@
             }
         }
     </script>
+    <script defer>
+            (function (c, l, a, r, i, t, y) {
+                c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+                t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
+                y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+            })(window, document, "clarity", "script", "sjihir10df");
+    </script>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"
         media="print" onload="this.media='all'" />
     <style>
@@ -32,11 +40,24 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
+        /* Mobile menu styles (slide in from right) */
+        .mobile-menu {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .mobile-menu.active {
+            transform: translateX(0);
+            pointer-events: auto;
+            opacity: 1;
+        }
     </style>
 </head>
 
-<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen"
-    data-is-auth="{{ 'true' if current_user.is_authenticated else 'false' }}">
+<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen">
     <div id="aiToast"
         class="hidden fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl border border-gray-200 bg-white shadow-lg p-4">
         <div class="flex items-start gap-3">
@@ -54,8 +75,13 @@
                 <img src="/static/images/logo23_small.png" alt="Resumatic AI" width="40" height="40">
                 <span class="text-xl font-bold">Resumatic AI</span>
             </a>
-            <div class="flex items-center gap-3">
-                <a href="/get-started" class="text-gray-700 hover:text-primary text-sm font-semibold">Back</a>
+            <nav class="hidden md:flex items-center gap-3" aria-label="Primary">
+                <a href="/"
+                    class="text-gray-700 hover:text-primary text-base font-semibold px-4 py-2 rounded-xl">Home</a>
+                <a href="/blog"
+                    class="text-gray-700 hover:text-primary text-base font-semibold px-4 py-2 rounded-xl">Blog</a>
+                <a href="/get-started"
+                    class="text-gray-700 hover:text-primary text-base font-semibold px-4 py-2 rounded-xl">Back</a>
                 {% if user and user.is_authenticated %}
                 <a href="/my_revisions"
                     class="text-white bg-primary px-4 py-2 rounded-xl hover:bg-primary/90 text-sm font-semibold">My
@@ -64,127 +90,206 @@
                 <a href="/login"
                     class="text-white bg-primary px-4 py-2 rounded-xl hover:bg-primary/90 text-sm font-semibold">Login</a>
                 {% endif %}
-            </div>
+            </nav>
+
+            <button id="menuButton"
+                class="md:hidden inline-flex items-center justify-center p-2 rounded-xl text-gray-700 hover:text-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-controls="mobileMenu" aria-expanded="false" type="button">
+                <span class="sr-only">Open menu</span>
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16">
+                    </path>
+                </svg>
+            </button>
         </div>
     </header>
 
-    <main class="py-10 sm:py-14">
+    <!-- Mobile Menu (right-side slide-in) -->
+    <div class="mobile-menu fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 hidden md:hidden"
+        id="mobileMenu" aria-label="Mobile">
+        <div class="flex justify-between items-center mb-8">
+            <img alt="Logo" class="h-12 w-auto" src="/static/images/logo23_small.png" loading="lazy" width="64"
+                height="64">
+            <button class="text-gray-500 hover:text-gray-900" id="closeMenu" type="button"
+                aria-label="Close menu">✕</button>
+        </div>
+        <nav class="space-y-4">
+            <a class="block text-gray-600 hover:text-primary underline underline-offset-2 font-semibold"
+                href="/">Home</a>
+            <a class="block text-gray-600 hover:text-primary underline underline-offset-2 font-semibold"
+                href="/blog">Blog</a>
+            <a class="block text-gray-600 hover:text-primary underline underline-offset-2 font-semibold"
+                href="/get-started">Back</a>
+            {% if user and user.is_authenticated %}
+            <a class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center"
+                href="/my_revisions">My Account</a>
+            {% else %}
+            <a class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center"
+                href="/login">Login</a>
+            {% endif %}
+        </nav>
+    </div>
+
+    <main class="py-10 sm:py-14 md:pl-64">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-8">
+            <div id="wizardIntro" class="text-center mb-8">
                 <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">
                     Create a <span class="gradient-text">new resume</span>
                 </h1>
-                <p class="mt-3 text-gray-600 text-lg">Fill out standard sections. We’ll compile it into a draft, then
-                    you’ll choose a template.</p>
+                <p class="mt-3 text-gray-600 text-lg">
+                    Move through the resume sections step-by-step. Our AI makes writing easier!
+                    Use the Enhance with AI
+                    <span
+                        class="ml-2 text-sm inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 align-middle select-none">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true">
+                            <path d="M5 3l1.2 3.3L9.5 7.5 6.2 8.7 5 12 3.8 8.7.5 7.5 3.8 6.3 5 3Z" fill="currentColor"
+                                opacity="0.9" />
+                            <path d="M18 2l1.7 4.6L24 8.5l-4.3 1.9L18 15l-1.7-4.6L12 8.5l4.3-1.9L18 2Z"
+                                fill="currentColor" />
+                            <path d="M14 13l1.2 3.3 3.3 1.2-3.3 1.2L14 22l-1.2-3.3-3.3-1.2 3.3-1.2L14 13Z"
+                                fill="currentColor" opacity="0.85" />
+                        </svg>
+                        Enhance with AI
+                    </span>
+                    buttons to help with writing and rephrasing.
+                    <br class="block" />
+                    <span class="text-sm text-gray-500 mt-2 block">Not all fields are required.</span>
+                </p>
             </div>
 
-            <form method="POST" action="/resume/new" class="space-y-6">
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <h2 class="text-lg font-bold text-gray-900 mb-4">Basics</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">Name</span>
-                            <input name="name" required class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="Jane Doe" />
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">Title (optional)</span>
-                            <input name="title" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="Software Engineer" />
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">Email</span>
-                            <input name="email" type="email"
-                                class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="jane@email.com" />
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">Phone</span>
-                            <input name="phone" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="(555) 555-5555" />
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">Location</span>
-                            <input name="location" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="City, State" />
-                        </label>
-                        <label class="block">
-                            <span class="text-sm font-semibold text-gray-700">LinkedIn (optional)</span>
-                            <input name="linkedin" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="linkedin.com/in/janedoe" />
-                        </label>
-                        <label class="block sm:col-span-2">
-                            <span class="text-sm font-semibold text-gray-700">Website (optional)</span>
-                            <input name="website" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                                placeholder="janedoe.com" />
-                        </label>
-                    </div>
-
-                    <label class="block mt-5">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-semibold text-gray-700">Professional summary (optional)</span>
-                            <button type="button" id="aiImproveSummaryBtn"
-                                class="text-sm inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-500 text-white shadow-sm hover:shadow-md hover:from-indigo-500 hover:to-emerald-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                                    aria-hidden="true">
-                                    <path d="M5 3l1.2 3.3L9.5 7.5 6.2 8.7 5 12 3.8 8.7.5 7.5 3.8 6.3 5 3Z"
-                                        fill="currentColor" opacity="0.9" />
-                                    <path d="M18 2l1.7 4.6L24 8.5l-4.3 1.9L18 15l-1.7-4.6L12 8.5l4.3-1.9L18 2Z"
-                                        fill="currentColor" />
-                                    <path d="M14 13l1.2 3.3 3.3 1.2-3.3 1.2L14 22l-1.2-3.3-3.3-1.2 3.3-1.2L14 13Z"
-                                        fill="currentColor" opacity="0.85" />
-                                </svg>
-                                AI Improve
-                            </button>
-                        </div>
-                        <textarea id="summary" name="summary" rows="4"
-                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
-                            placeholder="2-3 sentences that summarize your experience and strengths."></textarea>
-                    </label>
-
-                    <div id="aiAssistError"
-                        class="hidden mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3"></div>
-                </div>
-
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-bold text-gray-900">Work Experience</h2>
-                        <button type="button" id="addExperienceBtn"
-                            class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
-                    </div>
-                    <div id="experienceList" class="space-y-4"></div>
-                    <template id="experienceTemplate">
-                        <div class="rounded-2xl border border-gray-200 p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-gray-700">Title</span>
-                                        <input name="exp_title"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="Software Engineer" />
-                                    </label>
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-gray-700">Company</span>
-                                        <input name="exp_company"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="Acme Inc" />
-                                    </label>
-                                    <label class="block sm:col-span-2">
-                                        <span class="text-xs font-semibold text-gray-700">Dates</span>
-                                        <input name="exp_duration"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="Jan 2022 – Present" />
-                                    </label>
+            <form method="POST" action="/resume/new" class="space-y-6" id="resumeWizardForm">
+                <div class="relative">
+                    <aside class="self-start md:fixed md:left-0 md:top-24 md:z-40 md:w-56">
+                        <div class="bg-white rounded-2xl border border-gray-200 p-3 md:p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-900">Step <span
+                                            id="wizardStepNum">1</span>
+                                        <span class="text-gray-500 font-semibold">/</span>
+                                        <span id="wizardStepTotal">6</span>
+                                    </div>
+                                    <div id="wizardStepTitle" class="mt-0.5 text-xs text-gray-600">Basics</div>
                                 </div>
-                                <button type="button"
-                                    class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                                <div class="flex-1">
+                                    <div class="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                        <div id="wizardProgress"
+                                            class="h-1.5 rounded-full bg-gradient-to-r from-primary to-secondary"
+                                            style="width: 0%"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <label class="block mt-3">
-                                <div class="flex items-center justify-between gap-3">
-                                    <span class="text-xs font-semibold text-gray-700">Description / bullets</span>
-                                    <button type="button"
-                                        class="aiImproveExperienceBtn text-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-emerald-500 text-white shadow-sm hover:shadow-md hover:from-indigo-500 hover:to-emerald-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
+                            <ol id="wizardStepPills"
+                                class="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:mt-3 md:flex-col md:overflow-visible md:pb-0">
+                                <li class="shrink-0"><button type="button" data-wizard-jump="0"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Basics</button>
+                                </li>
+                                <li class="shrink-0"><button type="button" data-wizard-jump="1"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Experience</button>
+                                </li>
+                                <li class="shrink-0"><button type="button" data-wizard-jump="2"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Education</button>
+                                </li>
+                                <li class="shrink-0"><button type="button" data-wizard-jump="3"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Certifications</button>
+                                </li>
+                                <li class="shrink-0"><button type="button" data-wizard-jump="4"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Skills</button>
+                                </li>
+                                <li class="shrink-0"><button type="button" data-wizard-jump="5"
+                                        class="w-full px-2.5 py-1.5 md:py-2 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:border-indigo-300 hover:bg-indigo-50">Additional</button>
+                                </li>
+                            </ol>
+                            <style>
+                                /* Hide horizontal scrollbar for step pills on mobile */
+                                #wizardStepPills::-webkit-scrollbar {
+                                    display: none;
+                                }
+                            </style>
+                        </div>
+                    </aside>
+
+                    <div class="space-y-6">
+                        <div id="aiAssistError"
+                            class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-2xl p-4"></div>
+
+                        <section class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Basics">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5Z"
+                                                stroke="currentColor" stroke-width="2" />
+                                            <path d="M20 22a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Basics</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">Add your contact details and a short
+                                            summary so recruiters can quickly understand who you are.</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> A 2–3 sentence summary
+                                            is plenty.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <h2 class="text-lg font-bold text-gray-900 mb-4">Basics</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Name</span>
+                                    <input name="name" required
+                                        class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="Jane Doe" />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Title (optional)</span>
+                                    <input name="title" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="Software Engineer" />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Email</span>
+                                    <input name="email" type="email"
+                                        class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="jane@email.com" />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Phone</span>
+                                    <input name="phone" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="(555) 555-5555" />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">Location</span>
+                                    <input name="location"
+                                        class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="City, State" />
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-semibold text-gray-700">LinkedIn (optional)</span>
+                                    <input name="linkedin"
+                                        class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="linkedin.com/in/janedoe" />
+                                </label>
+                                <label class="block sm:col-span-2">
+                                    <span class="text-sm font-semibold text-gray-700">Website (optional)</span>
+                                    <input name="website"
+                                        class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                        placeholder="janedoe.com" />
+                                </label>
+                            </div>
+
+                            <label class="block mt-5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-semibold text-gray-700">Professional summary
+                                        (optional)</span>
+                                    <button type="button" id="aiImproveSummaryBtn"
+                                        class="text-sm inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"
                                             xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                             <path d="M5 3l1.2 3.3L9.5 7.5 6.2 8.7 5 12 3.8 8.7.5 7.5 3.8 6.3 5 3Z"
                                                 fill="currentColor" opacity="0.9" />
@@ -194,115 +299,81 @@
                                                 d="M14 13l1.2 3.3 3.3 1.2-3.3 1.2L14 22l-1.2-3.3-3.3-1.2 3.3-1.2L14 13Z"
                                                 fill="currentColor" opacity="0.85" />
                                         </svg>
-                                        AI Improve
+                                        Enhance with AI
                                     </button>
                                 </div>
-                                <textarea name="exp_description" rows="4"
-                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                    placeholder="• Built ...\n• Improved ...\n• Led ..."></textarea>
+                                <textarea id="summary" name="summary" rows="4"
+                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2"
+                                    placeholder="2-3 sentences that summarize your experience and strengths."></textarea>
                             </label>
-                        </div>
-                    </template>
-                </div>
+                        </section>
 
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-bold text-gray-900">Education</h2>
-                        <button type="button" id="addEducationBtn"
-                            class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
-                    </div>
-                    <div id="educationList" class="space-y-4"></div>
-                    <template id="educationTemplate">
-                        <div class="rounded-2xl border border-gray-200 p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                                    <label class="block sm:col-span-2">
-                                        <span class="text-xs font-semibold text-gray-700">Degree</span>
-                                        <input name="edu_degree"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="B.S. Computer Science" />
-                                    </label>
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-gray-700">Year</span>
-                                        <input name="edu_year"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="2021" />
-                                    </label>
-                                    <label class="block sm:col-span-3">
-                                        <span class="text-xs font-semibold text-gray-700">Institution</span>
-                                        <input name="edu_institution"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="University Name" />
-                                    </label>
+                        <section class="hidden bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Experience">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" />
+                                            <path
+                                                d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8Z"
+                                                stroke="currentColor" stroke-width="2" />
+                                            <path d="M4 12h16" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Experience</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">Add your most relevant roles and
+                                            highlight impact with clear bullet points.</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> Lead with action verbs
+                                            and quantify results where you can.</p>
+                                    </div>
                                 </div>
-                                <button type="button"
-                                    class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
                             </div>
-                        </div>
-                    </template>
-                </div>
-
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-bold text-gray-900">Certifications</h2>
-                        <button type="button" id="addCertBtn"
-                            class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
-                    </div>
-                    <div id="certList" class="space-y-4"></div>
-                    <template id="certTemplate">
-                        <div class="rounded-2xl border border-gray-200 p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                                    <label class="block sm:col-span-2">
-                                        <span class="text-xs font-semibold text-gray-700">Name</span>
-                                        <input name="cert_name"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="AWS Certified Solutions Architect" />
-                                    </label>
-                                    <label class="block">
-                                        <span class="text-xs font-semibold text-gray-700">Year</span>
-                                        <input name="cert_year"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="2024" />
-                                    </label>
-                                    <label class="block sm:col-span-3">
-                                        <span class="text-xs font-semibold text-gray-700">Issuer</span>
-                                        <input name="cert_issuer"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="Amazon Web Services" />
-                                    </label>
-                                </div>
-                                <button type="button"
-                                    class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-gray-900">Work Experience</h2>
+                                <button type="button" id="addExperienceBtn"
+                                    class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
                             </div>
-                        </div>
-                    </template>
-                </div>
-
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-bold text-gray-900">Additional Sections</h2>
-                        <button type="button" id="addCustomSectionBtn"
-                            class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add Section</button>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-4">Add sections like Awards, Publications, Volunteering,
-                        Leadership, Languages, etc.</p>
-                    <div id="customSectionsList" class="space-y-4"></div>
-                    <template id="customSectionTemplate">
-                        <div class="rounded-2xl border border-gray-200 p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                                    <label class="block sm:col-span-1">
-                                        <span class="text-xs font-semibold text-gray-700">Section title</span>
-                                        <input name="custom_heading"
-                                            class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="Awards" />
-                                    </label>
-                                    <label class="block sm:col-span-2">
+                            <div id="experienceList" class="space-y-4"></div>
+                            <template id="experienceTemplate">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+                                            <label class="block">
+                                                <span class="text-xs font-semibold text-gray-700">Title</span>
+                                                <input name="exp_title"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Software Engineer" />
+                                            </label>
+                                            <label class="block">
+                                                <span class="text-xs font-semibold text-gray-700">Company</span>
+                                                <input name="exp_company"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Acme Inc" />
+                                            </label>
+                                            <label class="block sm:col-span-2">
+                                                <span class="text-xs font-semibold text-gray-700">Dates</span>
+                                                <input name="exp_duration"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Jan 2022 – Present" />
+                                            </label>
+                                        </div>
+                                        <button type="button"
+                                            class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                                    </div>
+                                    <label class="block mt-3">
                                         <div class="flex items-center justify-between gap-3">
-                                            <span class="text-xs font-semibold text-gray-700">Content</span>
+                                            <span class="text-xs font-semibold text-gray-700">Description /
+                                                bullets</span>
                                             <button type="button"
-                                                class="aiImproveCustomSectionBtn text-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-emerald-500 text-white shadow-sm hover:shadow-md hover:from-indigo-500 hover:to-emerald-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                                class="aiImproveExperienceBtn text-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
                                                     xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                                     <path
@@ -315,42 +386,343 @@
                                                         d="M14 13l1.2 3.3 3.3 1.2-3.3 1.2L14 22l-1.2-3.3-3.3-1.2 3.3-1.2L14 13Z"
                                                         fill="currentColor" opacity="0.85" />
                                                 </svg>
-                                                AI Improve
+                                                Enhance with AI
                                             </button>
                                         </div>
-                                        <textarea name="custom_content" rows="4"
+                                        <textarea name="exp_description" rows="4"
                                             class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                            placeholder="• Dean’s List (2021–2023)\n• Hackathon Winner — ABC Challenge"></textarea>
+                                            placeholder="• Built ...\n• Improved ...\n• Led ..."></textarea>
                                     </label>
                                 </div>
-                                <button type="button"
-                                    class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                            </template>
+                        </section>
+
+                        <section class="hidden bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Education">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 3 2 8l10 5 10-5-10-5Z" stroke="currentColor" stroke-width="2"
+                                                stroke-linejoin="round" />
+                                            <path d="M6 10v6c0 2 3 4 6 4s6-2 6-4v-6" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Education</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">Add your degree, field of study, and
+                                            graduation date (or expected date if you’re still studying).</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> Put your most recent (or
+                                            highest) degree first; include GPA only if it helps.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-gray-900">Education</h2>
+                                <button type="button" id="addEducationBtn"
+                                    class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
+                            </div>
+                            <div id="educationList" class="space-y-4"></div>
+                            <template id="educationTemplate">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                                            <label class="block sm:col-span-2">
+                                                <span
+                                                    class="block min-h-8 text-xs font-semibold text-gray-700 leading-tight">Degree</span>
+                                                <input name="edu_degree"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="B.S. Computer Science" />
+                                            </label>
+                                            <label class="block">
+                                                <span
+                                                    class="block min-h-8 text-xs font-semibold text-gray-700 leading-tight">Graduation
+                                                    date (or expected graduation date)</span>
+                                                <input name="edu_year"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="May 2026" />
+                                            </label>
+                                            <label class="block sm:col-span-3">
+                                                <span class="block text-xs font-semibold text-gray-700">Field of
+                                                    study</span>
+                                                <input name="edu_field_of_study"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Computer Science" />
+                                            </label>
+                                            <label class="block sm:col-span-3">
+                                                <span
+                                                    class="block text-xs font-semibold text-gray-700">Institution</span>
+                                                <input name="edu_institution"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="University Name" />
+                                            </label>
+                                            <label class="block sm:col-span-3">
+                                                <span class="block text-xs font-semibold text-gray-700">GPA
+                                                    (optional)</span>
+                                                <input name="edu_gpa"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="3.8 / 4.0" />
+                                            </label>
+                                        </div>
+                                        <button type="button"
+                                            class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </section>
+
+                        <section class="hidden bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Certifications">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path
+                                                d="M12 2 8.5 4.5H4.5v4L2 12l2.5 3.5v4h4L12 22l3.5-2.5h4v-4L22 12l-2.5-3.5v-4h-4L12 2Z"
+                                                stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                                            <path d="m8.5 12 2.2 2.2L15.8 9" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Certifications</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">List certifications and licenses that
+                                            strengthen your fit for the role.</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> Include the issuer and
+                                            the year earned.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-gray-900">Certifications</h2>
+                                <button type="button" id="addCertBtn"
+                                    class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add</button>
+                            </div>
+                            <div id="certList" class="space-y-4"></div>
+                            <template id="certTemplate">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                                            <label class="block sm:col-span-2">
+                                                <span class="text-xs font-semibold text-gray-700">Name</span>
+                                                <input name="cert_name"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="AWS Certified Solutions Architect" />
+                                            </label>
+                                            <label class="block">
+                                                <span class="text-xs font-semibold text-gray-700">Year</span>
+                                                <input name="cert_year"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="2024" />
+                                            </label>
+                                            <label class="block sm:col-span-3">
+                                                <span class="text-xs font-semibold text-gray-700">Issuer</span>
+                                                <input name="cert_issuer"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Amazon Web Services" />
+                                            </label>
+                                        </div>
+                                        <button type="button"
+                                            class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </section>
+
+                        <section class="hidden bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Skills">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M4 7h10" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                            <path d="M4 12h16" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                            <path d="M4 17h12" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                            <path d="M16 7h4" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Skills</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">Add hard skills and tools you’re
+                                            confident using. Keep it tailored to the job.</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> Prioritize the skills
+                                            you can explain in an interview.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <h2 class="text-lg font-bold text-gray-900 mb-3">Skills</h2>
+                            <p class="text-sm text-gray-600 mb-3">Enter one per line (or comma-separated).</p>
+                            <textarea name="skills" rows="4" class="w-full rounded-xl border border-gray-200 px-3 py-2"
+                                placeholder="Python\nSQL\nAWS\n..."></textarea>
+                        </section>
+
+                        <section class="hidden bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8"
+                            data-wizard-step data-step-title="Additional">
+                            <div
+                                class="mb-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-indigo-50 to-emerald-50 p-4 sm:p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="shrink-0 w-10 h-10 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-700">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 5v14" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                            <path d="M5 12h14" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                            <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor"
+                                                stroke-width="2" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-900">Additional</div>
+                                        <p class="mt-0.5 text-sm text-gray-700">Add optional sections like Awards,
+                                            Publications, Volunteering, Leadership, or Languages.</p>
+                                        <p class="mt-2 text-xs text-gray-600"><span
+                                                class="font-semibold text-gray-700">Tip:</span> 2–4 bullets per section
+                                            is usually enough.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h2 class="text-lg font-bold text-gray-900">Additional Sections</h2>
+                                <button type="button" id="addCustomSectionBtn"
+                                    class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">+ Add
+                                    Section</button>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4">Add sections like Awards, Publications, Volunteering,
+                                Leadership, Languages, etc.</p>
+                            <div id="customSectionsList" class="space-y-4"></div>
+                            <template id="customSectionTemplate">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                                            <label class="block sm:col-span-1">
+                                                <span class="text-xs font-semibold text-gray-700">Section title</span>
+                                                <input name="custom_heading"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="Awards" />
+                                            </label>
+                                            <label class="block sm:col-span-2">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <span class="text-xs font-semibold text-gray-700">Content</span>
+                                                    <button type="button"
+                                                        class="aiImproveCustomSectionBtn text-xs inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
+                                                            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                            <path
+                                                                d="M5 3l1.2 3.3L9.5 7.5 6.2 8.7 5 12 3.8 8.7.5 7.5 3.8 6.3 5 3Z"
+                                                                fill="currentColor" opacity="0.9" />
+                                                            <path
+                                                                d="M18 2l1.7 4.6L24 8.5l-4.3 1.9L18 15l-1.7-4.6L12 8.5l4.3-1.9L18 2Z"
+                                                                fill="currentColor" />
+                                                            <path
+                                                                d="M14 13l1.2 3.3 3.3 1.2-3.3 1.2L14 22l-1.2-3.3-3.3-1.2 3.3-1.2L14 13Z"
+                                                                fill="currentColor" opacity="0.85" />
+                                                        </svg>
+                                                        Enhance with AI
+                                                    </button>
+                                                </div>
+                                                <textarea name="custom_content" rows="4"
+                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                                    placeholder="• Dean’s List (2021–2023)\n• Hackathon Winner — ABC Challenge"></textarea>
+                                            </label>
+                                        </div>
+                                        <button type="button"
+                                            class="removeItemBtn text-xs font-semibold text-gray-500 hover:text-red-600">Remove</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </section>
+
+                        <div class="flex items-center justify-between gap-3">
+                            <button type="button" id="wizardBackBtn"
+                                class="px-5 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 font-bold shadow-sm hover:shadow">
+                                Back
+                            </button>
+                            <div class="flex items-center gap-3">
+                                <button type="button" id="wizardNextBtn"
+                                    class="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold shadow hover:shadow-lg">
+                                    Next
+                                </button>
+                                <button type="submit" id="wizardSubmitBtn"
+                                    class="hidden px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold shadow hover:shadow-lg">
+                                    Continue to select template
+                                </button>
+                                <svg id="wizardArrow" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 12h14M12 5l7 7-7 7"></path>
+                                </svg>
                             </div>
                         </div>
-                    </template>
-                </div>
-
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8">
-                    <h2 class="text-lg font-bold text-gray-900 mb-3">Skills</h2>
-                    <p class="text-sm text-gray-600 mb-3">Enter one per line (or comma-separated).</p>
-                    <textarea name="skills" rows="4" class="w-full rounded-xl border border-gray-200 px-3 py-2"
-                        placeholder="Python\nSQL\nAWS\n..."></textarea>
-                </div>
-
-                <div class="flex items-center justify-end gap-3">
-                    <a href="/get-started"
-                        class="px-5 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:bg-gray-50">Cancel</a>
-                    <button type="submit"
-                        class="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold shadow hover:shadow-lg">
-                        Compile resume & choose template
-                    </button>
+                    </div>
                 </div>
             </form>
         </div>
     </main>
 
     <script>
-        const IS_AUTH = (document.body.getAttribute('data-is-auth') === 'true');
+        (function initMobileNav() {
+            const btn = document.getElementById('menuButton');
+            const menu = document.getElementById('mobileMenu');
+            const closeBtn = document.getElementById('closeMenu');
+            if (!btn || !menu) return;
+
+            function openMenu() {
+                menu.classList.remove('hidden');
+                menu.classList.add('active');
+                btn.setAttribute('aria-expanded', 'true');
+            }
+
+            function closeMenu() {
+                menu.classList.remove('active');
+                menu.classList.add('hidden');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+
+            function toggleMenu() {
+                const isOpen = !menu.classList.contains('hidden') && menu.classList.contains('active');
+                if (isOpen) closeMenu();
+                else openMenu();
+            }
+
+            btn.addEventListener('click', toggleMenu);
+            if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+
+            document.addEventListener('click', (e) => {
+                const t = e.target;
+                if (!t) return;
+                if (menu.contains(t) || btn.contains(t)) return;
+                closeMenu();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeMenu();
+            });
+
+            try {
+                menu.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu));
+            } catch (_) {
+                // no-op
+            }
+        })();
 
         function showToast(kind, title, msg) {
             const toast = document.getElementById('aiToast');
@@ -378,7 +750,7 @@
             if (!el) return;
             el.textContent = msg || 'AI request failed.';
             el.classList.remove('hidden');
-            showToast('error', 'AI Improve failed', msg || 'AI request failed.');
+            showToast('error', 'Enhance with AI failed', msg || 'AI request failed.');
         }
 
         function clearAiError() {
@@ -388,21 +760,8 @@
             el.classList.add('hidden');
         }
 
-        function redirectToLoginPreservingNext() {
-            try {
-                const nextPath = window.location.pathname + window.location.search;
-                window.location.href = '/login?next=' + encodeURIComponent(nextPath);
-            } catch (e) {
-                window.location.href = '/login';
-            }
-        }
-
         async function aiRewrite(field, textareaId, buttonId) {
             clearAiError();
-            if (!IS_AUTH) {
-                redirectToLoginPreservingNext();
-                return;
-            }
 
             const ta = document.getElementById(textareaId);
             const btn = document.getElementById(buttonId);
@@ -437,11 +796,9 @@
                     body: JSON.stringify(payload)
                 });
 
-                // If Flask-Login redirects to /login, the response will be HTML.
                 const ct = (res.headers.get('content-type') || '').toLowerCase();
                 if (!ct.includes('application/json')) {
-                    redirectToLoginPreservingNext();
-                    return;
+                    throw new Error('Unexpected response from server. Please try again.');
                 }
 
                 const data = await res.json();
@@ -456,18 +813,13 @@
                 if (btn) {
                     btn.disabled = false;
                     btn.classList.remove('opacity-60');
-                    btn.textContent = originalLabel || (field === 'job_description' ? 'AI refine' : 'AI improve');
+                    btn.textContent = originalLabel || 'Enhance with AI';
                 }
             }
         }
 
         async function aiRewriteElement(field, textareaEl, buttonEl, metaExtra) {
             clearAiError();
-            if (!IS_AUTH) {
-                showToast('warn', 'Login required', 'Please log in to use AI Improve.');
-                redirectToLoginPreservingNext();
-                return;
-            }
 
             if (!metaExtra || typeof metaExtra !== 'object') {
                 metaExtra = {};
@@ -509,8 +861,7 @@
 
                 const ct = (res.headers.get('content-type') || '').toLowerCase();
                 if (!ct.includes('application/json')) {
-                    redirectToLoginPreservingNext();
-                    return;
+                    throw new Error('Unexpected response from server. Please try again.');
                 }
 
                 const data = await res.json();
@@ -525,7 +876,7 @@
                 if (btn) {
                     btn.disabled = false;
                     btn.classList.remove('opacity-70');
-                    btn.textContent = originalLabel || 'AI Improve';
+                    btn.textContent = originalLabel || 'Enhance with AI';
                 }
             }
         }
@@ -548,6 +899,93 @@
                     aiBtn.addEventListener('click', () => {
                         aiRewriteElement('experience_description', descTa, aiBtn);
                     });
+
+                    // As-you-type bullets: prefix the first line and continue bullets on Enter.
+                    // Keep this lightweight and avoid rewriting if the user already uses bullets.
+                    const bulletPrefixRe = /^(?:\u2022|•|[-–—*]|●|◦|▪|·)\s+/;
+                    const hasAnyBulletPrefix = (val) => {
+                        try {
+                            return String(val || '')
+                                .replace(/\r\n/g, '\n')
+                                .split('\n')
+                                .some(l => bulletPrefixRe.test(String(l || '').trim()));
+                        } catch (_) {
+                            return false;
+                        }
+                    };
+
+                    const ensureLeadingBullet = () => {
+                        try {
+                            const v = String(descTa.value || '').replace(/\r\n/g, '\n');
+                            if (!v.trim()) return;
+                            if (hasAnyBulletPrefix(v)) return;
+
+                            const lines = v.split('\n');
+                            // Find first non-empty line and prefix it.
+                            for (let i = 0; i < lines.length; i++) {
+                                const t = String(lines[i] || '').trim();
+                                if (!t) continue;
+                                if (!bulletPrefixRe.test(t)) {
+                                    const leading = String(lines[i] || '').match(/^\s*/)?.[0] || '';
+                                    lines[i] = `${leading}• ${t}`;
+                                    descTa.value = lines.join('\n');
+                                }
+                                break;
+                            }
+                        } catch (_) {
+                            // no-op
+                        }
+                    };
+
+                    descTa.addEventListener('input', () => {
+                        // Only add bullet when the user starts typing actual content.
+                        ensureLeadingBullet();
+                    });
+
+                    descTa.addEventListener('keydown', (e) => {
+                        try {
+                            if (e.key !== 'Enter') return;
+                            if (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+
+                            const v = String(descTa.value || '').replace(/\r\n/g, '\n');
+                            if (!v.trim()) return;
+
+                            // If we're in the middle of typing and the current line has content, continue bullets.
+                            const start = descTa.selectionStart ?? 0;
+                            const end = descTa.selectionEnd ?? start;
+                            const before = v.slice(0, start);
+                            const after = v.slice(end);
+                            const lineStart = before.lastIndexOf('\n') + 1;
+                            const currentLine = before.slice(lineStart);
+                            if (!String(currentLine || '').trim()) return;
+
+                            // Continue the same bullet style if the current line already has one; otherwise use "• ".
+                            let prefix = '• ';
+                            const m = String(currentLine || '').match(/^\s*(\u2022|•|[-–—*]|●|◦|▪|·)\s+/);
+                            if (m && m[1]) {
+                                prefix = `${m[1]} `;
+                            }
+
+                            e.preventDefault();
+                            const insert = `\n${prefix}`;
+                            descTa.value = before + insert + after;
+                            const nextPos = before.length + insert.length;
+                            descTa.selectionStart = nextPos;
+                            descTa.selectionEnd = nextPos;
+                        } catch (_) {
+                            // no-op
+                        }
+                    });
+
+                    // Auto-bullet: if the user types sentences (no bullets), convert each sentence into a bullet.
+                    descTa.addEventListener('blur', () => {
+                        try {
+                            const normalized = normalizeSentenceBullets(String(descTa.value || ''));
+                            if (normalized !== String(descTa.value || '')) descTa.value = normalized;
+                        } catch (_) {
+                            // no-op
+                        }
+                    });
                 }
 
                 const customAiBtn = wrapper.querySelector('.aiImproveCustomSectionBtn');
@@ -560,6 +998,32 @@
                 }
             }
             list.appendChild(node);
+        }
+
+        function normalizeSentenceBullets(text) {
+            const raw = String(text || '').replace(/\r\n/g, '\n').trim();
+            if (!raw) return '';
+
+            const lines = raw.split('\n').map(l => String(l || '').trim()).filter(Boolean);
+            if (lines.length === 0) return '';
+
+            // If any line already looks like a bullet, leave it as-is.
+            const bulletLineRe = /^(?:\u2022|•|[-–—*]|●|◦|▪|·)\s+/;
+            if (lines.some(l => bulletLineRe.test(l))) {
+                return lines.join('\n');
+            }
+
+            // Split into sentences conservatively.
+            const joined = lines.join(' ');
+            const sentenceRe = /[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g;
+            const parts = (joined.match(sentenceRe) || [])
+                .map(s => String(s || '').trim())
+                .filter(Boolean);
+
+            if (parts.length <= 1) {
+                return `• ${joined}`;
+            }
+            return parts.map(s => `• ${s}`).join('\n');
         }
 
         document.getElementById('addExperienceBtn')?.addEventListener('click', () => addItem('experienceList', 'experienceTemplate'));
@@ -575,7 +1039,168 @@
         addItem('experienceList', 'experienceTemplate');
         addItem('educationList', 'educationTemplate');
         addItem('certList', 'certTemplate');
-        addItem('customSectionsList', 'customSectionTemplate');
+
+        // Wizard logic (single form, step-by-step UI)
+        (function initWizard() {
+            const formEl = document.getElementById('resumeWizardForm');
+            const stepEls = Array.from(document.querySelectorAll('[data-wizard-step]'));
+            const total = stepEls.length;
+            const numEl = document.getElementById('wizardStepNum');
+            const totalEl = document.getElementById('wizardStepTotal');
+            const titleEl = document.getElementById('wizardStepTitle');
+            const progressEl = document.getElementById('wizardProgress');
+            const introEl = document.getElementById('wizardIntro');
+            const backBtn = document.getElementById('wizardBackBtn');
+            const nextBtn = document.getElementById('wizardNextBtn');
+            const submitBtn = document.getElementById('wizardSubmitBtn');
+            const arrowEl = document.getElementById('wizardArrow');
+            const pillWrap = document.getElementById('wizardStepPills');
+
+            if (!stepEls.length) return;
+            if (totalEl) totalEl.textContent = String(total);
+
+            let current = 0;
+            let furthestReached = 0;
+            const pillButtons = Array.from(pillWrap?.querySelectorAll('button[data-wizard-jump]') || []);
+            const stepNames = pillButtons.map((b) => String(b.textContent || '').trim()).filter(Boolean);
+
+            function setPillState() {
+                if (!pillWrap) return;
+                const pills = pillButtons.length ? pillButtons : Array.from(pillWrap.querySelectorAll('button[data-wizard-jump]'));
+                pills.forEach((btn) => {
+                    const idx = parseInt(btn.getAttribute('data-wizard-jump') || '0', 10);
+                    const allowed = idx <= furthestReached;
+                    btn.disabled = !allowed;
+                    btn.setAttribute('aria-disabled', String(!allowed));
+                    btn.classList.toggle('opacity-50', !allowed);
+                    btn.classList.toggle('cursor-not-allowed', !allowed);
+                    btn.classList.toggle('pointer-events-none', !allowed);
+
+                    btn.classList.remove('border-indigo-300', 'bg-indigo-50', 'text-indigo-700');
+                    btn.classList.remove('border-gray-200', 'bg-white', 'text-gray-700');
+                    if (idx === current) {
+                        btn.classList.add('border-indigo-300', 'bg-indigo-50', 'text-indigo-700');
+                    } else {
+                        btn.classList.add('border-gray-200', 'bg-white', 'text-gray-700');
+                    }
+                });
+            }
+
+            function updateUi() {
+                if (introEl) introEl.classList.toggle('hidden', current !== 0);
+
+                stepEls.forEach((el, idx) => {
+                    if (idx === current) {
+                        el.classList.remove('hidden');
+                        el.removeAttribute('aria-hidden');
+                    } else {
+                        el.classList.add('hidden');
+                        el.setAttribute('aria-hidden', 'true');
+                    }
+                });
+
+                if (numEl) numEl.textContent = String(current + 1);
+                const stepTitle = String(stepEls[current]?.getAttribute('data-step-title') || '');
+                if (titleEl) titleEl.textContent = stepTitle;
+
+                const pct = total > 1 ? Math.round((current / (total - 1)) * 100) : 100;
+                if (progressEl) progressEl.style.width = String(pct) + '%';
+
+                if (backBtn) backBtn.disabled = current === 0;
+                if (backBtn) backBtn.classList.toggle('opacity-50', current === 0);
+
+                const isLast = current === (total - 1);
+                if (nextBtn) nextBtn.classList.toggle('hidden', isLast);
+                if (submitBtn) submitBtn.classList.toggle('hidden', !isLast);
+                if (arrowEl) arrowEl.classList.toggle('hidden', isLast);
+
+                if (nextBtn && !isLast) {
+                    const nextName = stepNames[current + 1] || String(stepEls[current + 1]?.getAttribute('data-step-title') || '').trim();
+                    nextBtn.textContent = nextName ? `Next: ${nextName}` : 'Next';
+                }
+
+                setPillState();
+                try {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } catch (_) {
+                    window.scrollTo(0, 0);
+                }
+            }
+
+            function validateCurrentStep() {
+                const step = stepEls[current];
+                if (!step) return true;
+                const required = Array.from(step.querySelectorAll('input[required], textarea[required], select[required]'));
+                for (const el of required) {
+                    try {
+                        if (!el.checkValidity()) {
+                            el.reportValidity();
+                            return false;
+                        }
+                    } catch (_) {
+                        // If the browser doesn't support reportValidity, fall back to allowing navigation.
+                    }
+                }
+                return true;
+            }
+
+            function goTo(idx) {
+                const next = Math.max(0, Math.min(total - 1, idx));
+                current = next;
+                if (current > furthestReached) furthestReached = current;
+                updateUi();
+            }
+
+            backBtn?.addEventListener('click', () => goTo(current - 1));
+            nextBtn?.addEventListener('click', () => {
+                if (!validateCurrentStep()) return;
+                goTo(current + 1);
+            });
+
+            // Prevent accidental submits while navigating steps.
+            // If the user hits Enter in an <input> and we're not on the last step, treat it like "Next".
+            formEl?.addEventListener('keydown', (e) => {
+                try {
+                    if (e.key !== 'Enter') return;
+                    const t = e.target;
+                    if (!t || !t.tagName) return;
+                    const tag = String(t.tagName || '').toUpperCase();
+                    if (tag !== 'INPUT') return;
+                    if (current >= (total - 1)) return;
+                    e.preventDefault();
+                    nextBtn?.click();
+                } catch (_) {
+                    // no-op
+                }
+            });
+
+            // Normalize experience descriptions right before submit so the server always receives bullets.
+            formEl?.addEventListener('submit', () => {
+                try {
+                    const tas = Array.from(formEl.querySelectorAll('textarea[name="exp_description"]'));
+                    tas.forEach((ta) => {
+                        const v = normalizeSentenceBullets(String(ta.value || ''));
+                        if (v !== String(ta.value || '')) ta.value = v;
+                    });
+                } catch (_) {
+                    // no-op
+                }
+            });
+
+            pillWrap?.addEventListener('click', (e) => {
+                const btn = e.target?.closest?.('button[data-wizard-jump]');
+                if (!btn) return;
+                const idx = parseInt(btn.getAttribute('data-wizard-jump') || '0', 10);
+                // Don't allow skipping ahead to steps the user hasn't reached yet.
+                if (idx > furthestReached) return;
+                // Gate forward navigation with validation.
+                if (idx > current && !validateCurrentStep()) return;
+                goTo(idx);
+            });
+
+            // Initial render
+            updateUi();
+        })();
     </script>
 </body>
 

@@ -1,15 +1,22 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import {
     DndContext,
     closestCenter,
+    pointerWithin,
+    rectIntersection,
     KeyboardSensor,
     PointerSensor,
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
+    DragCancelEvent,
+    useDroppable,
+    MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -43,7 +50,11 @@ interface ExecutiveTemplateProps {
     sectionOrder?: string[];
     onSectionOrderChange?: (order: string[]) => void;
     onContentChange?: (changes: ExecutiveData) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
 }
+
+const TRASH_DROP_ID = '__trash_drop_zone__';
 
 /**
  * ExecutiveTemplate
@@ -58,9 +69,14 @@ export default function ExecutiveTemplate({
     editMode = false,
     sectionOrder = [],
     onSectionOrderChange,
-    onContentChange
+    onContentChange,
+    hiddenSectionKeys = [],
+    onHiddenSectionKeysChange,
 }: ExecutiveTemplateProps) {
     const sections = (parseResumeContent(content) || {}) as ExecutiveData;
+
+    const safeHidden = Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : [];
+    const hiddenSet = useMemo(() => new Set(safeHidden.map(String)), [safeHidden]);
 
     // Local state for inline editing - store entire sections object
     const [editedData, setEditedData] = useState<ExecutiveData>(sections);
@@ -248,15 +264,23 @@ export default function ExecutiveTemplate({
         })
     );
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
+    const [activeKey, setActiveKey] = useState<string | null>(null);
+    const [manualTrashHover, setManualTrashHover] = useState(false);
+    const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+    const trashElRef = useRef<HTMLDivElement | null>(null);
+    const undoTimerRef = useRef<number | null>(null);
+    const [canUseDom, setCanUseDom] = useState(false);
+    const [undoState, setUndoState] = useState<null | { prevOrder: string[]; prevHidden: string[] }>(null);
 
-        if (over && active.id !== over.id && onSectionOrderChange) {
-            const oldIndex = sectionOrder.indexOf(String(active.id));
-            const newIndex = sectionOrder.indexOf(String(over.id));
-            onSectionOrderChange(arrayMove(sectionOrder, oldIndex, newIndex));
-        }
-    };
+    useEffect(() => {
+        setCanUseDom(true);
+        return () => {
+            if (undoTimerRef.current) {
+                window.clearTimeout(undoTimerRef.current);
+                undoTimerRef.current = null;
+            }
+        };
+    }, []);
 
     const allRows = useMemo(() => {
         const formatLabel = (heading: string) => {
@@ -575,28 +599,161 @@ export default function ExecutiveTemplate({
     // Initialize section order if empty
     useEffect(() => {
         if (editMode && sectionOrder.length === 0 && allRows.length > 0 && onSectionOrderChange) {
-            onSectionOrderChange(allRows.map(r => r.key));
+            onSectionOrderChange(allRows.filter((r) => !hiddenSet.has(r.key)).map(r => r.key));
         }
-    }, [editMode, sectionOrder, allRows, onSectionOrderChange]);
+    }, [editMode, sectionOrder, allRows, onSectionOrderChange, hiddenSet]);
+
+    // Keep order in sync with visible rows (but never re-add hidden rows)
+    useEffect(() => {
+        if (!editMode) return;
+        if (!onSectionOrderChange) return;
+        if (sectionOrder.length === 0) return;
+
+        const visibleKeys = allRows.filter((r) => !hiddenSet.has(r.key)).map((r) => r.key);
+        const missing = visibleKeys.filter((k) => !sectionOrder.includes(k));
+        if (missing.length === 0) return;
+        onSectionOrderChange([...sectionOrder, ...missing]);
+    }, [editMode, onSectionOrderChange, sectionOrder, allRows, hiddenSet]);
 
     // Ordered rows for rendering
     const rows = useMemo(() => {
+        const visibleAll = allRows.filter((r: any) => !hiddenSet.has(String(r.key)));
         if (!editMode || sectionOrder.length === 0) {
-            return allRows;
+            return visibleAll;
         }
         const ordered = sectionOrder
-            .map(key => allRows.find(r => r.key === key))
+            .map(key => visibleAll.find((r: any) => r.key === key))
             .filter(Boolean) as Array<{ key: string; label: string; content: React.ReactNode; }>;
 
         // Add any new rows that aren't in the order yet
-        allRows.forEach(row => {
+        visibleAll.forEach((row: any) => {
             if (!sectionOrder.includes(row.key)) {
                 ordered.push(row);
             }
         });
 
         return ordered;
-    }, [editMode, sectionOrder, allRows]);
+    }, [editMode, sectionOrder, allRows, hiddenSet]);
+
+    const showUndo = useCallback((prevOrder: string[], prevHidden: string[]) => {
+        setUndoState({ prevOrder, prevHidden });
+        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = window.setTimeout(() => {
+            setUndoState(null);
+            undoTimerRef.current = null;
+        }, 6000);
+    }, []);
+
+    const isPointerInTrash = useCallback(() => {
+        const p = lastPointerRef.current;
+        const el = trashElRef.current;
+        if (!p || !el) return false;
+        const rect = el.getBoundingClientRect();
+        return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom;
+    }, []);
+
+    const onPointerMove = useCallback((e: PointerEvent) => {
+        lastPointerRef.current = { x: e.clientX, y: e.clientY };
+        setManualTrashHover(isPointerInTrash());
+    }, [isPointerInTrash]);
+
+    const attachPointerTracking = useCallback(() => {
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+    }, [onPointerMove]);
+
+    const detachPointerTracking = useCallback(() => {
+        window.removeEventListener('pointermove', onPointerMove);
+        setManualTrashHover(false);
+        lastPointerRef.current = null;
+    }, [onPointerMove]);
+
+    const removeSectionKey = useCallback((key: string) => {
+        if (!onSectionOrderChange) return;
+
+        const prevOrder = [...sectionOrder];
+        const prevHidden = [...safeHidden];
+
+        const nextOrder = sectionOrder.filter((k) => k !== key);
+        const nextHidden = Array.from(new Set([...safeHidden, String(key)]));
+
+        onSectionOrderChange(nextOrder);
+        onHiddenSectionKeysChange?.(nextHidden);
+        showUndo(prevOrder, prevHidden);
+    }, [onHiddenSectionKeysChange, onSectionOrderChange, safeHidden, sectionOrder, showUndo]);
+
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        setActiveKey(String(event.active.id));
+        attachPointerTracking();
+    }, [attachPointerTracking]);
+
+    const handleDragCancel = useCallback((_event: DragCancelEvent) => {
+        setActiveKey(null);
+        detachPointerTracking();
+    }, [detachPointerTracking]);
+
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveKey(null);
+        const activeId = String(active.id);
+
+        const overId = over ? String(over.id) : '';
+        const hitTrash =
+            overId === TRASH_DROP_ID ||
+            (Array.isArray((event as any).collisions) && (event as any).collisions.some((c: any) => String(c?.id) === TRASH_DROP_ID));
+
+        const manualHit = isPointerInTrash();
+        detachPointerTracking();
+
+        if (hitTrash || manualHit) {
+            removeSectionKey(activeId);
+            return;
+        }
+        if (!over) return;
+        if (activeId === overId) return;
+        if (!onSectionOrderChange) return;
+
+        const visibleKeys = rows.map((r: any) => String(r.key));
+        const oldIndex = visibleKeys.indexOf(activeId);
+        const newIndex = visibleKeys.indexOf(overId);
+        if (oldIndex < 0 || newIndex < 0) return;
+
+        onSectionOrderChange(arrayMove(visibleKeys, oldIndex, newIndex));
+    }, [detachPointerTracking, isPointerInTrash, onSectionOrderChange, removeSectionKey, rows]);
+
+    const handleUndo = useCallback(() => {
+        if (!undoState) return;
+        onSectionOrderChange?.(undoState.prevOrder);
+        onHiddenSectionKeysChange?.(undoState.prevHidden);
+        setUndoState(null);
+        if (undoTimerRef.current) {
+            window.clearTimeout(undoTimerRef.current);
+            undoTimerRef.current = null;
+        }
+    }, [onHiddenSectionKeysChange, onSectionOrderChange, undoState]);
+
+    const { isOver, setNodeRef } = useDroppable({ id: TRASH_DROP_ID });
+    const setTrashNodeRef = useCallback(
+        (node: HTMLDivElement | null) => {
+            trashElRef.current = node;
+            setNodeRef(node);
+        },
+        [setNodeRef]
+    );
+
+    const collisionDetectionStrategy = useCallback(
+        (args: any) => {
+            const trashContainers = args.droppableContainers?.filter((c: any) => String(c?.id) === TRASH_DROP_ID) || [];
+            if (trashContainers.length > 0) {
+                const trashHits = pointerWithin({ ...args, droppableContainers: trashContainers });
+                if (trashHits && trashHits.length > 0) return trashHits;
+
+                const trashIntersect = rectIntersection({ ...args, droppableContainers: trashContainers });
+                if (trashIntersect && trashIntersect.length > 0) return trashIntersect;
+            }
+            return closestCenter(args);
+        },
+        []
+    );
 
     return (
         <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
@@ -685,11 +842,18 @@ export default function ExecutiveTemplate({
                         {editMode ? (
                             <DndContext
                                 sensors={sensors}
-                                collisionDetection={closestCenter}
+                                collisionDetection={collisionDetectionStrategy}
+                                measuring={{
+                                    droppable: {
+                                        strategy: MeasuringStrategy.Always,
+                                    },
+                                }}
+                                onDragStart={handleDragStart}
+                                onDragCancel={handleDragCancel}
                                 onDragEnd={handleDragEnd}
                             >
                                 <SortableContext
-                                    items={sectionOrder.length > 0 ? sectionOrder : allRows.map(r => r.key)}
+                                    items={rows.map(r => r.key)}
                                     strategy={verticalListSortingStrategy}
                                 >
                                     <div className="space-y-10">
@@ -724,6 +888,30 @@ export default function ExecutiveTemplate({
                                         ))}
                                     </div>
                                 </SortableContext>
+
+                                {/* Trash drop-zone rail (portal to body; only interactive while dragging) */}
+                                {canUseDom ? createPortal(
+                                    <div
+                                        ref={setTrashNodeRef}
+                                        style={{
+                                            opacity: activeKey ? 1 : 0,
+                                            pointerEvents: activeKey ? 'auto' : 'none',
+                                        }}
+                                        className={
+                                            'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity ' +
+                                            ((isOver || manualTrashHover)
+                                                ? 'border-red-500 bg-red-50 text-red-700'
+                                                : 'border-gray-300 bg-white text-gray-700')
+                                        }
+                                        aria-label="Drop here to remove section"
+                                    >
+                                        <div className="w-full h-full flex flex-col items-center justify-between">
+                                            <RailLabel text="Drop to delete" />
+                                            <RailLabel text="Drop to delete" />
+                                        </div>
+                                    </div>,
+                                    document.body
+                                ) : null}
                             </DndContext>
                         ) : (
                             <div className="space-y-10">
@@ -742,7 +930,31 @@ export default function ExecutiveTemplate({
                         )}
                     </div>
                 </div>
+
+                {undoState ? (
+                    <div className="fixed bottom-4 left-4 z-[9999] rounded-xl border border-gray-200 bg-white shadow-lg px-4 py-3 flex items-center gap-3">
+                        <div className="text-sm text-gray-800">Section removed.</div>
+                        <button
+                            type="button"
+                            onClick={handleUndo}
+                            className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
+                        >
+                            Undo
+                        </button>
+                    </div>
+                ) : null}
             </div>
+        </div>
+    );
+}
+
+function RailLabel({ text }: { text: string }) {
+    return (
+        <div
+            className="font-black uppercase tracking-[0.45em] text-sm leading-none select-none opacity-95"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+        >
+            {text}
         </div>
     );
 }

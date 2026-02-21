@@ -5,15 +5,24 @@ import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { EditableText } from "./EditableSection";
 import AddSectionButton from "./AddSectionButton";
+import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function ElegantTemplate({
     content,
     editMode = false,
     onContentChange,
+    sectionOrder,
+    onSectionOrderChange,
+    hiddenSectionKeys,
+    onHiddenSectionKeysChange,
 }: {
     content: string;
     editMode?: boolean;
     onContentChange?: (changes: any) => void;
+    sectionOrder?: string[];
+    onSectionOrderChange?: (order: string[]) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
 }) {
     const sections: any = useMemo(() => parseResumeContent(content), [content]);
     const [editedData, setEditedData] = useState<any>(sections);
@@ -169,6 +178,243 @@ export default function ElegantTemplate({
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
+    const mainRows: SortableSectionRow[] = useMemo(() => {
+        const rows: SortableSectionRow[] = [];
+
+        if (objective) {
+            rows.push({
+                key: 'summary',
+                title: getHeading('summary', 'RESUME OBJECTIVE'),
+                content: (
+                    <MainSection title={getHeading('summary', 'RESUME OBJECTIVE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('summary', v)}>
+                        {editMode ? (
+                            <EditableText
+                                value={String(objective)}
+                                onChange={(v) => updateField('summary', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                as="div"
+                                className="text-[11px] leading-relaxed text-[#3b2a52]"
+                                multiline
+                            />
+                        ) : (
+                            <p className="text-[11px] leading-relaxed text-[#3b2a52]">{objective}</p>
+                        )}
+                    </MainSection>
+                ),
+            });
+        }
+
+        if (Array.isArray(data.experience) && data.experience.length > 0) {
+            rows.push({
+                key: 'experience',
+                title: getHeading('experience', 'WORK EXPERIENCE'),
+                content: (
+                    <MainSection title={getHeading('experience', 'WORK EXPERIENCE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
+                        <div className="space-y-4">
+                            {data.experience.map((exp: any, idx: number) => (
+                                <div key={idx}>
+                                    <div className="text-[12px] font-semibold">
+                                        {editMode ? (
+                                            <>
+                                                <EditableText value={String(exp.company || exp.organization || '')} onChange={(v) => updateExperience(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                <span> - </span>
+                                                <EditableText value={String(exp.title || exp.position || 'Role')} onChange={(v) => updateExperience(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                            </>
+                                        ) : (
+                                            [exp.company || exp.organization, exp.title || exp.position || "Role"]
+                                                .filter(Boolean)
+                                                .join(" - ")
+                                        )}
+                                    </div>
+                                    <div className="text-[10px] text-[#6c5a86]">
+                                        {editMode ? (
+                                            <>
+                                                <EditableText value={String(exp.location || exp.city || '')} onChange={(v) => updateExperience(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                <span> • </span>
+                                                <EditableText value={String(exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ") || '')} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                            </>
+                                        ) : (
+                                            [exp.location || exp.city, exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ")]
+                                                .filter(Boolean)
+                                                .join(" • ")
+                                        )}
+                                    </div>
+                                    {exp.description && (
+                                        <div className="mt-2">
+                                            {editMode ? (
+                                                <EditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-[#3b2a52]" multiline />
+                                            ) : (
+                                                <RenderMaybeBullets
+                                                    text={exp.description}
+                                                    forceBullets
+                                                    className="text-[11px] leading-relaxed text-[#3b2a52]"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </MainSection>
+                ),
+            });
+        }
+
+        if (projects.length > 0) {
+            rows.push({
+                key: 'projects',
+                title: getHeading('projects', 'PROJECTS'),
+                content: (
+                    <MainSection title={getHeading('projects', 'PROJECTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
+                        <div className="space-y-4">
+                            {projects.map((proj: any, idx: number) => (
+                                <div key={idx}>
+                                    <div className="text-[12px] font-semibold flex items-baseline justify-between gap-4">
+                                        {editMode ? (
+                                            <EditableText value={String(proj.title || proj.name || 'Project')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                        ) : (
+                                            <span>{String(proj.title || proj.name || 'Project')}</span>
+                                        )}
+                                        {proj.link ? (
+                                            <a
+                                                href={String(proj.link)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[10px] text-[#6c5a86] underline underline-offset-2 hover:text-[#3b2a52] whitespace-nowrap"
+                                            >
+                                                Link
+                                            </a>
+                                        ) : null}
+                                    </div>
+                                    {proj.technologies ? (
+                                        editMode ? (
+                                            <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[10px] text-[#6c5a86]" />
+                                        ) : (
+                                            <div className="text-[10px] text-[#6c5a86]">{String(proj.technologies)}</div>
+                                        )
+                                    ) : null}
+                                    {proj.description ? (
+                                        <div className="mt-2">
+                                            {editMode ? (
+                                                <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-[#3b2a52]" multiline />
+                                            ) : (
+                                                <RenderMaybeBullets
+                                                    text={String(proj.description)}
+                                                    forceBullets
+                                                    className="text-[11px] leading-relaxed text-[#3b2a52]"
+                                                />
+                                            )}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    </MainSection>
+                ),
+            });
+        }
+
+        if (accomplishments.length > 0) {
+            rows.push({
+                key: 'accomplishments',
+                title: getHeading('accomplishments', 'ACCOMPLISHMENTS'),
+                content: (
+                    <MainSection title={getHeading('accomplishments', 'ACCOMPLISHMENTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('accomplishments', v)}>
+                        {editMode ? (
+                            <EditableText
+                                value={accomplishments.join("\n")}
+                                onChange={(v) => updateField('accomplishments', normalizeList(v))}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                as="div"
+                                className="text-[11px] leading-relaxed text-[#3b2a52]"
+                                multiline
+                            />
+                        ) : (
+                            <RenderMaybeBullets
+                                text={accomplishments.join("\n")}
+                                forceBullets
+                                className="text-[11px] leading-relaxed text-[#3b2a52]"
+                            />
+                        )}
+                    </MainSection>
+                ),
+            });
+        }
+
+        if (languages.length > 0) {
+            rows.push({
+                key: 'languages',
+                title: getHeading('languages', 'LANGUAGES'),
+                content: (
+                    <MainSection title={getHeading('languages', 'LANGUAGES')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('languages', v)}>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
+                            {languages.map((lang, idx) => (
+                                <div key={idx} className="flex items-center justify-between gap-3">
+                                    {editMode ? (
+                                        <EditableText value={String(lang.name)} onChange={(v) => updateLanguage(idx, v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-[#3b2a52]" />
+                                    ) : (
+                                        <span className="text-[#3b2a52]">{lang.name}</span>
+                                    )}
+                                    <LanguageDots filled={lang.dots} />
+                                </div>
+                            ))}
+                        </div>
+                    </MainSection>
+                ),
+            });
+        }
+
+        if (customSections.length > 0) {
+            for (let idx = 0; idx < customSections.length; idx++) {
+                const sec: any = customSections[idx];
+                const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
+                rows.push({
+                    key: `custom_${idx}`,
+                    title: heading,
+                    content: (
+                        <MainSection title={heading} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
+                            <CustomSectionsRenderer
+                                customSections={[sec]}
+                                editMode={editMode}
+                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
+                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
+                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
+                                showSectionHeadings={false}
+                                headingClassName="text-[12px] font-semibold text-[#3b2a52]"
+                                itemTitleClassName="text-[12px] font-semibold text-[#3b2a52]"
+                                itemMetaClassName="text-[10px] text-[#6c5a86]"
+                                itemBodyClassName="text-[11px] leading-relaxed text-[#3b2a52]"
+                            />
+                        </MainSection>
+                    ),
+                });
+            }
+        }
+
+        return rows;
+    }, [
+        accomplishments,
+        customSections,
+        data.experience,
+        editMode,
+        getHeading,
+        languages,
+        objective,
+        projects,
+        updateCustomBody,
+        updateCustomHeading,
+        updateCustomItem,
+        updateExperience,
+        updateField,
+        updateLanguage,
+        updateProject,
+        updateSectionHeading,
+    ]);
+
     const initials = formatInitials(getInitials(data.name || "Your Name"));
 
     return (
@@ -288,187 +534,15 @@ export default function ElegantTemplate({
                 </aside>
 
                 {/* RIGHT CONTENT */}
-                <section className="col-span-8 bg-[#f6f1fb] px-7 py-7 text-[#3b2a52]">
-                    {objective && (
-                        <MainSection title={getHeading('summary', 'RESUME OBJECTIVE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('summary', v)}>
-                            {editMode ? (
-                                <EditableText
-                                    value={String(objective)}
-                                    onChange={(v) => updateField('summary', v)}
-                                    editMode={editMode}
-                                    liveUpdate
-                                    layoutSafe
-                                    as="div"
-                                    className="text-[11px] leading-relaxed text-[#3b2a52]"
-                                    multiline
-                                />
-                            ) : (
-                                <p className="text-[11px] leading-relaxed text-[#3b2a52]">{objective}</p>
-                            )}
-                        </MainSection>
-                    )}
-
-                    {Array.isArray(data.experience) && data.experience.length > 0 && (
-                        <MainSection title={getHeading('experience', 'WORK EXPERIENCE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
-                            <div className="space-y-4">
-                                {data.experience.map((exp: any, idx: number) => (
-                                    <div key={idx}>
-                                        <div className="text-[12px] font-semibold">
-                                            {editMode ? (
-                                                <>
-                                                    <EditableText value={String(exp.company || exp.organization || '')} onChange={(v) => updateExperience(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                    <span> - </span>
-                                                    <EditableText value={String(exp.title || exp.position || 'Role')} onChange={(v) => updateExperience(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                </>
-                                            ) : (
-                                                [exp.company || exp.organization, exp.title || exp.position || "Role"]
-                                                    .filter(Boolean)
-                                                    .join(" - ")
-                                            )}
-                                        </div>
-                                        <div className="text-[10px] text-[#6c5a86]">
-                                            {editMode ? (
-                                                <>
-                                                    <EditableText value={String(exp.location || exp.city || '')} onChange={(v) => updateExperience(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                    <span> • </span>
-                                                    <EditableText value={String(exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ") || '')} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                </>
-                                            ) : (
-                                                [exp.location || exp.city, exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ")]
-                                                    .filter(Boolean)
-                                                    .join(" • ")
-                                            )}
-                                        </div>
-                                        {exp.description && (
-                                            <div className="mt-2">
-                                                {editMode ? (
-                                                    <EditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-[#3b2a52]" multiline />
-                                                ) : (
-                                                    <RenderMaybeBullets
-                                                        text={exp.description}
-                                                        forceBullets
-                                                        className="text-[11px] leading-relaxed text-[#3b2a52]"
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </MainSection>
-                    )}
-
-                    {projects.length > 0 && (
-                        <MainSection title={getHeading('projects', 'PROJECTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
-                            <div className="space-y-4">
-                                {projects.map((proj: any, idx: number) => (
-                                    <div key={idx}>
-                                        <div className="text-[12px] font-semibold flex items-baseline justify-between gap-4">
-                                            {editMode ? (
-                                                <EditableText value={String(proj.title || proj.name || 'Project')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                            ) : (
-                                                <span>{String(proj.title || proj.name || 'Project')}</span>
-                                            )}
-                                            {proj.link ? (
-                                                <a
-                                                    href={String(proj.link)}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-[10px] text-[#6c5a86] underline underline-offset-2 hover:text-[#3b2a52] whitespace-nowrap"
-                                                >
-                                                    Link
-                                                </a>
-                                            ) : null}
-                                        </div>
-                                        {proj.technologies ? (
-                                            editMode ? (
-                                                <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[10px] text-[#6c5a86]" />
-                                            ) : (
-                                                <div className="text-[10px] text-[#6c5a86]">{String(proj.technologies)}</div>
-                                            )
-                                        ) : null}
-                                        {proj.description ? (
-                                            <div className="mt-2">
-                                                {editMode ? (
-                                                    <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-[#3b2a52]" multiline />
-                                                ) : (
-                                                    <RenderMaybeBullets
-                                                        text={String(proj.description)}
-                                                        forceBullets
-                                                        className="text-[11px] leading-relaxed text-[#3b2a52]"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                ))}
-                            </div>
-                        </MainSection>
-                    )}
-
-                    {accomplishments.length > 0 && (
-                        <MainSection title={getHeading('accomplishments', 'ACCOMPLISHMENTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('accomplishments', v)}>
-                            {editMode ? (
-                                <EditableText
-                                    value={accomplishments.join("\n")}
-                                    onChange={(v) => updateField('accomplishments', normalizeList(v))}
-                                    editMode={editMode}
-                                    liveUpdate
-                                    layoutSafe
-                                    as="div"
-                                    className="text-[11px] leading-relaxed text-[#3b2a52]"
-                                    multiline
-                                />
-                            ) : (
-                                <RenderMaybeBullets
-                                    text={accomplishments.join("\n")}
-                                    forceBullets
-                                    className="text-[11px] leading-relaxed text-[#3b2a52]"
-                                />
-                            )}
-                        </MainSection>
-                    )}
-
-                    {languages.length > 0 && (
-                        <MainSection title={getHeading('languages', 'LANGUAGES')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('languages', v)}>
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
-                                {languages.map((lang, idx) => (
-                                    <div key={idx} className="flex items-center justify-between gap-3">
-                                        {editMode ? (
-                                            <EditableText value={String(lang.name)} onChange={(v) => updateLanguage(idx, v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-[#3b2a52]" />
-                                        ) : (
-                                            <span className="text-[#3b2a52]">{lang.name}</span>
-                                        )}
-                                        <LanguageDots filled={lang.dots} />
-                                    </div>
-                                ))}
-                            </div>
-                        </MainSection>
-                    )}
-
-                    {customSections.length > 0 && (
-                        <>
-                            {customSections.map((sec: any, idx: number) => {
-                                const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
-                                return (
-                                    <MainSection key={idx} title={heading} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
-                                        <CustomSectionsRenderer
-                                            customSections={[sec]}
-                                            editMode={editMode}
-                                            onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
-                                            onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
-                                            onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
-                                            showSectionHeadings={false}
-                                            headingClassName="text-[12px] font-semibold text-[#3b2a52]"
-                                            itemTitleClassName="text-[12px] font-semibold text-[#3b2a52]"
-                                            itemMetaClassName="text-[10px] text-[#6c5a86]"
-                                            itemBodyClassName="text-[11px] leading-relaxed text-[#3b2a52]"
-                                        />
-                                    </MainSection>
-                                );
-                            })}
-                        </>
-                    )}
+                <section className={`col-span-8 bg-[#f6f1fb] px-7 py-7 text-[#3b2a52] ${editMode ? 'pl-16' : ''}`}>
+                    <SortableSectionList
+                        rows={mainRows}
+                        editMode={!!editMode}
+                        sectionOrder={sectionOrder}
+                        onSectionOrderChange={onSectionOrderChange}
+                        hiddenSectionKeys={hiddenSectionKeys}
+                        onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                    />
                 </section>
             </div>
         </div>

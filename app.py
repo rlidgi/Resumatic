@@ -1,10 +1,11 @@
-﻿from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, jsonify, Response, make_response
+from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, jsonify, Response, make_response
 from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
 import pdfplumber
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 import mammoth
 import logging
  # ...existing code...
@@ -40,8 +41,14 @@ from azure.data.tables import TableServiceClient, UpdateMode
 from azure.identity import DefaultAzureCredential
 from urllib.parse import urlparse, urljoin
 from urllib.parse import urlencode
+from flask_session import Session
+import re
 
 app = Flask(__name__)
+
+# App Service runs behind a reverse proxy. Trust standard forwarding headers so
+# Flask sees the correct scheme/host (important for redirects and health probes).
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 
 #####################
@@ -90,6 +97,30 @@ if not _ON_AZURE:
         pass
     # Reduce stale static assets during local debugging
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+# Server-side sessions (prevents oversized cookie drops when storing large resume/feedback payloads).
+# Uses filesystem storage (safe for a single App Service instance); cookie stores only a small session id.
+try:
+    home_dir = (os.getenv('HOME') or '').strip()
+    if home_dir:
+        # App Service common root: /home/site/wwwroot (Linux) or D:\home\site\wwwroot (Windows)
+        session_dir = os.path.join(home_dir, 'site', 'wwwroot', '.flask_session')
+    else:
+        session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.flask_session')
+    os.makedirs(session_dir, exist_ok=True)
+
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = session_dir
+    app.config['SESSION_PERMANENT'] = False
+    app.config['SESSION_USE_SIGNER'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # Only mark cookies Secure when running on Azure HTTPS; avoid breaking local http://127.0.0.1
+    app.config['SESSION_COOKIE_SECURE'] = bool(_ON_AZURE)
+
+    Session(app)
+except Exception as e:
+    logger.warning(f"Server-side session setup failed; falling back to cookie sessions: {type(e).__name__}: {str(e)}")
 
 
 def _is_safe_next_url(target: str) -> bool:
@@ -165,40 +196,36 @@ def _append_google_signup_csv(user_id: str, name: str, email: str, created_at_is
 
 
 @app.before_request
-def before_request():
-    # Only redirect in production (not in debug mode)
-    if not app.debug:
-        forwarded_proto = request.headers.get('X-Forwarded-Proto', '').lower()
-        app.logger.info(f"[HTTPS REDIRECT] scheme={request.scheme}, X-Forwarded-Proto={forwarded_proto}, port={request.environ.get('SERVER_PORT')}, url={request.url}")
-        # Only redirect if X-Forwarded-Proto is present and is 'http'
-        if forwarded_proto == 'http':
-            app.logger.info("[HTTPS REDIRECT] Redirecting to HTTPS due to X-Forwarded-Proto == 'http'")
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
-        # If header is missing, only redirect if scheme is http and port is 80 (default HTTP)
-        elif not forwarded_proto and request.scheme == 'http' and request.environ.get('SERVER_PORT') == '80':
-            app.logger.info("[HTTPS REDIRECT] Redirecting to HTTPS due to scheme == 'http' and port == 80")
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
-        # Otherwise, do not redirect (prevents loop)
+def _redirect_http_to_https():
+    # Avoid redirecting in local dev/debug.
+    if app.debug:
+        return None
 
-# Add security headers for HTTPS enforcement
-@app.before_request
-def before_request():
-    if not app.debug:
-        forwarded_proto = request.headers.get('X-Forwarded-Proto', '').lower()
-        app.logger.info(f"[HTTPS REDIRECT] scheme={request.scheme}, X-Forwarded-Proto={forwarded_proto}, port={request.environ.get('SERVER_PORT')}, url={request.url}")
-        # Only redirect if X-Forwarded-Proto is present and is 'http'
-        if forwarded_proto == 'http':
-            app.logger.info("[HTTPS REDIRECT] Redirecting to HTTPS due to X-Forwarded-Proto == 'http'")
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
-        # If header is missing, only redirect if scheme is http and port is 80 (default HTTP)
-        elif not forwarded_proto and request.scheme == 'http' and request.environ.get('SERVER_PORT') == '80':
-            app.logger.info("[HTTPS REDIRECT] Redirecting to HTTPS due to scheme == 'http' and port == 80")
-            url = request.url.replace('http://', 'https://', 1)
-            return redirect(url, code=301)
-        # Otherwise, do not redirect (prevents loop)
+    # Never redirect health checks (Azure probes may not follow redirects).
+    if request.path in ('/health', '/path/health'):
+        return None
+
+    forwarded_proto = (request.headers.get('X-Forwarded-Proto') or '').lower().strip()
+    # Some proxies may send a comma-separated list.
+    if ',' in forwarded_proto:
+        forwarded_proto = forwarded_proto.split(',')[0].strip()
+
+    is_https = request.is_secure or forwarded_proto == 'https'
+    if is_https:
+        return None
+
+    # Only redirect safe methods.
+    if request.method not in ('GET', 'HEAD'):
+        return None
+
+    app.logger.info(
+        "[HTTPS REDIRECT] Redirecting to HTTPS (scheme=%s, X-Forwarded-Proto=%s, url=%s)",
+        request.scheme,
+        forwarded_proto,
+        request.url,
+    )
+    url = request.url.replace('http://', 'https://', 1)
+    return redirect(url, code=301)
 
 
 
@@ -422,23 +449,35 @@ def confirm_email_verification_token(token: str, max_age_seconds: int) -> dict |
         return None
 
 
-def send_email_verification_email(email: str, token: str, user_name: str) -> bool:
+def send_email_verification_email(email: str, token: str, user_name: str, next_url: str | None = None) -> bool:
     """Send email verification link to user."""
     try:
         _load_email_config_if_missing()
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = os.getenv('NEWSLETTER_EMAIL', '').strip()
-        auth_password = os.getenv('NEWSLETTER_PASSWORD', '').strip().replace(' ', '')
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        # App Service settings sometimes get pasted with surrounding quotes/newlines; tolerate that.
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
 
         if not auth_email or not auth_password:
             raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
 
         verify_url = _get_external_url('verify_email_token', token=token)
+        try:
+            nxt = (next_url or '').strip()
+            # Only allow relative paths to avoid open redirects in emailed links.
+            if nxt.startswith('/') and not nxt.startswith('//'):
+                parts = urlparse(verify_url)
+                q = dict(parse_qsl(parts.query, keep_blank_values=True))
+                q['next'] = nxt
+                verify_url = urlunparse(parts._replace(query=urlencode(q)))
+        except Exception:
+            pass
         subject = 'Verify your email - ResumaticAI'
 
         html_body = f"""
@@ -494,7 +533,8 @@ ResumaticAI Team
         logger.info(f"Verification email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"Error sending verification email: {str(e)}")
+        # Keep user-facing messaging generic; log full details for ops/debugging.
+        logger.exception("Error sending verification email")
         return False
 
 def load_users():
@@ -527,6 +567,23 @@ def add_user(user):
     save_users()
     print(f"✅ Added user: {user.name} ({user.email})")
 
+
+def _normalize_email(email: str) -> str:
+    try:
+        return str(email or '').strip().lower()
+    except Exception:
+        return ''
+
+
+def _find_user_by_email(email: str):
+    needle = _normalize_email(email)
+    if not needle:
+        return None
+    for _, u in users.items():
+        if _normalize_email(getattr(u, 'email', '')) == needle:
+            return u
+    return None
+
 # Load existing users on startup
 users = load_users()
 print(f"📊 Loaded {len(users)} users from persistent storage")
@@ -558,19 +615,19 @@ def login():
         
         if action == 'login':
             # Handle email/password login
-            email = request.form.get('email', '').strip().lower()
+            email = _normalize_email(request.form.get('email', ''))
             password = request.form.get('password', '')
             
             if not email or not password:
                 flash('Please enter both email and password.', 'danger')
                 return render_template("login.html")
             
-            # Find user by email
-            user = None
-            for user_id, u in users.items():
-                if u.email.lower() == email:
-                    user = u
-                    break
+            user = _find_user_by_email(email)
+
+            # If the user exists but has no password, they likely signed up via Google/Facebook.
+            if user and not getattr(user, 'password_hash', None):
+                flash('This email is linked to a Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
+                return render_template("login.html")
             
             if user and user.password_hash and user.check_password(password):
                 if _requires_email_verification(user):
@@ -605,7 +662,7 @@ def login():
         elif action == 'register':
             # Handle email/password registration
             name = request.form.get('name', '').strip()
-            email = request.form.get('email', '').strip().lower()
+            email = _normalize_email(request.form.get('email', ''))
             password = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
             
@@ -623,10 +680,13 @@ def login():
                 return render_template("login.html", active_tab='register')
             
             # Check if email already exists
-            for user_id, u in users.items():
-                if u.email.lower() == email:
+            existing_user = _find_user_by_email(email)
+            if existing_user:
+                if not getattr(existing_user, 'password_hash', None):
+                    flash('An account with this email already exists via Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
+                else:
                     flash('An account with this email already exists. Please login instead.', 'danger')
-                    return render_template("login.html", active_tab='register')
+                return render_template("login.html", active_tab='register')
             
             # Create new user (requires email verification)
             import uuid
@@ -643,7 +703,12 @@ def login():
             
             # Send verification email
             token = generate_email_verification_token(user)
-            sent_ok = send_email_verification_email(user.email, token, user.name)
+            sent_ok = send_email_verification_email(
+                user.email,
+                token,
+                user.name,
+                next_url=str(session.get('auth_next') or '').strip() or None,
+            )
             user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
             add_user(user)  # persist sent timestamp + verified flag
 
@@ -652,6 +717,9 @@ def login():
             else:
                 flash('Account created, but we could not send a verification email. Please try resending below or contact support.', 'danger')
 
+            nxt = str(session.get('auth_next') or '').strip()
+            if nxt and _is_safe_next_url(nxt):
+                return redirect(url_for('verify_email', email=user.email, next=nxt))
             return redirect(url_for('verify_email', email=user.email))
 
     return render_template("login.html")
@@ -660,13 +728,16 @@ def login():
 @app.route('/verify-email')
 def verify_email():
     """Show verification instructions + resend form."""
+    _set_auth_next_from_request()
     email = (request.args.get('email') or '').strip().lower()
-    return render_template('verify_email.html', email=email)
+    next_url = str(session.get('auth_next') or '').strip()
+    return render_template('verify_email.html', email=email, next_url=next_url)
 
 
 @app.route('/verify-email/<token>')
 def verify_email_token(token):
     """Verify email token, mark user verified, then log them in."""
+    _set_auth_next_from_request()
     payload = confirm_email_verification_token(token, max_age_seconds=EMAIL_VERIFY_TOKEN_EXPIRY_HOURS * 3600)
     if not payload:
         flash('This verification link is invalid or has expired. Please request a new one.', 'danger')
@@ -715,6 +786,12 @@ def verify_email_token(token):
 def resend_verification():
     """Resend verification email for an email/password account."""
     email = (request.form.get('email') or '').strip().lower()
+    try:
+        nxt = (request.form.get('next') or '').strip()
+        if nxt and _is_safe_next_url(nxt):
+            session['auth_next'] = nxt
+    except Exception:
+        pass
     if not email:
         flash('Please enter your email address.', 'danger')
         return redirect(url_for('verify_email'))
@@ -738,7 +815,7 @@ def resend_verification():
         return redirect(url_for('login'))
 
     token = generate_email_verification_token(user)
-    sent_ok = send_email_verification_email(user.email, token, user.name)
+    sent_ok = send_email_verification_email(user.email, token, user.name, next_url=str(session.get('auth_next') or '').strip() or None)
     user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
     add_user(user)
 
@@ -780,8 +857,8 @@ def send_password_reset_email(email, token, user_name):
         
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = os.getenv('NEWSLETTER_EMAIL', '').strip()
-        auth_password = os.getenv('NEWSLETTER_PASSWORD', '').strip().replace(' ', '')
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
         
         if not auth_email or not auth_password:
             raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
@@ -847,7 +924,7 @@ ResumaticAI Team
         logger.info(f"Password reset email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"Error sending password reset email: {str(e)}")
+        logger.exception("Error sending password reset email")
         return False
 
 @app.route("/forgot-password", methods=['GET', 'POST'])
@@ -857,23 +934,18 @@ def forgot_password():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        email = _normalize_email(request.form.get('email', ''))
         
         if not email:
             flash('Please enter your email address.', 'danger')
             return render_template("forgot_password.html")
         
-        # Find user by email
-        user = None
-        for user_id, u in users.items():
-            if u.email.lower() == email:
-                user = u
-                break
+        user = _find_user_by_email(email)
         
         # Always show success message (security: don't reveal if email exists)
         flash('If an account exists with that email, a password reset link has been sent.', 'success')
         
-        if user and user.password_hash:  # Only send if user has password (email signup)
+        if user and _normalize_email(getattr(user, 'email', '')):  # Send for any account with a reachable email
             # Generate reset token
             token = generate_reset_token()
             expiry_time = datetime.now(timezone.utc).timestamp() + (RESET_TOKEN_EXPIRY_HOURS * 3600)
@@ -1142,6 +1214,153 @@ def facebook_callback():
 
 from openai import OpenAI
 
+_FEEDBACK_CATEGORIES = ['Content', 'Format', 'Optimization', 'Best Practices', 'Application Readiness']
+
+
+def _canonical_feedback_category(raw: str) -> str:
+    s = str(raw or '').strip()
+    if not s:
+        return ''
+    key = s.lower().strip()
+    alias = {
+        'content': 'Content',
+        'format': 'Format',
+        'formatting': 'Format',
+        'layout': 'Format',
+        'optimization': 'Optimization',
+        'ats': 'Optimization',
+        'ats optimization': 'Optimization',
+        'ats-optimization': 'Optimization',
+        'best practices': 'Best Practices',
+        'bestpractice': 'Best Practices',
+        'application readiness': 'Application Readiness',
+        'readiness': 'Application Readiness',
+        'job readiness': 'Application Readiness',
+    }
+    # Exact match on canonical names
+    for c in _FEEDBACK_CATEGORIES:
+        if key == c.lower():
+            return c
+    # Alias match
+    if key in alias:
+        return alias[key]
+    # Fuzzy contains (helps when model returns "Optimization (ATS)")
+    if 'content' in key:
+        return 'Content'
+    if 'format' in key or 'layout' in key:
+        return 'Format'
+    if 'optimiz' in key or 'ats' in key:
+        return 'Optimization'
+    if 'best' in key or 'practice' in key:
+        return 'Best Practices'
+    if 'readiness' in key or 'application' in key:
+        return 'Application Readiness'
+    return s
+
+
+def _normalize_feedback(feedback: object) -> dict:
+    """Normalize feedback object so result.html can render reliably."""
+    if not isinstance(feedback, dict):
+        return {'overall_score': 50, 'subscores': {c: 50 for c in _FEEDBACK_CATEGORIES}, 'improvement_items': []}
+
+    out = dict(feedback)
+
+    # overall_score
+    try:
+        overall = int(float(out.get('overall_score', 50)))
+    except Exception:
+        overall = 50
+    overall = max(0, min(100, overall))
+    out['overall_score'] = overall
+
+    # subscores can be dict or list
+    subs = out.get('subscores', {})
+    normalized_subs: dict[str, int] = {}
+    if isinstance(subs, dict):
+        for k, v in subs.items():
+            cat = _canonical_feedback_category(k)
+            if not cat:
+                continue
+            try:
+                score = int(float(v))
+            except Exception:
+                score = overall
+            normalized_subs[cat] = max(0, min(100, score))
+    elif isinstance(subs, list):
+        # accept [{category, score}] style
+        for it in subs:
+            if not isinstance(it, dict):
+                continue
+            cat = _canonical_feedback_category(it.get('category') or it.get('name') or it.get('Category'))
+            if not cat:
+                continue
+            try:
+                score = int(float(it.get('score', overall)))
+            except Exception:
+                score = overall
+            normalized_subs[cat] = max(0, min(100, score))
+
+    # Fill missing categories so the UI tabs always render
+    for c in _FEEDBACK_CATEGORIES:
+        if c not in normalized_subs:
+            normalized_subs[c] = overall
+    out['subscores'] = normalized_subs
+
+    # improvement_items can be list or dict-by-category
+    items = out.get('improvement_items', [])
+    normalized_items: list[dict] = []
+    if isinstance(items, dict):
+        # e.g. {"Content": ["msg1", ...], ...}
+        for k, v in items.items():
+            cat = _canonical_feedback_category(k)
+            if isinstance(v, list):
+                for msg in v:
+                    normalized_items.append({
+                        'category': cat,
+                        'message': str(msg or '').strip(),
+                        'severity': 'suggestion',
+                        'example_lines': '',
+                    })
+    elif isinstance(items, list):
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            cat = _canonical_feedback_category(
+                it.get('category') or it.get('Category') or it.get('category_name') or it.get('categoryName')
+            )
+            msg = it.get('message') or it.get('suggestion') or it.get('feedback') or it.get('text') or ''
+            sev = (it.get('severity') or it.get('level') or it.get('importance') or 'suggestion')
+            ex = it.get('example_lines') or it.get('example') or it.get('exampleLines') or ''
+            sev_s = str(sev or '').strip().lower()
+            if sev_s not in ('error', 'warning', 'suggestion'):
+                sev_s = 'suggestion'
+            normalized_items.append({
+                'category': cat or '',
+                'message': str(msg or '').strip(),
+                'severity': sev_s,
+                'example_lines': str(ex or '').strip(),
+            })
+
+    # Keep only items with a message; canonicalize categories; default unknown to Content (so they are visible)
+    cleaned = []
+    for it in normalized_items:
+        m = str(it.get('message') or '').strip()
+        if not m:
+            continue
+        c = _canonical_feedback_category(it.get('category'))
+        if c not in _FEEDBACK_CATEGORIES:
+            c = 'Content'
+        cleaned.append({
+            'category': c,
+            'message': m,
+            'severity': it.get('severity') or 'suggestion',
+            'example_lines': it.get('example_lines') or '',
+        })
+    out['improvement_items'] = cleaned
+
+    return out
+
+
 def revise_resume(resume_text, job_description=None):
     try:
         # Initialize the client inside the function to avoid blocking startup
@@ -1184,7 +1403,7 @@ Provide your response in the following JSON format ONLY (no markdown, no additio
     }},
     "improvement_items": [
       {{
-        "category": "<category name>",
+        "category": "<ONE OF: Content | Format | Optimization | Best Practices | Application Readiness>",
         "message": "<improvement suggestion>",
         "severity": "<error|warning|suggestion>",
         "example_lines": "<relevant example from resume>"
@@ -1204,7 +1423,7 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-5.2-2025-12-11",
                 messages=[{"role": "user", "content": prompt}]
             )
         except Exception as e:
@@ -1228,7 +1447,7 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
             data = json.loads(raw_content)
             if "revised_resume" not in data or "feedback" not in data:
                 raise ValueError("Missing required keys in JSON response")
-            return data["revised_resume"], data["feedback"]
+            return data["revised_resume"], _normalize_feedback(data["feedback"])
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {str(e)}")
             print(f"Raw content: {raw_content}")
@@ -1244,41 +1463,6 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
         raise
 
 
-def revised_resume_formatted(revised_resume):
-
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    client = OpenAI(
-        api_key=api_key,
-        timeout=60.0,
-        max_retries=3,
-    )
-
-    prompt2 = f"Please format the following resume for better readability:\n\n{revised_resume}"
-    response2 = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt2}],
-    )
-    return response2.choices[0].message.content
-
-
-def revised_resume_template(revised_resume):
-    resume_text = request.form.get("resume", "").strip()
-    
-    # Validate that we have resume content
-    if not resume_text:
-        flash("Please upload a resume file or paste your resume content", 'danger')
-        return redirect(url_for('index', scroll_to_form='true'))
-    
-    # Get job description (optional)
-    job_description = request.form.get("jobDescription", "").strip()
-    
-    # Process the resume
-    print(f"Resume text preview (first 200 chars): {resume_text[:200]}...")
-    print(f"Job description preview: {job_description[:100] if job_description else 'None'}...")
-    revised_resume, feedback = revise_resume(resume_text, job_description)
 
 @app.route("/")
 def index():
@@ -1347,6 +1531,35 @@ def _split_skills(value: str) -> list:
     return [x.strip() for x in value.split(',') if x.strip()]
 
 
+_BULLET_PREFIX_RE = re.compile(r'^\s*(?:\u2022|•|[-–—*]|●|◦|▪|·)\s+')
+
+
+def _auto_bullet_sentences(text: str) -> str:
+    """Convert plain sentences into bullet lines.
+
+    If the input already contains bullet prefixes, preserve line structure.
+    """
+    raw = str(text or '').replace('\r\n', '\n').strip()
+    if not raw:
+        return ''
+
+    lines = [ln.strip() for ln in raw.split('\n') if ln.strip()]
+    if not lines:
+        return ''
+
+    if any(_BULLET_PREFIX_RE.match(ln) for ln in lines):
+        return '\n'.join(lines)
+
+    joined = ' '.join(lines).strip()
+    if not joined:
+        return ''
+
+    parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', joined) if p and p.strip()]
+    if len(parts) <= 1:
+        return f"• {joined}"
+    return '\n'.join([f"• {p}" for p in parts])
+
+
 def _build_compiled_resume_text(structured: dict) -> str:
     name = str(structured.get('name') or '').strip()
     title = str(structured.get('title') or '').strip()
@@ -1402,18 +1615,26 @@ def _build_compiled_resume_text(structured: dict) -> str:
             lines.pop()
 
     edu = structured.get('education') or []
-    if isinstance(edu, list) and any((d.get('degree') or d.get('institution') or d.get('year')) for d in edu if isinstance(d, dict)):
+    if isinstance(edu, list) and any((d.get('degree') or d.get('field_of_study') or d.get('institution') or d.get('year') or d.get('gpa')) for d in edu if isinstance(d, dict)):
         lines.append('')
         lines.append('EDUCATION')
         for d in edu:
             if not isinstance(d, dict):
                 continue
             degree = str(d.get('degree') or '').strip()
+            field_of_study = str(d.get('field_of_study') or '').strip()
             inst = str(d.get('institution') or '').strip()
             year = str(d.get('year') or '').strip()
-            bits = [b for b in [degree, inst] if b]
+            gpa = str(d.get('gpa') or '').strip()
+            bits = [b for b in [degree] if b]
+            if field_of_study and field_of_study.lower() not in degree.lower():
+                bits.append(field_of_study)
+            if inst:
+                bits.append(inst)
             if year:
                 bits.append(year)
+            if gpa:
+                bits.append(f"GPA: {gpa}")
             if bits:
                 lines.append(' — '.join(bits))
 
@@ -1523,6 +1744,8 @@ def resume_new():
         company = (exp_companies[i] if i < len(exp_companies) else '').strip()
         duration = (exp_durations[i] if i < len(exp_durations) else '').strip()
         desc = (exp_descs[i] if i < len(exp_descs) else '').strip()
+        if desc:
+            desc = _auto_bullet_sentences(desc)
         if not any([title, company, duration, desc]):
             continue
         structured['experience'].append({
@@ -1534,17 +1757,30 @@ def resume_new():
 
     edu_degrees = request.form.getlist('edu_degree')
     edu_years = request.form.getlist('edu_year')
+    edu_fields = request.form.getlist('edu_field_of_study')
     edu_insts = request.form.getlist('edu_institution')
-    for i in range(max(len(edu_degrees), len(edu_years), len(edu_insts))):
+    edu_gpas = request.form.getlist('edu_gpa')
+    for i in range(max(len(edu_degrees), len(edu_years), len(edu_fields), len(edu_insts), len(edu_gpas))):
         degree = (edu_degrees[i] if i < len(edu_degrees) else '').strip()
         year = (edu_years[i] if i < len(edu_years) else '').strip()
+        field_of_study = (edu_fields[i] if i < len(edu_fields) else '').strip()
         inst = (edu_insts[i] if i < len(edu_insts) else '').strip()
-        if not any([degree, year, inst]):
+        gpa = (edu_gpas[i] if i < len(edu_gpas) else '').strip()
+        if not any([degree, year, field_of_study, inst, gpa]):
             continue
+        degree_display = degree
+        if field_of_study:
+            if degree_display:
+                if field_of_study.lower() not in degree_display.lower():
+                    degree_display = f"{degree_display} in {field_of_study}"
+            else:
+                degree_display = field_of_study
         structured['education'].append({
-            'degree': degree,
+            'degree': degree_display,
+            'field_of_study': field_of_study,
             'institution': inst,
             'year': year,
+            'gpa': gpa,
         })
 
     cert_names = request.form.getlist('cert_name')
@@ -1597,6 +1833,23 @@ def resume_new():
     return redirect(url_for('resume_choose_template'))
 
 
+@app.route('/resume/new/start')
+@app.route('/resume/new/start/')
+@app.route('/create-resume/start')
+@app.route('/create-resume/start/')
+def resume_new_start():
+    """Start a fresh 'build new resume' attempt.
+
+    Clears any previous results/template snapshot so users always get the template chooser,
+    even if they previously built a resume in the same session.
+    """
+    session.pop('template_data', None)
+    session.pop('results_data', None)
+    session.pop('pending_revision', None)
+    session.modified = True
+    return redirect(url_for('resume_new'))
+
+
 @app.route('/resume/templates')
 @app.route('/resume/templates/')
 def resume_choose_template():
@@ -1611,7 +1864,13 @@ def resume_choose_template():
 @app.route("/plans")
 def plans():
     current_year = datetime.now().year
-    return render_template("plans.html", year=current_year, user=current_user)
+    trial_unavailable = False
+    try:
+        if getattr(current_user, 'is_authenticated', False):
+            trial_unavailable = _trial_already_used_for_user(current_user)
+    except Exception:
+        trial_unavailable = False
+    return render_template("plans.html", year=current_year, user=current_user, trial_unavailable=trial_unavailable)
 
 
 def _get_plan_config(plan_id: str) -> Optional[dict]:
@@ -2042,6 +2301,92 @@ def _stripe_latest_invoice_for_subscription(subscription_id: str):
         return None
     return None
 
+
+def _stripe_customer_has_any_subscription(customer_id: str) -> bool:
+    """Return True if a Stripe customer has *any* subscription history.
+
+    We use this to enforce that the trial offer is one-time.
+    Best-effort across stripe-python versions.
+    """
+    cid = (customer_id or "").strip()
+    if not cid or not _stripe_enabled():
+        return False
+    try:
+        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    except Exception:
+        return False
+    try:
+        # Preferred: include canceled subs
+        res = stripe.Subscription.list(customer=cid, status="all", limit=1)
+        data = list(getattr(res, "data", []) or [])
+        return bool(data)
+    except Exception:
+        pass
+    try:
+        # Fallback: at least detect active subs
+        res2 = stripe.Subscription.list(customer=cid, limit=1)
+        data2 = list(getattr(res2, "data", []) or [])
+        return bool(data2)
+    except Exception:
+        pass
+    try:
+        # Lowest-level fallback
+        res3 = stripe.Subscription._static_request(
+            "get",
+            "/v1/subscriptions",
+            params={"customer": cid, "status": "all", "limit": 1},
+        )
+        data3 = _stripe_obj_get(res3, "data", []) or []
+        return bool(data3)
+    except Exception:
+        return False
+
+
+def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
+    """Return True if the trial should be blocked for this user.
+
+    Enforces one-time offer at the application layer. This is necessarily best-effort:
+    it reliably blocks repeat purchases for the same account and attempts to also block
+    repeat purchases for the same Stripe customer/email.
+    """
+    try:
+        if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+            return False
+
+        # If they're already paid/trialing via our own checks, they shouldn't buy the trial.
+        try:
+            if is_paid_user(user_obj):
+                return True
+        except Exception:
+            pass
+
+        prof = get_user_profile_azure(getattr(user_obj, 'id', '')) or {}
+
+        # Explicit persisted flags (set by webhook / checkout_complete)
+        if bool(prof.get('trial_used', False)):
+            return True
+        if str(prof.get('trial_used_at') or '').strip():
+            return True
+
+        # If the user has any known plan status other than free, treat the trial as already used.
+        plan_status = str(prof.get('plan_status') or '').strip().lower()
+        if plan_status and plan_status != 'free':
+            return True
+
+        # Stripe-side: block if the customer/email has any subscription history.
+        if _stripe_enabled():
+            customer_id = str(prof.get('stripe_customer_id') or '').strip()
+            if not customer_id:
+                email = (getattr(user_obj, 'email', '') or '').strip()
+                if email:
+                    customer_id = _find_stripe_customer_id_by_email(email)
+            if customer_id and _stripe_customer_has_any_subscription(customer_id):
+                return True
+
+        return False
+    except Exception:
+        return False
+
 def _get_stripe_price_id(plan_id: str) -> Optional[str]:
     """Map internal plan IDs to Stripe Price IDs via env vars."""
     if plan_id == 'trial_14d':
@@ -2072,7 +2417,8 @@ def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
     defaults = {
         # Provided by user
         'trial_14d': 'https://buy.stripe.com/cNi6oBeZ21gXfAu1cD7Vm02',
-        'monthly_10_95': 'https://buy.stripe.com/bJe7sFcQU4t93RM7B17Vm03',
+        # Updated to latest Stripe-provided monthly link (promo codes configured here)
+        'monthly_10_95': 'https://buy.stripe.com/5kQ6oBcQUaRxcoif3t7Vm05',
         'annual_6_95': 'https://buy.stripe.com/aFa9ANdUYgbR9c6bRh7Vm04',
     }
     if plan_id == 'trial_14d':
@@ -2130,6 +2476,11 @@ def checkout():
         # Require login so we can unlock paid features for the correct user.
         return redirect(url_for("login", next=request.full_path))
 
+    # Enforce: 2-week trial is a one-time offer.
+    if plan_id == 'trial_14d' and _trial_already_used_for_user(current_user):
+        flash("The 2-week trial is a one-time offer and has already been used on this account. Please choose Monthly or Annual.", "warning")
+        return redirect(url_for("plans"))
+
     # Upgrade during trial:
     # Charge the customer now (so they enter card + pay immediately), but keep the trial time.
     # We do this by charging a one-time amount now and then applying it as a customer-balance credit,
@@ -2183,61 +2534,14 @@ def checkout():
         except Exception:
             pass
 
-    # Preferred: Stripe Payment Links (fastest, no API calls required here).
-    # NOTE: For monthly/annual subscriptions we prefer the API-based Checkout Session.
-    # Payment Links can be configured in Stripe to align billing cycles (e.g., to the 1st of the month),
-    # which can make a brand-new subscription show a near-immediate renewal date.
+    # For brand-new Monthly/Annual purchases, prefer Stripe Payment Links.
+    # This keeps promo-code behavior consistent with what you configure in Stripe.
     if _stripe_enabled() and plan_id in ("monthly_10_95", "annual_6_95"):
-        price_id = _get_stripe_price_id(plan_id)
-        if not price_id:
-            # If Price IDs aren't configured but Payment Links exist, fall back so the UI still works.
-            pl_redirect = _redirect_to_stripe_payment_link(plan_id)
-            if pl_redirect:
-                flash("Checkout is temporarily using a hosted payment link.", "info")
-                return pl_redirect
-            flash("Checkout is not configured. Please contact support.", "danger")
-            return redirect(url_for("plans"))
+        pl_redirect = _redirect_to_stripe_payment_link(plan_id)
+        if pl_redirect:
+            return pl_redirect
 
-        try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
-            success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
-            cancel_url = url_for('plans', _external=True, _scheme=request.scheme)
-            base_kwargs = dict(
-                mode="subscription",
-                line_items=[{"price": price_id, "quantity": 1}],
-                customer_email=(getattr(current_user, 'email', '') or None),
-                client_reference_id=str(current_user.id),
-                metadata={"plan_id": plan_id},
-                success_url=success_url,
-                cancel_url=cancel_url,
-                allow_promotion_codes=True,
-            )
-
-            # Try to anchor billing to "now" (prevents Stripe from aligning billing to the 1st of the month).
-            # Use an explicit UNIX timestamp because some Stripe API/Checkout configurations reject the string "now".
-            session_obj = None
-            try:
-                anchor_ts = int(datetime.now(timezone.utc).timestamp())
-                session_obj = stripe.checkout.Session.create(
-                    **base_kwargs,
-                    subscription_data={
-                        "billing_cycle_anchor": anchor_ts,
-                    },
-                )
-            except Exception as e:
-                logger.warning(f"Checkout Session create with billing anchor failed; retrying without anchor: {type(e).__name__}: {str(e)}")
-                session_obj = stripe.checkout.Session.create(**base_kwargs)
-            return redirect(session_obj.url, code=303)
-        except Exception as e:
-            logger.error(f"Stripe checkout session create failed (subscription): {str(e)}")
-            # Fall back to Payment Link for monthly/annual if Checkout Session creation fails.
-            pl_redirect = _redirect_to_stripe_payment_link(plan_id)
-            if pl_redirect:
-                flash("Checkout session failed; using hosted payment link instead.", "warning")
-                return pl_redirect
-            flash("Checkout is temporarily unavailable. Please try again.", "danger")
-            return redirect(url_for("plans"))
-
+    # For other plans (or if Payment Links are configured later), still allow Payment Link redirects.
     pl_redirect = _redirect_to_stripe_payment_link(plan_id)
     if pl_redirect:
         return pl_redirect
@@ -2300,6 +2604,11 @@ def checkout_complete():
         flash("Invalid plan selection.", "danger")
         return redirect(url_for("plans"))
 
+    # Enforce one-time trial offer even when running with the placeholder checkout flow.
+    if plan_id == 'trial_14d' and _trial_already_used_for_user(current_user):
+        flash("The 2-week trial is a one-time offer and has already been used on this account.", "warning")
+        return redirect(url_for("plans"))
+
     try:
         paid_until = (datetime.now(timezone.utc) + timedelta(days=int(plan.get('duration_days') or 0))).isoformat()
         table_client = get_users_table_client()
@@ -2310,6 +2619,9 @@ def checkout_complete():
             'plan_status': plan.get('plan_status') or 'paid',
             'paid_until': paid_until,
         }
+        if plan_id == 'trial_14d':
+            entity['trial_used'] = True
+            entity['trial_used_at'] = datetime.now(timezone.utc).isoformat()
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         flash(f"You're all set! {plan.get('label')} activated.", "success")
         return redirect(url_for("my_revisions"))
@@ -2476,6 +2788,10 @@ def stripe_webhook():
                     "is_paid": True,
                     "plan_status": (plan_id or plan_status or "paid"),
                 }
+                if str(plan_id or '').strip() == 'trial_14d':
+                    # Persist one-time trial usage flag.
+                    entity["trial_used"] = True
+                    entity["trial_used_at"] = datetime.now(timezone.utc).isoformat()
                 if paid_until:
                     entity["paid_until"] = paid_until
                 if customer_id:
@@ -2780,6 +3096,101 @@ def _canonical_template_id(raw: str) -> str:
     }
     return alias_to_canonical.get(key, 'professional')
 
+
+_KNOWN_TEMPLATE_IDS = [
+    'professional',
+    'elegant',
+    'creative',
+    'boldProfessional',
+    'traditional',
+    'modern',
+    'executive',
+    # Optional/experimental
+    'minimal',
+    'darkSidebarProgress',
+]
+
+
+def _format_template_display_name(raw: str) -> str:
+    s = str(raw or '')
+    s = re.sub(r'[_-]+', ' ', s)
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', s)
+    s = s.strip()
+    if not s:
+        return ''
+    words = [w for w in re.split(r'\s+', s) if w]
+    return ' '.join([w[:1].upper() + w[1:] for w in words])
+
+
+def _template_snapshot_prop_names(template_id: str):
+    tid = _canonical_template_id(template_id)
+    # Property names should be simple and stable.
+    suffix = re.sub(r'[^A-Za-z0-9]', '_', tid)
+    return (
+        f'template_structured_resume__{suffix}',
+        f'template_structured_resume_gz_b64__{suffix}',
+        f'template_saved_at__{suffix}',
+    )
+
+
+def _entity_get_ci(entity: dict, key: str, default=None):
+    """Case-insensitive lookup for Azure Table entity properties.
+
+    Some historical entities may have different casing for property names.
+    """
+    if not isinstance(entity, dict):
+        return default
+    if key in entity:
+        return entity.get(key, default)
+    want = str(key).lower()
+    for k in entity.keys():
+        if str(k).lower() == want:
+            return entity.get(k, default)
+    return default
+
+
+def _load_structured_snapshot_for_template(entity: dict, template_id: str):
+    """Load a persisted structured resume snapshot for a specific template.
+
+    Returns a dict (structured_resume) or None if no snapshot exists.
+    """
+    tid = _canonical_template_id(template_id)
+    plain_prop, gz_prop, _ = _template_snapshot_prop_names(tid)
+
+    raw_snapshot = str(_entity_get_ci((entity or {}), plain_prop, '') or '').strip()
+    raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), gz_prop, '') or '').strip()
+
+    # Backward compatibility: older saves stored only one snapshot on the revision entity.
+    if not raw_snapshot and not raw_snapshot_gz_b64:
+        legacy_tid = _canonical_template_id(str(_entity_get_ci((entity or {}), 'template_id', '') or '').strip() or 'professional')
+        if legacy_tid == tid:
+            raw_snapshot = str(_entity_get_ci((entity or {}), 'template_structured_resume', '') or '').strip()
+            raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), 'template_structured_resume_gz_b64', '') or '').strip()
+
+            # Extra legacy aliases (defensive): camelCase keys from older experiments.
+            if not raw_snapshot:
+                raw_snapshot = str(_entity_get_ci((entity or {}), 'templateStructuredResume', '') or '').strip()
+            if not raw_snapshot_gz_b64:
+                raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), 'templateStructuredResumeGzB64', '') or '').strip()
+
+    if raw_snapshot:
+        try:
+            obj = json.loads(raw_snapshot)
+            return obj if isinstance(obj, dict) else None
+        except Exception:
+            return None
+    if raw_snapshot_gz_b64:
+        try:
+            import base64
+            import gzip
+            decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
+            inflated = gzip.decompress(decoded).decode('utf-8')
+            obj = json.loads(inflated)
+            return obj if isinstance(obj, dict) else None
+        except Exception:
+            return None
+    return None
+
 @app.route("/api/parse-resume-for-template", methods=["POST"])
 def parse_resume_for_template():
     """Parse resume and store structured data in session for template viewing"""
@@ -2950,8 +3361,39 @@ def update_template_data():
                         pass
 
                 if not source_revision_id:
-                    persist_reason = 'missing_source_revision_id'
-                else:
+                    # Auto-create a new revision for new resumes (created via template builder)
+                    # that don't yet have a source_revision_id.
+                    import uuid
+                    source_revision_id = str(uuid.uuid4())
+                    revised_resume = str(template_data.get('revised_resume') or '')
+                    
+                    try:
+                        # Create a new revision entry in the database
+                        save_resume_revision(
+                            user_id=current_user.id,
+                            revision_id=source_revision_id,
+                            resume_content=revised_resume,
+                            feedback={},
+                            original_resume='',
+                            job_description=''
+                        )
+                        # Update session to track the new revision ID for future saves
+                        if isinstance(results_data, dict):
+                            results_data['source_revision_id'] = source_revision_id
+                            session['results_data'] = results_data
+                        if isinstance(template_data, dict):
+                            template_data['source_revision_id'] = source_revision_id
+                            session['template_data'] = template_data
+                    except FreeTierLimitReached:
+                        # User has hit the free tier limit
+                        persist_reason = 'free_tier_limit'
+                        source_revision_id = None
+                    except Exception as e:
+                        logger.error(f"Failed to auto-create revision: {str(e)}")
+                        persist_reason = 'revision_creation_failed'
+                        source_revision_id = None
+                
+                if source_revision_id:
                     template_id = _canonical_template_id(template_data.get('template_name') or 'professional')
 
                     snapshot = json.dumps(resume, ensure_ascii=False)
@@ -2969,11 +3411,34 @@ def update_template_data():
                         existing['template_id'] = template_id
                         existing['template_saved_at'] = datetime.now(timezone.utc).isoformat()
 
+                        # Track all saved templates for this revision (small JSON list)
+                        try:
+                            current_list_raw = str(existing.get('template_saved_templates') or '').strip()
+                            current_list = json.loads(current_list_raw) if current_list_raw else []
+                            if not isinstance(current_list, list):
+                                current_list = []
+                        except Exception:
+                            current_list = []
+                        saved_set = set([_canonical_template_id(t) for t in current_list if str(t or '').strip()])
+                        saved_set.add(template_id)
+                        try:
+                            existing['template_saved_templates'] = json.dumps(sorted(saved_set), ensure_ascii=False)
+                        except Exception:
+                            # Best effort; don't block saves
+                            pass
+
+                        # Store per-template snapshot (allows multiple template versions per revision)
+                        per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
+                        existing[per_at_prop] = existing['template_saved_at']
+
                         # Azure Table Storage string properties have tight size limits.
                         # Prefer plain JSON when small; otherwise fall back to gzipped base64.
                         if len(snapshot_bytes) <= 60_000:
                             existing['template_structured_resume'] = snapshot
                             existing['template_structured_resume_gz_b64'] = ''
+
+                            existing[per_plain_prop] = snapshot
+                            existing[per_gz_prop] = ''
                             table_client.update_entity(existing, mode=UpdateMode.MERGE)
                             persisted_to_hub = True
                             persisted_format = 'plain'
@@ -2985,11 +3450,17 @@ def update_template_data():
                             if len(b64.encode('ascii')) <= 60_000:
                                 existing['template_structured_resume'] = ''
                                 existing['template_structured_resume_gz_b64'] = b64
+
+                                existing[per_plain_prop] = ''
+                                existing[per_gz_prop] = b64
                                 table_client.update_entity(existing, mode=UpdateMode.MERGE)
                                 persisted_to_hub = True
                                 persisted_format = 'gz_b64'
                             else:
                                 persist_reason = 'snapshot_too_large'
+                else:
+                    if not persist_reason:
+                        persist_reason = 'missing_source_revision_id'
 
         except Exception:
             persisted_to_hub = False
@@ -3011,7 +3482,6 @@ def update_template_data():
 
 
 @app.route('/api/ai/resume-edit', methods=['POST'])
-@login_required
 def api_ai_resume_edit():
     """Rewrite a specific text field using OpenAI.
 
@@ -3020,16 +3490,6 @@ def api_ai_resume_edit():
     - Create-resume page (summary + job description helper)
     """
     try:
-        if not current_user.is_authenticated:
-            return jsonify({"success": False, "error": "Not authenticated"}), 401
-
-        # If you want to enforce verification here too, keep the gate consistent with the rest of the app.
-        try:
-            if _requires_email_verification(current_user):
-                return jsonify({"success": False, "error": "Email verification required"}), 403
-        except Exception:
-            pass
-
         payload = request.get_json(force=True, silent=True) or {}
         field_raw = str(payload.get('field') or '')
         field = field_raw.strip().lower()
@@ -3300,36 +3760,6 @@ def blog_post(post):
             post_metadata=post_metadata,
         )
 
-@app.route("/templates")
-def templates():
-    # Explicitly pass API key to handle Azure environment
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-    
-    # Configure timeout and retry for Azure reliability
-    client_templates = OpenAI(
-        api_key=api_key,
-        timeout=60.0,
-        max_retries=3
-    )
-    prompt= f'''Please create a python dictionary with the section names of the provided resume 
-    as keys and the associated content as values.'''
-    try:
-            response = client_templates.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}]
-            )
-    except Exception as e:
-            error_msg = str(e)
-            print(f"OpenAI API Error: {error_msg}")
-            logger.error(f"OpenAI API Error details: {type(e).__name__}: {error_msg}")
-            raise ValueError(f"Failed to connect to OpenAI API: {error_msg}")
-
-    resume_data = response.choices[0].message.content
-    resume_data = request.json.get('resume_data')
-
-    return render_template('resume_template.html', resume=resume_data)
 
 
 @app.route("/subscribe", methods=["POST"])
@@ -3538,6 +3968,8 @@ def admin_stats():
         return redirect(url_for("index"))
 
     try:
+        # Ensure admin form CSRF token exists (used by /admin/stats inline delete form)
+        _get_admin_csrf_token()
         # Get comprehensive analytics data
         analytics_data = analytics.get_full_analytics()
 
@@ -3631,6 +4063,7 @@ def sitemap():
         'about': {'priority': '0.8', 'changefreq': 'monthly'},
         'blog': {'priority': '0.9', 'changefreq': 'weekly'},
         'contact': {'priority': '0.7', 'changefreq': 'monthly'},
+        'feedback': {'priority': '0.6', 'changefreq': 'monthly'},
         'privacy': {'priority': '0.3', 'changefreq': 'yearly'},
         'terms_privacy': {'priority': '0.3', 'changefreq': 'yearly'},
     }
@@ -4019,6 +4452,52 @@ def get_user_revisions(user_id):
                 feedback = json.loads(e['feedback'])
             except Exception:
                 feedback = {}
+
+        # Gather saved template versions (multi-template support)
+        template_versions = []
+        try:
+            raw_saved = str(e.get('template_saved_templates', '') or '').strip()
+            saved_list = json.loads(raw_saved) if raw_saved else []
+            if not isinstance(saved_list, list):
+                saved_list = []
+        except Exception:
+            saved_list = []
+
+        candidates = []
+        if saved_list:
+            # Preserve stored order if present.
+            for t in saved_list:
+                tid = _canonical_template_id(str(t or '').strip())
+                if tid and tid not in candidates:
+                    candidates.append(tid)
+        else:
+            candidates = list(_KNOWN_TEMPLATE_IDS)
+
+        seen = set()
+        for tid in candidates:
+            plain_prop, gz_prop, at_prop = _template_snapshot_prop_names(tid)
+            if str(e.get(plain_prop, '') or '').strip() or str(e.get(gz_prop, '') or '').strip():
+                template_versions.append({
+                    'template_id': tid,
+                    'template_display_name': _format_template_display_name(tid),
+                    'template_saved_at': str(e.get(at_prop, '') or '').strip(),
+                })
+                seen.add(tid)
+
+        # Backward compatibility: legacy single-snapshot field.
+        legacy_has = bool(
+            str(_entity_get_ci(e, 'template_structured_resume', '') or '').strip()
+            or str(_entity_get_ci(e, 'template_structured_resume_gz_b64', '') or '').strip()
+            or str(_entity_get_ci(e, 'templateStructuredResume', '') or '').strip()
+            or str(_entity_get_ci(e, 'templateStructuredResumeGzB64', '') or '').strip()
+        )
+        legacy_tid = _canonical_template_id(str(_entity_get_ci(e, 'template_id', '') or '').strip() or 'professional')
+        if legacy_has and legacy_tid not in seen:
+            template_versions.append({
+                'template_id': legacy_tid,
+                'template_display_name': _format_template_display_name(legacy_tid),
+                'template_saved_at': str(_entity_get_ci(e, 'template_saved_at', '') or '').strip(),
+            })
         revisions.append({
             'revision_id': e['RowKey'],
             'timestamp': timestamp,
@@ -4031,10 +4510,8 @@ def get_user_revisions(user_id):
             # Optional: persisted template edit-mode snapshot
             'template_id': str(e.get('template_id', '') or '').strip(),
             'template_saved_at': str(e.get('template_saved_at', '') or '').strip(),
-            'has_template_snapshot': bool(
-                str(e.get('template_structured_resume', '') or '').strip()
-                or str(e.get('template_structured_resume_gz_b64', '') or '').strip()
-            ),
+            'has_template_snapshot': bool(template_versions),
+            'template_versions': template_versions,
         })
     utc_min = datetime.min.replace(tzinfo=timezone.utc)
     revisions.sort(key=lambda x: x['timestamp'] or utc_min, reverse=True)
@@ -4493,22 +4970,7 @@ def edit_revision_template(revision_id):
     template_id = _canonical_template_id(template_id)
 
     structured_resume = None
-    raw_snapshot = str(entity.get('template_structured_resume', '') or '').strip()
-    raw_snapshot_gz_b64 = str(entity.get('template_structured_resume_gz_b64', '') or '').strip()
-    if raw_snapshot:
-        try:
-            structured_resume = json.loads(raw_snapshot)
-        except Exception:
-            structured_resume = None
-    elif raw_snapshot_gz_b64:
-        try:
-            import base64
-            import gzip
-            decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
-            inflated = gzip.decompress(decoded).decode('utf-8')
-            structured_resume = json.loads(inflated)
-        except Exception:
-            structured_resume = None
+    structured_resume = _load_structured_snapshot_for_template(entity, template_id)
     if structured_resume is None:
         try:
             structured_resume = parse_resume(resume_text).get('resume', {})
@@ -4564,22 +5026,7 @@ def download_revision_template_pdf(revision_id):
     template_id = _canonical_template_id(template_id)
 
     structured_resume = None
-    raw_snapshot = str(entity.get('template_structured_resume', '') or '').strip()
-    raw_snapshot_gz_b64 = str(entity.get('template_structured_resume_gz_b64', '') or '').strip()
-    if raw_snapshot:
-        try:
-            structured_resume = json.loads(raw_snapshot)
-        except Exception:
-            structured_resume = None
-    elif raw_snapshot_gz_b64:
-        try:
-            import base64
-            import gzip
-            decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
-            inflated = gzip.decompress(decoded).decode('utf-8')
-            structured_resume = json.loads(inflated)
-        except Exception:
-            structured_resume = None
+    structured_resume = _load_structured_snapshot_for_template(entity, template_id)
     if structured_resume is None:
         try:
             structured_resume = parse_resume(resume_text).get('resume', {})
@@ -4904,6 +5351,276 @@ def admin_set_user_plan():
         logger.error(f"admin_set_user_plan error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+
+def _same_origin_post() -> bool:
+    """Best-effort CSRF mitigation for admin POST endpoints (same-origin only)."""
+    try:
+        from urllib.parse import urlparse
+
+        def host_only(netloc: str) -> str:
+            # drop userinfo and port, keep hostname
+            nl = (netloc or "").strip()
+            if "@" in nl:
+                nl = nl.split("@", 1)[1]
+            if ":" in nl:
+                nl = nl.split(":", 1)[0]
+            return nl.lower()
+
+        origin = (request.headers.get('Origin') or '').strip()
+        referer = (request.headers.get('Referer') or '').strip()
+
+        # Prefer forwarded host if present (Azure proxy), else fall back.
+        req_host = host_only((request.headers.get('X-Forwarded-Host') or request.host or urlparse(request.host_url).netloc))
+        if not req_host:
+            req_host = host_only(urlparse(request.host_url).netloc)
+
+        if origin:
+            return host_only(urlparse(origin).netloc) == req_host
+        if referer:
+            return host_only(urlparse(referer).netloc) == req_host
+    except Exception:
+        pass
+    # If we can't determine, allow (keeps local/dev tools working).
+    return True
+
+
+def _get_admin_csrf_token() -> str:
+    """Session-backed CSRF token for admin forms (reliable behind Azure proxies)."""
+    try:
+        tok = str(session.get('admin_csrf') or '').strip()
+        if tok:
+            return tok
+        import secrets
+        tok = secrets.token_urlsafe(32)
+        session['admin_csrf'] = tok
+        session.modified = True
+        return tok
+    except Exception:
+        return ""
+
+
+def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = True) -> dict:
+    email = (email or '').strip().lower()
+    user_id = (user_id or '').strip()
+    delete_revisions = True if delete_revisions is None else bool(delete_revisions)
+
+    if not email and not user_id:
+        return {"ok": False, "status": 400, "error": "Missing email or user_id"}
+
+    resolved_ids: list[str] = []
+
+    # Always include explicit user_id if provided
+    if user_id:
+        resolved_ids.append(user_id)
+
+    # 1) Local in-memory users dict (covers email/password + cached oauth users)
+    if email:
+        for uid, u in list(users.items()):
+            u_email = (getattr(u, 'email', '') or '').strip().lower()
+            if u_email and u_email == email:
+                resolved_ids.append(str(uid))
+
+    # 2) Local persistent auth store file (covers the common "restart resurrects user" case)
+    if email:
+        try:
+            if os.path.exists(USERS_FILE):
+                with open(USERS_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f) or {}
+                for uid, ud in (data or {}).items():
+                    e = str((ud or {}).get('email') or '').strip().lower()
+                    if e and e == email:
+                        resolved_ids.append(str(uid))
+        except Exception:
+            pass
+
+    # 3) Azure Users table resolve by email (covers production)
+    azure_resolve_error = ""
+    if email:
+        try:
+            table_client = get_users_table_client()
+            for e in table_client.list_entities():
+                if str(e.get('RowKey') or '') != 'profile':
+                    continue
+                e_email = str(e.get('email') or '').strip().lower()
+                if e_email == email:
+                    pk = str(e.get('PartitionKey') or '').strip()
+                    if pk:
+                        resolved_ids.append(pk)
+        except Exception as e:
+            azure_resolve_error = str(e)
+
+    # De-dupe
+    seen = set()
+    resolved_ids = [x for x in resolved_ids if x and not (x in seen or seen.add(x))]
+
+    if not resolved_ids:
+        return {"ok": False, "status": 404, "error": "User not found", "azure_resolve_error": azure_resolve_error}
+
+    deleted_local = 0
+    # Remove from runtime dict first
+    for uid in resolved_ids:
+        if uid in users:
+            try:
+                users.pop(uid, None)
+                deleted_local += 1
+            except Exception:
+                pass
+
+    # Remove from persistent file by uid AND by email match (defensive)
+    deleted_from_file = 0
+    file_errors: list[str] = []
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f) or {}
+        else:
+            data = {}
+        changed = False
+        for uid in list(data.keys()):
+            if str(uid) in resolved_ids:
+                data.pop(uid, None)
+                deleted_from_file += 1
+                changed = True
+                continue
+            if email:
+                e = str((data.get(uid) or {}).get('email') or '').strip().lower()
+                if e and e == email:
+                    data.pop(uid, None)
+                    deleted_from_file += 1
+                    changed = True
+        if changed:
+            with open(USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        file_errors.append(str(e))
+
+    # Keep app behavior consistent if server stays up
+    try:
+        save_users()
+    except Exception:
+        pass
+
+    # Azure Users profile delete (plan_status, stripe ids, etc live here)
+    deleted_azure_profiles = 0
+    deleted_azure_profile_errors: list[str] = []
+    try:
+        table_client = get_users_table_client()
+        for uid in resolved_ids:
+            try:
+                table_client.delete_entity(partition_key=str(uid), row_key='profile')
+                deleted_azure_profiles += 1
+            except Exception as e:
+                deleted_azure_profile_errors.append(f"{uid}: {str(e)}")
+            # Delete any other rows for the same PK (rare, but keep clean)
+            try:
+                for ent in table_client.query_entities(f"PartitionKey eq '{str(uid)}'"):
+                    rk = str(ent.get('RowKey') or '').strip()
+                    if not rk or rk == 'profile':
+                        continue
+                    try:
+                        table_client.delete_entity(partition_key=str(uid), row_key=rk)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+    except Exception as e:
+        deleted_azure_profile_errors.append(f"azure_users_table: {str(e)}")
+
+    # Azure ResumeRevisions delete (this is the critical "no old data" part)
+    deleted_revisions = 0
+    revision_delete_errors: list[str] = []
+    if delete_revisions:
+        try:
+            rev_client = get_table_client('ResumeRevisions', create_if_missing=False)
+            for uid in resolved_ids:
+                try:
+                    for ent in rev_client.query_entities(f"PartitionKey eq '{str(uid)}'"):
+                        rk = str(ent.get('RowKey') or '').strip()
+                        if not rk:
+                            continue
+                        try:
+                            rev_client.delete_entity(partition_key=str(uid), row_key=rk)
+                            deleted_revisions += 1
+                        except Exception:
+                            pass
+                except Exception as e:
+                    revision_delete_errors.append(f"{uid}: {str(e)}")
+        except Exception as e:
+            revision_delete_errors.append(f"ResumeRevisions: {str(e)}")
+
+    return {
+        "ok": True,
+        "status": 200,
+        "resolved_user_ids": resolved_ids,
+        "deleted_local": deleted_local,
+        "deleted_from_file": deleted_from_file,
+        "file_errors": file_errors,
+        "deleted_azure_profiles": deleted_azure_profiles,
+        "deleted_azure_profile_errors": deleted_azure_profile_errors,
+        "deleted_revisions": deleted_revisions,
+        "revision_delete_errors": revision_delete_errors,
+        "delete_revisions": bool(delete_revisions),
+    }
+
+
+@app.route('/admin/delete_user', methods=['GET', 'POST'])
+@login_required
+def admin_delete_user():
+    if not getattr(current_user, "is_admin", False):
+        if request.method == 'POST':
+            return jsonify({"error": "Forbidden"}), 403
+        flash("You do not have permission to view this page.", "danger")
+        return redirect(url_for("index"))
+
+    if request.method == 'GET':
+        _get_admin_csrf_token()
+        prefill_email = (request.args.get('email') or '').strip()
+        prefill_user_id = (request.args.get('user_id') or '').strip()
+        return render_template('admin_delete_user.html', prefill_email=prefill_email, prefill_user_id=prefill_user_id)
+
+    # POST
+    # Validate CSRF token (do not rely on Origin/Referer — Azure proxies can break it)
+    posted_csrf = ""
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        posted_csrf = str(payload.get('admin_csrf') or request.headers.get('X-Admin-CSRF') or '').strip()
+    else:
+        posted_csrf = str(request.form.get('admin_csrf') or '').strip()
+    expected_csrf = str(session.get('admin_csrf') or '').strip()
+    if not expected_csrf or not posted_csrf or posted_csrf != expected_csrf:
+        if request.is_json:
+            return jsonify({"error": "Forbidden"}), 403
+        flash("Forbidden (CSRF check failed). Please refresh and try again.", "danger")
+        return redirect(url_for("admin_stats"))
+
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        email = str((data.get('email') or '')).strip()
+        user_id = str((data.get('user_id') or '')).strip()
+        delete_revisions = data.get('delete_revisions', True)
+        res = _admin_delete_user_impl(email=email, user_id=user_id, delete_revisions=delete_revisions)
+        return jsonify(res), int(res.get("status") or 200)
+
+    # HTML form submit
+    email = (request.form.get('email') or '').strip()
+    user_id = (request.form.get('user_id') or '').strip()
+    delete_revisions = bool(request.form.get('delete_revisions') in ('1', 'true', 'on', 'yes'))
+    return_to = (request.form.get('return_to') or '').strip()
+    res = _admin_delete_user_impl(email=email, user_id=user_id, delete_revisions=delete_revisions)
+    if res.get("ok"):
+        errs = len(res.get('deleted_azure_profile_errors') or []) + len(res.get('revision_delete_errors') or []) + len(res.get('file_errors') or [])
+        flash(
+            f"Deleted user_id(s): {', '.join(res.get('resolved_user_ids') or [])}. "
+            f"Deleted revisions: {res.get('deleted_revisions', 0)}. "
+            f"Errors: {errs}",
+            "success" if errs == 0 else "warning"
+        )
+    else:
+        flash(f"Delete failed: {res.get('error')}", "danger")
+    if return_to and _is_safe_next_url(return_to):
+        return redirect(return_to)
+    return render_template('admin_delete_user.html', prefill_email=email, prefill_user_id=user_id, result=res)
+
 def extract_text_from_file(file):
     """Extract text from uploaded file (PDF or DOCX), using fallback for complex Word docs."""
     try:
@@ -5116,7 +5833,9 @@ def subscribers():
 @app.route('/signup')
 def signup():
     """Show signup page"""
-    return render_template('signup.html')
+    _set_auth_next_from_request()
+    next_url = str(session.get('auth_next') or '').strip()
+    return render_template('signup.html', next_url=next_url)
 
 # Newsletter Management Routes
 @app.route('/admin/newsletter')
@@ -5437,6 +6156,15 @@ def _load_email_config_if_missing() -> None:
     """Load/override SMTP creds from newsletter_config.txt into environment."""
     import os
     try:
+        # Respect App Service / process env vars; do not override them from a file.
+        # This avoids shipping stale creds and breaking production SMTP.
+        already_set = {
+            'NEWSLETTER_EMAIL': bool(os.getenv('NEWSLETTER_EMAIL')),
+            'NEWSLETTER_PASSWORD': bool(os.getenv('NEWSLETTER_PASSWORD')),
+            'SMTP_SERVER': bool(os.getenv('SMTP_SERVER')),
+            'SMTP_PORT': bool(os.getenv('SMTP_PORT')),
+            'CONTACT_RECIPIENT': bool(os.getenv('CONTACT_RECIPIENT')),
+        }
         if os.path.exists('newsletter_config.txt'):
             with open('newsletter_config.txt', 'r', encoding='utf-8') as f:
                 for line in f:
@@ -5447,7 +6175,7 @@ def _load_email_config_if_missing() -> None:
                         key, val = line.split('=', 1)
                         key = key.strip()
                         val = val.strip()
-                        if key in ('NEWSLETTER_EMAIL', 'NEWSLETTER_PASSWORD', 'SMTP_SERVER', 'SMTP_PORT', 'CONTACT_RECIPIENT') and val:
+                        if key in already_set and val and not already_set.get(key, False):
                             os.environ[key] = val
     except Exception as e:
         logger.error(f"Failed to load newsletter_config.txt: {str(e)}")
@@ -5467,8 +6195,8 @@ def send_contact_email(name: str, sender_email: str, message: str) -> None:
     _load_email_config_if_missing()
     smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.getenv('SMTP_PORT', '587'))
-    auth_email = os.getenv('NEWSLETTER_EMAIL', '').strip()
-    auth_password = os.getenv('NEWSLETTER_PASSWORD', '').strip().replace(' ', '')
+    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+    auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
     recipient = os.getenv('CONTACT_RECIPIENT', 'yaronyaronlid@gmail.com').strip()
 
     if not auth_email or not auth_password:
@@ -5512,6 +6240,74 @@ def save_contact_message(name: str, sender_email: str, message: str) -> None:
     except Exception as e:
         logger.error(f'Failed to save contact message fallback: {str(e)}')
 
+
+# Feedback form email helper
+def send_feedback_email(sender_email: str, rating: str, category: str, message: str, source_url: str = '') -> None:
+    """Send feedback form submission to the site owner via SMTP.
+
+    Uses the same SMTP auth + recipient as the contact form (CONTACT_RECIPIENT).
+    """
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    _load_email_config_if_missing()
+    smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.getenv('SMTP_PORT', '587'))
+    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+    auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+    recipient = os.getenv('CONTACT_RECIPIENT', 'yaronyaronlid@gmail.com').strip()
+
+    if not auth_email or not auth_password:
+        raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+    subject = 'New Feedback Submission - ResumaticAI'
+    text_body = (
+        f"You have received new feedback from ResumaticAI.\n\n"
+        f"Email: {sender_email or 'N/A'}\n"
+        f"Rating: {rating or 'N/A'}\n"
+        f"Category: {category or 'N/A'}\n"
+        f"Source URL: {source_url or 'N/A'}\n\n"
+        f"Message:\n{message or ''}\n"
+    )
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = auth_email
+    msg['To'] = recipient
+    msg.add_header('Reply-To', (sender_email or '').strip() or auth_email)
+    msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
+
+    server = smtplib.SMTP(smtp_server, smtp_port)
+    server.starttls()
+    server.login(auth_email, auth_password)
+    server.send_message(msg)
+    server.quit()
+
+
+def save_feedback_message(sender_email: str, rating: str, category: str, message: str, source_url: str = '') -> None:
+    """Persist feedback messages locally if email delivery fails."""
+    import csv
+    from datetime import datetime
+    filename = 'feedback_messages.csv'
+    try:
+        file_exists = os.path.exists(filename)
+        with open(filename, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(['timestamp_iso', 'email', 'rating', 'category', 'message', 'source_url'])
+            writer.writerow([
+                datetime.utcnow().isoformat(),
+                (sender_email or '').strip(),
+                str(rating or '').strip(),
+                str(category or '').strip(),
+                message or '',
+                str(source_url or '').strip(),
+            ])
+    except Exception as e:
+        logger.error(f'Failed to save feedback message fallback: {str(e)}')
+
 # Contact form route
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
@@ -5551,6 +6347,56 @@ def contact():
     # GET: set initial timestamp
     import time
     return render_template('contact.html', form_ts=int(time.time()))
+
+
+# Feedback form route
+@app.route('/feedback', methods=['GET', 'POST'])
+def feedback():
+    import time
+
+    if request.method == 'POST':
+        sender_email = (request.form.get('email') or '').strip()
+        rating = (request.form.get('rating') or '').strip()
+        category = (request.form.get('category') or '').strip()
+        message = (request.form.get('message') or '').strip()
+        source_url = (request.form.get('source_url') or '').strip()
+        website = request.form.get('website', '')  # honeypot
+
+        try:
+            # Basic spam checks: honeypot must be empty, submission must not be too fast (<1s)
+            ts_str = request.form.get('_ts', '0')
+            try:
+                form_ts = int(ts_str)
+            except ValueError:
+                form_ts = 0
+            now_s = int(time.time())
+            too_fast = (now_s - form_ts) < 1 if form_ts else False
+
+            if website.strip() or too_fast:
+                logger.info('Feedback form blocked by spam checks (honeypot/timing).')
+                flash('Thank you for your feedback!', 'success')
+                return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+
+            # Minimal validation: require either a message or a rating
+            if not message and not rating:
+                flash('Please add a message or a rating before submitting.', 'danger')
+                return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+
+            send_feedback_email(sender_email, rating, category, message, source_url=source_url)
+            flash('Thanks! Your feedback has been sent.', 'success')
+        except Exception as e:
+            logger.error(f"Feedback form email failed: {str(e)}")
+            try:
+                save_feedback_message(sender_email, rating, category, message, source_url=source_url)
+                flash('Thanks! We received your feedback.', 'info')
+            except Exception:
+                flash('We could not send your feedback due to a server error. Please try again later.', 'danger')
+
+        return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+
+    # GET
+    source_url = request.args.get('from') or request.referrer or ''
+    return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
 
 # Offline page route
 @app.route('/offline.html')

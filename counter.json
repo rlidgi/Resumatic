@@ -1,8 +1,8 @@
 {
-  "total_visits": 848,
+  "total_visits": 900,
   "facebook_ad_visits": 0,
-  "organic_visits": 310,
-  "total_conversions": 253,
+  "organic_visits": 348,
+  "total_conversions": 280,
   "facebook_ad_conversions": 0,
   "daily_stats": {
     "2025-07-22": {
@@ -884,27 +884,93 @@
       "other": 0,
       "conversions": 0,
       "facebook_ad_conversions": 0
+    },
+    "2026-02-16": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-02-17": {
+      "total": 7,
+      "facebook_ad": 0,
+      "organic": 6,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 12,
+      "facebook_ad_conversions": 0
+    },
+    "2026-02-18": {
+      "total": 18,
+      "facebook_ad": 0,
+      "organic": 10,
+      "direct": 8,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 4,
+      "facebook_ad_conversions": 0
+    },
+    "2026-02-19": {
+      "total": 4,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 4,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 5,
+      "facebook_ad_conversions": 0
+    },
+    "2026-02-20": {
+      "total": 21,
+      "facebook_ad": 0,
+      "organic": 21,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-02-21": {
+      "total": 0,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 6,
+      "facebook_ad_conversions": 0
     }
   },
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 537,
+      "count": 551,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-02-10"
+      "last_seen": "2026-02-19"
     },
     "http://127.0.0.1:5000/": {
-      "count": 163,
+      "count": 173,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-02-11"
+      "last_seen": "2026-02-20"
     },
     "http://127.0.0.1:5000/my_revisions": {
-      "count": 91,
+      "count": 113,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-02-11"
+      "last_seen": "2026-02-20"
     },
     "http://127.0.0.1:5000/blog/ats-optimization": {
       "count": 4,
@@ -937,10 +1003,10 @@
       "last_seen": "2025-07-25"
     },
     "http://127.0.0.1:5000/results": {
-      "count": 15,
+      "count": 16,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-02-10"
+      "last_seen": "2026-02-16"
     },
     "http://127.0.0.1:5000/view_revision/2afe36b4-c09a-4490-9927-4d7b011f0bde": {
       "count": 1,
@@ -1037,7 +1103,31 @@
       "conversions": 0,
       "conversion_rate": 0.0,
       "last_seen": "2026-02-10"
+    },
+    "http://127.0.0.1:5000/react/template-viewer/elegant": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-02-18"
+    },
+    "http://127.0.0.1:5000/get-started": {
+      "count": 2,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-02-18"
+    },
+    "http://127.0.0.1:5000/start": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-02-18"
+    },
+    "http://127.0.0.1:5000/login?next=%2flogout": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-02-20"
     }
   },
-  "last_updated": "2026-02-11"
+  "last_updated": "2026-02-21"
 }

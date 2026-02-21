@@ -53,7 +53,7 @@ export default function CustomSectionsRenderer({
                 const rawBody = sec?.content ?? sec?.text ?? sec?.body ?? "";
 
                 return (
-                    <div key={idx}>
+                    <div key={idx} data-custom-section="true" data-custom-section-index={idx}>
                         {showSectionHeadings ? (
                             editMode ? (
                                 <EditableText

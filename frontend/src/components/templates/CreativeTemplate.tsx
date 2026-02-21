@@ -5,15 +5,24 @@ import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { EditableText } from "./EditableSection";
 import AddSectionButton from "./AddSectionButton";
+import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function CreativeTemplate({
     content,
     editMode = false,
     onContentChange,
+    sectionOrder,
+    onSectionOrderChange,
+    hiddenSectionKeys,
+    onHiddenSectionKeysChange,
 }: {
     content: string;
     editMode?: boolean;
     onContentChange?: (changes: any) => void;
+    sectionOrder?: string[];
+    onSectionOrderChange?: (order: string[]) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
 }) {
     const sections: any = useMemo(() => parseResumeContent(content), [content]);
     const [editedData, setEditedData] = useState<any>(sections);
@@ -179,6 +188,201 @@ export default function CreativeTemplate({
         (Array.isArray(data.links) && data.links[0]?.href) ||
         "";
 
+    const rightRows: SortableSectionRow[] = useMemo(() => {
+        const rows: SortableSectionRow[] = [];
+
+        rows.push({
+            key: 'experience',
+            title: getHeading('experience', 'Work experience'),
+            content: (
+                <RightSection title={getHeading('experience', 'Work experience')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
+                    <div className="space-y-5">
+                        {(Array.isArray(data.experience) ? data.experience : []).slice(0, 5).map((exp: any, idx: number) => (
+                            <RightItem
+                                key={idx}
+                                title={String(exp.title || exp.position || "Role")}
+                                dates={String(exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" / ") || '')}
+                                subtitle={String(exp.company || exp.organization || '')}
+                                body={exp.description}
+                                editMode={editMode}
+                                onTitleChange={(v) => updateExperience(idx, 'title', v)}
+                                onSubtitleChange={(v) => updateExperience(idx, 'company', v)}
+                                onDatesChange={(v) => updateExperience(idx, 'duration', v)}
+                                onBodyChange={(v) => updateExperience(idx, 'description', v)}
+                            />
+                        ))}
+                        {(!data.experience || data.experience.length === 0) && (
+                            <div className="text-sm text-black/60">Add experience to populate this section.</div>
+                        )}
+                    </div>
+                </RightSection>
+            ),
+        });
+
+        if (projects.length > 0 || showEmpty) {
+            rows.push({
+                key: 'projects',
+                title: getHeading('projects', 'Projects'),
+                content: (
+                    <RightSection title={getHeading('projects', 'Projects')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
+                        <div className="space-y-5">
+                            {projects.slice(0, 5).map((proj: any, idx: number) => (
+                                <div key={idx} className="grid grid-cols-12 gap-4">
+                                    <div className="col-span-1 pt-1">
+                                        <div className="w-2.5 h-2.5 bg-[#f25a4b] border border-black/50" />
+                                    </div>
+                                    <div className="col-span-11">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="font-semibold text-[13px]">
+                                                {editMode ? (
+                                                    <EditableText value={String(proj.title || proj.name || 'Project')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="font-semibold text-[13px]" />
+                                                ) : (
+                                                    String(proj.title || proj.name || "Project")
+                                                )}
+                                            </div>
+                                            {proj.link ? (
+                                                <a
+                                                    href={String(proj.link)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-[11px] text-black/70 whitespace-nowrap underline underline-offset-2 hover:text-black"
+                                                >
+                                                    Link
+                                                </a>
+                                            ) : null}
+                                        </div>
+
+                                        {proj.technologies ? (
+                                            editMode ? (
+                                                <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="mt-1 text-[11px] text-black/70" />
+                                            ) : (
+                                                <div className="mt-1 text-[11px] text-black/70">{String(proj.technologies)}</div>
+                                            )
+                                        ) : null}
+
+                                        {proj.description ? (
+                                            <div className="mt-1.5">
+                                                {editMode ? (
+                                                    <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-black/80" multiline />
+                                                ) : (
+                                                    <RenderMaybeBullets
+                                                        text={String(proj.description)}
+                                                        forceBullets
+                                                        className="text-[11px] leading-relaxed text-black/80"
+                                                    />
+                                                )}
+                                            </div>
+                                        ) : null}
+
+                                        <div className="h-px bg-black/20 mt-4" />
+                                    </div>
+                                </div>
+                            ))}
+                            {projects.length === 0 && (
+                                <div className="text-sm text-black/60">Add projects to populate this section.</div>
+                            )}
+                        </div>
+                    </RightSection>
+                ),
+            });
+        }
+
+        rows.push({
+            key: 'education',
+            title: getHeading('education', 'Education'),
+            content: (
+                <RightSection title={getHeading('education', 'Education')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
+                    <div className="space-y-5">
+                        {(Array.isArray(data.education) ? data.education : []).slice(0, 5).map((edu: any, idx: number) => (
+                            <RightItem
+                                key={idx}
+                                title={String(edu.degree || edu.title || 'Degree')}
+                                dates={String(edu.year || edu.dates || edu.graduationDate || '')}
+                                subtitle={String(edu.institution || edu.school || '')}
+                                body={edu.description}
+                                editMode={editMode}
+                                onTitleChange={(v) => updateEducation(idx, 'degree', v)}
+                                onSubtitleChange={(v) => updateEducation(idx, 'institution', v)}
+                                onDatesChange={(v) => updateEducation(idx, 'year', v)}
+                                onBodyChange={(v) => updateEducation(idx, 'description', v)}
+                            />
+                        ))}
+                        {(!data.education || data.education.length === 0) && (
+                            <div className="text-sm text-black/60">Add education to populate this section.</div>
+                        )}
+                    </div>
+                </RightSection>
+            ),
+        });
+
+        rows.push({
+            key: 'contact',
+            title: getHeading('contact', 'Contact'),
+            content: (
+                <RightSection title={getHeading('contact', 'Contact')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('contact', v)}>
+                    <div className="text-[12px] space-y-2">
+                        {(editMode || data.phone) && <ContactRow icon={<Phone className="w-4 h-4" />} label="Phone" value={String(data.phone || '')} editMode={editMode} onChange={(v) => updateField('phone', v)} />}
+                        {(editMode || data.email) && <ContactRow icon={<Mail className="w-4 h-4" />} label="Email" value={String(data.email || '')} editMode={editMode} onChange={(v) => updateField('email', v)} />}
+                        {(editMode || data.location) && <ContactRow icon={<MapPin className="w-4 h-4" />} label="Address" value={String(data.location || '')} editMode={editMode} onChange={(v) => updateField('location', v)} />}
+                        {(editMode || website) && <ContactRow icon={<Globe className="w-4 h-4" />} label="Website" value={String(website || '')} editMode={editMode} onChange={(v) => updateField('website', v)} />}
+                        {(!editMode && !data.phone && !data.email && !data.location && !website) && (
+                            <div className="text-sm text-black/60">Add contact fields to show them here.</div>
+                        )}
+                    </div>
+                </RightSection>
+            ),
+        });
+
+        if (customSections.length > 0) {
+            for (let idx = 0; idx < customSections.length; idx++) {
+                const sec: any = customSections[idx];
+                const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
+                rows.push({
+                    key: `custom_${idx}`,
+                    title: heading,
+                    content: (
+                        <RightSection title={heading} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
+                            <CustomSectionsRenderer
+                                customSections={[sec]}
+                                editMode={editMode}
+                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
+                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
+                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
+                                showSectionHeadings={false}
+                                headingClassName="text-[13px] font-semibold text-black"
+                                itemTitleClassName="text-[12px] font-semibold text-black"
+                                itemMetaClassName="text-[11px] text-black/70"
+                                itemBodyClassName="text-[11px] leading-relaxed text-black/80"
+                            />
+                        </RightSection>
+                    ),
+                });
+            }
+        }
+
+        return rows;
+    }, [
+        customSections,
+        data.education,
+        data.experience,
+        data.location,
+        data.email,
+        data.phone,
+        editMode,
+        getHeading,
+        projects,
+        showEmpty,
+        updateCustomBody,
+        updateCustomHeading,
+        updateCustomItem,
+        updateEducation,
+        updateExperience,
+        updateField,
+        updateProject,
+        updateSectionHeading,
+        website,
+    ]);
+
     const initials = getInitials(fullName);
     const heroLetters = getHeroLetters(fullName);
 
@@ -278,148 +482,15 @@ export default function CreativeTemplate({
                     </aside>
 
                     {/* RIGHT COLUMN */}
-                    <section className="col-span-8 bg-[#f6efe4] px-8 py-8">
-                        <RightSection title={getHeading('experience', 'Work experience')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
-                            <div className="space-y-5">
-                                {(Array.isArray(data.experience) ? data.experience : []).slice(0, 5).map((exp: any, idx: number) => (
-                                    <RightItem
-                                        key={idx}
-                                        title={String(exp.title || exp.position || "Role")}
-                                        dates={String(exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" / ") || '')}
-                                        subtitle={String(exp.company || exp.organization || '')}
-                                        body={exp.description}
-                                        editMode={editMode}
-                                        onTitleChange={(v) => updateExperience(idx, 'title', v)}
-                                        onSubtitleChange={(v) => updateExperience(idx, 'company', v)}
-                                        onDatesChange={(v) => updateExperience(idx, 'duration', v)}
-                                        onBodyChange={(v) => updateExperience(idx, 'description', v)}
-                                    />
-                                ))}
-                                {(!data.experience || data.experience.length === 0) && (
-                                    <div className="text-sm text-black/60">Add experience to populate this section.</div>
-                                )}
-                            </div>
-                        </RightSection>
-
-                        {(projects.length > 0 || showEmpty) && (
-                            <RightSection title={getHeading('projects', 'Projects')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
-                                <div className="space-y-5">
-                                    {projects.slice(0, 5).map((proj: any, idx: number) => (
-                                        <div key={idx} className="grid grid-cols-12 gap-4">
-                                            <div className="col-span-1 pt-1">
-                                                <div className="w-2.5 h-2.5 bg-[#f25a4b] border border-black/50" />
-                                            </div>
-                                            <div className="col-span-11">
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="font-semibold text-[13px]">
-                                                        {editMode ? (
-                                                            <EditableText value={String(proj.title || proj.name || 'Project')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="font-semibold text-[13px]" />
-                                                        ) : (
-                                                            String(proj.title || proj.name || "Project")
-                                                        )}
-                                                    </div>
-                                                    {proj.link ? (
-                                                        <a
-                                                            href={String(proj.link)}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-[11px] text-black/70 whitespace-nowrap underline underline-offset-2 hover:text-black"
-                                                        >
-                                                            Link
-                                                        </a>
-                                                    ) : null}
-                                                </div>
-
-                                                {proj.technologies ? (
-                                                    editMode ? (
-                                                        <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="mt-1 text-[11px] text-black/70" />
-                                                    ) : (
-                                                        <div className="mt-1 text-[11px] text-black/70">{String(proj.technologies)}</div>
-                                                    )
-                                                ) : null}
-
-                                                {proj.description ? (
-                                                    <div className="mt-1.5">
-                                                        {editMode ? (
-                                                            <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-black/80" multiline />
-                                                        ) : (
-                                                            <RenderMaybeBullets
-                                                                text={String(proj.description)}
-                                                                forceBullets
-                                                                className="text-[11px] leading-relaxed text-black/80"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                ) : null}
-
-                                                <div className="h-px bg-black/20 mt-4" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {projects.length === 0 && (
-                                        <div className="text-sm text-black/60">Add projects to populate this section.</div>
-                                    )}
-                                </div>
-                            </RightSection>
-                        )}
-
-                        <RightSection title={getHeading('education', 'Education')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
-                            <div className="space-y-5">
-                                {(Array.isArray(data.education) ? data.education : []).slice(0, 5).map((edu: any, idx: number) => (
-                                    <RightItem
-                                        key={idx}
-                                        title={String(edu.degree || edu.title || 'Degree')}
-                                        dates={String(edu.year || edu.dates || edu.graduationDate || '')}
-                                        subtitle={String(edu.institution || edu.school || '')}
-                                        body={edu.description}
-                                        editMode={editMode}
-                                        onTitleChange={(v) => updateEducation(idx, 'degree', v)}
-                                        onSubtitleChange={(v) => updateEducation(idx, 'institution', v)}
-                                        onDatesChange={(v) => updateEducation(idx, 'year', v)}
-                                        onBodyChange={(v) => updateEducation(idx, 'description', v)}
-                                    />
-                                ))}
-                                {(!data.education || data.education.length === 0) && (
-                                    <div className="text-sm text-black/60">Add education to populate this section.</div>
-                                )}
-                            </div>
-                        </RightSection>
-
-                        <RightSection title={getHeading('contact', 'Contact')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('contact', v)}>
-                            <div className="text-[12px] space-y-2">
-                                {(editMode || data.phone) && <ContactRow icon={<Phone className="w-4 h-4" />} label="Phone" value={String(data.phone || '')} editMode={editMode} onChange={(v) => updateField('phone', v)} />}
-                                {(editMode || data.email) && <ContactRow icon={<Mail className="w-4 h-4" />} label="Email" value={String(data.email || '')} editMode={editMode} onChange={(v) => updateField('email', v)} />}
-                                {(editMode || data.location) && <ContactRow icon={<MapPin className="w-4 h-4" />} label="Address" value={String(data.location || '')} editMode={editMode} onChange={(v) => updateField('location', v)} />}
-                                {(editMode || website) && <ContactRow icon={<Globe className="w-4 h-4" />} label="Website" value={String(website || '')} editMode={editMode} onChange={(v) => updateField('website', v)} />}
-                                {(!editMode && !data.phone && !data.email && !data.location && !website) && (
-                                    <div className="text-sm text-black/60">Add contact fields to show them here.</div>
-                                )}
-                            </div>
-                        </RightSection>
-
-                        {customSections.length > 0 && (
-                            <>
-                                {customSections.map((sec: any, idx: number) => {
-                                    const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
-                                    return (
-                                        <RightSection key={idx} title={heading} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
-                                            <CustomSectionsRenderer
-                                                customSections={[sec]}
-                                                editMode={editMode}
-                                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
-                                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
-                                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
-                                                showSectionHeadings={false}
-                                                headingClassName="text-[13px] font-semibold text-black"
-                                                itemTitleClassName="text-[12px] font-semibold text-black"
-                                                itemMetaClassName="text-[11px] text-black/70"
-                                                itemBodyClassName="text-[11px] leading-relaxed text-black/80"
-                                            />
-                                        </RightSection>
-                                    );
-                                })}
-                            </>
-                        )}
+                    <section className={`col-span-8 bg-[#f6efe4] px-8 py-8 ${editMode ? 'pl-16' : ''}`}>
+                        <SortableSectionList
+                            rows={rightRows}
+                            editMode={!!editMode}
+                            sectionOrder={sectionOrder}
+                            onSectionOrderChange={onSectionOrderChange}
+                            hiddenSectionKeys={hiddenSectionKeys}
+                            onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                        />
                     </section>
                 </div>
             </div>

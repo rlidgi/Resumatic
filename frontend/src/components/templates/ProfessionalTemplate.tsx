@@ -4,15 +4,24 @@ import { RenderMaybeBullets } from './RenderMaybeBullets';
 import { EditableText } from './EditableSection';
 import CustomSectionsRenderer from './CustomSectionsRenderer';
 import AddSectionButton from './AddSectionButton';
+import SortableSectionList, { type SortableSectionRow } from './SortableSectionList';
 
 export default function ProfessionalTemplate({
     content,
     editMode = false,
     onContentChange,
+    sectionOrder,
+    onSectionOrderChange,
+    hiddenSectionKeys,
+    onHiddenSectionKeysChange,
 }: {
     content: string;
     editMode?: boolean;
     onContentChange?: (changes: any) => void;
+    sectionOrder?: string[];
+    onSectionOrderChange?: (order: string[]) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
 }) {
     const parsed = useMemo(() => parseResumeContent(content), [content]);
     const [editedData, setEditedData] = useState<any>(parsed);
@@ -155,6 +164,435 @@ export default function ProfessionalTemplate({
             : 'text-xs font-bold text-slate-900 tracking-wider uppercase border-b-2 border-slate-300 pb-1.5 mb-3'
     ), []);
 
+    const customSections = Array.isArray(sections.custom_sections) ? sections.custom_sections : [];
+
+    const rows: SortableSectionRow[] = [];
+
+    if (String(sections.summary || '').trim()) {
+        rows.push({
+            key: 'summary',
+            title: getHeading('summary', 'Professional Summary'),
+            content: (
+                <Section
+                    title={getHeading('summary', 'Professional Summary')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('summary', 'Professional Summary')}
+                            onChange={(v) => updateSectionHeading('summary', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {editMode ? (
+                        <EditableText
+                            value={String(sections.summary || '')}
+                            onChange={(v) => updateField('summary', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className="text-slate-700 leading-snug text-sm"
+                            as="div"
+                            multiline
+                        />
+                    ) : (
+                        <p className="text-slate-700 leading-snug text-sm">{sections.summary}</p>
+                    )}
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.experience) && sections.experience.length > 0) {
+        rows.push({
+            key: 'experience',
+            title: getHeading('experience', 'Professional Experience'),
+            content: (
+                <Section
+                    title={getHeading('experience', 'Professional Experience')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('experience', 'Professional Experience')}
+                            onChange={(v) => updateSectionHeading('experience', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {sections.experience.map((exp: any, idx: number) => (
+                        <div key={idx} className="mb-4 last:mb-0">
+                            <div className="flex justify-between items-start mb-1.5 gap-3">
+                                <div>
+                                    {editMode ? (
+                                        <>
+                                            <EditableText
+                                                value={String(exp.title || '')}
+                                                onChange={(v) => updateExperience(idx, 'title', v)}
+                                                editMode={editMode}
+                                                liveUpdate
+                                                layoutSafe
+                                                className="font-bold text-slate-900 text-base"
+                                                as="div"
+                                            />
+                                            <EditableText
+                                                value={String(exp.company || '')}
+                                                onChange={(v) => updateExperience(idx, 'company', v)}
+                                                editMode={editMode}
+                                                liveUpdate
+                                                layoutSafe
+                                                className="text-slate-700 font-medium text-sm"
+                                                as="div"
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h4 className="font-bold text-slate-900 text-base">{exp.title}</h4>
+                                            <p className="text-slate-700 font-medium text-sm">{exp.company}</p>
+                                        </>
+                                    )}
+                                </div>
+                                {editMode ? (
+                                    <EditableText
+                                        value={String(exp.duration || '')}
+                                        onChange={(v) => updateExperience(idx, 'duration', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-xs text-slate-600 font-medium whitespace-nowrap"
+                                        as="div"
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{exp.duration}</span>
+                                )}
+                            </div>
+                            {editMode ? (
+                                <EditableText
+                                    value={String(exp.description || '')}
+                                    onChange={(v) => updateExperience(idx, 'description', v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    className="text-slate-700 leading-snug text-sm"
+                                    as="div"
+                                    multiline
+                                />
+                            ) : (
+                                <RenderMaybeBullets
+                                    text={exp.description}
+                                    forceBullets
+                                    className="text-slate-700 leading-snug text-sm"
+                                />
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
+
+    if (customSections.length > 0) {
+        customSections.forEach((sec: any, idx: number) => {
+            const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
+            rows.push({
+                key: `custom_${idx}`,
+                title: heading,
+                content: (
+                    <Section
+                        title={heading}
+                        compact={editMode}
+                        titleNode={editMode ? (
+                            <EditableText
+                                value={String(sec?.heading || '')}
+                                onChange={(v) => updateCustomSectionHeading(idx, v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className={sectionHeadingClass(true)}
+                                as="h3"
+                            />
+                        ) : null}
+                    >
+                        <CustomSectionsRenderer
+                            customSections={[sec]}
+                            editMode={editMode}
+                            showSectionHeadings={false}
+                            headingClassName={sectionHeadingClass(Boolean(editMode))}
+                            itemTitleClassName="text-sm font-semibold text-slate-900"
+                            itemMetaClassName="text-xs text-slate-500"
+                            itemBodyClassName="text-slate-700 leading-snug text-sm"
+                            onHeadingChange={(sIdx, value) => updateCustomSectionHeading(idx + sIdx, value)}
+                            onItemChange={(sIdx, itemIndex, field, value) => updateCustomSectionItem(idx + sIdx, itemIndex, String(field), value)}
+                            onBodyChange={(sIdx, value) => updateCustomSectionBody(idx + sIdx, value)}
+                        />
+                    </Section>
+                ),
+            });
+        });
+    }
+
+    if (Array.isArray(sections.education) && sections.education.length > 0) {
+        rows.push({
+            key: 'education',
+            title: getHeading('education', 'Education'),
+            content: (
+                <Section
+                    title={getHeading('education', 'Education')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('education', 'Education')}
+                            onChange={(v) => updateSectionHeading('education', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {sections.education.map((edu: any, idx: number) => (
+                        <div key={idx} className="mb-2.5 last:mb-0 flex justify-between items-start gap-3">
+                            <div>
+                                {editMode ? (
+                                    <>
+                                        <EditableText
+                                            value={String(edu.degree || '')}
+                                            onChange={(v) => updateEducation(idx, 'degree', v)}
+                                            editMode={editMode}
+                                            liveUpdate
+                                            layoutSafe
+                                            className="font-bold text-slate-900 text-sm"
+                                            as="div"
+                                        />
+                                        <EditableText
+                                            value={String(edu.institution || '')}
+                                            onChange={(v) => updateEducation(idx, 'institution', v)}
+                                            editMode={editMode}
+                                            liveUpdate
+                                            layoutSafe
+                                            className="text-slate-700 text-sm"
+                                            as="div"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <h4 className="font-bold text-slate-900 text-sm">{edu.degree}</h4>
+                                        <p className="text-slate-700 text-sm">{edu.institution}</p>
+                                    </>
+                                )}
+                            </div>
+                            {editMode ? (
+                                <EditableText
+                                    value={String(edu.year || '')}
+                                    onChange={(v) => updateEducation(idx, 'year', v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    className="text-xs text-slate-600 font-medium whitespace-nowrap"
+                                    as="div"
+                                />
+                            ) : (
+                                <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{edu.year}</span>
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.projects) && sections.projects.length > 0) {
+        rows.push({
+            key: 'projects',
+            title: getHeading('projects', 'Projects'),
+            content: (
+                <Section
+                    title={getHeading('projects', 'Projects')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('projects', 'Projects')}
+                            onChange={(v) => updateSectionHeading('projects', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {sections.projects.map((proj: any, idx: number) => (
+                        <div key={idx} className="mb-4 last:mb-0">
+                            <div className="flex justify-between items-start mb-1 gap-3">
+                                {editMode ? (
+                                    <EditableText
+                                        value={String(proj.title || '')}
+                                        onChange={(v) => updateProject(idx, 'title', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="font-bold text-slate-900 text-base"
+                                        as="div"
+                                    />
+                                ) : (
+                                    <h4 className="font-bold text-slate-900 text-base">{proj.title}</h4>
+                                )}
+                                {proj.link && (
+                                    <a
+                                        href={proj.link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-slate-700 underline underline-offset-2 hover:text-slate-900 whitespace-nowrap"
+                                    >
+                                        Link
+                                    </a>
+                                )}
+                            </div>
+                            {editMode ? (
+                                <>
+                                    <EditableText
+                                        value={String(proj.technologies || '')}
+                                        onChange={(v) => updateProject(idx, 'technologies', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-xs text-slate-600 mb-1.5"
+                                        as="div"
+                                    />
+                                    <EditableText
+                                        value={String(proj.description || '')}
+                                        onChange={(v) => updateProject(idx, 'description', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-slate-700 leading-snug text-sm"
+                                        as="div"
+                                        multiline
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    {proj.technologies && (
+                                        <p className="text-xs text-slate-600 mb-1.5">{proj.technologies}</p>
+                                    )}
+                                    {proj.description && (
+                                        <p className="text-slate-700 leading-snug text-sm">{proj.description}</p>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.certifications) && sections.certifications.length > 0) {
+        rows.push({
+            key: 'certifications',
+            title: getHeading('certifications', 'Certifications'),
+            content: (
+                <Section
+                    title={getHeading('certifications', 'Certifications')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('certifications', 'Certifications')}
+                            onChange={(v) => updateSectionHeading('certifications', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    <div className="space-y-3">
+                        {sections.certifications.map((cert: any, idx: number) => {
+                            if (typeof cert === 'string') {
+                                return (
+                                    <div key={idx} className="text-slate-700 text-sm">
+                                        • {cert}
+                                    </div>
+                                );
+                            }
+
+                            const name = cert?.name || '';
+                            const issuer = cert?.issuer || '';
+                            const year = cert?.year || '';
+
+                            return (
+                                <div key={idx} className="flex items-baseline justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-slate-900 text-sm">{name}</div>
+                                        {(issuer || year) && (
+                                            <div className="text-xs text-slate-600">
+                                                {[issuer, year].filter(Boolean).join(' • ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.skills) && sections.skills.length > 0) {
+        rows.push({
+            key: 'skills',
+            title: getHeading('skills', 'Core Competencies'),
+            content: (
+                <Section
+                    title={getHeading('skills', 'Core Competencies')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('skills', 'Core Competencies')}
+                            onChange={(v) => updateSectionHeading('skills', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {editMode ? (
+                        <EditableText
+                            value={Array.isArray(sections.skills) ? sections.skills.join('\n') : ''}
+                            onChange={(v) => updateSkillsFromText(v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className="text-slate-700 font-medium text-sm"
+                            as="div"
+                            multiline
+                        />
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {sections.skills.map((skill: string, idx: number) => (
+                                <div key={idx} className="text-slate-700 font-medium text-sm">
+                                    • {skill}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+            ),
+        });
+    }
+
     return (
         <div className="bg-white rounded-lg shadow-xl overflow-hidden max-w-4xl mx-auto border-t-4 border-slate-800">
             {/* Header */}
@@ -232,460 +670,18 @@ export default function ProfessionalTemplate({
             </div>
 
             {/* Body */}
-            <div className={editMode ? 'p-6 space-y-4' : 'p-6 space-y-6'}>
+            <div className={editMode ? 'p-6 pl-16 space-y-4' : 'p-6 space-y-6'}>
                 {editMode ? (
                     <AddSectionButton onClick={addSection} className="mb-3" />
                 ) : null}
-                {String(sections.summary || '').trim() && (
-                    <Section
-                        title={getHeading('summary', 'Professional Summary')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('summary', 'Professional Summary')}
-                                onChange={(v) => updateSectionHeading('summary', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        {editMode ? (
-                            <EditableText
-                                value={String(sections.summary || '')}
-                                onChange={(v) => updateField('summary', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className="text-slate-700 leading-snug text-sm"
-                                as="div"
-                                multiline
-                            />
-                        ) : (
-                            <p className="text-slate-700 leading-snug text-sm">{sections.summary}</p>
-                        )}
-                    </Section>
-                )}
-
-                {sections.experience && sections.experience.length > 0 && (
-                    <Section
-                        title={getHeading('experience', 'Professional Experience')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('experience', 'Professional Experience')}
-                                onChange={(v) => updateSectionHeading('experience', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        {sections.experience.map((exp: any, idx: number) => (
-                            <div key={idx} className="mb-4 last:mb-0">
-                                <div className="flex justify-between items-start mb-1.5 gap-3">
-                                    <div>
-                                        {editMode ? (
-                                            <>
-                                                <EditableText
-                                                    value={String(exp.title || '')}
-                                                    onChange={(v) => updateExperience(idx, 'title', v)}
-                                                    editMode={editMode}
-                                                    liveUpdate
-                                                    layoutSafe
-                                                    className="font-bold text-slate-900 text-base"
-                                                    as="div"
-                                                />
-                                                <EditableText
-                                                    value={String(exp.company || '')}
-                                                    onChange={(v) => updateExperience(idx, 'company', v)}
-                                                    editMode={editMode}
-                                                    liveUpdate
-                                                    layoutSafe
-                                                    className="text-slate-700 font-medium text-sm"
-                                                    as="div"
-                                                />
-                                            </>
-                                        ) : (
-                                            <>
-                                                <h4 className="font-bold text-slate-900 text-base">{exp.title}</h4>
-                                                <p className="text-slate-700 font-medium text-sm">{exp.company}</p>
-                                            </>
-                                        )}
-                                    </div>
-                                    {editMode ? (
-                                        <EditableText
-                                            value={String(exp.duration || '')}
-                                            onChange={(v) => updateExperience(idx, 'duration', v)}
-                                            editMode={editMode}
-                                            liveUpdate
-                                            layoutSafe
-                                            className="text-xs text-slate-600 font-medium whitespace-nowrap"
-                                            as="div"
-                                        />
-                                    ) : (
-                                        <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{exp.duration}</span>
-                                    )}
-                                </div>
-                                {editMode ? (
-                                    <EditableText
-                                        value={String(exp.description || '')}
-                                        onChange={(v) => updateExperience(idx, 'description', v)}
-                                        editMode={editMode}
-                                        liveUpdate
-                                        layoutSafe
-                                        className="text-slate-700 leading-snug text-sm"
-                                        as="div"
-                                        multiline
-                                    />
-                                ) : (
-                                    <RenderMaybeBullets
-                                        text={exp.description}
-                                        forceBullets
-                                        className="text-slate-700 leading-snug text-sm"
-                                    />
-                                )}
-                            </div>
-                        ))}
-
-                        {Array.isArray(sections.custom_sections) && sections.custom_sections.length > 0 ? (
-                            <CustomSectionsRenderer
-                                customSections={sections.custom_sections}
-                                editMode={editMode}
-                                showSectionHeadings
-                                headingClassName={sectionHeadingClass(Boolean(editMode))}
-                                itemTitleClassName="text-sm font-semibold text-slate-900"
-                                itemMetaClassName="text-xs text-slate-500"
-                                itemBodyClassName="text-slate-700 leading-snug text-sm"
-                                onHeadingChange={(sectionIndex, value) => updateCustomSectionHeading(sectionIndex, value)}
-                                onItemChange={(sectionIndex, itemIndex, field, value) => updateCustomSectionItem(sectionIndex, itemIndex, String(field), value)}
-                                onBodyChange={(sectionIndex, value) => updateCustomSectionBody(sectionIndex, value)}
-                            />
-                        ) : null}
-                    </Section>
-                )}
-
-                {sections.education && sections.education.length > 0 && (
-                    <Section
-                        title={getHeading('education', 'Education')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('education', 'Education')}
-                                onChange={(v) => updateSectionHeading('education', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        {sections.education.map((edu: any, idx: number) => (
-                            <div key={idx} className="mb-2.5 last:mb-0 flex justify-between items-start gap-3">
-                                <div>
-                                    {editMode ? (
-                                        <>
-                                            <EditableText
-                                                value={String(edu.degree || '')}
-                                                onChange={(v) => updateEducation(idx, 'degree', v)}
-                                                editMode={editMode}
-                                                liveUpdate
-                                                layoutSafe
-                                                className="font-bold text-slate-900 text-sm"
-                                                as="div"
-                                            />
-                                            <EditableText
-                                                value={String(edu.institution || '')}
-                                                onChange={(v) => updateEducation(idx, 'institution', v)}
-                                                editMode={editMode}
-                                                liveUpdate
-                                                layoutSafe
-                                                className="text-slate-700 text-sm"
-                                                as="div"
-                                            />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <h4 className="font-bold text-slate-900 text-sm">{edu.degree}</h4>
-                                            <p className="text-slate-700 text-sm">{edu.institution}</p>
-                                        </>
-                                    )}
-                                </div>
-                                {editMode ? (
-                                    <EditableText
-                                        value={String(edu.year || '')}
-                                        onChange={(v) => updateEducation(idx, 'year', v)}
-                                        editMode={editMode}
-                                        liveUpdate
-                                        layoutSafe
-                                        className="text-xs text-slate-600 font-medium whitespace-nowrap"
-                                        as="div"
-                                    />
-                                ) : (
-                                    <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{edu.year}</span>
-                                )}
-                            </div>
-                        ))}
-                    </Section>
-                )}
-
-                {sections.projects && sections.projects.length > 0 && (
-                    <Section
-                        title={getHeading('projects', 'Projects')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('projects', 'Projects')}
-                                onChange={(v) => updateSectionHeading('projects', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        {sections.projects.map((proj: any, idx: number) => (
-                            <div key={idx} className="mb-4 last:mb-0">
-                                <div className="flex justify-between items-start mb-1 gap-3">
-                                    {editMode ? (
-                                        <EditableText
-                                            value={String(proj.title || '')}
-                                            onChange={(v) => updateProject(idx, 'title', v)}
-                                            editMode={editMode}
-                                            liveUpdate
-                                            layoutSafe
-                                            className="font-bold text-slate-900 text-base"
-                                            as="div"
-                                        />
-                                    ) : (
-                                        <h4 className="font-bold text-slate-900 text-base">{proj.title}</h4>
-                                    )}
-                                    {proj.link && (
-                                        <a
-                                            href={proj.link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-slate-700 underline underline-offset-2 hover:text-slate-900 whitespace-nowrap"
-                                        >
-                                            Link
-                                        </a>
-                                    )}
-                                </div>
-                                {editMode ? (
-                                    <>
-                                        <EditableText
-                                            value={String(proj.technologies || '')}
-                                            onChange={(v) => updateProject(idx, 'technologies', v)}
-                                            editMode={editMode}
-                                            liveUpdate
-                                            layoutSafe
-                                            className="text-xs text-slate-600 mb-1.5"
-                                            as="div"
-                                        />
-                                        <EditableText
-                                            value={String(proj.description || '')}
-                                            onChange={(v) => updateProject(idx, 'description', v)}
-                                            editMode={editMode}
-                                            liveUpdate
-                                            layoutSafe
-                                            className="text-slate-700 leading-snug text-sm"
-                                            as="div"
-                                            multiline
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        {proj.technologies && (
-                                            <p className="text-xs text-slate-600 mb-1.5">
-                                                {proj.technologies}
-                                            </p>
-                                        )}
-                                        {proj.description && (
-                                            <p className="text-slate-700 leading-snug text-sm">{proj.description}</p>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </Section>
-                )}
-
-                {sections.custom_sections && sections.custom_sections.length > 0 && (
-                    <>
-                        {sections.custom_sections.map((section: any, idx: number) => (
-                            <Section
-                                key={idx}
-                                title={String(section.heading || '')}
-                                compact={editMode}
-                                titleNode={editMode ? (
-                                    <EditableText
-                                        value={String(section.heading || '')}
-                                        onChange={(v) => updateCustomSectionHeading(idx, v)}
-                                        editMode={editMode}
-                                        liveUpdate
-                                        layoutSafe
-                                        className={sectionHeadingClass(true)}
-                                        as="h3"
-                                    />
-                                ) : null}
-                            >
-                                <div className="space-y-4">
-                                    {(section.items || []).map((item: any, i: number) => (
-                                        <div key={i} className="border-b border-slate-200 pb-3 last:border-0 last:pb-0">
-                                            <div className="flex justify-between items-baseline mb-1">
-                                                {editMode ? (
-                                                    <EditableText
-                                                        value={String(item?.title || '')}
-                                                        onChange={(v) => updateCustomSectionItem(idx, i, 'title', v)}
-                                                        editMode={editMode}
-                                                        liveUpdate
-                                                        layoutSafe
-                                                        className="font-bold text-slate-900 text-sm"
-                                                        as="div"
-                                                    />
-                                                ) : (
-                                                    <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
-                                                )}
-                                                {editMode ? (
-                                                    <EditableText
-                                                        value={String(item?.date || '')}
-                                                        onChange={(v) => updateCustomSectionItem(idx, i, 'date', v)}
-                                                        editMode={editMode}
-                                                        liveUpdate
-                                                        layoutSafe
-                                                        className="text-xs text-slate-600 font-medium whitespace-nowrap"
-                                                        as="span"
-                                                    />
-                                                ) : (
-                                                    item.date ? <span className="text-xs text-slate-600 font-medium">{item.date}</span> : null
-                                                )}
-                                            </div>
-                                            {editMode ? (
-                                                <EditableText
-                                                    value={String(item?.subtitle || '')}
-                                                    onChange={(v) => updateCustomSectionItem(idx, i, 'subtitle', v)}
-                                                    editMode={editMode}
-                                                    liveUpdate
-                                                    layoutSafe
-                                                    className="text-slate-700 font-medium text-sm"
-                                                    as="div"
-                                                />
-                                            ) : (
-                                                item.subtitle ? <p className="text-slate-700 font-medium text-sm">{item.subtitle}</p> : null
-                                            )}
-                                            {editMode ? (
-                                                <EditableText
-                                                    value={String(item?.content || '')}
-                                                    onChange={(v) => updateCustomSectionItem(idx, i, 'content', v)}
-                                                    editMode={editMode}
-                                                    liveUpdate
-                                                    layoutSafe
-                                                    className="text-slate-700 leading-snug text-sm"
-                                                    as="div"
-                                                    multiline
-                                                />
-                                            ) : (
-                                                item.content ? <p className="text-slate-700 leading-snug text-sm">{item.content}</p> : null
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </Section>
-                        ))}
-                    </>
-                )}
-
-                {sections.certifications && sections.certifications.length > 0 && (
-                    <Section
-                        title={getHeading('certifications', 'Certifications')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('certifications', 'Certifications')}
-                                onChange={(v) => updateSectionHeading('certifications', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        <div className="space-y-3">
-                            {sections.certifications.map((cert: any, idx: number) => {
-                                if (typeof cert === 'string') {
-                                    return (
-                                        <div key={idx} className="text-slate-700 text-sm">
-                                            • {cert}
-                                        </div>
-                                    );
-                                }
-
-                                const name = cert?.name || '';
-                                const issuer = cert?.issuer || '';
-                                const year = cert?.year || '';
-
-                                return (
-                                    <div key={idx} className="flex items-baseline justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <div className="font-bold text-slate-900 text-sm">{name}</div>
-                                            {(issuer || year) && (
-                                                <div className="text-xs text-slate-600">
-                                                    {[issuer, year].filter(Boolean).join(' • ')}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Section>
-                )}
-
-                {Array.isArray(sections.skills) && sections.skills.length > 0 ? (
-                    <Section
-                        title={getHeading('skills', 'Core Competencies')}
-                        compact={editMode}
-                        titleNode={editMode ? (
-                            <EditableText
-                                value={getHeading('skills', 'Core Competencies')}
-                                onChange={(v) => updateSectionHeading('skills', v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className={sectionHeadingClass(true)}
-                                as="h3"
-                            />
-                        ) : undefined}
-                    >
-                        {editMode ? (
-                            <EditableText
-                                value={Array.isArray(sections.skills) ? sections.skills.join('\n') : ''}
-                                onChange={(v) => updateSkillsFromText(v)}
-                                editMode={editMode}
-                                liveUpdate
-                                layoutSafe
-                                className="text-slate-700 font-medium text-sm"
-                                as="div"
-                                multiline
-                            />
-                        ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {sections.skills.map((skill: string, idx: number) => (
-                                    <div key={idx} className="text-slate-700 font-medium text-sm">
-                                        • {skill}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </Section>
-                ) : null}
+                <SortableSectionList
+                    rows={rows}
+                    editMode={!!editMode}
+                    sectionOrder={sectionOrder}
+                    onSectionOrderChange={onSectionOrderChange}
+                    hiddenSectionKeys={hiddenSectionKeys}
+                    onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                />
             </div>
         </div>
     );

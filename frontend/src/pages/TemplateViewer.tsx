@@ -7,12 +7,40 @@ import CreativeTemplate from '../components/templates/CreativeTemplate';
 import BoldProfessionalTemplate from '../components/templates/BoldProfessionalTemplate';
 import TraditionalTemplate from '../components/templates/TraditionalTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
-import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3 } from 'lucide-react';
+import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
+
+function formatTemplateDisplayName(raw?: string): string {
+    const normalized = String(raw || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .trim();
+
+    if (!normalized) return '';
+
+    return normalized
+        .split(/\s+/g)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
 
 export default function TemplateViewer() {
     const { templateName } = useParams<{ templateName: string }>();
     const location = useLocation();
     const isDownloadOnly = location.pathname.includes('/template-download/');
+
+    const templateDisplayName = formatTemplateDisplayName(templateName);
+
+    const qs = new URLSearchParams(location.search || '');
+    const returnTo = String(qs.get('return') || '').trim();
+    const editParam = String(qs.get('edit') || '').trim().toLowerCase();
+    const ridParam = String(qs.get('rid') || '').trim();
+    // When users come from the "Create new resume" flow, they land here with ?edit=1
+    // and no analysis/results context. In that case, "Back to Results" is misleading.
+    const isCreateNewResumeFlow = !isDownloadOnly && !returnTo && (editParam === '1' || editParam === 'true') && !ridParam;
+    const showBackLink = !isCreateNewResumeFlow;
+    const backHref = returnTo || (isCreateNewResumeFlow ? '/' : '/results');
+    const backLabel = 'Back to Results';
     const [resumeData, setResumeData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,12 +67,14 @@ export default function TemplateViewer() {
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewMeasureInnerRef = useRef<HTMLDivElement | null>(null);
     const autoDownloadTriggeredRef = useRef(false);
+    const editAutoAppliedRef = useRef(false);
 
     const [editSaving, setEditSaving] = useState(false);
     const [editSaveError, setEditSaveError] = useState<string | null>(null);
     const [editSaveSuccess, setEditSaveSuccess] = useState(false);
     const [editSaveHubMessage, setEditSaveHubMessage] = useState<string | null>(null);
     const [editingExperienceIndex, setEditingExperienceIndex] = useState<number | null>(null);
+    const [showAllWorkHistoryDescriptions, setShowAllWorkHistoryDescriptions] = useState(false);
 
     // AI edit assistance (summary + experience description)
     const [aiEditError, setAiEditError] = useState<string | null>(null);
@@ -61,8 +91,56 @@ export default function TemplateViewer() {
 
     // Inline editing mode
     const [inlineEditMode, setInlineEditMode] = useState(false);
-    const [sectionOrder, setSectionOrder] = useState<string[]>([]);
+    const [sectionOrderByTemplate, setSectionOrderByTemplate] = useState<Record<string, string[]>>({});
+    const sectionOrder = sectionOrderByTemplate[String(templateName || '')] || [];
+    const setSectionOrder = React.useCallback((order: string[]) => {
+        setSectionOrderByTemplate((prev) => ({
+            ...(prev || {}),
+            [String(templateName || '')]: Array.isArray(order) ? order : [],
+        }));
+    }, [templateName]);
+
+    const [hiddenSectionKeysByTemplate, setHiddenSectionKeysByTemplate] = useState<Record<string, string[]>>({});
+    const hiddenSectionKeys = hiddenSectionKeysByTemplate[String(templateName || '')] || [];
+    const setHiddenSectionKeys = React.useCallback((keys: string[]) => {
+        setHiddenSectionKeysByTemplate((prev) => ({
+            ...(prev || {}),
+            [String(templateName || '')]: Array.isArray(keys) ? keys : [],
+        }));
+    }, [templateName]);
     const [inlineEditChanges, setInlineEditChanges] = useState<any>({});
+
+    // Top navigation (hamburger on mobile)
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    // Mobile-only fullscreen preview
+    const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+
+    useEffect(() => {
+        if (!mobileNavOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setMobileNavOpen(false);
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [mobileNavOpen]);
+
+    useEffect(() => {
+        if (!mobilePreviewOpen) return;
+
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setMobilePreviewOpen(false);
+        };
+        document.addEventListener('keydown', onKeyDown);
+
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [mobilePreviewOpen]);
 
     // Debug logging
     useEffect(() => {
@@ -76,6 +154,12 @@ export default function TemplateViewer() {
         const ret = new URLSearchParams(window.location.search || '').get('return') || '';
         window.location.href = ret || '/my_revisions';
     }, []);
+
+    useEffect(() => {
+        if (inlineEditMode) {
+            setShowAllWorkHistoryDescriptions(true);
+        }
+    }, [inlineEditMode]);
 
     useEffect(() => {
         fetch('/api/me', { credentials: 'same-origin' })
@@ -473,6 +557,28 @@ export default function TemplateViewer() {
     }, [loadTemplateData]);
 
     useEffect(() => {
+        if (editAutoAppliedRef.current) return;
+        if (isDownloadOnly) return;
+        if (!isCreateNewResumeFlow) return;
+
+        editAutoAppliedRef.current = true;
+        setInlineEditMode(true);
+
+        // Clean up the URL so refresh/copy doesn't keep forcing edit mode.
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('edit')) {
+                params.delete('edit');
+                const qs2 = params.toString();
+                const newUrl = `${window.location.pathname}${qs2 ? `?${qs2}` : ''}${window.location.hash || ''}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+        } catch {
+            // ignore
+        }
+    }, [isDownloadOnly, isCreateNewResumeFlow]);
+
+    useEffect(() => {
         if (autoDownloadTriggeredRef.current) return;
         if (loading || error) return;
         if (!resumeData) return;
@@ -731,8 +837,8 @@ export default function TemplateViewer() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-                <div className="text-center">
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading template...</p>
                 </div>
@@ -748,7 +854,7 @@ export default function TemplateViewer() {
                     <h2 className="text-xl font-bold text-gray-800 mb-2">Error</h2>
                     <p className="text-gray-600 mb-6">{error}</p>
                     <button
-                        onClick={() => window.location.href = '/results'}
+                        onClick={() => window.location.href = backHref}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         Go Back
@@ -846,7 +952,7 @@ export default function TemplateViewer() {
                         <h2 className="text-xl font-bold text-gray-800 mb-2">Template Not Found</h2>
                         <p className="text-gray-600 mb-6">The template "{templateName}" does not exist.</p>
                         <button
-                            onClick={() => window.location.href = '/results'}
+                            onClick={() => window.location.href = backHref}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             Go Back
@@ -859,9 +965,89 @@ export default function TemplateViewer() {
     const isTimelineBlue = templateName === 'executive' || templateName === 'timelineblue' || templateName === 'timelineBlue' || templateName === 'timeline-blue' || templateName === 'timeline_blue';
 
     return (
-        <div className="min-h-screen bg-gray-100 py-8 px-4">
-            <div className="max-w-7xl mx-auto">
-                <style>{`
+        <div className="min-h-screen bg-gray-100">
+            <header className="border-b bg-white">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                    <a href="/" className="inline-flex items-center gap-3">
+                        <img src="/static/images/logo23_small.png" alt="Resumatic AI" width={40} height={40} />
+                        <span className="text-xl font-bold text-gray-900">Resumatic AI</span>
+                    </a>
+
+                    <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
+                        <a href="/" className="hover:text-indigo-600 font-semibold">Home</a>
+                        <a href="/blog" className="hover:text-indigo-600 font-semibold">Blog</a>
+                        <a href="/about" className="hover:text-indigo-600 font-semibold">About</a>
+                        {showBackLink && (
+                            <a href={backHref} className="hover:text-indigo-600 font-semibold">{backLabel}</a>
+                        )}
+                        {me?.is_authenticated ? (
+                            <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
+                                My Account
+                            </a>
+                        ) : (
+                            <a href="/login" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
+                                Login
+                            </a>
+                        )}
+                    </nav>
+
+                    <button
+                        type="button"
+                        onClick={() => setMobileNavOpen(v => !v)}
+                        className="md:hidden inline-flex items-center justify-center p-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                        aria-controls="mobileMenu"
+                        aria-expanded={mobileNavOpen ? 'true' : 'false'}
+                    >
+                        <span className="sr-only">Open menu</span>
+                        <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            {/* Mobile overlay */}
+            <div
+                className={`fixed inset-0 bg-black/30 z-40 transition-opacity md:hidden ${mobileNavOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                aria-hidden={mobileNavOpen ? 'false' : 'true'}
+                onClick={() => setMobileNavOpen(false)}
+            />
+
+            {/* Mobile Menu (right-side slide-in) */}
+            <div
+                id="mobileMenu"
+                className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 md:hidden transform transition-transform duration-300 ease-in-out ${mobileNavOpen ? 'translate-x-0' : 'translate-x-full'}`}
+                aria-label="Mobile"
+            >
+                <div className="flex justify-between items-center mb-8">
+                    <img alt="Logo" className="h-12 w-auto" src="/static/images/logo23_small.png" loading="lazy" width={64} height={64} />
+                    <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-900"
+                        aria-label="Close menu"
+                        onClick={() => setMobileNavOpen(false)}
+                    >
+                        ✕
+                    </button>
+                </div>
+                <nav className="space-y-4">
+                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/" onClick={() => setMobileNavOpen(false)}>Home</a>
+                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/blog" onClick={() => setMobileNavOpen(false)}>Blog</a>
+                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
+                    {showBackLink && (
+                        <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href={backHref} onClick={() => setMobileNavOpen(false)}>{backLabel}</a>
+                    )}
+                    {me?.is_authenticated ? (
+                        <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
+                    ) : (
+                        <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/login" onClick={() => setMobileNavOpen(false)}>Login</a>
+                    )}
+                </nav>
+            </div>
+
+            <main className="py-8 px-4">
+                <div className="max-w-7xl mx-auto">
+                    <style>{`
                   /* Mobile should match desktop: make key md:* utilities behave like desktop even on small viewports. */
                   #templatePrintRoot .md\\:flex-row { flex-direction: row !important; }
                   #templatePrintRoot .md\\:w-\\[300px\\] { width: 300px !important; }
@@ -1048,618 +1234,659 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .tv-style-root .pb-0 { padding-bottom: 0 !important; }
                 `}</style>
 
-                {isDownloadOnly && (
-                    <div className="mb-4">
-                        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
-                            <div className="text-base font-semibold text-gray-900">Resume PDF download</div>
-                            <div className="mt-1 text-sm text-gray-700">
-                                {downloadOnlyStatus === 'idle' && 'Click “Download PDF” if your browser blocks auto-downloads.'}
-                                {downloadOnlyStatus === 'starting' && 'Preparing your PDF. Your download should start shortly…'}
-                                {downloadOnlyStatus === 'done' && 'Download started. You can return to Job Search Hub.'}
-                                {downloadOnlyStatus === 'failed' && 'Auto-download did not start.'}
+                    {isDownloadOnly && (
+                        <div className="mb-4">
+                            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                                <div className="text-base font-semibold text-gray-900">Resume PDF download</div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                    {downloadOnlyStatus === 'idle' && 'Click “Download PDF” if your browser blocks auto-downloads.'}
+                                    {downloadOnlyStatus === 'starting' && 'Preparing your PDF. Your download should start shortly…'}
+                                    {downloadOnlyStatus === 'done' && 'Download started. You can return to Job Search Hub.'}
+                                    {downloadOnlyStatus === 'failed' && 'Auto-download did not start.'}
+                                </div>
+
+                                {downloadOnlyStatus === 'failed' && downloadOnlyError && (
+                                    <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                        {downloadOnlyError}
+                                    </div>
+                                )}
+
+                                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                                    <button
+                                        type="button"
+                                        className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        disabled={downloadingPdf}
+                                        onClick={() => {
+                                            if (me && !me.is_paid) {
+                                                window.location.href = '/plans';
+                                                return;
+                                            }
+                                            setDownloadOnlyStatus('starting');
+                                            setDownloadOnlyError('');
+                                            downloadPdfAsFile()
+                                                .then(() => {
+                                                    setDownloadOnlyStatus('done');
+                                                })
+                                                .catch((e: any) => {
+                                                    setDownloadOnlyStatus('failed');
+                                                    setDownloadOnlyError(String(e?.message || 'Download failed.'));
+                                                });
+                                        }}
+                                    >
+                                        {downloadingPdf ? 'Preparing…' : 'Download PDF'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
+                                        onClick={downloadOnlyReturnToHub}
+                                    >
+                                        Back to Job Search Hub
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!isDownloadOnly && (
+                        <>
+                            {/* Header with back button and template name */}
+                            <div id="templateViewerHeader" className="mb-3">
+                                <h1 className="text-2xl font-bold text-gray-800 break-words">{templateDisplayName || templateName} Template</h1>
+                                <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div className="shrink-0">
+                                        {showBackLink && (
+                                            <button
+                                                onClick={() => window.location.href = backHref}
+                                                className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                </svg>
+                                                {backLabel}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                                        {/* Edit Mode now available for ALL templates */}
+                                        <button
+                                            onClick={() => setInlineEditMode(!inlineEditMode)}
+                                            className={`px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${inlineEditMode
+                                                ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-sm'
+                                                : 'bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 shadow-sm hover:shadow'
+                                                }`}
+                                        >
+                                            <Edit3 className="w-4 h-4" />
+                                            {inlineEditMode ? 'Exit Edit Mode' : 'Edit Mode'}
+                                        </button>
+                                        {inlineEditMode && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const merged = { ...(resumeData || {}), ...(inlineEditChanges || {}) };
+                                                    setResumeData(merged);
+                                                    await saveEditedResume(merged);
+                                                    setInlineEditChanges({});
+                                                }}
+                                                className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${editSaving
+                                                    ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
+                                                    : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
+                                                    }`}
+                                                disabled={editSaving}
+                                            >
+                                                {editSaving ? 'Saving…' : 'Save Changes'}
+                                            </button>
+                                        )}
+                                        {inlineEditMode ? (
+                                            <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-sm flex items-start gap-2">
+                                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
+                                                <span>
+                                                    Exit Edit mode to Normal mode for <span className="text-indigo-600 font-medium">PDF download</span>.
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    if (downloadingPdf) return;
+                                                    if (me?.is_paid) downloadPdf();
+                                                    else window.location.href = '/plans';
+                                                }}
+                                                className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                disabled={downloadingPdf}
+                                            >
+                                                Download PDF
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
-                            {downloadOnlyStatus === 'failed' && downloadOnlyError && (
-                                <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                                    {downloadOnlyError}
+                            {(editSaving || editSaveError || editSaveHubMessage || editSaveSuccess) && (
+                                <div className="mb-6">
+                                    {editSaving && (
+                                        <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                            Saving…
+                                        </div>
+                                    )}
+                                    {!editSaving && editSaveError && (
+                                        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                            {editSaveError}
+                                        </div>
+                                    )}
+                                    {!editSaving && !editSaveError && editSaveHubMessage && (
+                                        <div className="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                            {editSaveHubMessage}
+                                        </div>
+                                    )}
+                                    {!editSaving && !editSaveError && !editSaveHubMessage && editSaveSuccess && (
+                                        <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                            Saved.
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                                <button
-                                    type="button"
-                                    className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    disabled={downloadingPdf}
-                                    onClick={() => {
-                                        if (me && !me.is_paid) {
-                                            window.location.href = '/plans';
-                                            return;
-                                        }
-                                        setDownloadOnlyStatus('starting');
-                                        setDownloadOnlyError('');
-                                        downloadPdfAsFile()
-                                            .then(() => {
-                                                setDownloadOnlyStatus('done');
-                                            })
-                                            .catch((e: any) => {
-                                                setDownloadOnlyStatus('failed');
-                                                setDownloadOnlyError(String(e?.message || 'Download failed.'));
-                                            });
-                                    }}
-                                >
-                                    {downloadingPdf ? 'Preparing…' : 'Download PDF'}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
-                                    onClick={downloadOnlyReturnToHub}
-                                >
-                                    Back to Job Search Hub
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                        </>
+                    )}
 
-                {!isDownloadOnly && (
-                    <>
-                        {/* Header with back button and template name */}
-                        <div id="templateViewerHeader" className="mb-3 flex items-center justify-between">
-                            <button
-                                onClick={() => window.location.href = '/results'}
-                                className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-                            >
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                </svg>
-                                Back to Results
-                            </button>
-                            <h1 className="text-2xl font-bold text-gray-800 capitalize">{templateName} Template</h1>
-                            <div className="flex items-center gap-2">
-                                {/* Edit Mode now available for ALL templates */}
-                                <button
-                                    onClick={() => setInlineEditMode(!inlineEditMode)}
-                                    className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${inlineEditMode
-                                        ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
-                                        : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    <Edit3 className="w-4 h-4" />
-                                    {inlineEditMode ? 'Exit Edit Mode' : 'Edit Mode'}
-                                </button>
+                    <div className={`grid ${isDownloadOnly ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} gap-4 sm:gap-6`}>
+                        {/* Left settings panel */}
+                        {!isDownloadOnly && (
+                            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
+                                <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 border-b border-gray-100">
+                                    <div className="flex items-start">
+                                        <div className="flex-1">
+                                            <div className="inline-flex items-center gap-2 text-base font-extrabold text-gray-900">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white shadow-sm">TIP</span>
+                                                <span> Aim for one page</span>
+                                            </div>
+                                            <div className="mt-1 flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
+                                                <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-100 border border-sky-200 shrink-0 shadow-sm">
+                                                    <Lightbulb className="w-4.5 h-4.5 text-sky-700" />
+                                                </span>
+                                                <p>
+                                                    Most recruiters prefer a one‑page resume. Use the sliders below to adjust font size and spacing to fit cleanly.
+                                                </p>
+                                            </div>
+                                            <div className="mt-2 inline-flex items-center gap-2 text-xs text-gray-500">
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
+                                                    Preview: {pdfPreviewPages} page{pdfPreviewPages === 1 ? '' : 's'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h2 className="text-sm font-semibold text-gray-900">Settings</h2>
+                                            <button
+                                                className="inline-flex items-center gap-2 text-sm text-indigo-700 hover:text-indigo-800"
+                                                onClick={() => setStyleSettings({ fontScale: 1, paragraphGapPx: 0, spacingScale: 1 })}
+                                            >
+                                                <RotateCcw className="w-4 h-4" />
+                                                Reset
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
+                                                        <Type className="w-4 h-4 text-indigo-600" />
+                                                        Font size
+                                                    </label>
+                                                    <span className="text-xs text-gray-600">{Math.round(styleSettings.fontScale * 100)}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={0.6}
+                                                    max={1.4}
+                                                    step={0.01}
+                                                    value={styleSettings.fontScale}
+                                                    onChange={(e) => setStyleSettings(s => ({ ...s, fontScale: Number(e.target.value) }))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+
+                                            <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
+                                                        <AlignLeft className="w-4 h-4 text-emerald-600" />
+                                                        Paragraph gap
+                                                    </label>
+                                                    <span className="text-xs text-gray-600">{styleSettings.paragraphGapPx}px</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={-40}
+                                                    max={200}
+                                                    step={1}
+                                                    value={styleSettings.paragraphGapPx}
+                                                    onChange={(e) => setStyleSettings(s => ({ ...s, paragraphGapPx: Number(e.target.value) }))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+
+                                            <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
+                                                        <Rows className="w-4 h-4 text-purple-600" />
+                                                        Section spacing
+                                                    </label>
+                                                    <span className="text-xs text-gray-600">{Math.round(styleSettings.spacingScale * 100)}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={5}
+                                                    step={0.01}
+                                                    value={styleSettings.spacingScale}
+                                                    onChange={(e) => setStyleSettings(s => ({ ...s, spacingScale: Number(e.target.value) }))}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Edit fields (only visible in Edit Mode) */}
                                 {inlineEditMode && (
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            const merged = { ...(resumeData || {}), ...(inlineEditChanges || {}) };
-                                            setResumeData(merged);
-                                            await saveEditedResume(merged);
-                                            setInlineEditChanges({});
-                                        }}
-                                        className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${editSaving
-                                            ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
-                                            : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
-                                            }`}
-                                        disabled={editSaving}
-                                    >
-                                        {editSaving ? 'Saving…' : 'Save Changes'}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => {
-                                        if (downloadingPdf) return;
-                                        if (me?.is_paid) downloadPdf();
-                                        else window.location.href = '/plans';
-                                    }}
-                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    disabled={downloadingPdf}
-                                >
-                                    Download PDF
-                                </button>
-                            </div>
-                        </div>
+                                    <div className="px-4 pb-4">
+                                        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h2 className="text-sm font-semibold text-gray-900">Edit fields</h2>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => loadTemplateData()}
+                                                        className="text-sm text-gray-600 hover:text-gray-800"
+                                                        disabled={editSaving}
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                        {(editSaving || editSaveError || editSaveHubMessage || editSaveSuccess) && (
-                            <div className="mb-6">
-                                {editSaving && (
-                                    <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                                        Saving…
-                                    </div>
-                                )}
-                                {!editSaving && editSaveError && (
-                                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                                        {editSaveError}
-                                    </div>
-                                )}
-                                {!editSaving && !editSaveError && editSaveHubMessage && (
-                                    <div className="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                                        {editSaveHubMessage}
-                                    </div>
-                                )}
-                                {!editSaving && !editSaveError && !editSaveHubMessage && editSaveSuccess && (
-                                    <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                        Saved.
+                                            {editSaveError && (
+                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
+                                                    {editSaveError}
+                                                </div>
+                                            )}
+                                            {editSaveSuccess && (
+                                                <div className="mb-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                                                    Saved.
+                                                </div>
+                                            )}
+
+                                            {editSaveHubMessage && (
+                                                <div className="mb-3 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                                    {editSaveHubMessage}
+                                                </div>
+                                            )}
+
+                                            {aiEditError && (
+                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
+                                                    {aiEditError}
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3">
+                                                <Field label="Name">
+                                                    <input
+                                                        value={String(resumeData?.name ?? '')}
+                                                        onChange={(e) => setField('name', e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                    />
+                                                </Field>
+                                                <Field label="Title">
+                                                    <input
+                                                        value={String(resumeData?.title ?? '')}
+                                                        onChange={(e) => setField('title', e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                    />
+                                                </Field>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <Field label="Email">
+                                                        <input
+                                                            value={String(resumeData?.email ?? '')}
+                                                            onChange={(e) => setField('email', e.target.value)}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                        />
+                                                    </Field>
+                                                    <Field label="Phone">
+                                                        <input
+                                                            value={String(resumeData?.phone ?? '')}
+                                                            onChange={(e) => setField('phone', e.target.value)}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                        />
+                                                    </Field>
+                                                </div>
+                                                <Field label="Location">
+                                                    <input
+                                                        value={String(resumeData?.location ?? '')}
+                                                        onChange={(e) => setField('location', e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                    />
+                                                </Field>
+                                                <label className="block">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="text-xs font-semibold text-gray-700">Professional summary</div>
+                                                        <button
+                                                            type="button"
+                                                            className={
+                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                (aiBusySummary
+                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                            }
+                                                            disabled={aiBusySummary}
+                                                            onClick={async () => {
+                                                                try {
+                                                                    setAiBusySummary(true);
+                                                                    const nextText = await aiRewriteResumeField({
+                                                                        field: 'summary',
+                                                                        text: String(resumeData?.summary ?? ''),
+                                                                        meta: {
+                                                                            title: String(resumeData?.title ?? ''),
+                                                                        },
+                                                                    });
+                                                                    setField('summary', nextText);
+                                                                } catch (e: any) {
+                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                } finally {
+                                                                    setAiBusySummary(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {aiBusySummary ? (
+                                                                'Improving…'
+                                                            ) : (
+                                                                <>
+                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                    Enhance with AI
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                    <textarea
+                                                        value={String(resumeData?.summary ?? '')}
+                                                        onChange={(e) => setField('summary', e.target.value)}
+                                                        rows={4}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                    />
+                                                </label>
+
+                                                <ListField
+                                                    label="Skills"
+                                                    values={normalizeList(resumeData?.skills)}
+                                                    onChange={(vals: string[]) => setField('skills', vals)}
+                                                />
+                                                <ListField
+                                                    label="Languages"
+                                                    values={normalizeList(resumeData?.languages)}
+                                                    onChange={(vals: string[]) => setField('languages', vals)}
+                                                />
+
+                                                {/* Work history: edit descriptions/bullets */}
+                                                <div className="pt-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="text-xs font-semibold text-gray-700">Work history descriptions</div>
+                                                        {experienceList.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                className="text-xs text-gray-600 hover:text-gray-800"
+                                                                onClick={() => {
+                                                                    if (showAllWorkHistoryDescriptions) {
+                                                                        setShowAllWorkHistoryDescriptions(false);
+                                                                        setEditingExperienceIndex(null);
+                                                                        return;
+                                                                    }
+                                                                    if (editingExperienceIndex !== null) {
+                                                                        setEditingExperienceIndex(null);
+                                                                        return;
+                                                                    }
+                                                                    setShowAllWorkHistoryDescriptions(true);
+                                                                }}
+                                                            >
+                                                                {showAllWorkHistoryDescriptions
+                                                                    ? 'Collapse all'
+                                                                    : (editingExperienceIndex !== null ? 'Collapse' : 'Expand all')}
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {experienceList.length === 0 ? (
+                                                        <div className="mt-2 text-sm text-gray-500">No work history found in this resume.</div>
+                                                    ) : (
+                                                        <div className="mt-2 space-y-2">
+                                                            {experienceList.map((exp: any, idx: number) => {
+                                                                const title = String(exp?.title || exp?.position || exp?.role || 'Role');
+                                                                const company = String(exp?.company || exp?.organization || '');
+                                                                const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
+                                                                const isOpen = showAllWorkHistoryDescriptions || editingExperienceIndex === idx;
+                                                                return (
+                                                                    <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (showAllWorkHistoryDescriptions) {
+                                                                                    setShowAllWorkHistoryDescriptions(false);
+                                                                                    setEditingExperienceIndex(idx);
+                                                                                    return;
+                                                                                }
+                                                                                setEditingExperienceIndex(isOpen ? null : idx);
+                                                                            }}
+                                                                            className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
+                                                                        >
+                                                                            <div className="min-w-0">
+                                                                                <div className="text-sm font-semibold text-gray-900 truncate">
+                                                                                    {title}
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-600 truncate">
+                                                                                    {[company, dates].filter(Boolean).join(' · ')}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-xs text-indigo-700 shrink-0">
+                                                                                {showAllWorkHistoryDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
+                                                                            </div>
+                                                                        </button>
+                                                                        {isOpen && (
+                                                                            <div className="p-3 bg-white">
+                                                                                <label className="block">
+                                                                                    <div className="flex items-center justify-between mb-1">
+                                                                                        <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className={
+                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                                                ((aiBusyExperience[idx] ?? false)
+                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                                            }
+                                                                                            disabled={aiBusyExperience[idx] ?? false}
+                                                                                            onClick={async () => {
+                                                                                                try {
+                                                                                                    setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
+                                                                                                    const nextText = await aiRewriteResumeField({
+                                                                                                        field: 'experience_description',
+                                                                                                        text: String(exp?.description ?? ''),
+                                                                                                        meta: {
+                                                                                                            title,
+                                                                                                            company,
+                                                                                                            dates,
+                                                                                                        },
+                                                                                                    });
+                                                                                                    updateExperienceDescription(idx, nextText);
+                                                                                                } catch (e: any) {
+                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                                                } finally {
+                                                                                                    setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            {(aiBusyExperience[idx] ?? false) ? (
+                                                                                                'Rewriting…'
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                                                    Enhance with AI
+                                                                                                </>
+                                                                                            )}
+                                                                                        </button>
+                                                                                    </div>
+                                                                                    <textarea
+                                                                                        rows={6}
+                                                                                        value={String(exp?.description ?? '')}
+                                                                                        onChange={(e) => updateExperienceDescription(idx, e.target.value)}
+                                                                                        placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </label>
+                                                                                <div className="mt-2 text-xs text-gray-500">
+                                                                                    Tip: start lines with “- ” to render bullets.
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                    </>
-                )}
+                        {/* PDF view */}
+                        <div className="min-w-0">
+                            {mobilePreviewOpen && (
+                                <div
+                                    className="fixed inset-0 z-50 bg-gray-900/50 sm:hidden"
+                                    onClick={() => setMobilePreviewOpen(false)}
+                                    aria-hidden="true"
+                                />
+                            )}
 
-                <div className={`grid grid-cols-1 ${isDownloadOnly ? '' : 'lg:grid-cols-[360px_1fr]'} gap-6`}>
-                    {/* Left settings panel */}
-                    {!isDownloadOnly && (
-                        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
-                            <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 border-b border-gray-100">
-                                <div className="flex items-start">
-                                    <div className="flex-1">
-                                        <div className="inline-flex items-center gap-2 text-base font-extrabold text-gray-900">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white shadow-sm">TIP</span>
-                                            <span> Aim for one page</span>
+                            <div className={mobilePreviewOpen ? 'fixed inset-0 z-[60] bg-gray-50 sm:static sm:z-auto sm:bg-transparent flex flex-col' : ''}>
+                                {mobilePreviewOpen && (
+                                    <div className="sm:hidden px-3 pt-3">
+                                        <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
+                                            <div className="text-sm font-semibold text-gray-900">Full screen mode</div>
+                                            <button
+                                                type="button"
+                                                className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-semibold"
+                                                onClick={() => setMobilePreviewOpen(false)}
+                                            >
+                                                Close
+                                            </button>
                                         </div>
-                                        <div className="mt-1 flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
-                                            <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-sky-100 border border-sky-200 shrink-0 shadow-sm">
-                                                <Lightbulb className="w-4.5 h-4.5 text-sky-700" />
-                                            </span>
-                                            <p>
-                                                Most recruiters prefer a one‑page resume. Use the sliders below to adjust font size and spacing to fit cleanly.
-                                            </p>
-                                        </div>
-                                        <div className="mt-2 inline-flex items-center gap-2 text-xs text-gray-500">
-                                            <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
-                                                Preview: {pdfPreviewPages} page{pdfPreviewPages === 1 ? '' : 's'}
-                                            </span>
-                                        </div>
+                                        {inlineEditMode && (
+                                            <div className="mt-2 text-xs text-gray-600">
+                                                Tap on any text to edit
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            </div>
+                                )}
 
-                            <div className="p-4">
-                                <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h2 className="text-sm font-semibold text-gray-900">Settings</h2>
-                                        <button
-                                            className="inline-flex items-center gap-2 text-sm text-indigo-700 hover:text-indigo-800"
-                                            onClick={() => setStyleSettings({ fontScale: 1, paragraphGapPx: 0, spacingScale: 1 })}
-                                        >
-                                            <RotateCcw className="w-4 h-4" />
-                                            Reset
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="rounded-xl border border-gray-200 bg-white p-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
-                                                    <Type className="w-4 h-4 text-indigo-600" />
-                                                    Font size
-                                                </label>
-                                                <span className="text-xs text-gray-600">{Math.round(styleSettings.fontScale * 100)}%</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min={0.6}
-                                                max={1.4}
-                                                step={0.01}
-                                                value={styleSettings.fontScale}
-                                                onChange={(e) => setStyleSettings(s => ({ ...s, fontScale: Number(e.target.value) }))}
-                                                className="w-full"
-                                            />
-                                        </div>
-
-                                        <div className="rounded-xl border border-gray-200 bg-white p-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
-                                                    <AlignLeft className="w-4 h-4 text-emerald-600" />
-                                                    Paragraph gap
-                                                </label>
-                                                <span className="text-xs text-gray-600">{styleSettings.paragraphGapPx}px</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min={-40}
-                                                max={200}
-                                                step={1}
-                                                value={styleSettings.paragraphGapPx}
-                                                onChange={(e) => setStyleSettings(s => ({ ...s, paragraphGapPx: Number(e.target.value) }))}
-                                                className="w-full"
-                                            />
-                                        </div>
-
-                                        <div className="rounded-xl border border-gray-200 bg-white p-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
-                                                    <Rows className="w-4 h-4 text-purple-600" />
-                                                    Section spacing
-                                                </label>
-                                                <span className="text-xs text-gray-600">{Math.round(styleSettings.spacingScale * 100)}%</span>
-                                            </div>
-                                            <input
-                                                type="range"
-                                                min={0}
-                                                max={5}
-                                                step={0.01}
-                                                value={styleSettings.spacingScale}
-                                                onChange={(e) => setStyleSettings(s => ({ ...s, spacingScale: Number(e.target.value) }))}
-                                                className="w-full"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Edit fields (only visible in Edit Mode) */}
-                            {inlineEditMode && (
-                                <div className="px-4 pb-4">
-                                    <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h2 className="text-sm font-semibold text-gray-900">Edit fields</h2>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => loadTemplateData()}
-                                                    className="text-sm text-gray-600 hover:text-gray-800"
-                                                    disabled={editSaving}
-                                                >
-                                                    Reset
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {editSaveError && (
-                                            <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                {editSaveError}
-                                            </div>
-                                        )}
-                                        {editSaveSuccess && (
-                                            <div className="mb-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                                                Saved.
-                                            </div>
-                                        )}
-
-                                        {editSaveHubMessage && (
-                                            <div className="mb-3 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                                {editSaveHubMessage}
-                                            </div>
-                                        )}
-
-                                        {aiEditError && (
-                                            <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                {aiEditError}
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-3">
-                                            <Field label="Name">
-                                                <input
-                                                    value={String(resumeData?.name ?? '')}
-                                                    onChange={(e) => setField('name', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                />
-                                            </Field>
-                                            <Field label="Title">
-                                                <input
-                                                    value={String(resumeData?.title ?? '')}
-                                                    onChange={(e) => setField('title', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                />
-                                            </Field>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <Field label="Email">
-                                                    <input
-                                                        value={String(resumeData?.email ?? '')}
-                                                        onChange={(e) => setField('email', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                                <Field label="Phone">
-                                                    <input
-                                                        value={String(resumeData?.phone ?? '')}
-                                                        onChange={(e) => setField('phone', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                            </div>
-                                            <Field label="Location">
-                                                <input
-                                                    value={String(resumeData?.location ?? '')}
-                                                    onChange={(e) => setField('location', e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                />
-                                            </Field>
-                                            <label className="block">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <div className="text-xs font-semibold text-gray-700">Professional summary</div>
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            'text-xs inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ' +
-                                                            (aiBusySummary
-                                                                ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                        }
-                                                        disabled={aiBusySummary}
-                                                        onClick={async () => {
-                                                            try {
-                                                                setAiBusySummary(true);
-                                                                const nextText = await aiRewriteResumeField({
-                                                                    field: 'summary',
-                                                                    text: String(resumeData?.summary ?? ''),
-                                                                    meta: {
-                                                                        title: String(resumeData?.title ?? ''),
-                                                                    },
-                                                                });
-                                                                setField('summary', nextText);
-                                                            } catch (e: any) {
-                                                                setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                            } finally {
-                                                                setAiBusySummary(false);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Lightbulb className="w-3.5 h-3.5" />
-                                                        {aiBusySummary ? 'Improving…' : 'AI improve'}
-                                                    </button>
-                                                </div>
-                                                <textarea
-                                                    value={String(resumeData?.summary ?? '')}
-                                                    onChange={(e) => setField('summary', e.target.value)}
-                                                    rows={4}
-                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                />
-                                            </label>
-
-                                            <ListField
-                                                label="Skills"
-                                                values={normalizeList(resumeData?.skills)}
-                                                onChange={(vals: string[]) => setField('skills', vals)}
-                                            />
-                                            <ListField
-                                                label="Languages"
-                                                values={normalizeList(resumeData?.languages)}
-                                                onChange={(vals: string[]) => setField('languages', vals)}
-                                            />
-
-                                            {/* Work history: edit descriptions/bullets */}
-                                            <div className="pt-1">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="text-xs font-semibold text-gray-700">Work history descriptions</div>
-                                                    {editingExperienceIndex !== null && (
-                                                        <button
-                                                            type="button"
-                                                            className="text-xs text-gray-600 hover:text-gray-800"
-                                                            onClick={() => setEditingExperienceIndex(null)}
-                                                        >
-                                                            Collapse
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                {experienceList.length === 0 ? (
-                                                    <div className="mt-2 text-sm text-gray-500">No work history found in this resume.</div>
-                                                ) : (
-                                                    <div className="mt-2 space-y-2">
-                                                        {experienceList.map((exp: any, idx: number) => {
-                                                            const title = String(exp?.title || exp?.position || exp?.role || 'Role');
-                                                            const company = String(exp?.company || exp?.organization || '');
-                                                            const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
-                                                            const isOpen = editingExperienceIndex === idx;
-                                                            return (
-                                                                <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setEditingExperienceIndex(isOpen ? null : idx)}
-                                                                        className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                    >
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                {title}
-                                                                            </div>
-                                                                            <div className="text-xs text-gray-600 truncate">
-                                                                                {[company, dates].filter(Boolean).join(' · ')}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="text-xs text-indigo-700 shrink-0">
-                                                                            {isOpen ? 'Hide' : 'Edit'}
-                                                                        </div>
-                                                                    </button>
-                                                                    {isOpen && (
-                                                                        <div className="p-3 bg-white">
-                                                                            <label className="block">
-                                                                                <div className="flex items-center justify-between mb-1">
-                                                                                    <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        className={
-                                                                                            'text-xs inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ' +
-                                                                                            ((aiBusyExperience[idx] ?? false)
-                                                                                                ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                                        }
-                                                                                        disabled={aiBusyExperience[idx] ?? false}
-                                                                                        onClick={async () => {
-                                                                                            try {
-                                                                                                setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                const nextText = await aiRewriteResumeField({
-                                                                                                    field: 'experience_description',
-                                                                                                    text: String(exp?.description ?? ''),
-                                                                                                    meta: {
-                                                                                                        title,
-                                                                                                        company,
-                                                                                                        dates,
-                                                                                                    },
-                                                                                                });
-                                                                                                updateExperienceDescription(idx, nextText);
-                                                                                            } catch (e: any) {
-                                                                                                setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                            } finally {
-                                                                                                setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <Lightbulb className="w-3.5 h-3.5" />
-                                                                                        {(aiBusyExperience[idx] ?? false) ? 'Rewriting…' : 'AI rewrite'}
-                                                                                    </button>
-                                                                                </div>
-                                                                                <textarea
-                                                                                    rows={6}
-                                                                                    value={String(exp?.description ?? '')}
-                                                                                    onChange={(e) => updateExperienceDescription(idx, e.target.value)}
-                                                                                    placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </label>
-                                                                            <div className="mt-2 text-xs text-gray-500">
-                                                                                Tip: start lines with “- ” to render bullets.
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
+                                <div className={mobilePreviewOpen ? 'flex-1 min-h-0 px-3 pb-3 pt-2 sm:p-0' : ''}>
+                                    {!mobilePreviewOpen && (
+                                        <div className="sm:hidden mb-2 flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                {inlineEditMode && (
+                                                    <div className="text-xs text-gray-600">Tap on any text to edit</div>
                                                 )}
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setMobilePreviewOpen(true)}
+                                                className="shrink-0 px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
+                                            >
+                                                Full screen
+                                            </button>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* PDF view */}
-                    <div>
-                        <div
-                            ref={pdfPreviewContainerRef}
-                            className="bg-gray-100 rounded-lg p-4"
-                        >
-                            {/* Hidden measurement render (used to compute pages + capture HTML snapshot) */}
-                            <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
-                                <div className="pdfPreviewPage">
-                                    <div className="pdfPreviewTarget">
-                                        <div
-                                            ref={pdfPreviewMeasureInnerRef}
-                                            className="tv-style-root"
-                                            style={{
-                                                // @ts-ignore
-                                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
-                                                // @ts-ignore
-                                                ['--tv-font-scale']: String(styleSettings.fontScale),
-                                                // @ts-ignore
-                                                ['--tv-space-scale']: String(styleSettings.spacingScale),
-                                            }}
-                                        >
-                                            {/* Only pass edit mode props to supported templates */}
-                                            {isTimelineBlue ? (
-                                                <TemplateComponent
-                                                    content={content}
-                                                    editMode={false}
-                                                    sectionOrder={sectionOrder}
-                                                    onSectionOrderChange={setSectionOrder}
-                                                />
-                                            ) : (
-                                                <TemplateComponent
-                                                    content={content}
-                                                    editMode={false}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {(() => {
-                                const PAGE_W = 816;
-                                const twoUpGapPx = 24;
-                                const pagesForLayout = inlineEditMode ? 1 : pdfPreviewPages;
-                                const totalW = pagesForLayout === 2 ? ((PAGE_W * 2) + twoUpGapPx) : PAGE_W;
-                                const scaledW = Math.max(1, Math.ceil(totalW * pdfPreviewPageScale));
-                                return (
-                                    <div style={{ width: `${scaledW}px`, margin: '0 auto' }}>
-                                        <div style={{ transform: `scale(${pdfPreviewPageScale})`, transformOrigin: 'top left' }}>
-                                            {inlineEditMode ? (
-                                                // Edit mode: render a continuous scroll canvas (no page slicing).
-                                                <div className="space-y-4">
-                                                    <div className="inline-flex items-center gap-2">
-                                                        <div className="text-2xl leading-none font-serif font-semibold tracking-tight text-gray-900">
-                                                            Edit mode
-                                                        </div>
-                                                        <div className="h-px flex-1 bg-gray-300/80" />
-                                                    </div>
-                                                    <div className="pdfPreviewPage pdfPreviewPageContinuous">
-                                                        <div className="pdfPreviewTarget pdfPreviewTargetContinuous">
-                                                            <div
-                                                                style={{
-                                                                    transform: `scale(${pdfPreviewContentScale})`,
-                                                                    transformOrigin: 'top left',
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    className="tv-style-root"
-                                                                    style={{
-                                                                        // @ts-ignore
-                                                                        ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
-                                                                        // @ts-ignore
-                                                                        ['--tv-font-scale']: String(styleSettings.fontScale),
-                                                                        // @ts-ignore
-                                                                        ['--tv-space-scale']: String(styleSettings.spacingScale),
-                                                                    }}
-                                                                >
-                                                                    {isTimelineBlue ? (
-                                                                        <TemplateComponent
-                                                                            content={content}
-                                                                            editMode={inlineEditMode}
-                                                                            sectionOrder={sectionOrder}
-                                                                            onSectionOrderChange={setSectionOrder}
-                                                                            onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
-                                                                        />
-                                                                    ) : (
-                                                                        <TemplateComponent
-                                                                            content={content}
-                                                                            editMode={inlineEditMode}
-                                                                            onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                    )}
+                                    <div
+                                        ref={pdfPreviewContainerRef}
+                                        className={`bg-gray-100 rounded-lg p-4 ${mobilePreviewOpen ? 'h-full overflow-auto' : 'overflow-x-auto'}`}
+                                    >
+                                        {/* Hidden measurement render (used to compute pages + capture HTML snapshot) */}
+                                        <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
+                                            <div className="pdfPreviewPage">
+                                                <div className="pdfPreviewTarget">
+                                                    <div
+                                                        ref={pdfPreviewMeasureInnerRef}
+                                                        className="tv-style-root"
+                                                        style={{
+                                                            // @ts-ignore
+                                                            ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                                            // @ts-ignore
+                                                            ['--tv-font-scale']: String(styleSettings.fontScale),
+                                                            // @ts-ignore
+                                                            ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                        }}
+                                                    >
+                                                        <TemplateComponent
+                                                            content={content}
+                                                            editMode={false}
+                                                            sectionOrder={sectionOrder}
+                                                            onSectionOrderChange={setSectionOrder}
+                                                            hiddenSectionKeys={hiddenSectionKeys}
+                                                            onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                        />
                                                     </div>
                                                 </div>
-                                            ) : (
-                                                // View mode: paged preview (with optional snapshot windowing).
-                                                <div className={pdfPreviewPages === 2 ? 'grid grid-cols-[816px_816px] gap-6 items-start' : 'space-y-6'}>
-                                                    {Array.from({ length: pdfPreviewPages }).map((_, idx) => (
-                                                        <div key={idx} className="space-y-8">
-                                                            <div className="inline-flex items-center gap-2">
-                                                                <div className="text-4xl leading-none font-serif font-semibold tracking-tight text-gray-900">
-                                                                    Page {idx + 1}
+                                            </div>
+                                        </div>
+
+                                        {(() => {
+                                            const PAGE_W = 816;
+                                            const twoUpGapPx = 24;
+                                            const pagesForLayout = inlineEditMode ? 1 : pdfPreviewPages;
+                                            const totalW = pagesForLayout === 2 ? ((PAGE_W * 2) + twoUpGapPx) : PAGE_W;
+                                            const scaledW = Math.max(1, Math.ceil(totalW * pdfPreviewPageScale));
+                                            return (
+                                                <div style={{ width: `${scaledW}px`, margin: '0 auto' }}>
+                                                    <div style={{ transform: `scale(${pdfPreviewPageScale})`, transformOrigin: 'top left' }}>
+                                                        {inlineEditMode ? (
+                                                            // Edit mode: render a continuous scroll canvas (no page slicing).
+                                                            <div className="space-y-4">
+                                                                <div className="inline-flex items-center gap-3 w-full flex-wrap">
+                                                                    <div className="inline-flex items-center gap-2">
+                                                                        <div className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 px-3 py-1 text-sm font-semibold">
+                                                                            Edit mode
+                                                                        </div>
+                                                                        <div className="text-sm text-gray-600 flex flex-col gap-1">
+                                                                            <div>Click on any content to edit.</div>
+                                                                            <div className="inline-flex items-center gap-2">
+                                                                                <Grip className="w-4 h-4 text-gray-500" />
+                                                                                <span>All sections can be repositioned using the drag and drop funtionalty at the left side of each section.</span>
+                                                                            </div>
+                                                                            <div className="inline-flex items-center gap-2">
+                                                                                <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-xs rounded bg-orange-200 text-black border border-orange-300">
+                                                                                    <Wand2 className="w-3 h-3" />
+                                                                                    <span>Enhance with AI</span>
+                                                                                </span>
+                                                                                <span>— On the left sidebar, editing functionality and AI rewriting assistance is also available.</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="h-px flex-1 bg-gray-300/80 min-w-[80px]" />
                                                                 </div>
-                                                                <div className="h-px flex-1 bg-gray-300/80" />
-                                                            </div>
-                                                            <div
-                                                                className={
-                                                                    `pdfPreviewPage` +
-                                                                    `${pdfPreviewPages === 2 ? ' pdfPreviewPageTwoUp' : ''}` +
-                                                                    `${idx === pdfPreviewPages - 1 ? ' pdfPreviewPageLast' : ''}`
-                                                                }
-                                                                style={{
-                                                                    // Shrink only the last page frame to the remaining content height
-                                                                    // (removes trailing bottom edge/shadow line at end-of-document)
-                                                                    // @ts-ignore
-                                                                    ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1056}px`,
-                                                                }}
-                                                            >
-                                                                <div className="pdfPreviewTarget">
-                                                                    {!pdfPreviewSnapshotHtml ? (
+                                                                <div className="pdfPreviewPage pdfPreviewPageContinuous">
+                                                                    <div className="pdfPreviewTarget pdfPreviewTargetContinuous">
                                                                         <div
                                                                             style={{
-                                                                                transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
+                                                                                transform: `scale(${pdfPreviewContentScale})`,
                                                                                 transformOrigin: 'top left',
                                                                             }}
                                                                         >
                                                                             <div
                                                                                 className="tv-style-root"
+                                                                                data-tv-preview="true"
                                                                                 style={{
                                                                                     // @ts-ignore
                                                                                     ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
@@ -1669,173 +1896,236 @@ export default function TemplateViewer() {
                                                                                     ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                                                 }}
                                                                             >
-                                                                                {isTimelineBlue ? (
-                                                                                    <TemplateComponent
-                                                                                        content={content}
-                                                                                        editMode={false}
-                                                                                        sectionOrder={sectionOrder}
-                                                                                        onSectionOrderChange={setSectionOrder}
-                                                                                    />
+                                                                                <TemplateComponent
+                                                                                    content={content}
+                                                                                    editMode={inlineEditMode}
+                                                                                    sectionOrder={sectionOrder}
+                                                                                    onSectionOrderChange={setSectionOrder}
+                                                                                    hiddenSectionKeys={hiddenSectionKeys}
+                                                                                    onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                    onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            // View mode: paged preview (with optional snapshot windowing).
+                                                            <div className={pdfPreviewPages === 2 ? 'grid grid-cols-[816px_816px] gap-6 items-start' : 'space-y-6'}>
+                                                                {Array.from({ length: pdfPreviewPages }).map((_, idx) => (
+                                                                    <div key={idx} className="space-y-8">
+                                                                        <div className="inline-flex items-center gap-3 w-full">
+                                                                            <div
+                                                                                className={
+                                                                                    'inline-flex items-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200 font-semibold ' +
+                                                                                    (pdfPreviewPages === 2 ? 'px-6 py-3 text-3xl' : 'px-4 py-2 text-lg')
+                                                                                }
+                                                                            >
+                                                                                Page {idx + 1}{pdfPreviewPages > 1 ? ` of ${pdfPreviewPages}` : ''}
+                                                                            </div>
+                                                                            <div className="h-px flex-1 bg-gray-300/80" />
+                                                                        </div>
+                                                                        <div
+                                                                            className={
+                                                                                `pdfPreviewPage` +
+                                                                                `${pdfPreviewPages === 2 ? ' pdfPreviewPageTwoUp' : ''}` +
+                                                                                `${idx === pdfPreviewPages - 1 ? ' pdfPreviewPageLast' : ''}`
+                                                                            }
+                                                                            style={{
+                                                                                // Shrink only the last page frame to the remaining content height
+                                                                                // (removes trailing bottom edge/shadow line at end-of-document)
+                                                                                // @ts-ignore
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1056}px`,
+                                                                            }}
+                                                                        >
+                                                                            <div className="pdfPreviewTarget">
+                                                                                {!pdfPreviewSnapshotHtml ? (
+                                                                                    <div
+                                                                                        style={{
+                                                                                            transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
+                                                                                            transformOrigin: 'top left',
+                                                                                        }}
+                                                                                    >
+                                                                                        <div
+                                                                                            className="tv-style-root"
+                                                                                            style={{
+                                                                                                // @ts-ignore
+                                                                                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                                                                                // @ts-ignore
+                                                                                                ['--tv-font-scale']: String(styleSettings.fontScale),
+                                                                                                // @ts-ignore
+                                                                                                ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                            }}
+                                                                                        >
+                                                                                            <TemplateComponent
+                                                                                                content={content}
+                                                                                                editMode={false}
+                                                                                                sectionOrder={sectionOrder}
+                                                                                                onSectionOrderChange={setSectionOrder}
+                                                                                                hiddenSectionKeys={hiddenSectionKeys}
+                                                                                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
                                                                                 ) : (
-                                                                                    <TemplateComponent content={content} editMode={false} />
+                                                                                    <div
+                                                                                        style={{
+                                                                                            transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
+                                                                                            transformOrigin: 'top left',
+                                                                                        }}
+                                                                                        // eslint-disable-next-line react/no-danger
+                                                                                        dangerouslySetInnerHTML={{ __html: pdfPreviewSnapshotHtml }}
+                                                                                    />
                                                                                 )}
                                                                             </div>
                                                                         </div>
-                                                                    ) : (
-                                                                        <div
-                                                                            style={{
-                                                                                transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
-                                                                                transformOrigin: 'top left',
-                                                                            }}
-                                                                            // eslint-disable-next-line react/no-danger
-                                                                            dangerouslySetInnerHTML={{ __html: pdfPreviewSnapshotHtml }}
-                                                                        />
-                                                                    )}
-                                                                </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
+                                            );
+                                        })()}
                                     </div>
-                                );
-                            })()}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {downloadFeedbackOpen && (
-                <div
-                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="downloadFeedbackTitle"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget && !downloadFeedbackSubmitting) closeDownloadFeedbackModal();
-                    }}
-                >
-                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b">
-                            <h3 id="downloadFeedbackTitle" className="font-semibold text-lg text-gray-800">How was your resume?</h3>
-                            <button
-                                type="button"
-                                className="text-gray-500 hover:text-gray-800"
-                                aria-label="Close"
-                                onClick={closeDownloadFeedbackModal}
-                                disabled={downloadFeedbackSubmitting}
-                            >
-                                ×
-                            </button>
-                        </div>
+                {downloadFeedbackOpen && (
+                    <div
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="downloadFeedbackTitle"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget && !downloadFeedbackSubmitting) closeDownloadFeedbackModal();
+                        }}
+                    >
+                        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+                            <div className="flex items-center justify-between px-5 py-4 border-b">
+                                <h3 id="downloadFeedbackTitle" className="font-semibold text-lg text-gray-800">How was your resume?</h3>
+                                <button
+                                    type="button"
+                                    className="text-gray-500 hover:text-gray-800"
+                                    aria-label="Close"
+                                    onClick={closeDownloadFeedbackModal}
+                                    disabled={downloadFeedbackSubmitting}
+                                >
+                                    ×
+                                </button>
+                            </div>
 
-                        <div className="p-5 space-y-4">
-                            <p className="text-sm text-gray-600">Your feedback helps us improve ResumaticAI.</p>
+                            <div className="p-5 space-y-4">
+                                <p className="text-sm text-gray-600">Your feedback helps us improve ResumaticAI.</p>
 
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium text-gray-800">Overall, how satisfied are you?</div>
-                                <div className="flex items-center gap-1" aria-label="Rating">
-                                    {[1, 2, 3, 4, 5].map((val) => {
-                                        const active = (downloadFeedbackHoverRating || downloadFeedbackRating) >= val;
-                                        return (
-                                            <button
-                                                key={val}
-                                                type="button"
-                                                className={(active ? 'text-amber-400' : 'text-gray-300') + ' text-xl leading-none'}
-                                                onClick={() => setDownloadFeedbackRating(val)}
-                                                onMouseEnter={() => setDownloadFeedbackHoverRating(val)}
-                                                onMouseLeave={() => setDownloadFeedbackHoverRating(0)}
-                                                disabled={downloadFeedbackSubmitting}
-                                                aria-label={`${val} star${val === 1 ? '' : 's'}`}
-                                            >
-                                                ★
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div className="text-xs text-gray-500 h-4">
-                                    {(() => {
-                                        const n = downloadFeedbackHoverRating || downloadFeedbackRating;
-                                        const map: Record<number, string> = {
-                                            1: 'Very dissatisfied',
-                                            2: 'Dissatisfied',
-                                            3: 'Neutral',
-                                            4: 'Satisfied',
-                                            5: 'Very satisfied',
-                                        };
-                                        return map[n] || '';
-                                    })()}
-                                </div>
-
-                                <div className="mt-3 space-y-2">
-                                    <div className="text-sm font-medium text-gray-800">Compared to your original resume, this is:</div>
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                        {([
-                                            { value: 'improved', label: 'Improved' },
-                                            { value: 'same', label: 'About the same' },
-                                            { value: 'worse', label: 'Worse' },
-                                        ] as const).map((opt) => {
-                                            const selected = downloadFeedbackComparison === opt.value;
+                                <div className="space-y-2">
+                                    <div className="text-sm font-medium text-gray-800">Overall, how satisfied are you?</div>
+                                    <div className="flex items-center gap-1" aria-label="Rating">
+                                        {[1, 2, 3, 4, 5].map((val) => {
+                                            const active = (downloadFeedbackHoverRating || downloadFeedbackRating) >= val;
                                             return (
                                                 <button
-                                                    key={opt.value}
+                                                    key={val}
                                                     type="button"
-                                                    className={
-                                                        'inline-flex items-center justify-center gap-2 cursor-pointer border rounded-full px-3 py-1 text-sm transition-colors ' +
-                                                        (selected
-                                                            ? 'bg-blue-50 border-blue-300 text-blue-800'
-                                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50')
-                                                    }
-                                                    onClick={() => setDownloadFeedbackComparison(opt.value)}
+                                                    className={(active ? 'text-amber-400' : 'text-gray-300') + ' text-xl leading-none'}
+                                                    onClick={() => setDownloadFeedbackRating(val)}
+                                                    onMouseEnter={() => setDownloadFeedbackHoverRating(val)}
+                                                    onMouseLeave={() => setDownloadFeedbackHoverRating(0)}
                                                     disabled={downloadFeedbackSubmitting}
+                                                    aria-label={`${val} star${val === 1 ? '' : 's'}`}
                                                 >
-                                                    {opt.label}
+                                                    ★
                                                 </button>
                                             );
                                         })}
                                     </div>
+                                    <div className="text-xs text-gray-500 h-4">
+                                        {(() => {
+                                            const n = downloadFeedbackHoverRating || downloadFeedbackRating;
+                                            const map: Record<number, string> = {
+                                                1: 'Very dissatisfied',
+                                                2: 'Dissatisfied',
+                                                3: 'Neutral',
+                                                4: 'Satisfied',
+                                                5: 'Very satisfied',
+                                            };
+                                            return map[n] || '';
+                                        })()}
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <div className="text-sm font-medium text-gray-800">Compared to your original resume, this is:</div>
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                            {([
+                                                { value: 'improved', label: 'Improved' },
+                                                { value: 'same', label: 'About the same' },
+                                                { value: 'worse', label: 'Worse' },
+                                            ] as const).map((opt) => {
+                                                const selected = downloadFeedbackComparison === opt.value;
+                                                return (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        className={
+                                                            'inline-flex items-center justify-center gap-2 cursor-pointer border rounded-full px-3 py-1 text-sm transition-colors ' +
+                                                            (selected
+                                                                ? 'bg-blue-50 border-blue-300 text-blue-800'
+                                                                : 'border-gray-300 text-gray-700 hover:bg-gray-50')
+                                                        }
+                                                        onClick={() => setDownloadFeedbackComparison((prev) => (prev === opt.value ? '' : opt.value))}
+                                                        aria-pressed={selected}
+                                                        disabled={downloadFeedbackSubmitting}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label htmlFor="downloadFeedbackComment" className="block text-sm font-medium text-gray-800 mb-1">Anything we could improve?</label>
+                                    <textarea
+                                        id="downloadFeedbackComment"
+                                        className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Optional"
+                                        value={downloadFeedbackComment}
+                                        onChange={(e) => setDownloadFeedbackComment(e.target.value)}
+                                        disabled={downloadFeedbackSubmitting}
+                                    />
                                 </div>
                             </div>
 
-                            <div>
-                                <label htmlFor="downloadFeedbackComment" className="block text-sm font-medium text-gray-800 mb-1">Anything we could improve?</label>
-                                <textarea
-                                    id="downloadFeedbackComment"
-                                    className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows={3}
-                                    placeholder="Optional"
-                                    value={downloadFeedbackComment}
-                                    onChange={(e) => setDownloadFeedbackComment(e.target.value)}
+                            <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                                    onClick={closeDownloadFeedbackModal}
                                     disabled={downloadFeedbackSubmitting}
-                                />
+                                >
+                                    Maybe later
+                                </button>
+                                <button
+                                    type="button"
+                                    className={
+                                        'px-4 py-2 rounded-md text-white ' +
+                                        (downloadFeedbackSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700')
+                                    }
+                                    onClick={submitDownloadFeedback}
+                                    disabled={downloadFeedbackSubmitting}
+                                >
+                                    Send feedback
+                                </button>
                             </div>
                         </div>
-
-                        <div className="px-5 py-4 border-t flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                                onClick={closeDownloadFeedbackModal}
-                                disabled={downloadFeedbackSubmitting}
-                            >
-                                Maybe later
-                            </button>
-                            <button
-                                type="button"
-                                className={
-                                    'px-4 py-2 rounded-md text-white ' +
-                                    (downloadFeedbackSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700')
-                                }
-                                onClick={submitDownloadFeedback}
-                                disabled={downloadFeedbackSubmitting}
-                            >
-                                Send feedback
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </main>
         </div>
     );
 }
