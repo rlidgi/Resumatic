@@ -3735,6 +3735,17 @@
 
     <!-- Flash Messages -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4" id="flash-messages">
+        <div class="max-w-5xl">
+            <div class="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-400 text-yellow-800">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-triangle mt-0.5 mr-2"></i>
+                    <div>
+                        <div class="font-semibold">We’re sorry for the downtime.</div>
+                        <div class="text-sm mt-1">If you ran into errors or couldn’t access the site, please try again now — we’re back online.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="max-w-5xl">
