@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 import mammoth
 import logging
+import time
  # ...existing code...
 import pdfplumber
 from werkzeug.utils import secure_filename
@@ -889,7 +890,7 @@ def load_users():
                 return {user_id: User.from_dict(user_data) for user_id, user_data in users_data.items()}
         return {}
     except Exception as e:
-        print(f"Error loading users: {e}")
+        logger.exception("Error loading users")
         return {}
 
 def save_users():
@@ -898,9 +899,8 @@ def save_users():
         users_data = {user_id: user.to_dict() for user_id, user in users.items()}
         with open(USERS_FILE, 'w', encoding='utf-8') as f:
             json.dump(users_data, f, indent=2, ensure_ascii=False)
-        print(f"✅ Saved {len(users)} users to persistent storage")
     except Exception as e:
-        print(f"Error saving users: {e}")
+        logger.exception("Error saving users")
 
 
 
@@ -908,7 +908,10 @@ def add_user(user):
     """Add a user and save to persistent storage"""
     users[user.id] = user
     save_users()
-    print(f"✅ Added user: {user.name} ({user.email})")
+    try:
+        logger.info("Added user: %s (%s)", getattr(user, 'name', ''), getattr(user, 'email', ''))
+    except Exception:
+        pass
 
 
 def _normalize_email(email: str) -> str:
@@ -929,7 +932,11 @@ def _find_user_by_email(email: str):
 
 # Load existing users on startup
 users = load_users()
-print(f"📊 Loaded {len(users)} users from persistent storage")
+try:
+    logger.info("Loaded %s users from persistent storage", len(users))
+except Exception:
+    # Avoid crashing at import-time on Windows consoles that can't encode emojis/unicode.
+    pass
 
 
 
@@ -2414,9 +2421,18 @@ def resume_choose_template():
 def plans():
     current_year = datetime.now().year
     trial_unavailable = False
+    next_url = str(request.args.get('next') or '').strip()
     try:
         if getattr(current_user, 'is_authenticated', False):
             trial_unavailable = _trial_already_used_for_user(current_user)
+            # If the user just purchased via Stripe Payment Link and webhooks haven't updated Azure yet,
+            # try to refresh paid status from Stripe and bounce them back to where they came from.
+            try:
+                if not is_paid_user(current_user) and _stripe_enabled():
+                    if _refresh_paid_status_from_stripe_for_user(current_user):
+                        return redirect(next_url or url_for('my_revisions'))
+            except Exception:
+                pass
     except Exception:
         trial_unavailable = False
     return render_template("plans.html", year=current_year, user=current_user, trial_unavailable=trial_unavailable)
@@ -3566,7 +3582,7 @@ def results_get():
     data = session.get('results_data', None)
     if not data:
         # No data to show; notify and send the user to the homepage
-        flash("⚠️ Your file could not be processed possibly due to its formatting. Please attempt to copy the resume text and paste it in the provided text area.", 'danger')
+        flash("Your file could not be processed (possibly due to formatting). Please copy the resume text and paste it in the provided text area.", 'danger')
         return redirect(url_for('index'))
     # Keep data in session for template selection
     # session.pop would remove it, so we use session.get and keep it available
@@ -4028,6 +4044,203 @@ def update_template_data():
     except Exception as e:
         logger.error(f"Error updating template data: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/template-pdf/<template_id>", methods=["GET"])
+@login_required
+def api_template_pdf(template_id):
+    """Generate a resume PDF using headless Chromium (Playwright).
+
+    Client-side html2canvas/html2pdf fails on modern Tailwind color functions like oklab/oklch.
+    This endpoint renders the existing React template route in Chromium and returns a PDF attachment.
+    """
+    try:
+        t0 = time.time()
+        def _t() -> int:
+            try:
+                return int((time.time() - t0) * 1000)
+            except Exception:
+                return 0
+
+        logger.info("template_pdf start template=%s t=%sms", str(template_id or ''), _t())
+        paid_flag = bool(is_paid_user(current_user))
+        if (not paid_flag) and _stripe_enabled():
+            try:
+                paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid_flag
+            except Exception:
+                paid_flag = paid_flag
+        if not paid_flag:
+            return "Paid plan required.", 402
+
+        template_data = session.get('template_data')
+        if not template_data:
+            return "Template data not found in session.", 404
+
+        canonical = _canonical_template_id(template_id or 'professional')
+
+        from playwright.sync_api import sync_playwright
+
+        base_url = request.host_url.rstrip('/')
+        target_url = base_url + url_for('react_app', subpath=f"template-download/{canonical}")
+        logger.info("template_pdf navigate url=%s t=%sms", target_url, _t())
+
+        # Style overrides (match TemplateViewer sliders)
+        def _clamp(v: float, lo: float, hi: float) -> float:
+            try:
+                v = float(v)
+            except Exception:
+                v = float(lo)
+            if v < lo:
+                return float(lo)
+            if v > hi:
+                return float(hi)
+            return float(v)
+
+        try:
+            font_scale = _clamp(request.args.get('fontScale', 1.0), 0.6, 1.6)
+            paragraph_gap_px = _clamp(request.args.get('paragraphGapPx', 0.0), -80, 300)
+            spacing_scale = _clamp(request.args.get('spacingScale', 1.0), 0.0, 6.0)
+        except Exception:
+            font_scale, paragraph_gap_px, spacing_scale = 1.0, 0.0, 1.0
+        logger.info(
+            "template_pdf style fontScale=%s paragraphGapPx=%s spacingScale=%s t=%sms",
+            font_scale,
+            paragraph_gap_px,
+            spacing_scale,
+            _t(),
+        )
+
+        cookies = []
+        for name, value in (request.cookies or {}).items():
+            try:
+                cookies.append({"name": name, "value": value, "url": base_url + "/"})
+            except Exception:
+                pass
+
+        pdf_bytes = b""
+        with sync_playwright() as p:
+            browser = None
+            context = None
+            try:
+                browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+                context = browser.new_context(viewport={"width": 816, "height": 1056})
+                if cookies:
+                    context.add_cookies(cookies)
+
+                page = context.new_page()
+                page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+                logger.info("template_pdf domcontentloaded t=%sms", _t())
+
+                # Prefer the dedicated export root, but be resilient to cached/older frontend builds.
+                try:
+                    page.wait_for_selector("#templatePrintContent", timeout=8000)
+                except Exception:
+                    page.wait_for_selector(".tv-style-root", timeout=60000)
+                logger.info("template_pdf selector_ready t=%sms", _t())
+
+                page.wait_for_timeout(200)
+
+                # Print only the resume root without clearing the page.
+                # Important: clearing <body> removes TemplateViewer's inline <style> rules that implement
+                # the slider-based spacing/font overrides. Instead we render the export node into a
+                # dedicated body child (#__pdfMount) and hide everything else at print-time.
+                page.evaluate(
+                    """(a) => {
+                      const root = document.getElementById('templatePrintRoot') || document.getElementById('templatePrintContent') || document.querySelector('.tv-style-root');
+                      if (!root) throw new Error('Missing templatePrintRoot');
+
+                      const rootClone = root.cloneNode(true);
+                      // Apply CSS vars to cloned tv-style-root so the PDF matches slider settings.
+                      const tv = (rootClone.classList && rootClone.classList.contains('tv-style-root'))
+                        ? rootClone
+                        : (rootClone.querySelector ? rootClone.querySelector('.tv-style-root') : null);
+                      if (tv && tv.style) {
+                        tv.style.setProperty('--tv-font-scale', String(a.fontScale));
+                        tv.style.setProperty('--tv-paragraph-gap', `${a.paragraphGapPx}px`);
+                        tv.style.setProperty('--tv-space-scale', String(a.spacingScale));
+                      }
+
+                      let mount = document.getElementById('__pdfMount');
+                      if (!mount) {
+                        mount = document.createElement('div');
+                        mount.id = '__pdfMount';
+                        document.body.appendChild(mount);
+                      }
+                      mount.innerHTML = '';
+                      mount.appendChild(rootClone);
+                      try {
+                        mount.style.display = 'block';
+                        mount.style.width = '816px';
+                        mount.style.margin = '0';
+                        mount.style.padding = '0';
+                        mount.style.background = '#fff';
+                      } catch (e) {
+                        // ignore
+                      }
+
+                      const existing = document.getElementById('__pdfOnlyCss');
+                      if (existing) existing.remove();
+                      const style = document.createElement('style');
+                      style.id = '__pdfOnlyCss';
+                      style.textContent = `
+                        @page { size: letter; margin: 0 !important; }
+                        html, body { width: 816px; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                        body > *:not(#__pdfMount) { display: none !important; }
+                        #__pdfMount { display: block !important; }
+                        /* Remove "card" shadows/bottom edge artifacts in PDF output */
+                        #__pdfMount, #__pdfMount * {
+                          box-shadow: none !important;
+                          filter: none !important;
+                        }
+                        #__pdfMount .shadow,
+                        #__pdfMount .shadow-sm,
+                        #__pdfMount .shadow-md,
+                        #__pdfMount .shadow-lg,
+                        #__pdfMount .shadow-xl,
+                        #__pdfMount .shadow-2xl {
+                          box-shadow: none !important;
+                        }
+                      `;
+                      document.head.appendChild(style);
+                    }""",
+                    {"fontScale": font_scale, "paragraphGapPx": paragraph_gap_px, "spacingScale": spacing_scale},
+                )
+                logger.info("template_pdf print_css_ready t=%sms", _t())
+
+                page.emulate_media(media="print")
+                pdf_bytes = page.pdf(
+                    format="Letter",
+                    print_background=True,
+                    margin={"top": "0in", "right": "0in", "bottom": "0in", "left": "0in"},
+                )
+                logger.info("template_pdf pdf_ready bytes=%s t=%sms", len(pdf_bytes or b""), _t())
+            finally:
+                try:
+                    if context:
+                        context.close()
+                except Exception:
+                    pass
+                try:
+                    if browser:
+                        browser.close()
+                except Exception:
+                    pass
+
+        filename = f"resume-{canonical}.pdf"
+        logger.info("template_pdf done filename=%s t=%sms", filename, _t())
+        return send_file(
+            BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=filename,
+        )
+    except Exception as e:
+        logger.exception("template_pdf failed template=%s", str(template_id or ''))
+        msg = f"{type(e).__name__}: {str(e) or 'PDF generation failed.'}"
+        if "Executable doesn't exist" in msg or "playwright install" in msg:
+            msg = msg + " (Try: python -m playwright install chromium)"
+        return msg, 500
 
 
 @app.route('/api/ai/resume-edit', methods=['POST'])
@@ -4885,6 +5098,139 @@ def is_paid_user(user_obj: Optional['User']) -> bool:
     except Exception:
         return False
 
+
+def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> bool:
+    """Best-effort: infer paid status from Stripe by email/customer and persist to Azure profile.
+
+    This is a safety net for cases where Stripe webhooks are delayed/misconfigured, or when
+    Payment Links complete but the webhook hasn't updated Azure yet.
+    """
+    try:
+        if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+            return False
+        if not _stripe_enabled():
+            return False
+
+        user_id = str(getattr(user_obj, 'id', '') or '').strip()
+        email = str(getattr(user_obj, 'email', '') or '').strip()
+        if not user_id or not email:
+            return False
+
+        prof = get_user_profile_azure(user_id) or {}
+        customer_id = str(prof.get('stripe_customer_id') or '').strip()
+        subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
+
+        try:
+            if not customer_id:
+                customer_id = _find_stripe_customer_id_by_email(email)
+        except Exception:
+            customer_id = customer_id or ''
+
+        def _paid_until_from_plan_id(plan_id: str) -> str:
+            pid = str(plan_id or '').strip()
+            plan = _get_plan_config(pid) or {}
+            days = int(plan.get('duration_days') or 31)
+            if days < 1:
+                days = 31
+            return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+        # Find best subscription for this customer (active > trialing > others).
+        best_sub_id = subscription_id
+        best_status = ''
+        paid_until = ''
+        plan_status_guess = ''
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            if best_sub_id:
+                sub = stripe.Subscription.retrieve(best_sub_id)
+                best_status = str(getattr(sub, 'status', '') or '').strip().lower()
+                cpe = getattr(sub, 'current_period_end', None)
+                if cpe:
+                    paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+            elif customer_id:
+                subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+                sdata = list(getattr(subs, 'data', []) or [])
+
+                def _rank(sub):
+                    status = str(getattr(sub, 'status', '') or '').strip().lower()
+                    cpe = int(getattr(sub, 'current_period_end', 0) or 0)
+                    sr = 0
+                    if status == 'active':
+                        sr = 3
+                    elif status == 'trialing':
+                        sr = 2
+                    elif status in ('past_due', 'unpaid'):
+                        sr = 1
+                    return (sr, cpe)
+
+                if sdata:
+                    best = sorted(sdata, key=_rank, reverse=True)[0]
+                    best_sub_id = str(getattr(best, 'id', '') or '').strip()
+                    best_status = str(getattr(best, 'status', '') or '').strip().lower()
+                    cpe = getattr(best, 'current_period_end', None)
+                    if cpe:
+                        paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+        except Exception:
+            # If Stripe is unreachable/misconfigured, don't crash gating.
+            return False
+
+        paid_flag = best_status in ('active', 'trialing')
+
+        # Fallback for Payment Links / one-time checkout sessions:
+        # If the Payment Link is configured in Stripe as a one-time payment (no subscription),
+        # we can still grant access for the plan duration based on the most recent paid checkout session.
+        if (not paid_flag) and customer_id:
+            try:
+                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                sessions = stripe.checkout.Session.list(customer=customer_id, limit=10)
+                sdata = list(getattr(sessions, 'data', []) or [])
+                # Prefer the most recent *paid* session.
+                sdata = sorted(sdata, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True)
+                for s in sdata:
+                    status = str(getattr(s, 'status', '') or '').strip().lower()
+                    pay_status = str(getattr(s, 'payment_status', '') or '').strip().lower()
+                    mode = str(getattr(s, 'mode', '') or '').strip().lower()
+                    if status == 'complete' and pay_status in ('paid', 'no_payment_required'):
+                        meta = getattr(s, 'metadata', None) or {}
+                        plan_id = str(meta.get('plan_id') or '').strip()
+                        # If metadata is missing, still treat as paid (default ~monthly duration).
+                        plan_status_guess = plan_id or 'paid'
+                        paid_until = paid_until or _paid_until_from_plan_id(plan_id or 'monthly_10_95')
+                        paid_flag = True
+                        # If this session actually created a subscription, store it too.
+                        try:
+                            sid = str(getattr(s, 'subscription', '') or '').strip()
+                            if sid:
+                                best_sub_id = sid
+                        except Exception:
+                            pass
+                        break
+            except Exception:
+                pass
+
+        # Persist back to Azure profile for future requests.
+        try:
+            table_client = get_users_table_client()
+            entity = {"PartitionKey": user_id, "RowKey": "profile"}
+            entity["email"] = email
+            if customer_id:
+                entity["stripe_customer_id"] = str(customer_id)
+            if best_sub_id:
+                entity["stripe_subscription_id"] = str(best_sub_id)
+            if paid_until:
+                entity["paid_until"] = paid_until
+            if paid_flag:
+                entity["is_paid"] = True
+                entity["plan_status"] = plan_status_guess or "active"
+            table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+        except Exception:
+            # Ignore Azure persistence errors; still return the computed paid flag.
+            pass
+
+        return bool(paid_flag)
+    except Exception:
+        return False
+
 def is_paid_user_id(user_id: str) -> bool:
     try:
         u = users.get(str(user_id))
@@ -5112,6 +5458,18 @@ def settings_page():
     debug_info = None
 
     paid_flag = bool(is_paid_user(current_user))
+    # Self-heal paid status even if webhooks are delayed/missing (Payment Links in local dev).
+    if (not paid_flag) and _stripe_enabled():
+        try:
+            if _refresh_paid_status_from_stripe_for_user(current_user):
+                paid_flag = True
+                prof = get_user_profile_azure(getattr(current_user, 'id', '')) or prof
+                plan_status_raw = str(prof.get('plan_status') or plan_status_raw).strip()
+                paid_until_raw = str(prof.get('paid_until') or paid_until_raw).strip()
+                customer_id = str(prof.get('stripe_customer_id') or customer_id).strip()
+                subscription_id = str(prof.get('stripe_subscription_id') or subscription_id).strip()
+        except Exception:
+            pass
 
     # If webhook hasn't populated Stripe ids yet (or paid flag is stale), recover them via email lookup.
     # This allows newly-purchased users to see accurate plan dates immediately.
@@ -5435,6 +5793,18 @@ def api_me():
                 "revisions_used": 0,
             })
         paid = is_paid_user(current_user)
+        # Safety net: if webhooks haven't updated Azure yet, try to recover paid status from Stripe.
+        if (not paid) and _stripe_enabled():
+            try:
+                # Don't hammer Stripe on every poll; cache briefly in session.
+                now_ts = int(time.time())
+                last_ts = int(session.get('stripe_paid_refresh_at') or 0)
+                if now_ts - last_ts > 30:
+                    session['stripe_paid_refresh_at'] = now_ts
+                    session.modified = True
+                    paid = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid
+            except Exception:
+                pass
         used = 0
         try:
             used = len(get_user_revisions(current_user.id))
@@ -5597,9 +5967,8 @@ def download_revision_template_pdf(revision_id):
     }
     session.modified = True
 
-    download_url = url_for('react_app', subpath=f"template-download/{template_id}")
-    # rid is a client-side fallback if session linkage is lost.
-    return redirect(f"{download_url}?autodownload=1&rid={revision_id}&return=%2Fmy_revisions")
+    # Server-side PDF generation (avoids html2canvas issues with OKLAB/OKLCH colors).
+    return redirect(url_for('api_template_pdf', template_id=template_id))
 
 @app.route('/update_notes/<revision_id>', methods=['POST'])
 @login_required

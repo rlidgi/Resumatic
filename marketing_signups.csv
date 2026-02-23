@@ -1,0 +1,2 @@
+timestamp_iso,signup_method,user_id,email,ref,utm_source,utm_medium,utm_campaign,utm_content,utm_term,traffic_type,traffic_campaign,traffic_referrer,first_seen_at,last_seen_at,landing_path
+2026-02-23T07:33:05.068871+00:00,email_password,email_7d755a6ab23749f3,qryd11@mail.com,,,,,,,organic,,http://127.0.0.1:5000/,,,

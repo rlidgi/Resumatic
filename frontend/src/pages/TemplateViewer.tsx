@@ -162,10 +162,25 @@ export default function TemplateViewer() {
     }, [inlineEditMode]);
 
     useEffect(() => {
-        fetch('/api/me', { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(data => setMe(data))
-            .catch(() => setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }));
+        let cancelled = false;
+        const loadMe = () => {
+            fetch('/api/me', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => { if (!cancelled) setMe(data); })
+                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }); });
+        };
+        loadMe();
+
+        // If the user purchases in another tab (or returns from Stripe), refresh plan gating on focus.
+        const onFocus = () => loadMe();
+        const onVis = () => { if (document.visibilityState === 'visible') loadMe(); };
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVis);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVis);
+        };
     }, []);
 
     function openDownloadFeedbackModal() {
@@ -485,29 +500,56 @@ export default function TemplateViewer() {
         if (downloadingPdf) return;
         setDownloadingPdf(true);
         try {
-            const root =
-                document.getElementById('templatePrintContent') ||
-                pdfPreviewMeasureInnerRef.current ||
-                document.getElementById('templatePrintRoot');
-            if (!root) {
-                throw new Error('Could not find the resume element to export.');
+            const filename = `resume-${String(templateName || 'resume')}.pdf`;
+            const safeTemplate = String(templateName || 'professional');
+            const qs = new URLSearchParams({
+                fontScale: String(styleSettings.fontScale),
+                paragraphGapPx: String(styleSettings.paragraphGapPx),
+                spacingScale: String(styleSettings.spacingScale),
+            });
+            const pdfEndpointUrl = `/api/template-pdf/${encodeURIComponent(safeTemplate)}?${qs.toString()}`;
+            const controller = new AbortController();
+            const timeoutMs = 120_000;
+            const t = window.setTimeout(() => controller.abort(), timeoutMs);
+            const res = await fetch(pdfEndpointUrl, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/pdf',
+                },
+                signal: controller.signal,
+            });
+            window.clearTimeout(t);
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `HTTP ${res.status}`);
+            }
+            const ct = String(res.headers.get('content-type') || '');
+            if (!ct.toLowerCase().includes('application/pdf')) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `Unexpected response (${ct || 'no content-type'})`);
+            }
+            const blob = await res.blob();
+            if (!blob || blob.size < 200) {
+                throw new Error(`PDF generation returned an empty file. You can also try opening ${pdfEndpointUrl} directly.`);
+            }
+            const blobUrl = URL.createObjectURL(blob);
+            try {
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } finally {
+                window.setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             }
 
-            // True download (no print dialog): html2pdf.js
-            const mod: any = await import('html2pdf.js');
-            const html2pdf: any = mod?.default || mod;
-
-            const filename = `resume-${String(templateName || 'resume')}.pdf`;
-            await html2pdf()
-                .from(root)
-                .set({
-                    margin: 0.2,
-                    filename,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-                })
-                .save();
+            if (!isDownloadOnly && me?.is_authenticated) {
+                window.setTimeout(() => {
+                    openDownloadFeedbackModal();
+                }, 2000);
+            }
             return true;
         } catch (e: any) {
             console.error('PDF download failed:', e);
@@ -966,6 +1008,33 @@ export default function TemplateViewer() {
 
     return (
         <div className="min-h-screen bg-gray-100">
+            {/* Offscreen export root (used by server-side Playwright PDF generation) */}
+            <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', opacity: 0, pointerEvents: 'none' }}>
+                <div id="templatePrintRoot">
+                    <div
+                        id="templatePrintContent"
+                        className="tv-style-root"
+                        style={{
+                            // @ts-ignore
+                            ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                            // @ts-ignore
+                            ['--tv-font-scale']: String(styleSettings.fontScale),
+                            // @ts-ignore
+                            ['--tv-space-scale']: String(styleSettings.spacingScale),
+                        }}
+                    >
+                        <TemplateComponent
+                            content={content}
+                            editMode={false}
+                            sectionOrder={sectionOrder}
+                            onSectionOrderChange={setSectionOrder}
+                            hiddenSectionKeys={hiddenSectionKeys}
+                            onHiddenSectionKeysChange={setHiddenSectionKeys}
+                        />
+                    </div>
+                </div>
+            </div>
+
             <header className="border-b bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                     <a href="/" className="inline-flex items-center gap-3">
@@ -1258,7 +1327,8 @@ export default function TemplateViewer() {
                                         disabled={downloadingPdf}
                                         onClick={() => {
                                             if (me && !me.is_paid) {
-                                                window.location.href = '/plans';
+                                                const next = `${window.location.pathname}${window.location.search || ''}`;
+                                                window.location.href = `/plans?next=${encodeURIComponent(next)}`;
                                                 return;
                                             }
                                             setDownloadOnlyStatus('starting');
@@ -1345,15 +1415,26 @@ export default function TemplateViewer() {
                                             </div>
                                         ) : (
                                             <button
-                                                onClick={() => {
+                                                type="button"
+                                                onClick={async () => {
                                                     if (downloadingPdf) return;
-                                                    if (me?.is_paid) downloadPdf();
-                                                    else window.location.href = '/plans';
+                                                    if (!me) return;
+                                                    if (!me?.is_paid) {
+                                                        const next = `${window.location.pathname}${window.location.search || ''}`;
+                                                        window.location.href = `/plans?next=${encodeURIComponent(next)}`;
+                                                        return;
+                                                    }
+                                                    try {
+                                                        await downloadPdfAsFile();
+                                                    } catch (e: any) {
+                                                        console.error('PDF download failed:', e);
+                                                        alert(`PDF download failed (${e?.message || 'unknown error'}).`);
+                                                    }
                                                 }}
                                                 className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                disabled={downloadingPdf}
+                                                disabled={downloadingPdf || !me}
                                             >
-                                                Download PDF
+                                                {!me ? 'Loading…' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
                                             </button>
                                         )}
                                     </div>

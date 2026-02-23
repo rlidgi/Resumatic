@@ -1,5 +1,4 @@
 # Environment variables
-.env
 
 # Node / frontend dependencies
 node_modules/
@@ -53,3 +52,4 @@ Thumbs.db
 temp_uploads/
 scripts/temp_uploads/
 scripts/counter.json
+config.bat

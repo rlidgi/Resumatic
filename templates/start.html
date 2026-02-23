@@ -38,6 +38,32 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
+        body.start-page {
+            min-height: 100vh;
+            background-color: #f9fafb;
+            background-image:
+                radial-gradient(circle at 18% 12%, rgba(79, 70, 229, 0.18), rgba(79, 70, 229, 0) 42%),
+                radial-gradient(circle at 82% 28%, rgba(16, 185, 129, 0.14), rgba(16, 185, 129, 0) 46%),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.86), rgba(249, 250, 251, 0.92)),
+                url("/static/images/resume-backdrop.png");
+            background-repeat: no-repeat;
+            background-size: auto, auto, auto, cover;
+            background-position: center, center, center, center;
+            background-attachment: scroll, scroll, scroll, fixed;
+        }
+
+        @media (max-width: 768px) {
+            body.start-page {
+                background-attachment: scroll, scroll, scroll, scroll;
+            }
+        }
+
+        .start-page header {
+            background-color: rgba(255, 255, 255, 0.82) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
         .gradient-text {
             background: linear-gradient(135deg, #4F46E5 0%, #10B981 100%);
             -webkit-background-clip: text;
@@ -148,8 +174,8 @@
     </style>
 </head>
 
-<body class="bg-gradient-to-b from-white to-gray-50">
-    <header class="border-b bg-white">
+<body class="start-page bg-gradient-to-b from-white to-gray-50">
+    <header class="border-b bg-white/80 backdrop-blur">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <a href="/" class="inline-flex items-center gap-3">
                 <img src="/static/images/logo23_small.png" alt="Resumatic AI" width="40" height="40">
@@ -178,7 +204,7 @@
 
                 </div>
 
-                <div class="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 backdrop-blur-sm"
+                <div class="bg-white/85 rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 backdrop-blur-md"
                     id="resumeFormContainer">
                     <form id="resumeForm" class="space-y-6" action="/results" method="POST"
                         enctype="multipart/form-data">
@@ -295,7 +321,7 @@
                                     </div>
                                     <div class="relative">
                                         <textarea id="resume" name="resume" aria-label="Resume content" rows="16"
-                                            placeholder="Paste your current resume content here. Include your contact information, work experience, education, skills, and any other relevant details..."
+                                            placeholder="Paste your current resume text here. If we were unable to process your uploaded file, you can paste the text here as an alternative."
                                             class="block w-full rounded-2xl border-2 border-gray-200 shadow-sm focus:border-primary focus:ring-primary focus:ring-2 resize-none p-6 text-lg placeholder-gray-400 transition-all duration-300 hover:border-gray-300"></textarea>
                                         <div id="wordCount"
                                             class="absolute bottom-4 right-4 text-sm text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm"
