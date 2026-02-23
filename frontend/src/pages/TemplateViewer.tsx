@@ -1404,7 +1404,7 @@ export default function TemplateViewer() {
                                                     <Lightbulb className="w-4.5 h-4.5 text-sky-700" />
                                                 </span>
                                                 <p>
-                                                    Most recruiters prefer a one‑page resume. Use the sliders below to adjust font size and spacing to fit cleanly.
+                                                    In many cases, recruiters prefer a one‑page resume. Use the sliders below to adjust font size and spacing to fit cleanly.
                                                 </p>
                                             </div>
                                             <div className="mt-2 inline-flex items-center gap-2 text-xs text-gray-500">
@@ -1850,62 +1850,61 @@ export default function TemplateViewer() {
                                             const scaledW = Math.max(1, Math.ceil(totalW * pdfPreviewPageScale));
                                             return (
                                                 <div style={{ width: `${scaledW}px`, margin: '0 auto' }}>
+                                                    {inlineEditMode ? (
+                                                        <div className="mb-3 rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+                                                            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                                                                <div className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 px-3 py-1 text-xs sm:text-sm font-semibold w-fit">
+                                                                    Edit mode
+                                                                </div>
+                                                                <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
+                                                                    <div className="break-words">Tap any content to edit.</div>
+                                                                    <div className="flex items-start gap-2">
+                                                                        <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                                                                        <span className="break-words">Drag sections using the handle on the left of each section.</span>
+                                                                    </div>
+                                                                    <div className="flex items-start gap-2 flex-wrap">
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
+                                                                            <Wand2 className="w-3 h-3" />
+                                                                            <span>Enhance with AI</span>
+                                                                        </span>
+                                                                        <span className="break-words">On the left sidebar, editing and AI rewriting are also available.</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : null}
                                                     <div style={{ transform: `scale(${pdfPreviewPageScale})`, transformOrigin: 'top left' }}>
                                                         {inlineEditMode ? (
                                                             // Edit mode: render a continuous scroll canvas (no page slicing).
-                                                            <div className="space-y-4">
-                                                                <div className="inline-flex items-center gap-3 w-full flex-wrap">
-                                                                    <div className="inline-flex items-center gap-2">
-                                                                        <div className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 px-3 py-1 text-sm font-semibold">
-                                                                            Edit mode
-                                                                        </div>
-                                                                        <div className="text-sm text-gray-600 flex flex-col gap-1">
-                                                                            <div>Click on any content to edit.</div>
-                                                                            <div className="inline-flex items-center gap-2">
-                                                                                <Grip className="w-4 h-4 text-gray-500" />
-                                                                                <span>All sections can be repositioned using the drag and drop funtionalty at the left side of each section.</span>
-                                                                            </div>
-                                                                            <div className="inline-flex items-center gap-2">
-                                                                                <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-xs rounded bg-orange-200 text-black border border-orange-300">
-                                                                                    <Wand2 className="w-3 h-3" />
-                                                                                    <span>Enhance with AI</span>
-                                                                                </span>
-                                                                                <span>— On the left sidebar, editing functionality and AI rewriting assistance is also available.</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="h-px flex-1 bg-gray-300/80 min-w-[80px]" />
-                                                                </div>
-                                                                <div className="pdfPreviewPage pdfPreviewPageContinuous">
-                                                                    <div className="pdfPreviewTarget pdfPreviewTargetContinuous">
+                                                            <div className="pdfPreviewPage pdfPreviewPageContinuous">
+                                                                <div className="pdfPreviewTarget pdfPreviewTargetContinuous">
+                                                                    <div
+                                                                        style={{
+                                                                            transform: `scale(${pdfPreviewContentScale})`,
+                                                                            transformOrigin: 'top left',
+                                                                        }}
+                                                                    >
                                                                         <div
+                                                                            className="tv-style-root"
+                                                                            data-tv-preview="true"
                                                                             style={{
-                                                                                transform: `scale(${pdfPreviewContentScale})`,
-                                                                                transformOrigin: 'top left',
+                                                                                // @ts-ignore
+                                                                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                                                                // @ts-ignore
+                                                                                ['--tv-font-scale']: String(styleSettings.fontScale),
+                                                                                // @ts-ignore
+                                                                                ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                                             }}
                                                                         >
-                                                                            <div
-                                                                                className="tv-style-root"
-                                                                                data-tv-preview="true"
-                                                                                style={{
-                                                                                    // @ts-ignore
-                                                                                    ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
-                                                                                    // @ts-ignore
-                                                                                    ['--tv-font-scale']: String(styleSettings.fontScale),
-                                                                                    // @ts-ignore
-                                                                                    ['--tv-space-scale']: String(styleSettings.spacingScale),
-                                                                                }}
-                                                                            >
-                                                                                <TemplateComponent
-                                                                                    content={content}
-                                                                                    editMode={inlineEditMode}
-                                                                                    sectionOrder={sectionOrder}
-                                                                                    onSectionOrderChange={setSectionOrder}
-                                                                                    hiddenSectionKeys={hiddenSectionKeys}
-                                                                                    onHiddenSectionKeysChange={setHiddenSectionKeys}
-                                                                                    onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
-                                                                                />
-                                                                            </div>
+                                                                            <TemplateComponent
+                                                                                content={content}
+                                                                                editMode={inlineEditMode}
+                                                                                sectionOrder={sectionOrder}
+                                                                                onSectionOrderChange={setSectionOrder}
+                                                                                hiddenSectionKeys={hiddenSectionKeys}
+                                                                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
+                                                                            />
                                                                         </div>
                                                                     </div>
                                                                 </div>

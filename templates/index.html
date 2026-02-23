@@ -234,8 +234,15 @@
             const scrollToForm = "{{ 'true' if scroll_to_form else 'false' }}";
             if (scrollToForm === 'true') {
                 const formSection = document.getElementById('resume-form');
+                const flashMount = document.getElementById('flash-messages');
                 if (formSection) {
                     setTimeout(() => {
+                        // If we have flash messages, move them near the form so the user sees them after redirect.
+                        try {
+                            if (flashMount && flashMount.children && flashMount.children.length > 0) {
+                                formSection.parentNode && formSection.parentNode.insertBefore(flashMount, formSection);
+                            }
+                        } catch (e) { /* no-op */ }
                         formSection.scrollIntoView({ behavior: 'smooth' });
                     }, 300);
                 }
@@ -3648,8 +3655,7 @@
             display: inline-flex !important
         }
     </style>
-    <script id="simplify-jobs-page-script"
-        src="chrome-extension://pbanhockgagggenencehbnadejlgchfc/js/pageScript.bundle.js"></script>
+    <!-- NOTE: Removed an accidentally-saved chrome-extension script tag (not valid for real users). -->
     <script type="text/javascript" async=""
         src="https://googleads.g.doubleclick.net/pagead/viewthroughconversion/17389903119/?random=1765055895284&amp;cv=11&amp;fst=1765055895284&amp;bg=ffffff&amp;guid=ON&amp;async=1&amp;en=gtag.config&amp;gtm=45be5c31z89217605505za200zb9217605505zd9217605505xec&amp;gcd=13l3l3l3l1l1&amp;dma=0&amp;tag_exp=103116026~103200004~104527906~104528500~104684208~104684211~105391253~115495940~115583767~115616985~115938465~115938469~116184927~116184929~116217636~116217638&amp;u_w=1280&amp;u_h=720&amp;url=https%3A%2F%2Fresumerevamp2-f7dmgmencvhmaxb7.westus-01.azurewebsites.net%2F&amp;frm=0&amp;tiba=Resumatic%20AI%20-%20AI%20Resume%20Builder%20%26%20ATS%20Optimizer&amp;hn=www.googleadservices.com&amp;npa=0&amp;pscdl=noapi&amp;auid=1803342832.1764281091&amp;uaa=x86&amp;uab=64&amp;uafvl=Chromium%3B142.0.7444.177%7CGoogle%2520Chrome%3B142.0.7444.177%7CNot_A%2520Brand%3B99.0.0.0&amp;uamb=0&amp;uam=&amp;uap=Windows&amp;uapv=19.0.0&amp;uaw=0&amp;data=event%3Dgtag.config&amp;rfmt=3&amp;fmt=4"></script>
 </head>
@@ -3729,9 +3735,22 @@
 
     <!-- Flash Messages -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4" id="flash-messages">
-
-
-
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="max-w-5xl">
+            {% for category, message in messages %}
+            <div
+                class="alert mb-4 p-4 rounded-lg {% if category == 'success' %}bg-green-100 border border-green-400 text-green-700{% else %}bg-red-100 border border-red-400 text-red-700{% endif %}">
+                <div class="flex items-center">
+                    <i
+                        class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
     </div>
 
 
@@ -5407,14 +5426,14 @@
                         const subscribeForm = document.getElementById('subscribeForm');
                         const subscribeBtn = document.getElementById('subscribeBtn');
                         const loadingIcon = document.getElementById('loadingIcon');
-                        const btnText = subscribeBtn.querySelector('.btn-text');
+                        const btnText = subscribeBtn ? subscribeBtn.querySelector('.btn-text') : null;
 
                         if (subscribeForm) {
                             subscribeForm.addEventListener('submit', function (e) {
                                 // Show loading state
-                                subscribeBtn.disabled = true;
-                                btnText.textContent = 'Subscribing...';
-                                loadingIcon.classList.remove('hidden');
+                                if (subscribeBtn) subscribeBtn.disabled = true;
+                                if (btnText) btnText.textContent = 'Subscribing...';
+                                if (loadingIcon) loadingIcon.classList.remove('hidden');
 
                                 // Allow form to submit normally
                                 // The loading state will persist until page redirects/reloads
@@ -5482,8 +5501,38 @@
                                     </div>
                                 </div>
                             </div>
-
                             <!-- FAQ Item 2 -->
+                            <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
+                                style="transition-delay: 400ms;">
+                                <div
+                                    class="flex flex-col sm:flex-row items-center sm:items-start space-y-2.5 sm:space-y-0 sm:space-x-3 text-center sm:text-left">
+                                    <div class="flex-shrink-0">
+                                        <div
+                                            class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                            <i class="fas fa-file-alt text-white text-sm"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h3
+                                            class="text-sm sm:text-base font-bold text-gray-900 mb-1.5 sm:mb-2 group-hover:text-primary transition-colors">
+                                            Why couldn't my resume be processed?
+                                        </h3>
+                                        <p class="text-xs sm:text-sm text-gray-600 leading-snug">
+                                            At times the complexity of formatting in your resume such as
+                                            tables, images, or complex layouts may cause processing issues. For this
+                                            reason
+                                            we provide the option of copying and pasting the text of
+                                            your resume, which generally leads to equivalent revision quality.
+
+
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+                            <!-- FAQ Item 3 -->
                             <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
                                 style="transition-delay: 400ms;">
                                 <div
@@ -5509,7 +5558,7 @@
                                 </div>
                             </div>
 
-                            <!-- FAQ Item 3 -->
+                            <!-- FAQ Item 4 -->
                             <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
                                 style="transition-delay: 400ms;">
                                 <div
@@ -5541,7 +5590,7 @@
                                 </div>
                             </div>
 
-                            <!-- FAQ Item 4 -->
+                            <!-- FAQ Item 5 -->
                             <div class="group bg-white rounded-lg shadow hover:shadow-lg p-4 sm:p-5 border border-gray-100 transform hover:-translate-y-0.5 transition-all duration-300 scroll-reveal revealed"
                                 style="transition-delay: 500ms;">
                                 <div
@@ -5818,10 +5867,14 @@
         <script>
             document.addEventListener("DOMContentLoaded", function () {
                 const counter = document.getElementById("resumeCounter");
-                counter.textContent = "".toLocaleString();
+                if (counter) {
+                    counter.textContent = "".toLocaleString();
+                }
 
                 // Update counter when form is submitted
-                document.getElementById('resumeForm').addEventListener('submit', function () {
+                const resumeFormEl = document.getElementById('resumeForm');
+                if (!resumeFormEl) return;
+                resumeFormEl.addEventListener('submit', function () {
                     fetch('/increment_counter', {
                         method: 'POST',
                         headers: {
@@ -5830,7 +5883,7 @@
                     })
                         .then(response => response.json())
                         .then(data => {
-                            counter.textContent = data.count.toLocaleString();
+                            if (counter) counter.textContent = data.count.toLocaleString();
                         })
                         .catch(error => console.error('Error:', error));
                 });
@@ -6005,6 +6058,9 @@
                 const removeFileBtn = document.getElementById('removeFile');
                 const resumeTextarea = document.getElementById('resume');
 
+                // If this page variant doesn't include the resume form widgets, do nothing.
+                if (!uploadTab || !pasteTab || !uploadSection || !pasteSection) return;
+
                 // Helper: detect touch/mobile
                 function isTouchMobile() {
                     try {
@@ -6076,12 +6132,12 @@
                     // Clear file input when switching to paste
                     if (resumeFileInput) {
                         resumeFileInput.value = '';
-                        fileInfo.classList.add('hidden');
+                        if (fileInfo) fileInfo.classList.add('hidden');
                     }
                 });
 
                 // File upload handling
-                resumeFileInput.addEventListener('change', function (e) {
+                if (resumeFileInput) resumeFileInput.addEventListener('change', function (e) {
                     const file = e.target.files[0];
                     if (file) {
                         // Validate file type
@@ -6100,40 +6156,76 @@
                         }
 
                         // Show file info
-                        fileName.textContent = file.name;
-                        fileInfo.classList.remove('hidden');
+                        if (fileName) fileName.textContent = file.name;
+                        if (fileInfo) fileInfo.classList.remove('hidden');
                     }
                 });
 
                 // Remove file button
-                removeFileBtn.addEventListener('click', function () {
-                    resumeFileInput.value = '';
-                    fileInfo.classList.add('hidden');
+                if (removeFileBtn) removeFileBtn.addEventListener('click', function () {
+                    if (resumeFileInput) resumeFileInput.value = '';
+                    if (fileInfo) fileInfo.classList.add('hidden');
                 });
 
                 // Drag and drop functionality
                 const dropZone = uploadSection.querySelector('.border-dashed');
+                if (dropZone) {
+                    // Instant visual feedback: OS file picker can take a moment to appear.
+                    const pickerPulseClasses = ['bg-primary/10', 'border-primary', 'ring-2', 'ring-primary/40'];
+                    let pickerPulseTimer = null;
+                    const stopPickerPulse = () => {
+                        try {
+                            pickerPulseClasses.forEach((cls) => dropZone.classList.remove(cls));
+                            if (pickerPulseTimer) {
+                                clearTimeout(pickerPulseTimer);
+                                pickerPulseTimer = null;
+                            }
+                        } catch (e) { /* no-op */ }
+                    };
+                    const pulsePickerFeedback = () => {
+                        try {
+                            pickerPulseClasses.forEach((cls) => dropZone.classList.add(cls));
+                            if (pickerPulseTimer) clearTimeout(pickerPulseTimer);
+                            pickerPulseTimer = setTimeout(stopPickerPulse, 900);
+                        } catch (e) { /* no-op */ }
+                    };
 
-                dropZone.addEventListener('dragover', function (e) {
-                    e.preventDefault();
-                    dropZone.classList.add('drag-over');
-                });
+                    dropZone.addEventListener('pointerdown', function () {
+                        try {
+                            const isUploadMode = !uploadSection.classList.contains('hidden');
+                            const hasFile = !!(resumeFileInput && resumeFileInput.files && resumeFileInput.files[0]);
+                            if (isUploadMode && !hasFile) pulsePickerFeedback();
+                        } catch (e) { /* no-op */ }
+                    });
 
-                dropZone.addEventListener('dragleave', function (e) {
-                    e.preventDefault();
-                    dropZone.classList.remove('drag-over');
-                });
+                    window.addEventListener('focus', function () {
+                        setTimeout(function () {
+                            const hasFile = !!(resumeFileInput && resumeFileInput.files && resumeFileInput.files[0]);
+                            if (!hasFile) stopPickerPulse();
+                        }, 300);
+                    });
 
-                dropZone.addEventListener('drop', function (e) {
-                    e.preventDefault();
-                    dropZone.classList.remove('drag-over');
+                    dropZone.addEventListener('dragover', function (e) {
+                        e.preventDefault();
+                        dropZone.classList.add('drag-over');
+                    });
 
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        resumeFileInput.files = files;
-                        resumeFileInput.dispatchEvent(new Event('change'));
-                    }
-                });
+                    dropZone.addEventListener('dragleave', function (e) {
+                        e.preventDefault();
+                        dropZone.classList.remove('drag-over');
+                    });
+
+                    dropZone.addEventListener('drop', function (e) {
+                        e.preventDefault();
+                        dropZone.classList.remove('drag-over');
+
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0 && resumeFileInput) {
+                            resumeFileInput.files = files;
+                            resumeFileInput.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
 
                 // Form submission handling
                 const form = document.getElementById('resumeForm');
@@ -6142,7 +6234,7 @@
                         const isUploadMode = !uploadSection.classList.contains('hidden');
                         const isTextMode = !pasteSection.classList.contains('hidden');
 
-                        if (isUploadMode && !resumeFileInput.files[0]) {
+                        if (isUploadMode && (!resumeFileInput || !resumeFileInput.files || !resumeFileInput.files[0])) {
                             e.preventDefault();
                             alert('Please select a resume file to upload.');
                             return;
@@ -6156,7 +6248,7 @@
 
                         // Valid submission in either mode: show overlay and allow form to submit
                         const overlay = document.getElementById('loadingOverlay');
-                        overlay.classList.remove('hidden');
+                        if (overlay) overlay.classList.remove('hidden');
 
                         // Cute rotating microcopy (separate from loadingSubtitle which is used for step updates)
                         try {

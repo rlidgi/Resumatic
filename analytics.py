@@ -100,14 +100,10 @@ class AnalyticsTracker:
             # Analyze traffic source
             source_info = self.analyze_traffic_source(request_obj)
             source_type = source_info["type"]
-            
-            # Update counters based on source
-            if source_type == "facebook_ad":
-                self.data["facebook_ad_visits"] += 1
-                self.data["daily_stats"][today]["facebook_ad"] += 1
-                
-                # Track UTM campaign data
-                campaign = source_info.get("campaign", "unknown")
+
+            # Track UTM campaign visits for any traffic source (not only Facebook ads)
+            campaign = source_info.get("campaign", "")
+            if campaign:
                 if campaign not in self.data["utm_campaigns"]:
                     self.data["utm_campaigns"][campaign] = {
                         "visits": 0,
@@ -118,7 +114,11 @@ class AnalyticsTracker:
                     }
                 self.data["utm_campaigns"][campaign]["visits"] += 1
                 self.data["utm_campaigns"][campaign]["last_seen"] = today
-                
+            
+            # Update counters based on source
+            if source_type == "facebook_ad":
+                self.data["facebook_ad_visits"] += 1
+                self.data["daily_stats"][today]["facebook_ad"] += 1
             elif source_type == "organic":
                 self.data["organic_visits"] += 1
                 self.data["daily_stats"][today]["organic"] += 1
@@ -166,12 +166,19 @@ class AnalyticsTracker:
             utm_campaign = request_obj.args.get('utm_campaign', '')
             utm_content = request_obj.args.get('utm_content', '')
             utm_term = request_obj.args.get('utm_term', '')
+
+            # Optional referral code for personalized links (first-party)
+            ref_code = (request_obj.args.get('ref', '') or '').strip()
             
             # Get referrer
             referrer = request_obj.headers.get('Referer', '').lower()
             
             # Get user agent for additional context
             user_agent = request_obj.headers.get('User-Agent', '')
+
+            # If any UTM param is present, treat this as a campaign visit even when referrer is empty.
+            # Otherwise UTM-tagged links shared via SMS/WhatsApp/email often show up as "direct".
+            has_utm = bool(utm_source or utm_medium or utm_campaign or utm_content or utm_term)
             
             # Check for Facebook ad traffic
             if (utm_source == 'facebook' or 
@@ -188,8 +195,23 @@ class AnalyticsTracker:
                     "campaign": utm_campaign or "unknown_fb_campaign",
                     "content": utm_content,
                     "term": utm_term,
+                    "ref_code": ref_code,
                     "referrer": referrer,
                     "user_agent": user_agent
+                }
+
+            # Generic UTM campaign attribution (non-Facebook)
+            if has_utm:
+                return {
+                    "type": "campaign",
+                    "source": utm_source or "campaign",
+                    "medium": utm_medium or "referral",
+                    "campaign": utm_campaign or "unknown_campaign",
+                    "content": utm_content,
+                    "term": utm_term,
+                    "ref_code": ref_code,
+                    "referrer": referrer,
+                    "user_agent": user_agent,
                 }
             
             # Check for other social media
@@ -199,6 +221,7 @@ class AnalyticsTracker:
                     "type": "social",
                     "source": utm_source or "social",
                     "medium": utm_medium,
+                    "ref_code": ref_code,
                     "referrer": referrer,
                     "user_agent": user_agent
                 }
@@ -210,6 +233,7 @@ class AnalyticsTracker:
                     "type": "search",
                     "source": utm_source or "search",
                     "medium": utm_medium,
+                    "ref_code": ref_code,
                     "referrer": referrer,
                     "user_agent": user_agent
                 }
@@ -220,6 +244,7 @@ class AnalyticsTracker:
                     "type": "direct",
                     "source": "direct",
                     "medium": "none",
+                    "ref_code": ref_code,
                     "user_agent": user_agent
                 }
             
@@ -228,6 +253,7 @@ class AnalyticsTracker:
                 "type": "organic",
                 "source": utm_source or "organic",
                 "medium": utm_medium or "referral",
+                "ref_code": ref_code,
                 "referrer": referrer,
                 "user_agent": user_agent
             }
@@ -276,6 +302,28 @@ class AnalyticsTracker:
             # Try to determine the traffic source from session data
             source_info = session_data.get('traffic_source', {})
             source_type = source_info.get('type', 'unknown')
+
+            # Track conversion by UTM campaign for any traffic source
+            campaign = source_info.get("campaign", "")
+            if campaign and campaign in self.data.get("utm_campaigns", {}):
+                if "conversions" not in self.data["utm_campaigns"][campaign]:
+                    self.data["utm_campaigns"][campaign]["conversions"] = 0
+                if "conversion_rate" not in self.data["utm_campaigns"][campaign]:
+                    self.data["utm_campaigns"][campaign]["conversion_rate"] = 0.0
+                self.data["utm_campaigns"][campaign]["conversions"] += 1
+                visits = self.data["utm_campaigns"][campaign].get("visits", 0)
+                conversions = self.data["utm_campaigns"][campaign].get("conversions", 0)
+                self.data["utm_campaigns"][campaign]["conversion_rate"] = (conversions / visits * 100) if visits > 0 else 0.0
+
+            # Track conversion by referrer for any traffic source
+            referrer = source_info.get("referrer", "")
+            if referrer and referrer in self.data.get("referrer_data", {}):
+                if "conversions" not in self.data["referrer_data"][referrer]:
+                    self.data["referrer_data"][referrer]["conversions"] = 0
+                self.data["referrer_data"][referrer]["conversions"] += 1
+                visits = self.data["referrer_data"][referrer].get("count", 0)
+                conversions = self.data["referrer_data"][referrer].get("conversions", 0)
+                self.data["referrer_data"][referrer]["conversion_rate"] = (conversions / visits * 100) if visits > 0 else 0.0
             
             logger.info(f"Tracking conversion - Source: {source_type}, Type: {conversion_type}")
             
@@ -283,34 +331,6 @@ class AnalyticsTracker:
             if source_type == "facebook_ad":
                 self.data["facebook_ad_conversions"] += 1
                 self.data["daily_stats"][today]["facebook_ad_conversions"] += 1
-                
-                # Update campaign conversion data
-                campaign = source_info.get("campaign", "unknown")
-                if campaign in self.data["utm_campaigns"]:
-                    # Initialize conversion fields if they don't exist
-                    if "conversions" not in self.data["utm_campaigns"][campaign]:
-                        self.data["utm_campaigns"][campaign]["conversions"] = 0
-                    if "conversion_rate" not in self.data["utm_campaigns"][campaign]:
-                        self.data["utm_campaigns"][campaign]["conversion_rate"] = 0.0
-                    
-                    self.data["utm_campaigns"][campaign]["conversions"] += 1
-                    # Calculate conversion rate
-                    visits = self.data["utm_campaigns"][campaign]["visits"]
-                    conversions = self.data["utm_campaigns"][campaign]["conversions"]
-                    self.data["utm_campaigns"][campaign]["conversion_rate"] = (conversions / visits * 100) if visits > 0 else 0
-                
-                # Update referrer conversion data
-                referrer = source_info.get("referrer", "facebook")
-                if referrer in self.data["referrer_data"]:
-                    # Initialize conversions field if it doesn't exist
-                    if "conversions" not in self.data["referrer_data"][referrer]:
-                        self.data["referrer_data"][referrer]["conversions"] = 0
-                    
-                    self.data["referrer_data"][referrer]["conversions"] += 1
-                    # Calculate conversion rate
-                    visits = self.data["referrer_data"][referrer]["count"]
-                    conversions = self.data["referrer_data"][referrer]["conversions"]
-                    self.data["referrer_data"][referrer]["conversion_rate"] = (conversions / visits * 100) if visits > 0 else 0
             
             # Validate data consistency before saving
             self.validate_conversion_data()

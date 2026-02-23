@@ -360,9 +360,74 @@
                                             </label>
                                             <label class="block sm:col-span-2">
                                                 <span class="text-xs font-semibold text-gray-700">Dates</span>
-                                                <input name="exp_duration"
-                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                                    placeholder="Jan 2022 – Present" />
+                                                <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <label class="block">
+                                                        <span
+                                                            class="text-[11px] font-semibold text-gray-600">From</span>
+                                                        <input type="hidden" name="exp_from" value="" data-ym-hidden />
+                                                        <div class="mt-1 grid grid-cols-2 gap-3">
+                                                            <select data-ym-month
+                                                                class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                <option value="">month</option>
+                                                                <option value="01">Jan</option>
+                                                                <option value="02">Feb</option>
+                                                                <option value="03">Mar</option>
+                                                                <option value="04">Apr</option>
+                                                                <option value="05">May</option>
+                                                                <option value="06">Jun</option>
+                                                                <option value="07">Jul</option>
+                                                                <option value="08">Aug</option>
+                                                                <option value="09">Sep</option>
+                                                                <option value="10">Oct</option>
+                                                                <option value="11">Nov</option>
+                                                                <option value="12">Dec</option>
+                                                            </select>
+                                                            <select data-ym-year
+                                                                class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                <option value="">year</option>
+                                                            </select>
+                                                        </div>
+                                                    </label>
+                                                    <label class="block">
+                                                        <span class="text-[11px] font-semibold text-gray-600">To</span>
+                                                        <input type="hidden" name="exp_to" value="" data-exp-end-hidden
+                                                            data-ym-hidden />
+                                                        <div class="mt-1 grid grid-cols-2 gap-3" data-exp-end-controls>
+                                                            <select data-ym-month data-exp-end-month
+                                                                class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                <option value="">month</option>
+                                                                <option value="01">Jan</option>
+                                                                <option value="02">Feb</option>
+                                                                <option value="03">Mar</option>
+                                                                <option value="04">Apr</option>
+                                                                <option value="05">May</option>
+                                                                <option value="06">Jun</option>
+                                                                <option value="07">Jul</option>
+                                                                <option value="08">Aug</option>
+                                                                <option value="09">Sep</option>
+                                                                <option value="10">Oct</option>
+                                                                <option value="11">Nov</option>
+                                                                <option value="12">Dec</option>
+                                                            </select>
+                                                            <select data-ym-year data-exp-end-year
+                                                                class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                <option value="">year</option>
+                                                            </select>
+                                                        </div>
+                                                    </label>
+                                                    <div class="sm:col-span-2">
+                                                        <span class="text-[11px] font-semibold text-gray-600">Current
+                                                            job</span>
+                                                        <input type="hidden" name="exp_current" value="0"
+                                                            data-exp-current-hidden />
+                                                        <label
+                                                            class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
+                                                            <input type="checkbox" data-exp-current
+                                                                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                            <span class="text-sm">Yes</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
                                             </label>
                                         </div>
                                         <button type="button"
@@ -432,20 +497,79 @@
                                 <div class="rounded-2xl border border-gray-200 p-4">
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                                            <label class="block sm:col-span-2">
+                                            <label class="block sm:col-span-3">
                                                 <span
                                                     class="block min-h-8 text-xs font-semibold text-gray-700 leading-tight">Degree</span>
                                                 <input name="edu_degree"
                                                     class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                                                     placeholder="B.S. Computer Science" />
                                             </label>
-                                            <label class="block">
+                                            <label class="block sm:col-span-3">
                                                 <span
                                                     class="block min-h-8 text-xs font-semibold text-gray-700 leading-tight">Graduation
                                                     date (or expected graduation date)</span>
-                                                <input name="edu_year"
-                                                    class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                                    placeholder="May 2026" />
+                                                <div class="mt-1 grid grid-cols-1 gap-3">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <label class="block">
+                                                            <span
+                                                                class="text-[11px] font-semibold text-gray-600">From</span>
+                                                            <input type="hidden" name="edu_from" value=""
+                                                                data-ym-hidden />
+                                                            <div class="mt-1 grid grid-cols-2 gap-3">
+                                                                <select data-ym-month
+                                                                    class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                    <option value="">month</option>
+                                                                    <option value="01">Jan</option>
+                                                                    <option value="02">Feb</option>
+                                                                    <option value="03">Mar</option>
+                                                                    <option value="04">Apr</option>
+                                                                    <option value="05">May</option>
+                                                                    <option value="06">Jun</option>
+                                                                    <option value="07">Jul</option>
+                                                                    <option value="08">Aug</option>
+                                                                    <option value="09">Sep</option>
+                                                                    <option value="10">Oct</option>
+                                                                    <option value="11">Nov</option>
+                                                                    <option value="12">Dec</option>
+                                                                </select>
+                                                                <select data-ym-year
+                                                                    class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                    <option value="">year</option>
+                                                                </select>
+                                                            </div>
+                                                        </label>
+                                                        <label class="block">
+                                                            <span
+                                                                class="text-[11px] font-semibold text-gray-600">To</span>
+                                                            <input type="hidden" name="edu_to" value=""
+                                                                data-ym-hidden />
+                                                            <div class="mt-1 grid grid-cols-2 gap-3">
+                                                                <select data-ym-month
+                                                                    class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                    <option value="">month</option>
+                                                                    <option value="01">Jan</option>
+                                                                    <option value="02">Feb</option>
+                                                                    <option value="03">Mar</option>
+                                                                    <option value="04">Apr</option>
+                                                                    <option value="05">May</option>
+                                                                    <option value="06">Jun</option>
+                                                                    <option value="07">Jul</option>
+                                                                    <option value="08">Aug</option>
+                                                                    <option value="09">Sep</option>
+                                                                    <option value="10">Oct</option>
+                                                                    <option value="11">Nov</option>
+                                                                    <option value="12">Dec</option>
+                                                                </select>
+                                                                <select data-ym-year
+                                                                    class="w-full min-w-40 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white">
+                                                                    <option value="">year</option>
+                                                                </select>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                    <p class="text-[11px] text-gray-500">If you prefer, enter only the
+                                                        end date.</p>
+                                                </div>
                                             </label>
                                             <label class="block sm:col-span-3">
                                                 <span class="block text-xs font-semibold text-gray-700">Field of
@@ -995,6 +1119,123 @@
                         const heading = String((wrapper.querySelector('input[name="custom_heading"]') || {}).value || '').trim();
                         aiRewriteElement('custom_section', customTa, customAiBtn, { heading });
                     });
+                }
+
+                // Month/Year selects -> hidden YYYY-MM fields (avoids native month-input dashes).
+                try {
+                    const yearFloor = 1950;
+                    const nowYear = new Date().getFullYear();
+                    const yearCeil = nowYear + 6;
+
+                    const fillYears = (yearSelect) => {
+                        if (!yearSelect) return;
+                        if (yearSelect.dataset.filled === '1') return;
+                        const placeholder = yearSelect.querySelector('option[value=""]');
+                        for (let y = yearCeil; y >= yearFloor; y--) {
+                            const opt = document.createElement('option');
+                            opt.value = String(y);
+                            opt.textContent = String(y);
+                            yearSelect.appendChild(opt);
+                        }
+                        if (!placeholder) {
+                            const opt = document.createElement('option');
+                            opt.value = '';
+                            opt.textContent = 'year';
+                            yearSelect.insertBefore(opt, yearSelect.firstChild);
+                        }
+                        yearSelect.dataset.filled = '1';
+                    };
+
+                    const syncHiddenFromParts = (hiddenInput, monthSelect, yearSelect) => {
+                        if (!hiddenInput || !monthSelect || !yearSelect) return;
+                        const mm = String(monthSelect.value || '').trim();
+                        const yy = String(yearSelect.value || '').trim();
+                        hiddenInput.value = (mm && yy) ? `${yy}-${mm}` : '';
+                    };
+
+                    const initYmGroup = (hiddenInput) => {
+                        if (!hiddenInput) return;
+                        const container = hiddenInput.nextElementSibling;
+                        const monthSelect = container?.querySelector('select[data-ym-month]');
+                        const yearSelect = container?.querySelector('select[data-ym-year]');
+                        if (!monthSelect || !yearSelect) return;
+
+                        fillYears(yearSelect);
+
+                        const applyHiddenToParts = () => {
+                            const v = String(hiddenInput.value || '');
+                            const m = v.match(/^\s*(\d{4})-(\d{2})\s*$/);
+                            if (!m) return;
+                            yearSelect.value = m[1];
+                            monthSelect.value = m[2];
+                        };
+
+                        const sync = () => syncHiddenFromParts(hiddenInput, monthSelect, yearSelect);
+                        monthSelect.addEventListener('change', sync);
+                        yearSelect.addEventListener('change', sync);
+
+                        applyHiddenToParts();
+                        sync();
+
+                        return { monthSelect, yearSelect };
+                    };
+
+                    // Initialize each YYYY-MM hidden input in this wrapper.
+                    const ymHiddenInputs = Array.from(wrapper.querySelectorAll('input[type="hidden"][data-ym-hidden]'));
+                    ymHiddenInputs.forEach(initYmGroup);
+
+                    // Experience: "Current job" checkbox disables/greys out end date.
+                    try {
+                        const currentCb = wrapper.querySelector('input[type="checkbox"][data-exp-current]');
+                        const currentHidden = wrapper.querySelector('input[type="hidden"][name="exp_current"][data-exp-current-hidden]');
+                        const endHidden = wrapper.querySelector('input[type="hidden"][name="exp_to"][data-exp-end-hidden]');
+                        const endControls = wrapper.querySelector('[data-exp-end-controls]');
+                        const endMonthSel = endControls?.querySelector('select[data-exp-end-month]');
+                        const endYearSel = endControls?.querySelector('select[data-exp-end-year]');
+
+                        const setEndDisabled = (isDisabled) => {
+                            const disabled = !!isDisabled;
+                            [endMonthSel, endYearSel].forEach((sel) => {
+                                if (!sel) return;
+                                sel.disabled = disabled;
+                                sel.classList.toggle('opacity-60', disabled);
+                                sel.classList.toggle('bg-gray-100', disabled);
+                                sel.classList.toggle('text-gray-400', disabled);
+                            });
+                        };
+
+                        const syncCurrent = () => {
+                            const isCurrent = !!(currentCb && currentCb.checked);
+                            if (currentHidden) currentHidden.value = isCurrent ? '1' : '0';
+
+                            if (isCurrent) {
+                                if (endHidden) endHidden.dataset.prevValue = String(endHidden.value || '');
+                                if (endMonthSel) endMonthSel.dataset.prevValue = String(endMonthSel.value || '');
+                                if (endYearSel) endYearSel.dataset.prevValue = String(endYearSel.value || '');
+
+                                if (endHidden) endHidden.value = '';
+                                if (endMonthSel) endMonthSel.value = '';
+                                if (endYearSel) endYearSel.value = '';
+                                setEndDisabled(true);
+                            } else {
+                                setEndDisabled(false);
+                                if (endMonthSel && typeof endMonthSel.dataset.prevValue === 'string') endMonthSel.value = String(endMonthSel.dataset.prevValue || '');
+                                if (endYearSel && typeof endYearSel.dataset.prevValue === 'string') endYearSel.value = String(endYearSel.dataset.prevValue || '');
+                                if (endHidden && endMonthSel && endYearSel) {
+                                    endHidden.value = (endMonthSel.value && endYearSel.value) ? `${endYearSel.value}-${endMonthSel.value}` : '';
+                                }
+                            }
+                        };
+
+                        if (currentCb) {
+                            currentCb.addEventListener('change', syncCurrent);
+                            syncCurrent();
+                        }
+                    } catch (_) {
+                        // no-op
+                    }
+                } catch (_) {
+                    // no-op
                 }
             }
             list.appendChild(node);

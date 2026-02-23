@@ -37,6 +37,7 @@ import os
 import json
 from docx import Document
 import stripe
+import csv
 from azure.data.tables import TableServiceClient, UpdateMode
 from azure.identity import DefaultAzureCredential
 from urllib.parse import urlparse, urljoin
@@ -89,6 +90,22 @@ app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or 'a-very-secret-rando
 
 # Local-dev ergonomics: auto-reload templates/static caching unless running on Azure App Service.
 _ON_AZURE = bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'))
+
+# Startup banner (helps confirm which process/code is actually running).
+try:
+    _BUILD_ID = str(int(os.path.getmtime(__file__)))
+except Exception:
+    _BUILD_ID = 'unknown'
+logger.info('ResumaticAI boot (build=%s pid=%s on_azure=%s)', _BUILD_ID, os.getpid(), _ON_AZURE)
+
+# Local debugging: Azure Tables HTTP logging can drown out app logs.
+# Keep it on Azure; quiet it locally.
+if not _ON_AZURE:
+    try:
+        logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+    except Exception:
+        pass
+
 if not _ON_AZURE:
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     try:
@@ -161,6 +178,161 @@ def _pop_auth_next() -> Optional[str]:
     except Exception:
         pass
     return None
+
+
+# --- Marketing attribution (personalized links) ---
+_MARKETING_SESSION_KEY = 'marketing_params'
+_MARKETING_REF_PARAM = 'ref'
+_MARKETING_UTM_KEYS = (
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_content',
+    'utm_term',
+)
+
+
+def _sanitize_marketing_value(value: str, max_len: int = 160) -> str:
+    try:
+        s = str(value or '').strip()
+        if not s:
+            return ''
+        if len(s) > max_len:
+            s = s[:max_len]
+        return s
+    except Exception:
+        return ''
+
+
+def _sanitize_ref_code(code: str) -> str:
+    """Allow only simple URL-safe referral codes."""
+    try:
+        raw = str(code or '').strip()
+        if not raw:
+            return ''
+        raw = raw[:64]
+        cleaned = re.sub(r'[^A-Za-z0-9_.-]+', '', raw)
+        return cleaned
+    except Exception:
+        return ''
+
+
+@app.before_request
+def _capture_marketing_params():
+    """Capture ref/UTM params into session so later signups can be attributed."""
+    try:
+        args = request.args
+        if not args:
+            return None
+
+        existing = session.get(_MARKETING_SESSION_KEY, {})
+        if not isinstance(existing, dict):
+            existing = {}
+        m = dict(existing)
+
+        updated = False
+
+        ref_code = _sanitize_ref_code(args.get(_MARKETING_REF_PARAM, ''))
+        if ref_code:
+            if m.get('ref') != ref_code:
+                m['ref'] = ref_code
+                updated = True
+
+        for k in _MARKETING_UTM_KEYS:
+            v = _sanitize_marketing_value(args.get(k, ''))
+            if v:
+                if m.get(k) != v:
+                    m[k] = v
+                    updated = True
+
+        if updated:
+            now = datetime.now(timezone.utc).isoformat()
+            if not m.get('first_seen_at'):
+                m['first_seen_at'] = now
+                m['landing_path'] = str(request.path or '')
+            m['last_seen_at'] = now
+            session[_MARKETING_SESSION_KEY] = m
+    except Exception:
+        return None
+    return None
+
+
+def _append_marketing_signup_csv(user: 'User', signup_method: str) -> None:
+    """Append a marketing attribution record on signup (best-effort)."""
+    try:
+        m = session.get(_MARKETING_SESSION_KEY, {})
+        if not isinstance(m, dict):
+            m = {}
+
+        traffic = session.get('traffic_source', {})
+        if not isinstance(traffic, dict):
+            traffic = {}
+
+        filename = os.getenv('MARKETING_SIGNUPS_CSV', 'marketing_signups.csv')
+        file_exists = os.path.exists(filename)
+        with open(filename, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    'timestamp_iso',
+                    'signup_method',
+                    'user_id',
+                    'email',
+                    'ref',
+                    'utm_source',
+                    'utm_medium',
+                    'utm_campaign',
+                    'utm_content',
+                    'utm_term',
+                    'traffic_type',
+                    'traffic_campaign',
+                    'traffic_referrer',
+                    'first_seen_at',
+                    'last_seen_at',
+                    'landing_path',
+                ])
+
+            writer.writerow([
+                datetime.now(timezone.utc).isoformat(),
+                str(signup_method or '').strip(),
+                str(getattr(user, 'id', '') or ''),
+                _normalize_email(getattr(user, 'email', '')),
+                str(m.get('ref') or ''),
+                str(m.get('utm_source') or ''),
+                str(m.get('utm_medium') or ''),
+                str(m.get('utm_campaign') or ''),
+                str(m.get('utm_content') or ''),
+                str(m.get('utm_term') or ''),
+                str(traffic.get('type') or ''),
+                str(traffic.get('campaign') or ''),
+                str(traffic.get('referrer') or ''),
+                str(m.get('first_seen_at') or ''),
+                str(m.get('last_seen_at') or ''),
+                str(m.get('landing_path') or ''),
+            ])
+    except Exception:
+        logger.exception('Failed to append marketing signup CSV')
+
+
+@app.route('/r/<code>')
+def referral_redirect(code: str):
+    """Short personalized link: /r/yaron -> /?ref=yaron (+ any utm_* passthrough)."""
+    try:
+        ref_code = _sanitize_ref_code(code)
+        params = {}
+        if ref_code:
+            params['ref'] = ref_code
+        for k in _MARKETING_UTM_KEYS:
+            v = _sanitize_marketing_value(request.args.get(k, ''))
+            if v:
+                params[k] = v
+
+        base = url_for('index')
+        if params:
+            return redirect(f"{base}?{urlencode(params)}", code=302)
+        return redirect(base, code=302)
+    except Exception:
+        return redirect(url_for('index'), code=302)
 
 # Ensure HTTPS URLs in sitemap and external links
 app.config['PREFERRED_URL_SCHEME'] = 'https'
@@ -291,6 +463,7 @@ class User(UserMixin):
         email_verified=True,
         email_verified_at=None,
         email_verification_sent_at=None,
+        welcome_email_sent_at=None,
     ):
         self.id = id
         self.name = name
@@ -301,6 +474,7 @@ class User(UserMixin):
         self.email_verified = bool(email_verified)
         self.email_verified_at = email_verified_at
         self.email_verification_sent_at = email_verification_sent_at
+        self.welcome_email_sent_at = welcome_email_sent_at
         # Determine if the user is an admin based on their email
         self.is_admin = email in ADMIN_EMAILS
     
@@ -325,6 +499,7 @@ class User(UserMixin):
             'email_verified': getattr(self, 'email_verified', True),
             'email_verified_at': getattr(self, 'email_verified_at', None),
             'email_verification_sent_at': getattr(self, 'email_verification_sent_at', None),
+            'welcome_email_sent_at': getattr(self, 'welcome_email_sent_at', None),
             'is_admin': self.is_admin
         }
     
@@ -365,6 +540,7 @@ class User(UserMixin):
             email_verified=inferred_verified,
             email_verified_at=data.get('email_verified_at'),
             email_verification_sent_at=data.get('email_verification_sent_at'),
+            welcome_email_sent_at=data.get('welcome_email_sent_at'),
         )
         return user
 
@@ -532,9 +708,176 @@ ResumaticAI Team
 
         logger.info(f"Verification email sent to {email}")
         return True
-    except Exception as e:
+    except Exception:
         # Keep user-facing messaging generic; log full details for ops/debugging.
+        # Never log passwords/secrets.
+        try:
+            logger.error(
+                "Verification email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
+                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+                os.getenv('SMTP_PORT', '587'),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (email or '').strip().lower(),
+            )
+        except Exception:
+            pass
         logger.exception("Error sending verification email")
+        return False
+
+
+def send_welcome_email(email: str, user_name: str) -> bool:
+    """Send welcome email to a new user.
+
+    This is best-effort: returns True on successful SMTP send, otherwise False.
+    """
+    try:
+        email = (email or '').strip().lower()
+        if not email:
+            return False
+
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from urllib.parse import urlencode
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+
+        # Visible diagnostics (no secrets) to prove which SMTP config is in effect.
+        try:
+            logging.getLogger().info(
+                "send_welcome_email: start (to=%s smtp_server=%s smtp_port=%s auth_email=%s)",
+                email,
+                smtp_server,
+                smtp_port,
+                auth_email,
+            )
+            if not _ON_AZURE:
+                print(f"[send_welcome_email] to={email} smtp={smtp_server}:{smtp_port} from={auth_email}")
+        except Exception:
+            pass
+
+        if not auth_email or not auth_password:
+            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+        try:
+            home_url = _get_external_url('index')
+        except Exception:
+            home_url = ''
+
+        try:
+            unsubscribe_url = _get_external_url('unsubscribe')
+            # Prefill email on the unsubscribe page.
+            if unsubscribe_url:
+                unsubscribe_url = f"{unsubscribe_url}?{urlencode({'email': email})}"
+        except Exception:
+            unsubscribe_url = ''
+
+        subject = 'Welcome to ResumaticAI'
+
+        html_body = f"""
+        <html>
+        <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
+            <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
+                <p>Hi there,</p>
+                <p>Welcome to ResumaticAI — I’m really glad you’re here.</p>
+                <p>I’m Yaron, the founder of ResumaticAI. I’m currently pursuing a PhD in Machine Learning, specializing in natural language processing — the technology behind modern large language models.</p>
+                <p>I built ResumaticAI because I saw two things:</p>
+                <ul>
+                    <li>AI has become incredibly powerful.</li>
+                    <li>Most resume tools still feel generic.</li>
+                </ul>
+                <p>Resumes aren’t just documents — they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.</p>
+                <p>Here’s what you can do right now:</p>
+                <ul>
+                    <li>Upload your resume for instant AI-powered feedback</li>
+                    <li>Strengthen your bullet points with measurable impact</li>
+                    <li>Tailor your resume to specific job descriptions</li>
+                    <li>Improve structure, clarity, and ATS compatibility</li>
+                </ul>
+                <p>We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email — I read every message personally.</p>
+                <p>Ready to get started?</p>
+                <p>Visit: <a href=\"https://resumaticai.com\" style=\"color: #2563eb;\">https://resumaticai.com</a></p>
+                <p>Let’s build a resume that gets you interviews.</p>
+                <p>Yaron<br>Founder, ResumaticAI</p>
+                <hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">
+                {f'<p style="color: #666; font-size: 12px;">Newsletter unsubscribe: <a href="{unsubscribe_url}" style="color: #2563eb;">{unsubscribe_url}</a></p>' if unsubscribe_url else ''}
+                <p style=\"color: #666; font-size: 12px;\">ResumaticAI Team</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = "\n".join(
+            [
+                'Hi there,',
+                '',
+                "Welcome to ResumaticAI — I’m really glad you’re here.",
+                '',
+                "I’m Yaron, the founder of ResumaticAI. I’m currently pursuing a PhD in Machine Learning, specializing in natural language processing — the technology behind modern large language models.",
+                '',
+                'I built ResumaticAI because I saw two things:',
+                '',
+                '• AI has become incredibly powerful.',
+                '• Most resume tools still feel generic.',
+                '',
+                "Resumes aren’t just documents — they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.",
+                '',
+                "Here’s what you can do right now:",
+                '',
+                '• Upload your resume for instant AI-powered feedback',
+                '• Strengthen your bullet points with measurable impact',
+                '• Tailor your resume to specific job descriptions',
+                '• Improve structure, clarity, and ATS compatibility',
+                '',
+                "We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email — I read every message personally.",
+                '',
+                'Ready to get started?',
+                '',
+                'Visit: https://resumaticai.com',
+                '',
+                "Let’s build a resume that gets you interviews.",
+                '',
+                'Yaron',
+                'Founder, ResumaticAI',
+                '',
+                '---',
+                *([f'Newsletter unsubscribe: {unsubscribe_url}'] if unsubscribe_url else []),
+                'ResumaticAI Team',
+            ]
+        ).strip()
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"ResumaticAI <{auth_email}>"
+        msg['To'] = email
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(auth_email, auth_password)
+        server.send_message(msg)
+        server.quit()
+
+        logger.info(f"Welcome email sent to {email}")
+        return True
+    except Exception:
+        # Never log passwords/secrets.
+        try:
+            logger.error(
+                "Welcome email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
+                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+                os.getenv('SMTP_PORT', '587'),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (email or '').strip().lower(),
+            )
+        except Exception:
+            pass
+        logger.exception('Error sending welcome email')
         return False
 
 def load_users():
@@ -635,6 +978,31 @@ def login():
                     return redirect(url_for('verify_email', email=user.email))
 
                 login_user(user)
+
+                # Best-effort reliability: if the welcome email failed earlier (e.g. SMTP misconfig),
+                # retry once on the first successful login after verification.
+                try:
+                    if (
+                        _normalize_email(getattr(user, 'email', ''))
+                        and bool(getattr(user, 'email_verified', True))
+                        and not getattr(user, 'welcome_email_sent_at', None)
+                    ):
+                        logger.info(
+                            "Retrying welcome email on login for %s",
+                            _normalize_email(getattr(user, 'email', '')),
+                        )
+                        sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+                        if sent_ok:
+                            user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                            add_user(user)
+                        else:
+                            logger.warning(
+                                "Welcome email retry not sent on login for %s",
+                                _normalize_email(getattr(user, 'email', '')),
+                            )
+                except Exception:
+                    logger.exception("Unexpected error during welcome-email retry on login")
+
                 # Save pending revision if it exists
                 pending = session.pop('pending_revision', None)
                 if pending:
@@ -694,6 +1062,16 @@ def login():
             user = User(user_id, name, email, is_new=True, email_verified=False)
             user.set_password(password)
             add_user(user)
+
+            # Marketing attribution: record the signup source/ref/utm (best-effort)
+            try:
+                _append_marketing_signup_csv(user, signup_method='email_password')
+            except Exception:
+                pass
+            try:
+                analytics.track_conversion(session, "signup")
+            except Exception:
+                pass
             
             # Persist profile to Azure Users table
             try:
@@ -738,6 +1116,15 @@ def verify_email():
 def verify_email_token(token):
     """Verify email token, mark user verified, then log them in."""
     _set_auth_next_from_request()
+    # Local-only debug/testing override: allow forcing a welcome resend.
+    try:
+        _force_resend_welcome = (
+            (not _ON_AZURE)
+            and str(request.args.get('resend_welcome', '') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+        )
+    except Exception:
+        _force_resend_welcome = False
+
     payload = confirm_email_verification_token(token, max_age_seconds=EMAIL_VERIFY_TOKEN_EXPIRY_HOURS * 3600)
     if not payload:
         flash('This verification link is invalid or has expired. Please request a new one.', 'danger')
@@ -751,11 +1138,77 @@ def verify_email_token(token):
         flash('We could not verify that account. Please request a new verification email.', 'danger')
         return redirect(url_for('verify_email', email=email))
 
+    # Diagnostics: prove the handler is running + show gate values.
+    try:
+        logging.getLogger().info(
+            "verify_email_token: entered (user_id=%s email=%s email_verified=%s welcome_email_sent_at=%s)",
+            str(getattr(user, 'id', '') or ''),
+            _normalize_email(getattr(user, 'email', '')),
+            getattr(user, 'email_verified', None),
+            getattr(user, 'welcome_email_sent_at', None),
+        )
+        if not _ON_AZURE:
+            print(
+                "[verify_email_token] entered user_id=%s email=%s verified=%s welcome_email_sent_at=%s"
+                % (
+                    str(getattr(user, 'id', '') or ''),
+                    _normalize_email(getattr(user, 'email', '')),
+                    str(getattr(user, 'email_verified', None)),
+                    str(getattr(user, 'welcome_email_sent_at', None)),
+                )
+            )
+    except Exception:
+        pass
+
     # If already verified, just proceed.
     if not getattr(user, 'email_verified', True):
         user.email_verified = True
         user.email_verified_at = datetime.now(timezone.utc).isoformat()
         add_user(user)
+
+    # Send a welcome email once, after verification succeeds.
+    # Local debug: allow forcing resend with `?resend_welcome=1`.
+    try:
+        if _normalize_email(getattr(user, 'email', '')) and (_force_resend_welcome or not getattr(user, 'welcome_email_sent_at', None)):
+            logger.info(
+                "Attempting welcome email after verification for %s (force_resend=%s)",
+                _normalize_email(getattr(user, 'email', '')),
+                _force_resend_welcome,
+            )
+            try:
+                logging.getLogger().info(
+                    "verify_email_token: welcome gate passed for %s (force_resend=%s)",
+                    _normalize_email(getattr(user, 'email', '')),
+                    _force_resend_welcome,
+                )
+                if not _ON_AZURE:
+                    print(f"[verify_email_token] welcome gate passed for {_normalize_email(getattr(user, 'email', ''))} force_resend={_force_resend_welcome}")
+            except Exception:
+                pass
+            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+            if sent_ok:
+                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                add_user(user)
+            else:
+                logger.warning(
+                    "Welcome email not sent after verification for %s",
+                    _normalize_email(getattr(user, 'email', '')),
+                )
+        else:
+            try:
+                logging.getLogger().info(
+                    "verify_email_token: welcome gate SKIPPED (email=%s welcome_email_sent_at=%s)",
+                    _normalize_email(getattr(user, 'email', '')),
+                    getattr(user, 'welcome_email_sent_at', None),
+                )
+                if not _ON_AZURE:
+                    print(
+                        f"[verify_email_token] welcome gate skipped email={_normalize_email(getattr(user, 'email', ''))} welcome_email_sent_at={getattr(user, 'welcome_email_sent_at', None)}"
+                    )
+            except Exception:
+                pass
+    except Exception:
+        logger.exception("Unexpected error during welcome-email attempt after verification")
 
     login_user(user)
 
@@ -1151,6 +1604,22 @@ def google_callback():
     is_new = user_id not in users
     user = User(user_id, user_info["name"], user_info.get("email", ""), is_new=is_new)
     add_user(user)  # Use add_user to save persistently
+    # Marketing attribution + conversion (only for first-time signups; best-effort)
+    try:
+        if is_new:
+            _append_marketing_signup_csv(user, signup_method='google_oauth')
+            analytics.track_conversion(session, "signup")
+    except Exception:
+        pass
+    # One-time welcome email for new OAuth signups (best-effort, non-blocking)
+    try:
+        if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
+            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+            if sent_ok:
+                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                add_user(user)
+    except Exception:
+        pass
     # Record only first-time Google signups
     try:
         if is_new and str(user_id).isdigit():
@@ -1199,6 +1668,22 @@ def facebook_callback():
     is_new = user_id not in users
     user = User(user_id, fb_info["name"], fb_info.get("email", ""), is_new=is_new)
     add_user(user)  # Use add_user to save persistently
+    # Marketing attribution + conversion (only for first-time signups; best-effort)
+    try:
+        if is_new:
+            _append_marketing_signup_csv(user, signup_method='facebook_oauth')
+            analytics.track_conversion(session, "signup")
+    except Exception:
+        pass
+    # One-time welcome email for new OAuth signups (best-effort, non-blocking)
+    try:
+        if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
+            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+            if sent_ok:
+                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                add_user(user)
+    except Exception:
+        pass
     # Persist profile to Azure Users table
     try:
         upsert_user_profile_azure(user)
@@ -1711,6 +2196,33 @@ def resume_new():
     if request.method == 'GET':
         return render_template('resume_new.html', year=current_year, user=current_user)
 
+    def _format_month_year(raw_value: str) -> str:
+        s = str(raw_value or '').strip()
+        if not s:
+            return ''
+        # Accept HTML <input type="month"> values like "YYYY-MM".
+        try:
+            dt = datetime.strptime(s, '%Y-%m')
+            return dt.strftime('%b %Y')
+        except Exception:
+            pass
+        # Accept full dates like "YYYY-MM-DD" if they sneak in.
+        try:
+            dt = datetime.strptime(s, '%Y-%m-%d')
+            return dt.strftime('%b %Y')
+        except Exception:
+            pass
+        return s
+
+    def _format_range(from_raw: str, to_raw: str, is_current: bool = False) -> str:
+        start = _format_month_year(from_raw)
+        end = 'Present' if is_current else _format_month_year(to_raw)
+        if start and end:
+            return f"{start} – {end}"
+        if start and is_current:
+            return f"{start} – Present"
+        return start or end
+
     name = (request.form.get('name') or '').strip()
     if not name:
         flash('Name is required.', 'danger')
@@ -1738,11 +2250,31 @@ def resume_new():
     exp_titles = request.form.getlist('exp_title')
     exp_companies = request.form.getlist('exp_company')
     exp_durations = request.form.getlist('exp_duration')
+    exp_froms = request.form.getlist('exp_from')
+    exp_tos = request.form.getlist('exp_to')
+    exp_currents = request.form.getlist('exp_current')
     exp_descs = request.form.getlist('exp_description')
-    for i in range(max(len(exp_titles), len(exp_companies), len(exp_durations), len(exp_descs))):
+
+    max_exp = max(
+        len(exp_titles),
+        len(exp_companies),
+        len(exp_durations),
+        len(exp_froms),
+        len(exp_tos),
+        len(exp_currents),
+        len(exp_descs),
+    )
+
+    for i in range(max_exp):
         title = (exp_titles[i] if i < len(exp_titles) else '').strip()
         company = (exp_companies[i] if i < len(exp_companies) else '').strip()
         duration = (exp_durations[i] if i < len(exp_durations) else '').strip()
+        from_raw = (exp_froms[i] if i < len(exp_froms) else '').strip()
+        to_raw = (exp_tos[i] if i < len(exp_tos) else '').strip()
+        current_raw = (exp_currents[i] if i < len(exp_currents) else '').strip().lower()
+        is_current = current_raw in ('1', 'true', 'yes', 'on')
+        if not duration and any([from_raw, to_raw, is_current]):
+            duration = _format_range(from_raw, to_raw, is_current=is_current)
         desc = (exp_descs[i] if i < len(exp_descs) else '').strip()
         if desc:
             desc = _auto_bullet_sentences(desc)
@@ -1757,12 +2289,29 @@ def resume_new():
 
     edu_degrees = request.form.getlist('edu_degree')
     edu_years = request.form.getlist('edu_year')
+    edu_froms = request.form.getlist('edu_from')
+    edu_tos = request.form.getlist('edu_to')
     edu_fields = request.form.getlist('edu_field_of_study')
     edu_insts = request.form.getlist('edu_institution')
     edu_gpas = request.form.getlist('edu_gpa')
-    for i in range(max(len(edu_degrees), len(edu_years), len(edu_fields), len(edu_insts), len(edu_gpas))):
+
+    max_edu = max(
+        len(edu_degrees),
+        len(edu_years),
+        len(edu_froms),
+        len(edu_tos),
+        len(edu_fields),
+        len(edu_insts),
+        len(edu_gpas),
+    )
+
+    for i in range(max_edu):
         degree = (edu_degrees[i] if i < len(edu_degrees) else '').strip()
         year = (edu_years[i] if i < len(edu_years) else '').strip()
+        from_raw = (edu_froms[i] if i < len(edu_froms) else '').strip()
+        to_raw = (edu_tos[i] if i < len(edu_tos) else '').strip()
+        if not year and any([from_raw, to_raw]):
+            year = _format_range(from_raw, to_raw, is_current=False)
         field_of_study = (edu_fields[i] if i < len(edu_fields) else '').strip()
         inst = (edu_insts[i] if i < len(edu_insts) else '').strip()
         gpa = (edu_gpas[i] if i < len(edu_gpas) else '').strip()
@@ -6104,7 +6653,8 @@ def debug_newsletter_config():
 @app.route('/unsubscribe')
 def unsubscribe():
     """Unsubscribe page for newsletter"""
-    return render_template('unsubscribe.html')
+    email = (request.args.get('email') or '').strip().lower()
+    return render_template('unsubscribe.html', email=email)
 
 @app.route('/unsubscribe', methods=['POST'])
 def unsubscribe_post():
@@ -6754,7 +7304,23 @@ Rules:
 
 
 if __name__ == "__main__":
-    # Disable the auto-reloader to avoid running multiple processes locally (which can
-    # cause confusing behavior when testing settings debug output / Stripe callbacks).
-    app.run(debug=True, host='127.0.0.1', port=5000, use_reloader=False)
+    # Default to a single-process dev server (avoids confusing duplicate side-effects).
+    # If you want auto-reload while iterating locally, set `FLASK_USE_RELOADER=1`.
+    try:
+        use_reloader = str(os.getenv('FLASK_USE_RELOADER', '') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    except Exception:
+        use_reloader = False
+
+    try:
+        host = str(os.getenv('FLASK_HOST', '127.0.0.1') or '127.0.0.1').strip()
+    except Exception:
+        host = '127.0.0.1'
+
+    try:
+        port = int(str(os.getenv('PORT', '5000') or '5000').strip())
+    except Exception:
+        port = 5000
+
+    logger.info('Dev server starting (build=%s pid=%s host=%s port=%s reloader=%s)', _BUILD_ID, os.getpid(), host, port, use_reloader)
+    app.run(debug=True, host=host, port=port, use_reloader=use_reloader)
 

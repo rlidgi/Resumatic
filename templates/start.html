@@ -70,12 +70,6 @@
             background-color: rgba(79, 70, 229, 0.05);
         }
 
-        /* Persistent highlight when "Upload" tab is selected */
-        .file-drop-zone.upload-active {
-            border-color: #4F46E5;
-            background-color: rgba(79, 70, 229, 0.05);
-        }
-
         .resume-input-section {
             transition: opacity 0.3s ease;
         }
@@ -179,10 +173,9 @@
         <section class="py-12 sm:py-16" id="resume-form">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-8">
-                    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Create Your <span
-                            class="gradient-text">ATS-Optimized Resume</span></h1>
-                    <p class="text-lg text-gray-600">Upload your resume or paste your content, and let our AI transform
-                        it.</p>
+                    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Upload Your<span
+                            class="gradient-text"> Resume</span></h1>
+
                 </div>
 
                 <div class="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 backdrop-blur-sm"
@@ -438,10 +431,45 @@
             const wordCount = document.getElementById('wordCount');
             const preview = document.getElementById('previewContent');
 
+            const pickerPulseClasses = ['bg-primary/10', 'border-primary', 'ring-2', 'ring-primary/40'];
+            let pickerPulseTimer = null;
+            function stopPickerPulse() {
+                try {
+                    if (!dropZone) return;
+                    pickerPulseClasses.forEach((cls) => dropZone.classList.remove(cls));
+                    if (pickerPulseTimer) {
+                        clearTimeout(pickerPulseTimer);
+                        pickerPulseTimer = null;
+                    }
+                } catch (_) { /* no-op */ }
+            }
+            function pulsePickerFeedback() {
+                try {
+                    if (!dropZone) return;
+                    pickerPulseClasses.forEach((cls) => dropZone.classList.add(cls));
+                    if (pickerPulseTimer) clearTimeout(pickerPulseTimer);
+                    pickerPulseTimer = setTimeout(stopPickerPulse, 900);
+                } catch (_) { /* no-op */ }
+            }
+
+            const dropZone = uploadSection ? uploadSection.querySelector('.file-drop-zone') : null;
+            const uploadHighlightClasses = ['border-primary', 'bg-primary/5', 'ring-2', 'ring-primary', 'ring-offset-2'];
+            function setUploadDropzoneHighlight(enabled) {
+                if (!dropZone) return;
+                uploadHighlightClasses.forEach((cls) => dropZone.classList.toggle(cls, !!enabled));
+            }
+            function syncUploadDropzoneHighlight() {
+                const isUploadMode = uploadSection && !uploadSection.classList.contains('hidden');
+                const hasFile = resumeFileInput && resumeFileInput.files && resumeFileInput.files.length > 0;
+                setUploadDropzoneHighlight(!!isUploadMode && !hasFile);
+                if (hasFile || !isUploadMode) stopPickerPulse();
+            }
+
             uploadTab.classList.add('active');
             pasteTab.classList.remove('active');
             uploadSection.classList.remove('hidden');
             pasteSection.classList.add('hidden');
+            syncUploadDropzoneHighlight();
 
             uploadTab.addEventListener('click', function () {
                 uploadTab.classList.add('active');
@@ -449,14 +477,7 @@
                 uploadSection.classList.remove('hidden');
                 pasteSection.classList.add('hidden');
                 if (resumeTextarea) resumeTextarea.value = '';
-
-                // Keep the drop zone highlighted so it's clear where to click to upload
-                try {
-                    const dz = uploadSection && uploadSection.querySelector('.border-dashed');
-                    if (dz) {
-                        dz.classList.add('upload-active');
-                    }
-                } catch (_) { /* no-op */ }
+                syncUploadDropzoneHighlight();
             });
 
             pasteTab.addEventListener('click', function () {
@@ -464,19 +485,29 @@
                 uploadTab.classList.remove('active');
                 pasteSection.classList.remove('hidden');
                 uploadSection.classList.add('hidden');
-
-                // Remove persistent highlight when leaving upload mode
-                try {
-                    const dz = uploadSection && uploadSection.querySelector('.border-dashed');
-                    if (dz) {
-                        dz.classList.remove('upload-active');
-                    }
-                } catch (_) { /* no-op */ }
-
                 if (resumeFileInput) {
                     resumeFileInput.value = '';
                     fileInfo.classList.add('hidden');
                 }
+                stopPickerPulse();
+                syncUploadDropzoneHighlight();
+            });
+
+            // Immediate feedback on click while OS file picker opens.
+            if (dropZone) {
+                dropZone.addEventListener('pointerdown', function () {
+                    const isUploadMode = uploadSection && !uploadSection.classList.contains('hidden');
+                    const hasFile = resumeFileInput && resumeFileInput.files && resumeFileInput.files.length > 0;
+                    if (isUploadMode && !hasFile) pulsePickerFeedback();
+                });
+            }
+
+            // If the user cancels the picker, focus returns; hide the hint shortly after.
+            window.addEventListener('focus', function () {
+                setTimeout(function () {
+                    const hasFile = resumeFileInput && resumeFileInput.files && resumeFileInput.files.length > 0;
+                    if (!hasFile) stopPickerPulse();
+                }, 300);
             });
 
             resumeFileInput.addEventListener('change', function (e) {
@@ -488,21 +519,26 @@
                     fileName.textContent = file.name;
                     fileInfo.classList.remove('hidden');
                 }
+                stopPickerPulse();
+                syncUploadDropzoneHighlight();
             });
 
             removeFileBtn.addEventListener('click', function () {
                 resumeFileInput.value = '';
                 fileInfo.classList.add('hidden');
+                stopPickerPulse();
+                syncUploadDropzoneHighlight();
             });
 
-            const dropZone = uploadSection.querySelector('.border-dashed');
-            dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
-            dropZone.addEventListener('dragleave', function (e) { e.preventDefault(); dropZone.classList.remove('drag-over'); });
-            dropZone.addEventListener('drop', function (e) {
-                e.preventDefault(); dropZone.classList.remove('drag-over');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) { resumeFileInput.files = files; resumeFileInput.dispatchEvent(new Event('change')); }
-            });
+            if (dropZone) {
+                dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+                dropZone.addEventListener('dragleave', function (e) { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+                dropZone.addEventListener('drop', function (e) {
+                    e.preventDefault(); dropZone.classList.remove('drag-over');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0 && resumeFileInput) { resumeFileInput.files = files; resumeFileInput.dispatchEvent(new Event('change')); }
+                });
+            }
 
             const form = document.getElementById('resumeForm');
             if (form) {
