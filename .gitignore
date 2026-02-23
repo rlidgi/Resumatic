@@ -1,6 +1,10 @@
 # Environment variables
 .env
 
+# Node / frontend dependencies
+node_modules/
+frontend/node_modules/
+
 # OAuth Credentials
 client_secret.json
 
