@@ -49,7 +49,21 @@ Thumbs.db
 # Flask server-side session files (runtime)
 .flask_session/
 
+# Flask-Session default folder (runtime)
+flask_session/
+
 # Local temp uploads / script outputs
 temp_uploads/
 scripts/temp_uploads/
 scripts/counter.json
+
+# Local runtime/debug artifacts
+temp_store/
+newsletters/
+login_audit.json
+jd_output.txt
+local_errors.log
+*.log
+
+# Windows shortcuts
+*.lnk

@@ -159,12 +159,11 @@ export default function Editor() {
                             >
                                 <option value="classic">Classic</option>
                                 <option value="professional">Professional</option>
-                                <option value="elegant">Elegant</option>
-                                <option value="creative">Creative</option>
+                                <option value="classicRose">Classic</option>
+                                <option value="creative2">Creative</option>
                                 <option value="boldProfessional">Bold Professional</option>
                                 <option value="traditional">Traditional</option>
                                 <option value="modern">Modern</option>
-                                <option value="executive">Executive</option>
                             </select>
 
                             <div className="relative group">
@@ -456,7 +455,7 @@ export default function Editor() {
                                                     disabled={aiLoading[exp.id] || !exp.description.trim()}
                                                     className="px-3 py-1 text-xs rounded bg-orange-200 text-black hover:bg-orange-300 disabled:opacity-50 border border-orange-300"
                                                 >
-                                                    {aiLoading[exp.id] ? 'Improving…' : (<><Wand2 className="inline w-3 h-3 mr-1" />Enhance with AI</>)}
+                                                    {aiLoading[exp.id] ? 'Improving…' : (<><Wand2 className="inline w-3 h-3 mr-1" />Assist with AI</>)}
                                                 </button>
                                                 {aiMsg[exp.id] && (
                                                     <span className="ml-2 text-xs text-slate-500">{aiMsg[exp.id]}</span>
@@ -606,7 +605,7 @@ export default function Editor() {
                                                     disabled={aiLoading[proj.id] || !proj.description.trim()}
                                                     className="px-3 py-1 text-xs rounded bg-orange-200 text-black hover:bg-orange-300 disabled:opacity-50 border border-orange-300"
                                                 >
-                                                    {aiLoading[proj.id] ? 'Improving…' : (<><Wand2 className="inline w-3 h-3 mr-1" />Enhance with AI</>)}
+                                                    {aiLoading[proj.id] ? 'Improving…' : (<><Wand2 className="inline w-3 h-3 mr-1" />Assist with AI</>)}
                                                 </button>
                                                 {aiMsg[proj.id] && (
                                                     <span className="ml-2 text-xs text-slate-500">{aiMsg[proj.id]}</span>

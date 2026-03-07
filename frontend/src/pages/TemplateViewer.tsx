@@ -9,6 +9,51 @@ import TraditionalTemplate from '../components/templates/TraditionalTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
 import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
 
+const TemplateRenderer = React.memo(
+    function TemplateRenderer(props: {
+        Component: React.ComponentType<any>;
+        content: string;
+        editMode: boolean;
+        sectionOrder: string[];
+        onSectionOrderChange: (order: string[]) => void;
+        hiddenSectionKeys: string[];
+        onHiddenSectionKeysChange: (keys: string[]) => void;
+        onContentChange?: (changes: any) => void;
+    }) {
+        const {
+            Component,
+            content,
+            editMode,
+            sectionOrder,
+            onSectionOrderChange,
+            hiddenSectionKeys,
+            onHiddenSectionKeysChange,
+            onContentChange,
+        } = props;
+
+        return (
+            <Component
+                content={content}
+                editMode={editMode}
+                sectionOrder={sectionOrder}
+                onSectionOrderChange={onSectionOrderChange}
+                hiddenSectionKeys={hiddenSectionKeys}
+                onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                onContentChange={onContentChange}
+            />
+        );
+    },
+    (prev, next) =>
+        prev.Component === next.Component &&
+        prev.content === next.content &&
+        prev.editMode === next.editMode &&
+        prev.sectionOrder === next.sectionOrder &&
+        prev.onSectionOrderChange === next.onSectionOrderChange &&
+        prev.hiddenSectionKeys === next.hiddenSectionKeys &&
+        prev.onHiddenSectionKeysChange === next.onHiddenSectionKeysChange &&
+        prev.onContentChange === next.onContentChange,
+);
+
 function formatTemplateDisplayName(raw?: string): string {
     const normalized = String(raw || '')
         .replace(/[_-]+/g, ' ')
@@ -115,6 +160,11 @@ export default function TemplateViewer() {
 
     // Mobile-only fullscreen preview
     const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+
+    // In edit mode, typing into sidebar fields should not re-render the preview on each keystroke.
+    // Keep keystrokes in local draft state and commit to resumeData only on blur (or Save).
+    const [draftFields, setDraftFields] = useState<Record<string, string>>({});
+    const [draftExperienceDescriptions, setDraftExperienceDescriptions] = useState<Record<number, string>>({});
 
     useEffect(() => {
         if (!mobileNavOpen) return;
@@ -520,6 +570,8 @@ export default function TemplateViewer() {
     const loadTemplateData = React.useCallback(async () => {
         console.log('TemplateViewer: Fetching template data...');
         try {
+            setDraftFields({});
+            setDraftExperienceDescriptions({});
             const res = await fetch('/api/template-data');
             console.log('TemplateViewer: Response status:', res.status);
             if (!res.ok) {
@@ -635,9 +687,9 @@ export default function TemplateViewer() {
         window.setTimeout(attemptDownload, 100);
     }, [resumeData, loading, error, isDownloadOnly]);
 
-    async function saveEditedResume(resumeOverride?: any) {
+    async function saveEditedResume(resumeOverride?: any): Promise<boolean> {
         const payloadResume = resumeOverride ?? resumeData;
-        if (!payloadResume) return;
+        if (!payloadResume) return false;
         setEditSaving(true);
         setEditSaveError(null);
         setEditSaveSuccess(false);
@@ -687,8 +739,11 @@ export default function TemplateViewer() {
                 }
                 window.setTimeout(() => setEditSaveHubMessage(null), 8000);
             }
+
+            return true;
         } catch (e: any) {
             setEditSaveError(e?.message || 'Failed to save changes.');
+            return false;
         } finally {
             setEditSaving(false);
         }
@@ -697,6 +752,41 @@ export default function TemplateViewer() {
     const setField = (key: string, value: any) => {
         setResumeData((prev: any) => ({ ...(prev || {}), [key]: value }));
     };
+
+    const clearDraftField = React.useCallback((key: string) => {
+        setDraftFields((prev) => {
+            if (!prev || !(key in prev)) return prev || {};
+            const next = { ...(prev || {}) };
+            delete next[key];
+            return next;
+        });
+    }, []);
+
+    const setDraftField = React.useCallback((key: string, value: string) => {
+        setDraftFields((prev) => ({ ...(prev || {}), [key]: String(value ?? '') }));
+    }, []);
+
+    const commitDraftField = React.useCallback((key: string, value: string) => {
+        clearDraftField(key);
+        setField(key, value);
+    }, [clearDraftField]);
+
+    const clearDraftExperienceDescription = React.useCallback((idx: number) => {
+        setDraftExperienceDescriptions((prev) => {
+            if (!prev || !(idx in prev)) return prev || {};
+            const next = { ...(prev || {}) };
+            delete next[idx];
+            return next;
+        });
+    }, []);
+
+    const setDraftExperienceDescription = React.useCallback((idx: number, value: string) => {
+        setDraftExperienceDescriptions((prev) => ({ ...(prev || {}), [idx]: String(value ?? '') }));
+    }, []);
+
+    const handleTemplateContentChange = React.useCallback((changes: any) => {
+        setInlineEditChanges((prev: any) => ({ ...(prev || {}), ...(changes || {}) }));
+    }, []);
 
     const normalizeList = (v: any): string[] => {
         if (!v) return [];
@@ -715,6 +805,31 @@ export default function TemplateViewer() {
             return { ...(prev || {}), experience: nextExp };
         });
     };
+
+    const commitDraftExperienceDescription = React.useCallback((idx: number, value: string) => {
+        clearDraftExperienceDescription(idx);
+        updateExperienceDescription(idx, value);
+    }, [clearDraftExperienceDescription]);
+
+    const applyDraftsToResume = React.useCallback((baseResume: any) => {
+        const base = baseResume || {};
+        const next: any = { ...base };
+
+        for (const [k, v] of Object.entries(draftFields || {})) {
+            next[k] = v;
+        }
+
+        const exp: any[] = Array.isArray(next.experience) ? next.experience : [];
+        const expDrafts = draftExperienceDescriptions || {};
+        if (exp.length && Object.keys(expDrafts).length > 0) {
+            next.experience = exp.map((e, i) => {
+                if (!(i in expDrafts)) return e;
+                return { ...(e || {}), description: expDrafts[i] };
+            });
+        }
+
+        return next;
+    }, [draftFields, draftExperienceDescriptions]);
 
     async function aiRewriteResumeField(args: {
         field: 'summary' | 'experience_description';
@@ -881,10 +996,13 @@ export default function TemplateViewer() {
         );
     }
 
-    // Convert structured data to JSON string for templates
-    // The templates expect a JSON string that parseResumeContent can parse
-    const content = JSON.stringify(resumeData);
-    console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
+    // Convert structured data to JSON string for templates.
+    // Memoized so typing into sidebar drafts does not re-stringify or trigger preview work.
+    const content = React.useMemo(() => JSON.stringify(resumeData), [resumeData]);
+
+    useEffect(() => {
+        console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
+    }, [content]);
 
     // Render appropriate template based on templateName
     let TemplateComponent;
@@ -966,6 +1084,33 @@ export default function TemplateViewer() {
 
     return (
         <div className="min-h-screen bg-gray-100">
+            {/* Offscreen export root (used by server-side Playwright PDF generation) */}
+            <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', opacity: 0, pointerEvents: 'none' }}>
+                <div id="templatePrintRoot">
+                    <div
+                        id="templatePrintContent"
+                        className="tv-style-root"
+                        style={{
+                            // @ts-ignore
+                            ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                            // @ts-ignore
+                            ['--tv-font-scale']: String(styleSettings.fontScale),
+                            // @ts-ignore
+                            ['--tv-space-scale']: String(styleSettings.spacingScale),
+                        }}
+                    >
+                        <TemplateRenderer
+                            Component={TemplateComponent}
+                            content={content}
+                            editMode={false}
+                            sectionOrder={sectionOrder}
+                            onSectionOrderChange={setSectionOrder}
+                            hiddenSectionKeys={hiddenSectionKeys}
+                            onHiddenSectionKeysChange={setHiddenSectionKeys}
+                        />
+                    </div>
+                </div>
+            </div>
             <header className="border-b bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                     <a href="/" className="inline-flex items-center gap-3">
@@ -1323,8 +1468,12 @@ export default function TemplateViewer() {
                                                 type="button"
                                                 onClick={async () => {
                                                     const merged = { ...(resumeData || {}), ...(inlineEditChanges || {}) };
-                                                    setResumeData(merged);
-                                                    await saveEditedResume(merged);
+                                                    const withDrafts = applyDraftsToResume(merged);
+                                                    const ok = await saveEditedResume(withDrafts);
+                                                    if (!ok) return;
+                                                    setResumeData(withDrafts);
+                                                    setDraftFields({});
+                                                    setDraftExperienceDescriptions({});
                                                     setInlineEditChanges({});
                                                 }}
                                                 className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${editSaving
@@ -1534,38 +1683,43 @@ export default function TemplateViewer() {
                                             <div className="space-y-3">
                                                 <Field label="Name">
                                                     <input
-                                                        value={String(resumeData?.name ?? '')}
-                                                        onChange={(e) => setField('name', e.target.value)}
+                                                        value={draftFields?.name ?? String(resumeData?.name ?? '')}
+                                                        onChange={(e) => setDraftField('name', e.target.value)}
+                                                        onBlur={(e) => commitDraftField('name', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
                                                 <Field label="Title">
                                                     <input
-                                                        value={String(resumeData?.title ?? '')}
-                                                        onChange={(e) => setField('title', e.target.value)}
+                                                        value={draftFields?.title ?? String(resumeData?.title ?? '')}
+                                                        onChange={(e) => setDraftField('title', e.target.value)}
+                                                        onBlur={(e) => commitDraftField('title', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <Field label="Email">
                                                         <input
-                                                            value={String(resumeData?.email ?? '')}
-                                                            onChange={(e) => setField('email', e.target.value)}
+                                                            value={draftFields?.email ?? String(resumeData?.email ?? '')}
+                                                            onChange={(e) => setDraftField('email', e.target.value)}
+                                                            onBlur={(e) => commitDraftField('email', e.target.value)}
                                                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                         />
                                                     </Field>
                                                     <Field label="Phone">
                                                         <input
-                                                            value={String(resumeData?.phone ?? '')}
-                                                            onChange={(e) => setField('phone', e.target.value)}
+                                                            value={draftFields?.phone ?? String(resumeData?.phone ?? '')}
+                                                            onChange={(e) => setDraftField('phone', e.target.value)}
+                                                            onBlur={(e) => commitDraftField('phone', e.target.value)}
                                                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                         />
                                                     </Field>
                                                 </div>
                                                 <Field label="Location">
                                                     <input
-                                                        value={String(resumeData?.location ?? '')}
-                                                        onChange={(e) => setField('location', e.target.value)}
+                                                        value={draftFields?.location ?? String(resumeData?.location ?? '')}
+                                                        onChange={(e) => setDraftField('location', e.target.value)}
+                                                        onBlur={(e) => commitDraftField('location', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
@@ -1584,14 +1738,16 @@ export default function TemplateViewer() {
                                                             onClick={async () => {
                                                                 try {
                                                                     setAiBusySummary(true);
+                                                                    const currentText = draftFields?.summary ?? String(resumeData?.summary ?? '');
+                                                                    const currentTitle = draftFields?.title ?? String(resumeData?.title ?? '');
                                                                     const nextText = await aiRewriteResumeField({
                                                                         field: 'summary',
-                                                                        text: String(resumeData?.summary ?? ''),
+                                                                        text: currentText,
                                                                         meta: {
-                                                                            title: String(resumeData?.title ?? ''),
+                                                                            title: currentTitle,
                                                                         },
                                                                     });
-                                                                    setField('summary', nextText);
+                                                                    commitDraftField('summary', nextText);
                                                                 } catch (e: any) {
                                                                     setAiEditError(String(e?.message || 'AI edit failed.'));
                                                                 } finally {
@@ -1610,8 +1766,9 @@ export default function TemplateViewer() {
                                                         </button>
                                                     </div>
                                                     <textarea
-                                                        value={String(resumeData?.summary ?? '')}
-                                                        onChange={(e) => setField('summary', e.target.value)}
+                                                        value={draftFields?.summary ?? String(resumeData?.summary ?? '')}
+                                                        onChange={(e) => setDraftField('summary', e.target.value)}
+                                                        onBlur={(e) => commitDraftField('summary', e.target.value)}
                                                         rows={4}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
@@ -1708,16 +1865,17 @@ export default function TemplateViewer() {
                                                                                             onClick={async () => {
                                                                                                 try {
                                                                                                     setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
+                                                                                                    const currentText = draftExperienceDescriptions?.[idx] ?? String(exp?.description ?? '');
                                                                                                     const nextText = await aiRewriteResumeField({
                                                                                                         field: 'experience_description',
-                                                                                                        text: String(exp?.description ?? ''),
+                                                                                                        text: currentText,
                                                                                                         meta: {
                                                                                                             title,
                                                                                                             company,
                                                                                                             dates,
                                                                                                         },
                                                                                                     });
-                                                                                                    updateExperienceDescription(idx, nextText);
+                                                                                                    commitDraftExperienceDescription(idx, nextText);
                                                                                                 } catch (e: any) {
                                                                                                     setAiEditError(String(e?.message || 'AI edit failed.'));
                                                                                                 } finally {
@@ -1737,8 +1895,9 @@ export default function TemplateViewer() {
                                                                                     </div>
                                                                                     <textarea
                                                                                         rows={6}
-                                                                                        value={String(exp?.description ?? '')}
-                                                                                        onChange={(e) => updateExperienceDescription(idx, e.target.value)}
+                                                                                        value={draftExperienceDescriptions?.[idx] ?? String(exp?.description ?? '')}
+                                                                                        onChange={(e) => setDraftExperienceDescription(idx, e.target.value)}
+                                                                                        onBlur={(e) => commitDraftExperienceDescription(idx, e.target.value)}
                                                                                         placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
                                                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                                                     />
@@ -1829,7 +1988,8 @@ export default function TemplateViewer() {
                                                             ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                         }}
                                                     >
-                                                        <TemplateComponent
+                                                        <TemplateRenderer
+                                                            Component={TemplateComponent}
                                                             content={content}
                                                             editMode={false}
                                                             sectionOrder={sectionOrder}
@@ -1896,14 +2056,15 @@ export default function TemplateViewer() {
                                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                                             }}
                                                                         >
-                                                                            <TemplateComponent
+                                                                            <TemplateRenderer
+                                                                                Component={TemplateComponent}
                                                                                 content={content}
                                                                                 editMode={inlineEditMode}
                                                                                 sectionOrder={sectionOrder}
                                                                                 onSectionOrderChange={setSectionOrder}
                                                                                 hiddenSectionKeys={hiddenSectionKeys}
                                                                                 onHiddenSectionKeysChange={setHiddenSectionKeys}
-                                                                                onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
+                                                                                onContentChange={handleTemplateContentChange}
                                                                             />
                                                                         </div>
                                                                     </div>
@@ -1957,7 +2118,8 @@ export default function TemplateViewer() {
                                                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                                                             }}
                                                                                         >
-                                                                                            <TemplateComponent
+                                                                                            <TemplateRenderer
+                                                                                                Component={TemplateComponent}
                                                                                                 content={content}
                                                                                                 editMode={false}
                                                                                                 sectionOrder={sectionOrder}

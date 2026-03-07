@@ -14,6 +14,8 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import mammoth
 import logging
+import threading
+import atexit
 
 # Import analytics module for tracking Facebook ad performance
 from analytics import analytics
@@ -31,6 +33,11 @@ from flask_login import LoginManager, login_required, login_user, logout_user, U
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except Exception:
+    ZoneInfo = None  # type: ignore
 import calendar
 import openai
 import os
@@ -44,6 +51,9 @@ from urllib.parse import urlparse, urljoin
 from urllib.parse import urlencode
 from flask_session import Session
 import re
+
+# Lightweight TTL-backed JSON storage for SPA-like drafts
+from temp_store import save_payload, load_payload, delete_payload, DEFAULT_TTL_SECONDS
 
 app = Flask(__name__)
 
@@ -85,11 +95,95 @@ except Exception:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Local debugging aid (Windows-safe): write exception traces to a file next to app.py.
+# This avoids rare Windows console/stderr write errors that can mask the real exception.
+try:
+    _LOCAL_ERRORS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'local_errors.log')
+except Exception:
+    _LOCAL_ERRORS_PATH = 'local_errors.log'
+
+# Create the file early so it's easy to locate during debugging.
+try:
+    with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as _f:
+        from datetime import datetime
+        _f.write(f"\n[{datetime.utcnow().isoformat()}Z] local_errors.log initialized\n")
+except Exception:
+    pass
+
+
+def _safe_log_exception(context: str, exc: Exception | None = None) -> None:
+    """Log exceptions without risking console write failures on Windows."""
+    try:
+        # logger.exception() captures the active exception traceback when called in an except block.
+        if exc is not None:
+            logger.exception('%s: %s', context, exc)
+        else:
+            logger.exception('%s', context)
+    except Exception:
+        pass
+
+    try:
+        from datetime import datetime
+
+        import traceback
+
+        with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as f:
+            f.write(f"\n[{datetime.utcnow().isoformat()}Z] {context}\n")
+            if exc is not None:
+                f.write(f"{type(exc).__name__}: {exc}\n")
+                tb = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                f.write(tb)
+            else:
+                f.write(traceback.format_exc())
+            f.write("\n")
+    except Exception:
+        # Never allow error-reporting to crash the request.
+        pass
+
+
+def _safe_log_event(message: str) -> None:
+    """Append a diagnostic breadcrumb to local_errors.log (never raises)."""
+    try:
+        from datetime import datetime
+
+        with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as f:
+            f.write(f"[{datetime.utcnow().isoformat()}Z] {message}\n")
+    except Exception:
+        pass
+
+
+def _safe_print(*args, **kwargs) -> None:
+    """Best-effort print that never raises (avoids Windows console write crashes)."""
+    try:
+        print(*args, **kwargs)
+    except Exception:
+        pass
+
 load_dotenv()
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or 'a-very-secret-random-key'
 
 # Local-dev ergonomics: auto-reload templates/static caching unless running on Azure App Service.
 _ON_AZURE = bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'))
+
+# Local-only: capture any unhandled exceptions into local_errors.log.
+# This is intentionally conservative to avoid changing production behavior.
+if (not _ON_AZURE) and (os.name == 'nt'):
+    try:
+        from werkzeug.exceptions import HTTPException
+
+        @app.errorhandler(Exception)
+        def _log_unhandled_exception(e):
+            if isinstance(e, HTTPException):
+                # Don't spam local_errors.log with normal 4xxs (missing static files, bad URLs, etc.).
+                code = getattr(e, 'code', None)
+                if isinstance(code, int) and code >= 500:
+                    _safe_log_exception('unhandled http exception', e)
+                return e
+
+            _safe_log_exception('unhandled exception', e)
+            return "Internal Server Error", 500
+    except Exception:
+        pass
 
 # Startup banner (helps confirm which process/code is actually running).
 try:
@@ -98,13 +192,60 @@ except Exception:
     _BUILD_ID = 'unknown'
 logger.info('ResumaticAI boot (build=%s pid=%s on_azure=%s)', _BUILD_ID, os.getpid(), _ON_AZURE)
 
-# Local debugging: Azure Tables HTTP logging can drown out app logs.
-# Keep it on Azure; quiet it locally.
-if not _ON_AZURE:
+# ---- Playwright browser reuse (per-worker) ----
+# Launching Chromium is expensive; reuse a single browser per Gunicorn worker for PDF generation.
+_PDF_BROWSER_LOCK = threading.Lock()
+_PDF_PW = None
+_PDF_BROWSER = None
+
+
+def _get_pdf_browser(launch_kwargs: dict):
+    """Return a reused Chromium browser instance for this worker."""
+    global _PDF_PW, _PDF_BROWSER
+    with _PDF_BROWSER_LOCK:
+        try:
+            if _PDF_BROWSER is not None:
+                is_connected = getattr(_PDF_BROWSER, "is_connected", None)
+                if callable(is_connected):
+                    if is_connected():
+                        return _PDF_BROWSER
+                else:
+                    # Some implementations may not expose is_connected; assume ok.
+                    return _PDF_BROWSER
+        except Exception:
+            _PDF_BROWSER = None
+
+        from playwright.sync_api import sync_playwright
+        if _PDF_PW is None:
+            _PDF_PW = sync_playwright().start()
+        _PDF_BROWSER = _PDF_PW.chromium.launch(**launch_kwargs)
+        return _PDF_BROWSER
+
+
+@atexit.register
+def _close_pdf_browser():
+    """Best-effort cleanup when the worker exits."""
+    global _PDF_PW, _PDF_BROWSER
     try:
-        logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+        if _PDF_BROWSER is not None:
+            _PDF_BROWSER.close()
     except Exception:
         pass
+    _PDF_BROWSER = None
+    try:
+        if _PDF_PW is not None:
+            _PDF_PW.stop()
+    except Exception:
+        pass
+    _PDF_PW = None
+
+# Azure SDK HTTP logging can drown out app logs (especially in Azure Log Stream).
+# Default to quiet; allow overriding via standard logging config if needed.
+try:
+    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+    logging.getLogger('azure.monitor.opentelemetry.exporter.export._base').setLevel(logging.WARNING)
+except Exception:
+    pass
 
 if not _ON_AZURE:
     app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -445,6 +586,27 @@ USERS_FILE = "users_data.json"
 # Password reset tokens storage
 RESET_TOKENS_FILE = "reset_tokens.json"
 RESET_TOKEN_EXPIRY_HOURS = 24  # Tokens expire after 24 hours
+
+# Login auditing (email + login timestamp + session duration)
+LOGIN_AUDIT_FILE = "login_audit.json"
+LOGIN_AUDIT_SESSION_KEY = "login_audit_id"
+_LOGIN_AUDIT_VERSION = 1
+
+# Auth session timeouts
+# - Idle timeout: log out after N minutes with no authenticated requests.
+# These are best-effort guards to reduce risk from unattended sessions.
+AUTH_IDLE_TIMEOUT_MINUTES = int(os.getenv('AUTH_IDLE_TIMEOUT_MINUTES', '45') or '45')
+# Absolute timeout is disabled by default (set to >0 to enable).
+AUTH_ABSOLUTE_TIMEOUT_HOURS = int(os.getenv('AUTH_ABSOLUTE_TIMEOUT_HOURS', '0') or '0')
+AUTH_SESSION_START_AT_KEY = 'auth_session_start_at'
+AUTH_LAST_ACTIVITY_AT_KEY = 'auth_last_activity_at'
+
+# Azure Table Storage (optional) for login auditing.
+# If available, this avoids JSON file concurrency issues across workers/instances.
+AZURE_LOGIN_AUDIT_TABLE = os.getenv('AZURE_LOGIN_AUDIT_TABLE', 'LoginAudit')
+LOGIN_AUDIT_SESSION_PK_KEY = 'login_audit_pk'
+LOGIN_AUDIT_SESSION_RK_KEY = 'login_audit_rk'
+LOGIN_AUDIT_SESSION_LOGIN_AT_KEY = 'login_audit_login_at'
 
 # Email verification
 EMAIL_VERIFY_TOKEN_EXPIRY_HOURS = int(os.getenv('EMAIL_VERIFY_TOKEN_EXPIRY_HOURS', '48'))
@@ -927,6 +1089,431 @@ def _find_user_by_email(email: str):
             return u
     return None
 
+
+def _load_login_audit_store() -> dict:
+    """Load login audit store from disk (best-effort)."""
+    try:
+        if os.path.exists(LOGIN_AUDIT_FILE):
+            with open(LOGIN_AUDIT_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, dict) and isinstance(data.get('sessions'), dict):
+                    data.setdefault('version', _LOGIN_AUDIT_VERSION)
+                    return data
+    except Exception:
+        logger.exception("Error loading login audit store")
+    return {'version': _LOGIN_AUDIT_VERSION, 'sessions': {}}
+
+
+def _save_login_audit_store(store: dict) -> None:
+    """Save login audit store to disk (best-effort, atomic replace)."""
+    try:
+        store = store or {'version': _LOGIN_AUDIT_VERSION, 'sessions': {}}
+        store.setdefault('version', _LOGIN_AUDIT_VERSION)
+        store.setdefault('sessions', {})
+
+        import tempfile
+
+        dir_name = os.path.dirname(os.path.abspath(LOGIN_AUDIT_FILE)) or '.'
+        with tempfile.NamedTemporaryFile('w', delete=False, dir=dir_name, encoding='utf-8') as tf:
+            json.dump(store, tf, indent=2, ensure_ascii=False)
+            tmp_path = tf.name
+        os.replace(tmp_path, LOGIN_AUDIT_FILE)
+    except Exception:
+        logger.exception("Error saving login audit store")
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    try:
+        raw = str(value or '').strip()
+        if not raw:
+            return None
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def _get_pacific_tzinfo():
+    """Return a tzinfo for America/Los_Angeles if possible; otherwise a fixed PST offset."""
+    # Prefer stdlib zoneinfo.
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo('America/Los_Angeles')
+        except Exception:
+            pass
+
+    # Python <3.9: try backports.
+    try:
+        from backports.zoneinfo import ZoneInfo as BackportsZoneInfo  # type: ignore
+
+        return BackportsZoneInfo('America/Los_Angeles')
+    except Exception:
+        pass
+
+    # Last resort: pytz.
+    try:
+        import pytz  # type: ignore
+
+        return pytz.timezone('America/Los_Angeles')
+    except Exception:
+        pass
+
+    # Fallback: fixed PST (no DST awareness).
+    return timezone(timedelta(hours=-8), name='PST')
+
+
+def _format_datetime_pacific(iso_value: str | None) -> str:
+    """Format ISO timestamp as YYYY-MM-DD HH:MM:SS TZ in Pacific time (best-effort)."""
+    dt = _parse_iso_datetime(iso_value)
+    if not dt:
+        return ''
+    try:
+        dt = dt.astimezone(_get_pacific_tzinfo())
+        return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+    except Exception:
+        try:
+            return dt.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        except Exception:
+            return ''
+
+
+_LOGIN_AUDIT_LOCK = threading.Lock()
+
+
+def _auth_timeout_seconds() -> tuple[int | None, int | None]:
+    """Return (idle_seconds, absolute_seconds) or (None, None) when disabled."""
+    try:
+        idle_min = int(AUTH_IDLE_TIMEOUT_MINUTES)
+    except Exception:
+        idle_min = 0
+    try:
+        abs_hours = int(AUTH_ABSOLUTE_TIMEOUT_HOURS)
+    except Exception:
+        abs_hours = 0
+
+    idle_seconds = int(idle_min * 60) if idle_min and idle_min > 0 else None
+    absolute_seconds = int(abs_hours * 3600) if abs_hours and abs_hours > 0 else None
+    return idle_seconds, absolute_seconds
+
+
+def _auth_set_session_times(*, start_iso: str | None = None, activity_iso: str | None = None) -> None:
+    """Persist auth session timestamps in the session (best-effort)."""
+    try:
+        if start_iso and not session.get(AUTH_SESSION_START_AT_KEY):
+            session[AUTH_SESSION_START_AT_KEY] = str(start_iso)
+        if activity_iso:
+            session[AUTH_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
+    except Exception:
+        return
+
+
+def _auth_force_logout(*, reason: str) -> Response:
+    """Log out the current user and redirect to login with an expiration reason."""
+    try:
+        # Close audit record if present.
+        try:
+            _audit_login_end()
+        except Exception:
+            pass
+
+        # Flask-Login logout.
+        try:
+            logout_user()
+        except Exception:
+            pass
+
+        # Preserve Flask-Login remember-cookie clearing semantics if set.
+        remember_action = None
+        try:
+            remember_action = session.get('_remember')
+        except Exception:
+            remember_action = None
+
+        # Clear our auth timestamps.
+        try:
+            session.pop(AUTH_SESSION_START_AT_KEY, None)
+            session.pop(AUTH_LAST_ACTIVITY_AT_KEY, None)
+        except Exception:
+            pass
+
+        if remember_action:
+            try:
+                session['_remember'] = remember_action
+            except Exception:
+                pass
+    finally:
+        pass
+
+    # Avoid flash() because the login route clears flashes.
+    return redirect(url_for('login', tab='login', expired=str(reason or '').strip() or '1'))
+
+
+def _azure_login_audit_enabled() -> bool:
+    """Return True if Azure Table Storage should be used for login auditing."""
+    try:
+        if (os.getenv('AZURE_STORAGE_CONNECTION_STRING') or '').strip():
+            return True
+        # Allow managed identity path primarily on Azure.
+        if (os.getenv('AZURE_STORAGE_ACCOUNT') or '').strip() and (os.getenv('WEBSITE_INSTANCE_ID') or '').strip():
+            return True
+    except Exception:
+        return False
+    return False
+
+
+def _get_login_audit_table_client(create_if_missing: bool = True):
+    """Best-effort TableClient for login audit table."""
+    connection_string = (os.getenv('AZURE_STORAGE_CONNECTION_STRING') or '').strip()
+    account = (os.getenv('AZURE_STORAGE_ACCOUNT') or '').strip()
+    if not connection_string and not account:
+        raise ValueError('Azure storage not configured')
+
+    if connection_string:
+        service = TableServiceClient.from_connection_string(conn_str=connection_string)
+    else:
+        credential = DefaultAzureCredential()
+        service = TableServiceClient(endpoint=f"https://{account}.table.core.windows.net", credential=credential)
+
+    table_client = service.get_table_client(AZURE_LOGIN_AUDIT_TABLE)
+    if create_if_missing:
+        try:
+            table_client.create_table()
+        except Exception:
+            pass
+    return table_client
+
+
+def _azure_login_audit_upsert(entity: dict) -> bool:
+    """Upsert a login audit entity to Azure (best-effort)."""
+    try:
+        table_client = _get_login_audit_table_client(create_if_missing=True)
+        table_client.upsert_entity(mode=UpdateMode.REPLACE, entity=entity)
+        return True
+    except Exception:
+        logger.exception('Azure login audit upsert failed')
+        return False
+
+
+def _azure_login_audit_get(pk: str, rk: str) -> dict | None:
+    try:
+        table_client = _get_login_audit_table_client(create_if_missing=False)
+        e = table_client.get_entity(partition_key=pk, row_key=rk)
+        return dict(e) if e else None
+    except Exception:
+        return None
+
+
+def _azure_login_audit_list(limit: int = 500) -> list[dict]:
+    """List recent-ish login audit sessions (client-side sorted + limited)."""
+    out: list[dict] = []
+    table_client = _get_login_audit_table_client(create_if_missing=False)
+    try:
+        for e in table_client.list_entities():
+            if isinstance(e, dict):
+                out.append(dict(e))
+            else:
+                try:
+                    out.append(dict(e))
+                except Exception:
+                    continue
+            if limit and len(out) >= int(limit):
+                break
+    except Exception:
+        # Surface as empty and let caller fallback.
+        return []
+    return out
+
+
+def _audit_login_start(user: "User", login_method: str) -> None:
+    """Create a login audit record and pin it to the session."""
+    try:
+        import uuid
+
+        audit_id = uuid.uuid4().hex
+        now = datetime.now(timezone.utc)
+        email = _normalize_email(getattr(user, 'email', ''))
+        user_id = str(getattr(user, 'id', '') or '')
+        login_at = now.isoformat()
+
+        # Initialize auth session timestamps (used for idle/absolute timeouts).
+        _auth_set_session_times(start_iso=login_at, activity_iso=login_at)
+
+        # Prefer Azure Table Storage when configured.
+        if _azure_login_audit_enabled():
+            pk = now.strftime('%Y%m')
+            rk = f"{now.strftime('%Y%m%dT%H%M%S%f')}_{audit_id}"
+            entity = {
+                'PartitionKey': pk,
+                'RowKey': rk,
+                'audit_id': audit_id,
+                'user_id': user_id,
+                'email': email,
+                'login_at': login_at,
+                'logout_at': '',
+                'login_method': str(login_method or '').strip() or '',
+                # duration_seconds will be written on logout
+            }
+            if _azure_login_audit_upsert(entity):
+                session[LOGIN_AUDIT_SESSION_KEY] = audit_id
+                session[LOGIN_AUDIT_SESSION_PK_KEY] = pk
+                session[LOGIN_AUDIT_SESSION_RK_KEY] = rk
+                session[LOGIN_AUDIT_SESSION_LOGIN_AT_KEY] = login_at
+                return
+
+        # Fallback: JSON file store.
+        record = {
+            'audit_id': audit_id,
+            'user_id': user_id,
+            'email': email,
+            'login_at': login_at,
+            'logout_at': None,
+            'duration_seconds': None,
+            'login_method': str(login_method or '').strip() or None,
+        }
+
+        with _LOGIN_AUDIT_LOCK:
+            store = _load_login_audit_store()
+            sessions = store.get('sessions')
+            if not isinstance(sessions, dict):
+                sessions = {}
+            sessions[audit_id] = record
+            store['sessions'] = sessions
+            _save_login_audit_store(store)
+
+        session[LOGIN_AUDIT_SESSION_KEY] = audit_id
+    except Exception:
+        logger.exception("Error starting login audit")
+
+
+@app.before_request
+def _enforce_auth_session_timeouts():
+    """Best-effort idle + absolute session timeout enforcement for authenticated users."""
+    try:
+        if not current_user.is_authenticated:
+            return None
+
+        # Don't treat static assets as activity.
+        endpoint = str(getattr(request, 'endpoint', '') or '')
+        if endpoint.startswith('static'):
+            return None
+
+        idle_seconds, absolute_seconds = _auth_timeout_seconds()
+        if not idle_seconds and not absolute_seconds:
+            return None
+
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+
+        start_dt = _parse_iso_datetime(session.get(AUTH_SESSION_START_AT_KEY))
+        last_dt = _parse_iso_datetime(session.get(AUTH_LAST_ACTIVITY_AT_KEY))
+
+        # If missing, initialize and allow the request (avoid surprising logouts).
+        if start_dt is None:
+            _auth_set_session_times(start_iso=now_iso)
+            start_dt = now
+        if last_dt is None:
+            session[AUTH_LAST_ACTIVITY_AT_KEY] = now_iso
+            last_dt = now
+
+        if absolute_seconds is not None and start_dt is not None:
+            if (now - start_dt).total_seconds() > float(absolute_seconds):
+                return _auth_force_logout(reason='absolute')
+
+        if idle_seconds is not None and last_dt is not None:
+            if (now - last_dt).total_seconds() > float(idle_seconds):
+                return _auth_force_logout(reason='idle')
+
+        # Update last activity for this authenticated request.
+        session[AUTH_LAST_ACTIVITY_AT_KEY] = now_iso
+    except Exception:
+        return None
+    return None
+
+
+def _audit_login_end() -> None:
+    """Close the current session's login audit record (best-effort)."""
+    try:
+        audit_id = session.get(LOGIN_AUDIT_SESSION_KEY)
+        if not audit_id:
+            return
+
+        # If this session has Azure PK/RK, close the Azure record.
+        pk = str(session.get(LOGIN_AUDIT_SESSION_PK_KEY) or '').strip()
+        rk = str(session.get(LOGIN_AUDIT_SESSION_RK_KEY) or '').strip()
+        login_at_iso = str(session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or '').strip() or None
+        if pk and rk and _azure_login_audit_enabled():
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
+
+            start_dt = _parse_iso_datetime(login_at_iso)
+            if start_dt is None:
+                # Best-effort: load from Azure if session data missing.
+                existing = _azure_login_audit_get(pk, rk)
+                start_dt = _parse_iso_datetime((existing or {}).get('login_at'))
+
+            duration = int(max(0, (now - start_dt).total_seconds())) if start_dt is not None else None
+            entity = {
+                'PartitionKey': pk,
+                'RowKey': rk,
+                'audit_id': str(audit_id),
+                'logout_at': now_iso,
+            }
+            if duration is not None:
+                entity['duration_seconds'] = int(duration)
+
+            # Upsert replaces the entity; include required fields we want preserved.
+            existing = _azure_login_audit_get(pk, rk) or {}
+            # Merge: prefer existing values for non-updated fields.
+            merged = dict(existing)
+            merged.update(entity)
+            # Ensure minimal required fields exist.
+            merged.setdefault('audit_id', str(audit_id))
+            merged.setdefault('login_at', (existing.get('login_at') if isinstance(existing, dict) else None) or (login_at_iso or ''))
+            merged.setdefault('email', (existing.get('email') if isinstance(existing, dict) else None) or '')
+            merged.setdefault('user_id', (existing.get('user_id') if isinstance(existing, dict) else None) or '')
+            merged.setdefault('login_method', (existing.get('login_method') if isinstance(existing, dict) else None) or '')
+
+            _azure_login_audit_upsert(merged)
+
+            # Clear session keys regardless (avoid leaking state).
+            session.pop(LOGIN_AUDIT_SESSION_KEY, None)
+            session.pop(LOGIN_AUDIT_SESSION_PK_KEY, None)
+            session.pop(LOGIN_AUDIT_SESSION_RK_KEY, None)
+            session.pop(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY, None)
+            return
+
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+
+        with _LOGIN_AUDIT_LOCK:
+            store = _load_login_audit_store()
+            sessions = store.get('sessions')
+            if not isinstance(sessions, dict):
+                return
+            rec = sessions.get(audit_id)
+            if not isinstance(rec, dict):
+                return
+            if rec.get('logout_at'):
+                return
+
+            start_dt = _parse_iso_datetime(rec.get('login_at'))
+            if start_dt is not None:
+                duration = int(max(0, (now - start_dt).total_seconds()))
+            else:
+                duration = None
+
+            rec['logout_at'] = now_iso
+            rec['duration_seconds'] = duration
+            sessions[audit_id] = rec
+            store['sessions'] = sessions
+            _save_login_audit_store(store)
+
+        session.pop(LOGIN_AUDIT_SESSION_KEY, None)
+    except Exception:
+        logger.exception("Error ending login audit")
+
 # Load existing users on startup
 users = load_users()
 print(f"📊 Loaded {len(users)} users from persistent storage")
@@ -939,6 +1526,25 @@ def load_user(user_id):
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    def _render_login(*, active_tab: str | None = None):
+        """Render the combined Login/Sign-up page with anti-caching headers."""
+        resp = make_response(render_template("login.html", active_tab=active_tab))
+        # Auth pages should not be cached; caching can cause stale JS/UI behavior.
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+
+    def _desired_active_tab() -> str:
+        """Return which auth tab should be shown initially on the login page."""
+        try:
+            tab = str(request.args.get('tab') or '').strip().lower()
+        except Exception:
+            tab = ''
+        if tab in ('register', 'signup', 'sign-up', 'create', 'create-account'):
+            return 'register'
+        return 'login'
+
     if current_user.is_authenticated:
         if _requires_email_verification(current_user):
             return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
@@ -963,14 +1569,14 @@ def login():
             
             if not email or not password:
                 flash('Please enter both email and password.', 'danger')
-                return render_template("login.html")
+                return _render_login(active_tab='login')
             
             user = _find_user_by_email(email)
 
             # If the user exists but has no password, they likely signed up via Google/Facebook.
             if user and not getattr(user, 'password_hash', None):
                 flash('This email is linked to a Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
-                return render_template("login.html")
+                return _render_login(active_tab='login')
             
             if user and user.password_hash and user.check_password(password):
                 if _requires_email_verification(user):
@@ -978,6 +1584,7 @@ def login():
                     return redirect(url_for('verify_email', email=user.email))
 
                 login_user(user)
+                _audit_login_start(user, login_method='password')
 
                 # Best-effort reliability: if the welcome email failed earlier (e.g. SMTP misconfig),
                 # retry once on the first successful login after verification.
@@ -1025,7 +1632,7 @@ def login():
                 return redirect(nxt or url_for('my_revisions'))
             else:
                 flash('Invalid email or password.', 'danger')
-                return render_template("login.html")
+                return _render_login(active_tab='login')
         
         elif action == 'register':
             # Handle email/password registration
@@ -1037,15 +1644,15 @@ def login():
             # Validation
             if not name or not email or not password:
                 flash('Please fill in all fields.', 'danger')
-                return render_template("login.html", active_tab='register')
+                return _render_login(active_tab='register')
             
             if len(password) < 8:
                 flash('Password must be at least 8 characters long.', 'danger')
-                return render_template("login.html", active_tab='register')
+                return _render_login(active_tab='register')
             
             if password != confirm_password:
                 flash('Passwords do not match.', 'danger')
-                return render_template("login.html", active_tab='register')
+                return _render_login(active_tab='register')
             
             # Check if email already exists
             existing_user = _find_user_by_email(email)
@@ -1054,7 +1661,7 @@ def login():
                     flash('An account with this email already exists via Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
                 else:
                     flash('An account with this email already exists. Please login instead.', 'danger')
-                return render_template("login.html", active_tab='register')
+                return _render_login(active_tab='register')
             
             # Create new user (requires email verification)
             import uuid
@@ -1100,7 +1707,7 @@ def login():
                 return redirect(url_for('verify_email', email=user.email, next=nxt))
             return redirect(url_for('verify_email', email=user.email))
 
-    return render_template("login.html")
+    return _render_login(active_tab=_desired_active_tab())
 
 
 @app.route('/verify-email')
@@ -1211,6 +1818,7 @@ def verify_email_token(token):
         logger.exception("Unexpected error during welcome-email attempt after verification")
 
     login_user(user)
+    _audit_login_start(user, login_method='email_verification')
 
     # Save pending revision if it exists
     pending = session.pop('pending_revision', None)
@@ -1395,8 +2003,7 @@ def forgot_password():
         
         user = _find_user_by_email(email)
         
-        # Always show success message (security: don't reveal if email exists)
-        flash('If an account exists with that email, a password reset link has been sent.', 'success')
+        # Redirect back with a generic success indicator (security: don't reveal if email exists)
         
         if user and _normalize_email(getattr(user, 'email', '')):  # Send for any account with a reachable email
             # Generate reset token
@@ -1415,7 +2022,7 @@ def forgot_password():
             # Send email
             send_password_reset_email(user.email, token, user.name)
         
-        return redirect(url_for('login'))
+        return redirect(url_for('login', tab='login', reset_sent='1'))
     
     return render_template("forgot_password.html")
 
@@ -1483,6 +2090,7 @@ def reset_password(token):
 @app.route("/logout")
 @login_required
 def logout():
+    _audit_login_end()
     # Clear any OAuth tokens or state
     session.pop('state', None)
     session.pop('google_oauth_token', None)
@@ -1632,6 +2240,7 @@ def google_callback():
     except Exception:
         pass
     login_user(user)
+    _audit_login_start(user, login_method='google_oauth')
     # Save pending revision if it exists
     pending = session.pop('pending_revision', None)
     if pending:
@@ -1690,6 +2299,7 @@ def facebook_callback():
     except Exception:
         pass
     login_user(user)
+    _audit_login_start(user, login_method='facebook_oauth')
     nxt = _pop_auth_next()
     return redirect(nxt or url_for("index"))
 
@@ -1943,8 +2553,7 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
 
     except Exception as e:
         print("=== ERROR OCCURRED ===")
-        import traceback
-        traceback.print_exc()
+        _safe_log_exception('revise_resume error', e)
         raise
 
 
@@ -1967,10 +2576,32 @@ def index():
     return render_template("index.html", year=current_year, user=current_user, scroll_to_form=scroll_to_form)
 
 
+@app.route("/upload")
+def upload():
+    if not current_user.is_authenticated:
+        try:
+            nxt = (request.full_path or request.path or '/').strip()
+            if nxt.endswith('?'):
+                nxt = nxt[:-1]
+        except Exception:
+            nxt = '/upload'
+        return redirect(url_for('login', next=nxt))
+    try:
+        _safe_log_event(f"upload GET: pid={os.getpid()} build={_BUILD_ID}")
+    except Exception:
+        _safe_log_event("upload GET")
+    current_year = datetime.now().year
+    return render_template("upload.html", year=current_year, user=current_user)
+
+
 @app.route("/start")
 def start():
-    current_year = datetime.now().year
-    return render_template("start.html", year=current_year, user=current_user)
+    # Use a temporary redirect here because browsers can cache 301s very aggressively.
+    resp = redirect(url_for('index'), code=302)
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 
 @app.route("/get-started")
@@ -1978,6 +2609,14 @@ def get_started():
     """Entry point CTA: let the user choose new resume vs revise existing."""
     current_year = datetime.now().year
     return render_template("get_started.html", year=current_year, user=current_user)
+
+
+@app.route("/paste-resume")
+def paste_resume():
+    """Fallback page for users to paste resume text when file parsing fails."""
+    current_year = datetime.now().year
+    show_error = (request.args.get('error') or '').strip() in ('1', 'true', 'yes')
+    return render_template("paste_resume.html", year=current_year, user=current_user, show_error=show_error)
 
 
 def _clean_lines(value: str) -> list:
@@ -2193,6 +2832,14 @@ def _build_compiled_resume_text(structured: dict) -> str:
 def resume_new():
     """Collect standard resume sections and compile into resume text."""
     current_year = datetime.now().year
+    if not current_user.is_authenticated:
+        try:
+            nxt = (request.full_path or request.path or '/').strip()
+            if nxt.endswith('?'):
+                nxt = nxt[:-1]
+        except Exception:
+            nxt = url_for('resume_new')
+        return redirect(url_for('login', next=nxt))
     if request.method == 'GET':
         return render_template('resume_new.html', year=current_year, user=current_user)
 
@@ -2223,9 +2870,15 @@ def resume_new():
             return f"{start} – Present"
         return start or end
 
+    template_choice = (request.form.get('template') or '').strip()
+
     name = (request.form.get('name') or '').strip()
     if not name:
         flash('Name is required.', 'danger')
+        return redirect(url_for('resume_new'))
+
+    if not template_choice:
+        flash('Please choose a template first.', 'danger')
         return redirect(url_for('resume_new'))
 
     job_description = (request.form.get('jobDescription') or '').strip()
@@ -2245,6 +2898,7 @@ def resume_new():
         'certifications': [],
         'skills': _split_skills(request.form.get('skills') or ''),
         'custom_sections': [],
+        'template_id': _canonical_template_id(template_choice) if template_choice else 'professional',
     }
 
     exp_titles = request.form.getlist('exp_title')
@@ -2379,7 +3033,8 @@ def resume_new():
     }
     session.pop('template_data', None)
     session.modified = True
-    return redirect(url_for('resume_choose_template'))
+    # Auto-continue into the chosen template so users don't have to pick twice.
+    return redirect(url_for('resume_choose_template', auto_template=template_choice))
 
 
 @app.route('/resume/new/start')
@@ -3447,7 +4102,8 @@ def billing_portal():
 @app.route("/results", methods=["POST"])
 #login_required
 def results_route():
-    print("=== results_route called ===")
+    _safe_print("=== results_route called ===")
+    _safe_log_event('results_route POST: start')
     try:
         resume_text = ""
         
@@ -3466,18 +4122,20 @@ def results_route():
         if 'resumeFile' in request.files:
             file = request.files['resumeFile']
             if file and file.filename:
-                print(f"Processing uploaded file: {file.filename}")
+                _safe_print(f"Processing uploaded file: {file.filename}")
+                _safe_log_event(f"results_route POST: received upload filename={secure_filename(file.filename)}")
                 try:
                     resume_text = extract_text_from_file(file)
-                    print(f"Extracted text length: {len(resume_text)}")
+                    _safe_print(f"Extracted text length: {len(resume_text)}")
+                    _safe_log_event(f"results_route POST: extracted_text_len={len(resume_text)}")
                     if not resume_text or not resume_text.strip():
-                        logger.warning("Uploaded file parsed but contained no extractable text")
-                        flash("The text could not be extracted from the file possibly due to its formatting. Another option is to copy the resume text and paste it in the provided text area.", 'danger')
-                        return redirect(url_for('index', scroll_to_form='true'))
+                        _safe_print("Uploaded file parsed but contained no extractable text")
+                        _safe_log_event('results_route POST: extracted text empty')
+                        return redirect(url_for('paste_resume', error='1'))
                 except Exception as e:
-                    logger.error(f"Upload processing failed: {str(e)}")
-                    flash("Your file could not be processed possibly due to its formatting. Another option is to copy  the resume text and paste it in the provided text area.", 'danger')
-                    return redirect(url_for('index', scroll_to_form='true'))
+                    _safe_log_exception('upload processing failed', e)
+                    _safe_log_event('results_route POST: upload processing failed (see exception block above)')
+                    return redirect(url_for('paste_resume', error='1'))
         
         # If no file uploaded, check for text input  
         if not resume_text:
@@ -3492,12 +4150,17 @@ def results_route():
         job_description = request.form.get("jobDescription", "").strip()
         
         # Process the resume
-        print(f"Resume text preview (first 200 chars): {resume_text[:200]}...")
-        print(f"Job description preview: {job_description[:100] if job_description else 'None'}...")
+        _safe_print(f"Resume text preview (first 200 chars): {resume_text[:200]}...")
+        _safe_print(f"Job description preview: {job_description[:100] if job_description else 'None'}...")
+        _safe_log_event(f"results_route POST: calling revise_resume resume_len={len(resume_text)} jd_len={len(job_description)}")
         revised_resume, feedback = revise_resume(resume_text, job_description)
-        print("=== FEEDBACK DATA ===")
-        print(f"Feedback type: {type(feedback)}")
-        print(json.dumps(feedback, indent=2))
+        _safe_log_event(f"results_route POST: revise_resume ok revised_len={len(revised_resume or '')}")
+        _safe_print("=== FEEDBACK DATA ===")
+        _safe_print(f"Feedback type: {type(feedback)}")
+        try:
+            _safe_print(json.dumps(feedback, indent=2))
+        except Exception:
+            _safe_print("<feedback json dump failed>")
         
         # Save to user account if authenticated
         source_revision_id = None
@@ -3530,8 +4193,8 @@ def results_route():
         
         # Track conversion (resume submission)
         conversion_info = analytics.track_conversion(session, "resume_submission")
-        print(f"=== CONVERSION TRACKED ===")
-        print(f"Conversion info: {conversion_info}")
+        _safe_print(f"=== CONVERSION TRACKED ===")
+        _safe_print(f"Conversion info: {conversion_info}")
         
         # Store data in session and redirect (Post/Redirect/Get) to prevent resubmission on back
         session['results_data'] = {
@@ -3547,14 +4210,15 @@ def results_route():
         session.modified = True
         # Bust caches (browser/service worker) for /results
         import time
+        _safe_log_event('results_route POST: redirecting to results_get')
         return redirect(url_for('results_get', ts=int(time.time())))
     except Exception as e:
-        import traceback
-        print("=== ERROR IN revise_resume_route ===")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        traceback.print_exc()
-        print("=== END ERROR DEBUG ===")
+        _safe_print("=== ERROR IN revise_resume_route ===")
+        _safe_print(f"Error type: {type(e).__name__}")
+        _safe_print(f"Error message: {str(e)}")
+        _safe_log_exception('results_route error', e)
+        _safe_log_event('results_route POST: unhandled exception (see results_route error block above)')
+        _safe_print("=== END ERROR DEBUG ===")
         flash(f"Error: {str(e)}", 'danger')
         return redirect(url_for('index'))
 
@@ -3563,11 +4227,19 @@ def results_route():
 
 @app.route("/results", methods=["GET"])
 def results_get():
+    _safe_log_event('results_get GET: start')
     data = session.get('results_data', None)
     if not data:
-        # No data to show; notify and send the user to the homepage
-        flash("⚠️ Your file could not be processed possibly due to its formatting. Please attempt to copy the resume text and paste it in the provided text area.", 'danger')
-        return redirect(url_for('index'))
+        _safe_log_event('results_get GET: no results_data in session')
+        # No data to show; route the user to the paste-resume fallback.
+        return redirect(url_for('paste_resume', error='1'))
+
+    try:
+        _safe_log_event(
+            f"results_get GET: has results_data keys={','.join(sorted([str(k) for k in (data or {}).keys()]))}"
+        )
+    except Exception:
+        _safe_log_event('results_get GET: has results_data (keys unavailable)')
     # Keep data in session for template selection
     # session.pop would remove it, so we use session.get and keep it available
     resp = make_response(render_template(
@@ -3603,8 +4275,11 @@ def _canonical_template_id(raw: str) -> str:
     alias_to_canonical = {
         # Canonical
         'professional': 'professional',
-        'elegant': 'elegant',
-        'creative': 'creative',
+        # "classic" is used in some parts of the UI as a generic label; map it to the maintained ClassicRose template.
+        'classic': 'classicRose',
+        'elegant': 'classicRose',
+        'creative': 'creative2',
+        'minimalsidebar': 'minimalSidebar',
         'boldprofessional': 'boldProfessional',
         'bold-professional': 'boldProfessional',
         'bold_professional': 'boldProfessional',
@@ -3613,13 +4288,21 @@ def _canonical_template_id(raw: str) -> str:
         'executive': 'executive',
 
         # Old IDs (and dash/underscore variants) -> canonical
-        'lavenderclassic': 'elegant',
-        'lavender-classic': 'elegant',
-        'lavender_classic': 'elegant',
+        'lavenderclassic': 'classicRose',
+        'lavender-classic': 'classicRose',
+        'lavender_classic': 'classicRose',
 
-        'popart': 'creative',
-        'pop-art': 'creative',
-        'pop_art': 'creative',
+        'popart': 'creative2',
+        'pop-art': 'creative2',
+        'pop_art': 'creative2',
+
+        'creative2': 'creative2',
+        'creative-2': 'creative2',
+        'creative_2': 'creative2',
+
+        'classicrose': 'classicRose',
+        'classic-rose': 'classicRose',
+        'classic_rose': 'classicRose',
 
         'orangeheader': 'boldProfessional',
         'orange-header': 'boldProfessional',
@@ -3637,6 +4320,9 @@ def _canonical_template_id(raw: str) -> str:
         'timeline-blue': 'executive',
         'timeline_blue': 'executive',
 
+        'minimal-sidebar': 'minimalSidebar',
+        'minimal_sidebar': 'minimalSidebar',
+
         # Optional/experimental
         'minimal': 'minimal',
         'darksidebarprogress': 'darkSidebarProgress',
@@ -3650,10 +4336,13 @@ _KNOWN_TEMPLATE_IDS = [
     'professional',
     'elegant',
     'creative',
+    'creative2',
+    'classicRose',
     'boldProfessional',
     'traditional',
     'modern',
     'executive',
+    'minimalSidebar',
     # Optional/experimental
     'minimal',
     'darkSidebarProgress',
@@ -3661,7 +4350,19 @@ _KNOWN_TEMPLATE_IDS = [
 
 
 def _format_template_display_name(raw: str) -> str:
-    s = str(raw or '')
+    # Prefer canonical IDs to avoid UI labels drifting when aliases are stored.
+    canonical = _canonical_template_id(str(raw or ''))
+    display_overrides = {
+        # UI labels
+        'minimalSidebar': 'Clean',
+        'classicRose': 'Classic',
+        'creative2': 'Creative',
+        'boldProfessional': 'Bold Professional',
+    }
+    if canonical in display_overrides:
+        return display_overrides[canonical]
+
+    s = str(canonical or raw or '')
     s = re.sub(r'[_-]+', ' ', s)
     s = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', s)
     s = s.strip()
@@ -3740,6 +4441,66 @@ def _load_structured_snapshot_for_template(entity: dict, template_id: str):
             return None
     return None
 
+
+@app.route("/api/resume-drafts", methods=["POST"])
+def api_create_resume_draft():
+    """Create a resume draft for the /resume/new wizard (TTL-backed)."""
+    try:
+        if not _same_origin_post():
+            return jsonify({"success": False, "error": "Forbidden"}), 403
+
+        data = request.get_json(force=True, silent=True) or {}
+        payload = data.get('payload')
+        if not isinstance(payload, dict):
+            return jsonify({"success": False, "error": "Invalid payload"}), 400
+
+        draft_id = save_payload('resume_draft', payload)
+        return jsonify({
+            "success": True,
+            "draft_id": draft_id,
+            "ttl_seconds": int(DEFAULT_TTL_SECONDS),
+        }), 200
+    except Exception as e:
+        logger.error(f"api_create_resume_draft error: {str(e)}")
+        _safe_log_exception('api_create_resume_draft error', e)
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+
+@app.route("/api/resume-drafts/<draft_id>", methods=["GET", "PUT", "DELETE"])
+def api_resume_draft(draft_id):
+    """Get/update/delete a resume draft by id (same-origin for writes)."""
+    token = str(draft_id or '').strip()
+    if not token:
+        return jsonify({"success": False, "error": "Missing draft_id"}), 400
+
+    try:
+        if request.method == 'GET':
+            payload = load_payload('resume_draft', token)
+            if not payload:
+                return jsonify({"success": False, "error": "Not found"}), 404
+            return jsonify({"success": True, "draft_id": token, "payload": payload}), 200
+
+        if not _same_origin_post():
+            return jsonify({"success": False, "error": "Forbidden"}), 403
+
+        if request.method == 'PUT':
+            data = request.get_json(force=True, silent=True) or {}
+            payload = data.get('payload')
+            if not isinstance(payload, dict):
+                return jsonify({"success": False, "error": "Invalid payload"}), 400
+            save_payload('resume_draft', payload, token=token)
+            return jsonify({"success": True, "draft_id": token}), 200
+
+        if request.method == 'DELETE':
+            delete_payload('resume_draft', token)
+            return jsonify({"success": True}), 200
+
+        return jsonify({"success": False, "error": "Method not allowed"}), 405
+    except Exception as e:
+        logger.error(f"api_resume_draft error: {str(e)}")
+        _safe_log_exception('api_resume_draft error', e)
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
 @app.route("/api/parse-resume-for-template", methods=["POST"])
 def parse_resume_for_template():
     """Parse resume and store structured data in session for template viewing"""
@@ -3753,10 +4514,13 @@ def parse_resume_for_template():
             'professional',
             'elegant',
             'creative',
+            'creative2',
+            'classicRose',
             'boldProfessional',
             'traditional',
             'modern',
             'executive',
+            'minimalSidebar',
             # Optional/experimental
             'minimal',
             'darkSidebarProgress',
@@ -3822,8 +4586,7 @@ def parse_resume_for_template():
         
     except Exception as e:
         logger.error(f"Error parsing resume for template: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        _safe_log_exception('parse_resume_for_template error', e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/template-data", methods=["GET"])
@@ -3859,17 +4622,49 @@ def update_template_data():
     """
     try:
         template_data = session.get('template_data')
-        if not template_data:
-            return jsonify({"success": False, "error": "Template data not found"}), 404
 
         data = request.get_json(force=True, silent=True) or {}
         resume = data.get("resume")
+        requested_template_name = str(
+            data.get('template')
+            or data.get('template_name')
+            or data.get('templateId')
+            or ''
+        ).strip()
+        is_preview = bool(data.get('preview'))
         requested_source_revision_id = str(data.get('source_revision_id') or '').strip()
         if not isinstance(resume, dict):
             return jsonify({"success": False, "error": "Invalid resume payload"}), 400
 
+        # Allow the client to initialize a preview session even if parse-resume-for-template
+        # has not run yet (e.g., live preview in the resume wizard).
+        if not template_data:
+            results_data = session.get('results_data') or {}
+            source_revision_id = str(
+                (results_data.get('source_revision_id') if isinstance(results_data, dict) else None)
+                or ''
+            ).strip()
+
+            template_name = _canonical_template_id(requested_template_name or 'professional')
+            template_data = {
+                'structured_resume': resume,
+                'template_name': template_name,
+                'revised_resume': str(data.get('revised_resume') or ''),
+                'source_revision_id': source_revision_id,
+            }
+            session['template_data'] = template_data
+            session.modified = True
+            return jsonify({
+                "success": True,
+                "template": template_name,
+                "persisted_to_hub": False,
+                "persist_reason": "preview" if is_preview else None,
+            })
+
         # Update only the structured resume. Keep template_name and revised_resume intact.
         template_data["structured_resume"] = resume
+        if requested_template_name:
+            template_data["template_name"] = _canonical_template_id(requested_template_name)
         session["template_data"] = template_data
         session.modified = True
 
@@ -3877,16 +4672,19 @@ def update_template_data():
         persisted_to_hub = False
         persist_reason = None
         persisted_format = None
-        try:
-            if not current_user.is_authenticated:
-                persist_reason = 'not_authenticated'
-            else:
-                results_data = session.get('results_data') or {}
-                source_revision_id = str(
-                    results_data.get('source_revision_id')
-                    or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
-                    or ''
-                ).strip()
+        if is_preview:
+            persist_reason = 'preview'
+        else:
+            try:
+                if not current_user.is_authenticated:
+                    persist_reason = 'not_authenticated'
+                else:
+                    results_data = session.get('results_data') or {}
+                    source_revision_id = str(
+                        results_data.get('source_revision_id')
+                        or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
+                        or ''
+                    ).strip()
 
                 # If the client provided a source revision id, validate it and prefer it.
                 if requested_source_revision_id and requested_source_revision_id != source_revision_id:
@@ -4011,10 +4809,10 @@ def update_template_data():
                     if not persist_reason:
                         persist_reason = 'missing_source_revision_id'
 
-        except Exception:
-            persisted_to_hub = False
-            if not persist_reason:
-                persist_reason = 'exception'
+            except Exception:
+                persisted_to_hub = False
+                if not persist_reason:
+                    persist_reason = 'exception'
 
         if persisted_to_hub:
             persist_reason = None
@@ -4028,6 +4826,815 @@ def update_template_data():
     except Exception as e:
         logger.error(f"Error updating template data: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/template-pdf/<template_id>", methods=["GET"])
+@login_required
+def api_template_pdf(template_id):
+    """Generate a resume PDF using headless Chromium (Playwright).
+
+    Client-side html2canvas/html2pdf fails on modern Tailwind color functions like oklab/oklch.
+    This endpoint renders the existing React template route in Chromium and returns a PDF attachment.
+    """
+    try:
+        t0 = time.time()
+        def _t() -> int:
+            try:
+                return int((time.time() - t0) * 1000)
+            except Exception:
+                return 0
+
+        logger.info("template_pdf start template=%s t=%sms", str(template_id or ''), _t())
+        paid_flag = bool(is_paid_user(current_user))
+        if (not paid_flag) and _stripe_enabled():
+            try:
+                paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid_flag
+            except Exception:
+                paid_flag = paid_flag
+        if not paid_flag:
+            return "Paid plan required.", 402
+
+        template_data = session.get('template_data')
+        if not template_data:
+            return "Template data not found in session.", 404
+        # If the App Service container recycled, OS libs may be missing until startup.sh finishes apt-get.
+        # In that case, avoid a confusing TargetClosedError and return a retryable status instead.
+        if _ON_AZURE:
+            try:
+                import ctypes
+                required_libs = [
+                    "libglib-2.0.so.0",
+                    "libnss3.so",
+                    "libatk-1.0.so.0",
+                    "libatk-bridge-2.0.so.0",
+                    "libatspi.so.0",
+                    "libgtk-3.so.0",
+                    "libX11-xcb.so.1",
+                    "libXcomposite.so.1",
+                    "libXdamage.so.1",
+                    "libXfixes.so.3",
+                    "libXrandr.so.2",
+                    "libxkbcommon.so.0",
+                    "libgbm.so.1",
+                    "libdrm.so.2",
+                    "libasound.so.2",
+                    "libpango-1.0.so.0",
+                    "libpangocairo-1.0.so.0",
+                    "libcups.so.2",
+                ]
+                missing = []
+                for lib in required_libs:
+                    try:
+                        ctypes.CDLL(lib)
+                    except Exception:
+                        missing.append(lib)
+                if missing:
+                    logger.warning("template_pdf deps_missing missing=%s", ",".join(missing))
+                    return (
+                        "PDF dependencies are still installing on the server. "
+                        "Please wait 2–3 minutes and try again.",
+                        503,
+                    )
+            except Exception:
+                # If probe fails, continue and let Playwright report the real error.
+                pass
+
+
+        canonical = _canonical_template_id(template_id or 'professional')
+
+        # Use public URL. 127.0.0.1 caused deadlock with 1 worker (worker busy can't serve Chromium's request).
+        base_url = request.host_url.rstrip('/')
+        target_url = base_url + url_for('react_app', subpath=f"template-download/{canonical}")
+        logger.info("template_pdf navigate url=%s t=%sms", target_url, _t())
+
+        # Style overrides (match TemplateViewer sliders)
+        def _clamp(v: float, lo: float, hi: float) -> float:
+            try:
+                v = float(v)
+            except Exception:
+                v = float(lo)
+            if v < lo:
+                return float(lo)
+            if v > hi:
+                return float(hi)
+            return float(v)
+
+        try:
+            font_scale = _clamp(request.args.get('fontScale', 1.0), 0.6, 1.6)
+            paragraph_gap_px = _clamp(request.args.get('paragraphGapPx', 0.0), -80, 300)
+            spacing_scale = _clamp(request.args.get('spacingScale', 1.0), 0.0, 6.0)
+        except Exception:
+            font_scale, paragraph_gap_px, spacing_scale = 1.0, 0.0, 1.0
+        logger.info(
+            "template_pdf style fontScale=%s paragraphGapPx=%s spacingScale=%s t=%sms",
+            font_scale,
+            paragraph_gap_px,
+            spacing_scale,
+            _t(),
+        )
+
+        cookies = []
+        cookie_base = base_url + "/"
+        for name, value in (request.cookies or {}).items():
+            try:
+                cookies.append({"name": name, "value": value, "url": cookie_base})
+            except Exception:
+                pass
+
+        pw = None
+        pdf_bytes = b""
+        browser = None
+        context = None
+        try:
+            # Azure App Service can be restrictive for Chromium. These flags reduce sandbox/devshm
+            # issues and improve stability in containerized environments.
+            launch_args = [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--no-zygote",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-background-timer-throttling",
+                "--disable-features=site-per-process,IsolateOrigins",
+            ]
+            launch_kwargs = {"headless": True, "args": launch_args}
+            if _ON_AZURE:
+                launch_kwargs["chromium_sandbox"] = False
+
+            # Prefer full Chromium if present; otherwise fall back to default.
+            chromium_executable_path = None
+            if _ON_AZURE:
+                try:
+                    import glob as _glob
+                    browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+                    candidates = []
+                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome"))
+                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome-wrapper"))
+                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "**", "chrome"), recursive=True)
+                    candidates = sorted({c for c in candidates if c})
+                    if candidates:
+                        chromium_executable_path = candidates[0]
+                except Exception:
+                    chromium_executable_path = None
+
+            if _ON_AZURE and chromium_executable_path:
+                launch_kwargs["executable_path"] = chromium_executable_path
+                logger.info("template_pdf chromium_launch exec=%s t=%sms", chromium_executable_path, _t())
+            else:
+                logger.info("template_pdf chromium_launch exec=%s t=%sms", "(default)", _t())
+
+            # Launch fresh Chromium per request. Reuse caused "Cannot switch to a different thread"
+            # when Gunicorn's other threads handled subsequent PDF requests.
+            from playwright.sync_api import sync_playwright
+            pw = sync_playwright().start()
+            browser = pw.chromium.launch(**launch_kwargs)
+            context = browser.new_context(
+                viewport={"width": 816, "height": 1056},
+                device_scale_factor=1,
+            )
+            if cookies:
+                context.add_cookies(cookies)
+
+            page = context.new_page()
+            # Embed fonts as base64 in CSS so Chromium never waits for a fetch. Matches localhost exactly.
+            _static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+            _fonts_dir = os.path.join(_static_dir, "fonts")
+            import base64
+            _font_b64_cache = {}
+            for name in ("inter-latin-400-normal.woff2", "inter-latin-500-normal.woff2",
+                         "inter-latin-600-normal.woff2", "inter-latin-700-normal.woff2"):
+                p = os.path.join(_fonts_dir, "inter", name)
+                if os.path.isfile(p):
+                    with open(p, "rb") as f:
+                        _font_b64_cache[name] = base64.b64encode(f.read()).decode("ascii")
+
+            def _handle_route(route):
+                req = route.request
+                url = (req.url or "").lower()
+                if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
+                    route.abort()
+                    return
+                if "/static/fonts/" in url:
+                    try:
+                        from urllib.parse import unquote, urlparse
+                        parsed = urlparse(req.url)
+                        path = unquote(parsed.path)
+                        if path.startswith("/static/fonts/"):
+                            rel = path[len("/static/fonts/"):].lstrip("/")
+                            local_path = os.path.join(_fonts_dir, rel)
+                            if rel == "inter.css" and _font_b64_cache:
+                                # Serve CSS with base64-embedded fonts (zero fetch, guaranteed load).
+                                css_path = os.path.join(_fonts_dir, "inter.css")
+                                if os.path.isfile(css_path):
+                                    with open(css_path, "r", encoding="utf-8") as f:
+                                        css = f.read()
+                                    for fname, b64 in _font_b64_cache.items():
+                                        css = css.replace(
+                                            f"url(/static/fonts/inter/{fname})",
+                                            f"url(data:font/woff2;base64,{b64})",
+                                        )
+                                    route.fulfill(status=200, body=css.encode("utf-8"), content_type="text/css")
+                                    return
+                            elif os.path.isfile(local_path):
+                                with open(local_path, "rb") as f:
+                                    body = f.read()
+                                mime = "font/woff2" if local_path.endswith(".woff2") else "text/css"
+                                route.fulfill(status=200, body=body, content_type=mime)
+                                return
+                    except Exception as e:
+                        logger.warning("template_pdf font_fulfill url=%s err=%s", req.url, e)
+                route.continue_()
+            try:
+                page.route("**/*", _handle_route)
+            except Exception:
+                pass
+            page.goto(target_url, wait_until="domcontentloaded", timeout=90000)
+            logger.info("template_pdf domcontentloaded t=%sms", _t())
+
+            # Prefer the dedicated export root, but be resilient to cached/older frontend builds.
+            try:
+                page.wait_for_selector("#templatePrintContent", timeout=8000)
+            except Exception:
+                page.wait_for_selector(".tv-style-root", timeout=60000)
+            logger.info("template_pdf selector_ready t=%sms", _t())
+
+            # Give the browser a moment to finish layout and load webfonts/images.
+            # Keep waits bounded to avoid long stalls on background connections.
+            try:
+                page.wait_for_load_state("networkidle", timeout=1500)
+            except Exception:
+                pass
+            try:
+                page.evaluate(
+                    """() => {
+                      const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+                      const imgs = Array.from(document.images || []);
+                      const imagesReady = Promise.all(imgs.map(img => img.complete ? true : new Promise(r => {
+                        img.addEventListener('load', () => r(true), { once: true });
+                        img.addEventListener('error', () => r(true), { once: true });
+                      })));
+                      return Promise.race([
+                        Promise.all([fontsReady, imagesReady]).then(() => true),
+                        new Promise(resolve => setTimeout(() => resolve(false), 4000)),
+                      ]);
+                    }"""
+                )
+            except Exception:
+                pass
+            page.wait_for_timeout(80)
+
+            # Print only the resume root without clearing the page.
+            # Important: clearing <body> removes TemplateViewer's inline <style> rules that implement
+            # the slider-based spacing/font overrides. Instead we render the export node into a
+            # dedicated body child (#__pdfMount) and hide everything else at print-time.
+            page.evaluate(
+                """(a) => {
+                      const root = document.getElementById('templatePrintContent') || document.getElementById('templatePrintRoot') || document.querySelector('.tv-style-root');
+                      // Apply CSS vars to cloned tv-style-root so the PDF matches slider settings.
+                      if (!root) throw new Error('Missing templatePrintRoot');
+
+                      const rootClone = root.cloneNode(true);
+                      const tv = (rootClone.classList && rootClone.classList.contains('tv-style-root'))
+                        ? rootClone
+                        : (rootClone.querySelector ? rootClone.querySelector('.tv-style-root') : null);
+                      if (tv && tv.style) {
+                        tv.style.setProperty('--tv-font-scale', String(a.fontScale));
+                        tv.style.setProperty('--tv-paragraph-gap', `${a.paragraphGapPx}px`);
+                        tv.style.setProperty('--tv-space-scale', String(a.spacingScale));
+                      }
+                      rootClone.style.position = 'relative';
+                      rootClone.style.left = '0';
+                      rootClone.style.top = '0';
+
+                      let mount = document.getElementById('__pdfMount');
+                      if (!mount) {
+                        mount = document.createElement('div');
+                        mount.id = '__pdfMount';
+                        document.body.appendChild(mount);
+                      }
+                      mount.innerHTML = '';
+                      mount.appendChild(rootClone);
+                      try {
+                        mount.style.display = 'block';
+                        mount.style.width = '816px';
+                        mount.style.margin = '0';
+                                                mount.style.padding = '0';
+                        mount.style.background = '#fff';
+                        mount.style.position = 'relative';
+                        mount.style.left = '0';
+                        mount.style.top = '0';
+                      } catch (e) {
+                        // ignore
+                      }
+
+                      const existing = document.getElementById('__pdfOnlyCss');
+                      if (existing) existing.remove();
+                      const style = document.createElement('style');
+                      style.id = '__pdfOnlyCss';
+                                            style.textContent = `
+                                                /* Page margins are controlled by Playwright page.pdf(...) to ensure consistency in Chromium PDF output. */
+                                                @page { size: letter; }
+                        html, body { width: 816px; margin: 0 !important; padding: 0 !important; background: #fff !important; min-height: 0 !important; }
+                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                        body > *:not(#__pdfMount) { display: none !important; }
+                                                #__pdfMount { display: block !important; position: relative !important; left: 0 !important; top: 0 !important; }
+                                                /* Many templates have an outer wrapper with top padding/margin (e.g., Tailwind p-8).
+                                                     That padding only applies at the start of the document, making page 1 look like it
+                                                     has a larger top margin than page 2+. Strip only the TOP spacing from the wrapper
+                                                     and rely on the PDF page margin for consistent per-page top whitespace. */
+                                                #__pdfMount > *:first-child {
+                                                    page-break-before: avoid !important;
+                                                    margin-top: 0 !important;
+                                                    padding-top: 0 !important;
+                                                }
+                                                /* Some templates apply their outer padding on a nested wrapper instead of the exported root.
+                                                   Strip top spacing on the first nested wrapper(s) as well so page 1 matches page 2+. */
+                                                #__pdfMount > *:first-child > :first-of-type {
+                                                    margin-top: 0 !important;
+                                                    padding-top: 0 !important;
+                                                }
+                                                #__pdfMount > *:first-child > :first-of-type > :first-of-type {
+                                                    margin-top: 0 !important;
+                                                    padding-top: 0 !important;
+                                                }
+                                                #__pdfMount > *:first-child > :first-of-type > :first-of-type > :first-of-type {
+                                                    margin-top: 0 !important;
+                                                    padding-top: 0 !important;
+                                                }
+                                                                                                                                /* Creative2: keep the left edge flush so the yellow accent bar touches the page edge. */
+                                                                                                                                #__pdfMount [data-template="creative2"].creative2-template { margin: 0 !important; }
+                        #__pdfMount, #__pdfMount * {
+                          box-shadow: none !important;
+                          filter: none !important;
+                        }
+                        #__pdfMount .shadow,
+                        #__pdfMount .shadow-sm,
+                        #__pdfMount .shadow-md,
+                        #__pdfMount .shadow-lg,
+                        #__pdfMount .shadow-xl,
+                        #__pdfMount .shadow-2xl {
+                          box-shadow: none !important;
+                        }
+                        /* Apply font/spacing scale from slider settings (vars set on clone via setProperty) */
+                        #__pdfMount .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
+                        #__pdfMount .tv-style-root { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-xs { font-size: calc(0.75rem * var(--tv-font-scale, 1)) !important; line-height: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-sm { font-size: calc(0.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.25rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-base { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.5rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-lg { font-size: calc(1.125rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-xl { font-size: calc(1.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-2xl { font-size: calc(1.5rem * var(--tv-font-scale, 1)) !important; line-height: calc(2rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-3xl { font-size: calc(1.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.25rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-4xl { font-size: calc(2.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.5rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-5xl { font-size: calc(3rem * var(--tv-font-scale, 1)) !important; line-height: 1 !important; }
+                        #__pdfMount .tv-style-root .text-\\[10px\\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\[11px\\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\[12px\\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\[13px\\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\[34px\\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\[38px\\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-12 { margin-bottom: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-10 { margin-bottom: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-8 { margin-bottom: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-6 { margin-bottom: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-5 { margin-bottom: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-4 { margin-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-3 { margin-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-2 { margin-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-1 { margin-bottom: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-12 { margin-top: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-10 { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-8 { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-6 { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-5 { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-4 { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-3 { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-2 { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-1 { margin-top: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-8 { gap: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-6 { gap: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-5 { gap: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-4 { gap: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-3 { gap: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-2 { gap: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-4 { padding-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-3 { padding-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-0 { padding-bottom: 0 !important; }
+                                                /* Creative template (Creative2): keep pagination stable in Chromium/print.
+                                                     IMPORTANT: the main issue is that CSS grid may be treated as non-fragmentable,
+                                                     pushing the entire body to the next page. Force a fragmentable layout and only
+                                                     keep *individual entries* together. */
+
+                                                /* Creative2 decorative elements are part of the template design.
+                                                   Do not hide them in PDF; only ensure they don't affect pagination by
+                                                   keeping layout containers fragmentable (rules below). */
+
+                                                                     /* Defensive: if any stale print CSS sets display:none, force them back on.
+                                                                         Preserve display:flex for the top-right blocks container. */
+                                                    #__pdfMount [data-template="creative2"] .creative2-decorative,
+                                                    #__pdfMount .creative2-decorative {
+                                                        display: block !important;
+                                                    }
+                                                    #__pdfMount [data-template="creative2"] .creative2-decorative.flex,
+                                                    #__pdfMount .creative2-decorative.flex {
+                                                        display: flex !important;
+                                                    }
+
+                                                /* Slightly compact typography/padding for PDF */
+                                                #__pdfMount [data-template="creative2"] .creative2-template,
+                                                #__pdfMount .creative2-template {
+                                                    font-size: 0.88em !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-body,
+                                                #__pdfMount .creative2-body {
+                                                        /* Preserve template gutter (pl-12/pr-8) so text doesn't hug the left edge */
+                                                        padding-top: 0.4rem !important;
+                                                        padding-bottom: 0.4rem !important;
+                                                        padding-left: 3rem !important;
+                                                        padding-right: 2rem !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-body > div:first-child,
+                                                #__pdfMount .creative2-body > div:first-child {
+                                                    margin-bottom: 0.35rem !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-summary,
+                                                #__pdfMount .creative2-summary {
+                                                    margin-top: 0.2rem !important;
+                                                    margin-bottom: 0 !important;
+                                                    line-height: 1.3 !important;
+                                                    max-width: none !important;
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                }
+
+                                                /* Ensure header/sections are allowed to break so the grid can start on page 1
+                                                     even when there is only limited remaining space after the summary. */
+                                                #__pdfMount [data-template="creative2"] .creative2-header,
+                                                #__pdfMount .creative2-header {
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-template,
+                                                #__pdfMount .creative2-template,
+                                                #__pdfMount [data-template="creative2"] .creative2-body,
+                                                #__pdfMount .creative2-body {
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-template section,
+                                                #__pdfMount .creative2-template section {
+                                                    break-before: auto !important;
+                                                    page-break-before: auto !important;
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+
+                                                /* Make the main two-column layout fragmentable.
+                                                     Use a float-based sidebar for print/PDF so Chromium can paginate
+                                                     reliably (CSS grid pagination is inconsistent). */
+                                                #__pdfMount [data-template="creative2"] .creative2-grid,
+                                                #__pdfMount .creative2-grid {
+                                                    display: block !important;
+                                                    grid-template-columns: none !important;
+                                                    gap: 0 !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                    break-before: auto !important;
+                                                    page-break-before: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-grid::after,
+                                                #__pdfMount .creative2-grid::after {
+                                                    content: "" !important;
+                                                    display: block !important;
+                                                    clear: both !important;
+                                                }
+
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > aside,
+                                                #__pdfMount .creative2-grid > aside {
+                                                    float: left !important;
+                                                    width: 32% !important;
+                                                    max-width: none !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > main,
+                                                #__pdfMount .creative2-grid > main {
+                                                    display: block !important;
+                                                    margin-left: 36% !important;
+                                                    max-width: none !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+
+                                                /* In two-column mode, don't add vertical stacking spacing between columns. */
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > * + *,
+                                                #__pdfMount .creative2-grid > * + * { margin-top: 0 !important; }
+
+                                                /* Allow long entries to split across pages.
+                                                     Chromium print often treats flex rows as non-fragmentable,
+                                                     which can create large bottom whitespace when an item is bumped.
+                                                     Use a float-based marker so content can paginate naturally. */
+                                                #__pdfMount [data-template="creative2"] .creative2-item,
+                                                #__pdfMount .creative2-item {
+                                                    /* flow-root contains internal floats (the bullet marker)
+                                                       without clearing the outer floated sidebar column. */
+                                                    display: flow-root !important;
+                                                    page-break-inside: auto !important;
+                                                    break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-item > span,
+                                                #__pdfMount .creative2-item > span {
+                                                    float: left !important;
+                                                    margin-right: 0.75rem !important;
+                                                }
+
+                                                #__pdfMount [data-template="creative2"] .creative2-template section,
+                                                #__pdfMount .creative2-template section { margin-bottom: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template section h3,
+                                                #__pdfMount .creative2-template section h3 { margin-bottom: 0.15rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-4 > * + *,
+                                                #__pdfMount .creative2-template .space-y-4 > * + * { margin-top: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-5 > * + *,
+                                                #__pdfMount .creative2-template .space-y-5 > * + * { margin-top: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-2 > * + *,
+                                                #__pdfMount .creative2-template .space-y-2 > * + * { margin-top: 0.2rem !important; }
+                      `;
+                      document.head.appendChild(style);
+                    }""",
+                {"fontScale": font_scale, "paragraphGapPx": paragraph_gap_px, "spacingScale": spacing_scale},
+            )
+            logger.info("template_pdf print_css_ready t=%sms", _t())
+
+            # Use print media for PDF so page-break rules apply correctly (Creative template layout).
+            try:
+                page.emulate_media(media="print")
+            except Exception:
+                pass
+
+            # Debug (local troubleshooting): log key computed styles/positions for Creative2.
+            # Helps identify cases where Chromium treats containers as non-fragmentable and pushes
+            # the main content to the next page.
+            _pdf_debug = False
+            try:
+                _pdf_debug = str(request.args.get('debug') or '').strip().lower() in ('1', 'true', 'yes')
+            except Exception:
+                _pdf_debug = False
+            try:
+                _pdf_debug = _pdf_debug or (str(os.getenv('PDF_DEBUG') or '').strip().lower() in ('1', 'true', 'yes'))
+            except Exception:
+                _pdf_debug = _pdf_debug
+
+            if canonical == 'creative2' and _pdf_debug:
+                try:
+                    page.wait_for_timeout(50)
+                    dbg = page.evaluate(
+                        """() => {
+                            const pick = (sel) => document.querySelector(sel);
+                            const box = (el) => {
+                                if (!el) return null;
+                                const r = el.getBoundingClientRect();
+                                return { top: r.top, left: r.left, width: r.width, height: r.height };
+                            };
+                            const style = (el) => {
+                                if (!el) return null;
+                                const cs = window.getComputedStyle(el);
+                                return {
+                                    display: cs.display,
+                                    paddingLeft: cs.paddingLeft,
+                                    paddingRight: cs.paddingRight,
+                                    paddingTop: cs.paddingTop,
+                                    paddingBottom: cs.paddingBottom,
+                                    breakInside: cs.breakInside || cs.getPropertyValue('break-inside'),
+                                    breakBefore: cs.breakBefore || cs.getPropertyValue('break-before'),
+                                    breakAfter: cs.breakAfter || cs.getPropertyValue('break-after'),
+                                    pageBreakInside: cs.pageBreakInside || cs.getPropertyValue('page-break-inside'),
+                                    pageBreakBefore: cs.pageBreakBefore || cs.getPropertyValue('page-break-before'),
+                                    pageBreakAfter: cs.pageBreakAfter || cs.getPropertyValue('page-break-after'),
+                                };
+                            };
+
+                            const mount = pick('#__pdfMount');
+                            const tpl = pick('#__pdfMount [data-template="creative2"]');
+                            const body = pick('#__pdfMount [data-template="creative2"] .creative2-body');
+                            const header = pick('#__pdfMount [data-template="creative2"] .creative2-header');
+                            const summary = pick('#__pdfMount [data-template="creative2"] .creative2-summary');
+                            const grid = pick('#__pdfMount [data-template="creative2"] .creative2-grid');
+                            const aside = pick('#__pdfMount [data-template="creative2"] .creative2-grid > aside');
+                            const main = pick('#__pdfMount [data-template="creative2"] .creative2-grid > main');
+
+                            const decos = Array.from(document.querySelectorAll('#__pdfMount [data-template="creative2"] .creative2-decorative'));
+                            const decoInfo = decos.slice(0, 12).map((el) => {
+                                const cs = window.getComputedStyle(el);
+                                return {
+                                    box: box(el),
+                                    display: cs.display,
+                                    position: cs.position,
+                                    visibility: cs.visibility,
+                                    opacity: cs.opacity,
+                                    zIndex: cs.zIndex,
+                                    backgroundColor: cs.backgroundColor,
+                                    clipPath: cs.clipPath,
+                                };
+                            });
+
+                            const sheetHrefs = Array.from(document.styleSheets || []).map(s => {
+                                try { return s && s.href ? String(s.href) : ''; } catch (e) { return ''; }
+                            }).filter(Boolean);
+
+                            return {
+                                viewport: { w: window.innerWidth, h: window.innerHeight },
+                                mount: { box: box(mount), style: style(mount) },
+                                tpl: { box: box(tpl), style: style(tpl) },
+                                body: { box: box(body), style: style(body) },
+                                header: { box: box(header), style: style(header) },
+                                summary: { box: box(summary), style: style(summary) },
+                                grid: { box: box(grid), style: style(grid) },
+                                aside: { box: box(aside), style: style(aside) },
+                                main: { box: box(main), style: style(main) },
+                                decorativeCount: decos.length,
+                                decorative: decoInfo,
+                                styleSheets: { count: (document.styleSheets || []).length, hrefs: sheetHrefs.slice(0, 25) },
+                            };
+                        }"""
+                    )
+
+                    import json as _json
+                    try:
+                        logger.info(
+                            "template_pdf creative2_debug=%s t=%sms",
+                            _json.dumps(dbg, ensure_ascii=False)[:5000],
+                            _t(),
+                        )
+                    except Exception as _e:
+                        logger.info("template_pdf creative2_debug_dump_failed err=%r t=%sms", _e, _t())
+
+                    try:
+                        temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_store')
+                        os.makedirs(temp_dir, exist_ok=True)
+
+                        dbg_path = os.path.join(temp_dir, 'creative2-debug.json')
+                        try:
+                            _dbg_payload = _json.dumps(dbg, ensure_ascii=False, indent=2, default=str)
+                        except Exception as _e:
+                            _dbg_payload = _json.dumps(
+                                {
+                                    "error": repr(_e),
+                                    "dbg_type": str(type(dbg)),
+                                    "dbg_keys": list(dbg.keys()) if isinstance(dbg, dict) else None,
+                                },
+                                ensure_ascii=False,
+                                indent=2,
+                            )
+                        with open(dbg_path, 'w', encoding='utf-8') as f:
+                            f.write(_dbg_payload)
+                        logger.info("template_pdf creative2_debug_file=%s t=%sms", dbg_path, _t())
+
+                        try:
+                            import time as _time
+                            _shot_ts = int(_time.time())
+                        except Exception:
+                            _shot_ts = 0
+
+                        # If the previous PNG is open in an image viewer, overwriting can fail on Windows.
+                        # Always write a timestamped screenshot, and also try to update the stable filename.
+                        shot_path = os.path.join(temp_dir, f'creative2-html-debug-{_shot_ts}.png' if _shot_ts else 'creative2-html-debug-new.png')
+                        page.screenshot(path=shot_path, full_page=True)
+                        try:
+                            with open(os.path.join(temp_dir, 'creative2-html-debug-latest.txt'), 'w', encoding='utf-8') as _f:
+                                _f.write(os.path.basename(shot_path))
+                        except Exception:
+                            pass
+                        try:
+                            stable_path = os.path.join(temp_dir, 'creative2-html-debug.png')
+                            page.screenshot(path=stable_path, full_page=True)
+                        except Exception:
+                            stable_path = None
+                        logger.info(
+                            "template_pdf creative2_screenshot=%s stable=%s t=%sms",
+                            shot_path,
+                            stable_path or '',
+                            _t(),
+                        )
+                    except Exception as _e:
+                        logger.info("template_pdf creative2_debug_artifacts_failed err=%r t=%sms", _e, _t())
+                except Exception:
+                    pass
+
+            _pdf_margin_top = "0.32in"
+            _pdf_margin_bottom = "0.32in"
+            _pdf_margin_left = "0in"
+            _pdf_margin_right = "0in"
+            pdf_bytes = page.pdf(
+                format="Letter",
+                print_background=True,
+                # Small top/bottom page margins for all templates.
+                # Use inch units for maximum compatibility with Chromium's PDF output.
+                margin={
+                    "top": _pdf_margin_top,
+                    "right": _pdf_margin_right,
+                    "bottom": _pdf_margin_bottom,
+                    "left": _pdf_margin_left,
+                },
+            )
+            logger.info("template_pdf pdf_ready bytes=%s t=%sms", len(pdf_bytes or b""), _t())
+        finally:
+            try:
+                if context:
+                    context.close()
+            except Exception:
+                pass
+            try:
+                if browser:
+                    browser.close()
+            except Exception:
+                pass
+            try:
+                if pw:
+                    pw.stop()
+            except Exception:
+                pass
+
+        filename = f"resume-{canonical}.pdf"
+        logger.info("template_pdf done filename=%s t=%sms", filename, _t())
+        resp = send_file(
+            BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=filename,
+        )
+        # Prevent stale cached PDFs after template/CSS changes.
+        try:
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        except Exception:
+            pass
+        try:
+            resp.headers["Pragma"] = "no-cache"
+        except Exception:
+            pass
+        try:
+            resp.headers["Expires"] = "0"
+        except Exception:
+            pass
+
+        # Debug/verification headers (safe to leave enabled; useful for confirming which code path is hit).
+        try:
+            resp.headers["X-Resumatic-Build"] = str(_BUILD_ID)
+        except Exception as _e:
+            try:
+                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Build", _e)
+            except Exception:
+                pass
+        try:
+            resp.headers["X-Resumatic-Template-Requested"] = str(template_id or "")
+        except Exception as _e:
+            try:
+                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Template-Requested", _e)
+            except Exception:
+                pass
+        try:
+            resp.headers["X-Resumatic-Template-Canonical"] = str(canonical or "")
+        except Exception as _e:
+            try:
+                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Template-Canonical", _e)
+            except Exception:
+                pass
+        try:
+            resp.headers["X-Resumatic-PDF-Margin"] = (
+                f"top={_pdf_margin_top}; bottom={_pdf_margin_bottom}; "
+                f"left={_pdf_margin_left}; right={_pdf_margin_right}; "
+                f"build={str(_BUILD_ID)}; requested={str(template_id or '')}; canonical={str(canonical or '')}"
+            )
+        except Exception:
+            pass
+        return resp
+    except Exception as e:
+        logger.exception("template_pdf failed template=%s", str(template_id or ''))
+        msg = f"{type(e).__name__}: {str(e) or 'PDF generation failed.'}"
+        # Missing libs or Chromium launch failure: return 503 so user can retry after startup finishes.
+        if any(x in msg for x in (".so", "libglib", "libnss", "libgtk", "libX11", "shared library", "Executable doesn't exist")):
+            return (
+                "PDF dependencies are still installing on the server. "
+                "Please wait 2–3 minutes after deploy and try again.",
+                503,
+            )
+        if "Executable doesn't exist" in msg or "playwright install" in msg:
+            msg = msg + " (Try: python -m playwright install chromium)"
+        return msg, 500
 
 
 @app.route('/api/ai/resume-edit', methods=['POST'])
@@ -4057,10 +5664,16 @@ def api_ai_resume_edit():
             'custom_section_content': 'custom_section',
             'additional_section': 'custom_section',
             'additional_sections': 'custom_section',
+
+            'project': 'project_description',
+            'projects': 'project_description',
+            'project_desc': 'project_description',
+            'project_description': 'project_description',
+            'projects_description': 'project_description',
         }
         field = field_aliases.get(field, field)
 
-        allowed_fields = {'summary', 'experience_description', 'job_description', 'custom_section'}
+        allowed_fields = {'summary', 'experience_description', 'job_description', 'custom_section', 'project_description'}
         if field not in allowed_fields:
             return jsonify({
                 "success": False,
@@ -4120,6 +5733,24 @@ def api_ai_resume_edit():
                 + (f"SECTION TITLE (context): {heading}\n\n" if heading else "")
                 + f"ORIGINAL CONTENT:\n{text}"
             )
+        elif field == 'project_description':
+            title = str(meta.get('title') or '').strip()
+            tech = str(meta.get('technologies') or meta.get('tech') or '').strip()
+            link = str(meta.get('link') or meta.get('url') or '').strip()
+            ctx_bits = [b for b in [title, tech, link] if b]
+            ctx = " | ".join(ctx_bits)
+            sys_msg = (
+                "You are a resume writing assistant. Rewrite project descriptions to be concise, ATS-friendly, and truthful. "
+                "Do NOT invent metrics, users, performance claims, timelines, employers, or technologies not mentioned. "
+                "Return ONLY the rewritten project description (no commentary)."
+            )
+            user_msg = (
+                "Rewrite the following project description for a resume. Keep it short and scannable. "
+                "Prefer 2-4 bullets if the original looks like bullets or spans multiple lines; otherwise use 1-2 crisp sentences. "
+                "Keep the same meaning and technologies already mentioned.\n\n"
+                + (f"PROJECT CONTEXT: {ctx}\n\n" if ctx else "")
+                + f"ORIGINAL DESCRIPTION:\n{text}"
+            )
         else:
             title = str(meta.get('title') or meta.get('role') or '').strip()
             company = str(meta.get('company') or meta.get('organization') or '').strip()
@@ -4144,7 +5775,7 @@ def api_ai_resume_edit():
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.4,
-            max_tokens=700 if field in {'job_description', 'custom_section'} else 500,
+            max_tokens=700 if field in {'job_description', 'custom_section'} else (600 if field == 'project_description' else 500),
         )
 
         out = (resp.choices[0].message.content or '').strip()
@@ -4583,6 +6214,95 @@ def admin_feedback_csv():
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route('/admin/login_audit')
+@app.route('/admin/login_audit/')
+@login_required
+def admin_login_audit():
+    """Admin UI for viewing login timestamps + session durations."""
+    if not current_user.is_authenticated:
+        flash("You need to log in to view this page.", "danger")
+        return redirect(url_for("login"))
+
+    if not getattr(current_user, "is_admin", False):
+        flash("You do not have permission to view this page.", "danger")
+        return redirect(url_for("index"))
+
+    file_present = False
+    try:
+        file_present = os.path.exists(LOGIN_AUDIT_FILE)
+    except Exception:
+        file_present = False
+
+    source_label = None
+    store = None
+    sessions_list: list[dict] = []
+
+    # Prefer Azure Table Storage when available.
+    if _azure_login_audit_enabled():
+        try:
+            rows = _azure_login_audit_list(limit=1000)
+            # Normalize Azure entities into the same shape used by templates.
+            for e in rows:
+                if not isinstance(e, dict):
+                    continue
+                sessions_list.append({
+                    'audit_id': str(e.get('audit_id') or ''),
+                    'user_id': str(e.get('user_id') or ''),
+                    'email': str(e.get('email') or ''),
+                    'login_at': str(e.get('login_at') or ''),
+                    'logout_at': (str(e.get('logout_at') or '') or None),
+                    'duration_seconds': e.get('duration_seconds', None),
+                    'login_method': str(e.get('login_method') or '') or None,
+                })
+            source_label = f"Azure Table: {AZURE_LOGIN_AUDIT_TABLE}"
+            store = {'version': _LOGIN_AUDIT_VERSION}
+        except Exception:
+            sessions_list = []
+            source_label = None
+            store = None
+
+    # Fallback: JSON file store.
+    if not sessions_list:
+        store = _load_login_audit_store()
+        raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
+        if not isinstance(raw_sessions, dict):
+            raw_sessions = {}
+        sessions_list = [v for v in raw_sessions.values() if isinstance(v, dict)]
+        if file_present:
+            source_label = f"login_audit.json" + (f" (v{store.get('version')})" if isinstance(store, dict) and store.get('version') else "")
+        else:
+            source_label = "login_audit.json (not created yet)"
+
+    sessions_list.sort(
+        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+        reverse=True,
+    )
+
+    # Pre-format times for display (keep original ISO values intact).
+    formatted_sessions: list[dict] = []
+    for rec in sessions_list:
+        out = dict(rec)
+        out['login_time_pst'] = _format_datetime_pacific(rec.get('login_at'))
+        out['logout_time_pst'] = _format_datetime_pacific(rec.get('logout_at'))
+        try:
+            secs = out.get('duration_seconds', None)
+            if secs is None:
+                out['duration_minutes'] = None
+            else:
+                out['duration_minutes'] = round(float(secs) / 60.0, 2)
+        except Exception:
+            out['duration_minutes'] = None
+        formatted_sessions.append(out)
+
+    return render_template(
+        'admin_login_audit.html',
+        sessions=formatted_sessions,
+        store_version=(store.get('version') if isinstance(store, dict) else None),
+        file_present=file_present,
+        source_label=source_label,
+    )
+
+
 # Health check endpoint for Azure App Service
 @app.route('/path/health', methods=['GET'])
 @app.route('/health', methods=['GET'])
@@ -4591,13 +6311,168 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'service': 'resumatic'
+        'service': 'resumatic',
+        'build': _BUILD_ID,
+        'pid': os.getpid(),
     }), 200
 
 
 from flask import Response 
  
 
+
+@app.route('/api/debug/playwright-log', methods=['GET'])
+def api_debug_playwright_log():
+    """Fetch Playwright install log from /home when Kudu is unreachable.
+
+    Protected by DEBUG_TOKEN query param (set DEBUG_TOKEN in App Service settings).
+    """
+    try:
+        expected = (os.getenv("DEBUG_TOKEN") or "").strip()
+        provided = (request.args.get("token") or "").strip()
+        if not expected or provided != expected:
+            return jsonify({"error": "Forbidden"}), 403
+
+        log_path = (os.getenv("PLAYWRIGHT_INSTALL_LOG") or "/home/site/wwwroot/playwright-install.log").strip()
+        max_bytes = 80_000
+        if not os.path.exists(log_path):
+            return jsonify({
+                "ok": False,
+                "log_path": log_path,
+                "exists": False,
+            }), 200
+
+        size = 0
+        try:
+            size = int(os.path.getsize(log_path))
+        except Exception:
+            size = 0
+
+        data = b""
+        try:
+            with open(log_path, "rb") as f:
+                if size > max_bytes:
+                    f.seek(-max_bytes, os.SEEK_END)
+                data = f.read()
+        except Exception as e:
+            return jsonify({
+                "ok": False,
+                "log_path": log_path,
+                "exists": True,
+                "error": f"{type(e).__name__}: {str(e)}",
+            }), 200
+
+        # Dependency probes for common Chromium/Playwright libs (missing libs cause TargetClosedError).
+        deps = {}
+        missing_libs = []
+        try:
+            import ctypes
+
+            def _probe(lib: str):
+                try:
+                    ctypes.CDLL(lib)
+                    return True
+                except Exception as e:
+                    return f"{type(e).__name__}: {str(e)}"
+
+            probe_list = [
+                "libglib-2.0.so.0",
+                "libgobject-2.0.so.0",
+                "libgio-2.0.so.0",
+                "libnss3.so",
+                "libnspr4.so",
+                "libatk-1.0.so.0",
+                "libatk-bridge-2.0.so.0",
+                "libatspi.so.0",
+                "libgtk-3.so.0",
+                "libX11-xcb.so.1",
+                "libXcomposite.so.1",
+                "libXdamage.so.1",
+                "libXfixes.so.3",
+                "libXrandr.so.2",
+                "libxkbcommon.so.0",
+                "libgbm.so.1",
+                "libdrm.so.2",
+                "libasound.so.2",
+                "libpango-1.0.so.0",
+                "libpangocairo-1.0.so.0",
+                "libcups.so.2",
+            ]
+            for lib in probe_list:
+                res = _probe(lib)
+                deps[lib] = res
+                if res is not True:
+                    missing_libs.append(lib)
+        except Exception as e:
+            deps["probe_error"] = f"{type(e).__name__}: {str(e)}"
+
+        # Also list installed browser folders to confirm chromium-* exists.
+        browser_fs = {}
+        try:
+            import glob as _glob
+            browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+            browser_fs["browsers_path"] = browsers_path
+            browser_fs["entries"] = sorted(
+                [p.replace(browsers_path + "/", "") for p in _glob.glob(os.path.join(browsers_path, "*"))]
+            )[:200]
+        except Exception as e:
+            browser_fs["error"] = f"{type(e).__name__}: {str(e)}"
+
+        # If ldd is available, show missing dynamic deps for headless-shell/chromium binaries.
+        ldd = {}
+        try:
+            import subprocess
+            import shlex
+            import glob as _glob
+
+            browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+            headless_shell = None
+            hs_candidates = sorted(_glob.glob(os.path.join(browsers_path, "chromium_headless_shell-*", "**", "chrome-headless-shell"), recursive=True))
+            if hs_candidates:
+                headless_shell = hs_candidates[0]
+            chromium_bin = None
+            c_candidates = []
+            c_candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome"))
+            c_candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome-wrapper"))
+            if c_candidates:
+                chromium_bin = sorted(c_candidates)[0]
+
+            def _ldd(path: str):
+                if not path:
+                    return None
+                proc = subprocess.run(
+                    ["ldd", path],
+                    capture_output=True,
+                    text=True,
+                    timeout=4,
+                )
+                out = (proc.stdout or "") + (proc.stderr or "")
+                not_found = [ln for ln in out.splitlines() if "not found" in ln]
+                return {
+                    "path": path,
+                    "exit_code": proc.returncode,
+                    "not_found": not_found[:50],
+                }
+
+            ldd["headless_shell"] = _ldd(headless_shell)
+            ldd["chromium"] = _ldd(chromium_bin)
+        except Exception as e:
+            ldd["error"] = f"{type(e).__name__}: {str(e)}"
+
+        return jsonify({
+            "ok": True,
+            "log_path": log_path,
+            "exists": True,
+            "size": size,
+            "tail": data.decode("utf-8", errors="replace"),
+            "deps": deps,
+            "missing_libs": missing_libs,
+            "browser_fs": browser_fs,
+            "ldd": ldd,
+            "playwright_browsers_path": os.getenv("PLAYWRIGHT_BROWSERS_PATH"),
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {str(e)}"}), 500
 
 
 @app.route('/sitemap.xml', methods=['GET'])
@@ -4982,105 +6857,168 @@ def _parse_applications(raw):
 
 # Get all revisions for a user
 def get_user_revisions(user_id):
-    table_client = get_table_client()
-    entities = table_client.query_entities(f"PartitionKey eq '{user_id}'")
     revisions = []
-    for e in entities:
-        timestamp_str = e.get('timestamp')
-        if not timestamp_str:
-            timestamp_str = str(e.get('Timestamp')) if e.get('Timestamp') else None
+    try:
+        table_client = get_table_client()
         try:
-            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else None
-            if timestamp and timestamp.tzinfo is None:
-                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            # Materialize to isolate downstream template rendering from paging/iteration errors.
+            entities = list(table_client.query_entities(f"PartitionKey eq '{user_id}'"))
         except Exception:
-            timestamp = None
-        feedback = {}
-        if e.get('feedback'):
             try:
-                feedback = json.loads(e['feedback'])
+                logger.exception("get_user_revisions query_entities failed (user_id=%s)", str(user_id))
             except Exception:
+                pass
+            return []
+
+        for e in entities:
+            try:
+                timestamp_str = e.get('timestamp')
+                if not timestamp_str:
+                    timestamp_str = str(e.get('Timestamp')) if e.get('Timestamp') else None
+                try:
+                    timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else None
+                    if timestamp and timestamp.tzinfo is None:
+                        timestamp = timestamp.replace(tzinfo=timezone.utc)
+                except Exception:
+                    timestamp = None
+
                 feedback = {}
+                if e.get('feedback'):
+                    try:
+                        feedback = json.loads(e['feedback'])
+                    except Exception:
+                        feedback = {}
 
-        # Gather saved template versions (multi-template support)
-        template_versions = []
-        try:
-            raw_saved = str(e.get('template_saved_templates', '') or '').strip()
-            saved_list = json.loads(raw_saved) if raw_saved else []
-            if not isinstance(saved_list, list):
-                saved_list = []
-        except Exception:
-            saved_list = []
+                # Gather saved template versions (multi-template support)
+                template_versions = []
+                try:
+                    raw_saved = str(e.get('template_saved_templates', '') or '').strip()
+                    saved_list = json.loads(raw_saved) if raw_saved else []
+                    if not isinstance(saved_list, list):
+                        saved_list = []
+                except Exception:
+                    saved_list = []
 
-        candidates = []
-        if saved_list:
-            # Preserve stored order if present.
-            for t in saved_list:
-                tid = _canonical_template_id(str(t or '').strip())
-                if tid and tid not in candidates:
-                    candidates.append(tid)
-        else:
-            candidates = list(_KNOWN_TEMPLATE_IDS)
+                candidates = []
+                if saved_list:
+                    # Preserve stored order if present.
+                    for t in saved_list:
+                        tid = _canonical_template_id(str(t or '').strip())
+                        if tid and tid not in candidates:
+                            candidates.append(tid)
+                else:
+                    candidates = list(_KNOWN_TEMPLATE_IDS)
 
-        seen = set()
-        for tid in candidates:
-            plain_prop, gz_prop, at_prop = _template_snapshot_prop_names(tid)
-            if str(e.get(plain_prop, '') or '').strip() or str(e.get(gz_prop, '') or '').strip():
-                template_versions.append({
-                    'template_id': tid,
-                    'template_display_name': _format_template_display_name(tid),
-                    'template_saved_at': str(e.get(at_prop, '') or '').strip(),
+                seen = set()
+                for tid in candidates:
+                    plain_prop, gz_prop, at_prop = _template_snapshot_prop_names(tid)
+                    if str(e.get(plain_prop, '') or '').strip() or str(e.get(gz_prop, '') or '').strip():
+                        template_versions.append({
+                            'template_id': tid,
+                            'template_display_name': _format_template_display_name(tid),
+                            'template_saved_at': str(e.get(at_prop, '') or '').strip(),
+                        })
+                        seen.add(tid)
+
+                # Backward compatibility: legacy single-snapshot field.
+                legacy_has = bool(
+                    str(_entity_get_ci(e, 'template_structured_resume', '') or '').strip()
+                    or str(_entity_get_ci(e, 'template_structured_resume_gz_b64', '') or '').strip()
+                    or str(_entity_get_ci(e, 'templateStructuredResume', '') or '').strip()
+                    or str(_entity_get_ci(e, 'templateStructuredResumeGzB64', '') or '').strip()
+                )
+                legacy_tid = _canonical_template_id(str(_entity_get_ci(e, 'template_id', '') or '').strip() or 'professional')
+                if legacy_has and legacy_tid not in seen:
+                    template_versions.append({
+                        'template_id': legacy_tid,
+                        'template_display_name': _format_template_display_name(legacy_tid),
+                        'template_saved_at': str(_entity_get_ci(e, 'template_saved_at', '') or '').strip(),
+                    })
+
+                revision_name = str(
+                    _entity_get_ci(e, 'revision_name', '')
+                    or _entity_get_ci(e, 'resume_name', '')
+                    or _entity_get_ci(e, 'resume_title', '')
+                    or ''
+                ).strip()
+
+                revisions.append({
+                    'revision_id': e.get('RowKey') or e.get('rowKey') or '',
+                    'timestamp': timestamp,
+                    'resume_content': e.get('resume_content', ''),
+                    'feedback': feedback,
+                    'original_resume': e.get('original_resume', ''),
+                    'revision_name': revision_name,
+                    'notes': e.get('notes', ''),
+                    'job_description': e.get('job_description', ''),
+                    'applications': _parse_applications(e.get('applications', '')),
+                    # Optional: persisted template edit-mode snapshot
+                    'template_id': str(e.get('template_id', '') or '').strip(),
+                    'template_saved_at': str(e.get('template_saved_at', '') or '').strip(),
+                    'has_template_snapshot': bool(template_versions),
+                    'template_versions': template_versions,
                 })
-                seen.add(tid)
+            except Exception:
+                try:
+                    rk = str(e.get('RowKey') or e.get('rowKey') or '')
+                    logger.exception("get_user_revisions failed parsing entity (user_id=%s row_key=%s)", str(user_id), rk)
+                except Exception:
+                    pass
+                continue
+    except Exception:
+        try:
+            logger.exception("get_user_revisions failed (user_id=%s)", str(user_id))
+        except Exception:
+            pass
+        return []
 
-        # Backward compatibility: legacy single-snapshot field.
-        legacy_has = bool(
-            str(_entity_get_ci(e, 'template_structured_resume', '') or '').strip()
-            or str(_entity_get_ci(e, 'template_structured_resume_gz_b64', '') or '').strip()
-            or str(_entity_get_ci(e, 'templateStructuredResume', '') or '').strip()
-            or str(_entity_get_ci(e, 'templateStructuredResumeGzB64', '') or '').strip()
-        )
-        legacy_tid = _canonical_template_id(str(_entity_get_ci(e, 'template_id', '') or '').strip() or 'professional')
-        if legacy_has and legacy_tid not in seen:
-            template_versions.append({
-                'template_id': legacy_tid,
-                'template_display_name': _format_template_display_name(legacy_tid),
-                'template_saved_at': str(_entity_get_ci(e, 'template_saved_at', '') or '').strip(),
-            })
-        revisions.append({
-            'revision_id': e['RowKey'],
-            'timestamp': timestamp,
-            'resume_content': e.get('resume_content', ''),
-            'feedback': feedback,
-            'original_resume': e.get('original_resume', ''),
-            'notes': e.get('notes', ''),
-            'job_description': e.get('job_description', ''),
-            'applications': _parse_applications(e.get('applications', '')),
-            # Optional: persisted template edit-mode snapshot
-            'template_id': str(e.get('template_id', '') or '').strip(),
-            'template_saved_at': str(e.get('template_saved_at', '') or '').strip(),
-            'has_template_snapshot': bool(template_versions),
-            'template_versions': template_versions,
-        })
     utc_min = datetime.min.replace(tzinfo=timezone.utc)
-    revisions.sort(key=lambda x: x['timestamp'] or utc_min, reverse=True)
+    try:
+        revisions.sort(key=lambda x: x['timestamp'] or utc_min, reverse=True)
+    except Exception:
+        pass
+
     for r in revisions:
-        apps = r.get('applications') or []
-        has_apps = bool(apps)
-        has_notes = bool((r.get('notes') or '').strip())
-        r['has_applications'] = bool(has_apps or has_notes)
-        r['applications_count'] = len(apps)
+        try:
+            apps = r.get('applications') or []
+            has_apps = bool(apps)
+            has_notes = bool((r.get('notes') or '').strip())
+            r['has_applications'] = bool(has_apps or has_notes)
+            r['applications_count'] = len(apps)
+        except Exception:
+            r['has_applications'] = False
+            r['applications_count'] = 0
     return revisions
 
 # Route: My Revisions
 @app.route('/my_revisions')
+@app.route('/my_revisions/', strict_slashes=False)
 @login_required
 def my_revisions():
     if _requires_email_verification(current_user):
         flash('Please verify your email to access your account.', 'danger')
         return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
-    revisions = get_user_revisions(current_user.id)
+    revisions = []
+    try:
+        revisions = get_user_revisions(current_user.id) or []
+    except Exception:
+        revisions = []
+    if revisions == []:
+        # Best-effort hint; underlying error is logged in get_user_revisions.
+        try:
+            if not os.getenv('AZURE_STORAGE_CONNECTION_STRING') and not os.getenv('AZURE_STORAGE_ACCOUNT'):
+                flash('Resume history is temporarily unavailable (storage not configured).', 'warning')
+        except Exception:
+            pass
     return render_template('my_revisions.html', revisions=revisions, user=current_user, is_paid=is_paid_user(current_user))
+
+
+@app.route('/path/my_revisions')
+@app.route('/path/my_revisions/', strict_slashes=False)
+@login_required
+def my_revisions_path():
+    # Alias for environments that mount the app under /path.
+    return my_revisions()
 
 
 @app.route('/settings')
@@ -5473,6 +7411,7 @@ def view_revision(revision_id):
         'feedback': rev.get('feedback', {}) or {},
         'job_description': rev.get('job_description', '') or '',
         'source_revision_id': revision_id,
+        'revision_name': rev.get('revision_name', '') or '',
     }
     # Prevent confusion from a previous template snapshot
     session.pop('template_data', None)
@@ -5483,8 +7422,64 @@ def view_revision(revision_id):
         revised_resume=rev['resume_content'],
         feedback=rev.get('feedback', {}),
         original_resume=rev.get('original_resume', ''),
+        revision_name=rev.get('revision_name', '') or '',
         user=current_user
     )
+
+
+@app.route('/update_revision_name', methods=['GET', 'POST'])
+@app.route('/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+@app.route('/path/update_revision_name', methods=['GET', 'POST'])
+@app.route('/path/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+
+# Extra robustness: if the browser resolves the relative form action under a trailing-slash
+# my_revisions URL, it may post to /my_revisions/update_revision_name/<id>.
+@app.route('/my_revisions/update_revision_name', methods=['GET', 'POST'])
+@app.route('/my_revisions/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+@app.route('/path/my_revisions/update_revision_name', methods=['GET', 'POST'])
+@app.route('/path/my_revisions/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+@login_required
+def update_revision_name(revision_id=None):
+    """Persist a user-defined label for a saved resume revision.
+
+    Accept multiple URL shapes for robustness:
+    - /update_revision_name/<revision_id>  (preferred)
+    - /update_revision_name/<revision_id>/ (trailing slash)
+    - /update_revision_name + revision_id in form/query (fallback)
+    """
+    wants_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        or 'application/json' in (request.headers.get('Accept') or '')
+    )
+    try:
+        if not revision_id:
+            revision_id = (request.form.get('revision_id') or request.args.get('revision_id') or '').strip()
+
+        if not revision_id:
+            if wants_json:
+                return jsonify({'ok': False, 'error': 'Missing revision id'}), 400
+            flash('Error updating resume name. Please try again.', 'danger')
+            return redirect(request.referrer or url_for('my_revisions'))
+
+        # We only update on POST; GET requests are redirected back.
+        if request.method != 'POST':
+            return redirect(request.referrer or url_for('my_revisions'))
+
+        revision_name = (request.form.get('revision_name') or '').strip()
+        # Keep this user-facing label short to avoid blowing up card layout.
+        revision_name = revision_name[:80]
+
+        table_client = get_table_client()
+        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity['revision_name'] = revision_name
+        table_client.update_entity(entity, mode=UpdateMode.MERGE)
+        if wants_json:
+            return jsonify({'ok': True, 'revision_id': revision_id, 'revision_name': revision_name}), 200
+    except Exception:
+        if wants_json:
+            return jsonify({'ok': False, 'error': 'Error updating resume name. Please try again.'}), 500
+        flash('Error updating resume name. Please try again.', 'danger')
+    return redirect(request.referrer or url_for('my_revisions'))
 
 
 @app.route('/edit_revision_template/<revision_id>')
@@ -6175,28 +8170,28 @@ def extract_text_from_file(file):
     try:
         filename = secure_filename(file.filename)
         file_extension = filename.lower().split('.')[-1]
-        print(f"Processing file: {filename}, extension: {file_extension}")
+        _safe_print(f"Processing file: {filename}, extension: {file_extension}")
 
         if file_extension == 'pdf':
             text = ""
             try:
                 with pdfplumber.open(file) as pdf:
-                    print(f"PDF has {len(pdf.pages)} pages")
+                    _safe_print(f"PDF has {len(pdf.pages)} pages")
                     for page_num, page in enumerate(pdf.pages):
                         page_text = page.extract_text()
                         if page_text:
                             text += page_text + "\n"
-                            print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
+                            _safe_print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
             except Exception as e:
-                print(f"pdfplumber failed: {str(e)}, trying PyPDF2")
+                _safe_print(f"pdfplumber failed: {str(e)}, trying PyPDF2")
                 file.seek(0)
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page_num, page in enumerate(pdf_reader.pages):
                     page_text = page.extract_text()
                     text += page_text + "\n"
-                    print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
+                    _safe_print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
 
-            print(f"Total PDF text extracted: {len(text)} characters")
+            _safe_print(f"Total PDF text extracted: {len(text)} characters")
             return text.strip()
 
         elif file_extension == 'docx':
@@ -6212,21 +8207,21 @@ def extract_text_from_file(file):
                 for para_num, paragraph in enumerate(doc.paragraphs):
                     text += paragraph.text + "\n"
             
-                print(f"Total DOC text extracted: {len(text)} characters")
+                _safe_print(f"Total DOC text extracted: {len(text)} characters")
 
                 # Fallback if too little text
                 if len(text.strip()) < 75:
-                    print("Text too short, falling back to mammoth...")
+                    _safe_print("Text too short, falling back to mammoth...")
                     docx_buffer.seek(0)
                     result = mammoth.extract_raw_text(docx_buffer)
                     text = result.value
-                    print(f"Text extracted using mammoth: {len(text)} characters")
+                    _safe_print(f"Text extracted using mammoth: {len(text)} characters")
             except Exception as e:
-                print(f"python-docx failed: {str(e)}, trying mammoth as fallback")
+                _safe_print(f"python-docx failed: {str(e)}, trying mammoth as fallback")
                 docx_buffer.seek(0)
                 result = mammoth.extract_raw_text(docx_buffer)
                 text = result.value
-                print(f"Text extracted using mammoth: {len(text)} characters")
+                _safe_print(f"Text extracted using mammoth: {len(text)} characters")
 
             return text.strip()
 
@@ -6234,9 +8229,8 @@ def extract_text_from_file(file):
             raise ValueError(f"Unsupported file format: {file_extension}")
 
     except Exception as e:
-        print(f"Error extracting text from file: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        _safe_print(f"Error extracting text from file: {str(e)}")
+        _safe_log_exception('extract_text_from_file error', e)
         raise ValueError(f"Failed to extract text from file: {str(e)}")
 
 @app.route('/increment_counter', methods=['POST'])
@@ -6694,14 +8688,6 @@ def unsubscribe_post():
         flash("An error occurred. Please try again later.", "danger")
     
     return redirect(url_for('unsubscribe'))
-
-
-
-    # Access all users
-for user_id, user_obj in users.items():
-    print(f"User: {user_obj.name}, Email: {user_obj.email}")
-
-
 def _load_email_config_if_missing() -> None:
     """Load/override SMTP creds from newsletter_config.txt into environment."""
     import os
@@ -7297,8 +9283,7 @@ Rules:
         return {"resume": structured_resume}
     except Exception as e:
         logging.error(f"Error in parse_resume: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        _safe_log_exception('parse_resume error', e)
         raise
 
 

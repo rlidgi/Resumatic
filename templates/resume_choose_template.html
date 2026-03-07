@@ -189,22 +189,9 @@
     </main>
 
     <script>
-        const IS_AUTH = (document.body.getAttribute('data-is-auth') === 'true');
         const SOURCE_REVISION_ID = '';
 
         function selectTemplate(templateName, buttonElement) {
-            if (!IS_AUTH) {
-                try {
-                    const u = new URL(window.location.href);
-                    u.searchParams.set('auto_template', templateName);
-                    const nextPath = u.pathname + u.search;
-                    window.location.href = '/login?next=' + encodeURIComponent(nextPath);
-                } catch (e) {
-                    window.location.href = '/login';
-                }
-                return;
-            }
-
             const originalContent = buttonElement.innerHTML;
             buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
             buttonElement.disabled = true;
@@ -213,6 +200,7 @@
             fetch('/api/parse-resume-for-template', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ template: templateName, source_revision_id: SOURCE_REVISION_ID })
             })
                 .then(r => r.json())
@@ -235,10 +223,9 @@
                 });
         }
 
-        // Auto-continue after login
+        // Auto-continue after login (kept for compatibility with older links)
         (function () {
             try {
-                if (!IS_AUTH) return;
                 const params = new URLSearchParams(window.location.search || '');
                 const t = params.get('auto_template');
                 if (!t) return;

@@ -48,11 +48,19 @@ const canonicalizeTemplateId = (rawTemplate: unknown): string => {
         case 'lavenderclassic':
         case 'lavender-classic':
         case 'lavender_classic':
-            return 'elegant';
+            return 'classicRose';
         case 'popart':
         case 'pop-art':
         case 'pop_art':
-            return 'creative';
+            return 'creative2';
+        case 'creative2':
+        case 'creative-2':
+        case 'creative_2':
+            return 'creative2';
+        case 'classicrose':
+        case 'classic-rose':
+        case 'classic_rose':
+            return 'classicRose';
         case 'orangeheader':
         case 'orange-header':
         case 'orange_header':
@@ -73,6 +81,13 @@ const canonicalizeTemplateId = (rawTemplate: unknown): string => {
         case 'timeline-blue':
         case 'timeline_blue':
             return 'executive';
+        case 'minimalsidebar':
+        case 'minimal-sidebar':
+        case 'minimal_sidebar':
+        case 'infosidebar':
+        case 'info-sidebar':
+        case 'berlin':
+            return 'minimalSidebar';
         case 'dark-sidebar-progress':
         case 'dark_sidebar_progress':
             return 'darkSidebarProgress';
@@ -84,13 +99,16 @@ const canonicalizeTemplateId = (rawTemplate: unknown): string => {
 const SUPPORTED_TEMPLATES = new Set([
     'professional',
     'classic',
-    'elegant',
     'creative',
+    'creative2',
+    'classicRose',
     'boldProfessional',
     'traditional',
     'modern',
     'executive',
     'minimal',
+    'minimalSidebar',
+    'creative2',
     'darkSidebarProgress',
 ]);
 
