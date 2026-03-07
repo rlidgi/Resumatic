@@ -27,7 +27,8 @@
                 <div class="flex items-center space-x-4">
                     {% if user %}
                     <span class="text-gray-700">{{ user.name }}</span>
-                    <a href="/logout" class="text-blue-600 hover:text-blue-800">Logout</a>
+                    <a href="/logout"
+                        class="px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">Logout</a>
                     {% endif %}
                 </div>
             </div>

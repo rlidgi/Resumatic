@@ -149,50 +149,14 @@
             color: #4F46E5;
         }
 
-        /* Cute SVG loader (used in Result page Processing Overlay) */
-        .loading-illu .scan {
-            animation: scan-move 1.2s ease-in-out infinite;
+        /* Processing overlay video loader */
+        #processingVideo {
+            background: #fff;
+            filter: brightness(1.08) contrast(1.06) saturate(1.03);
+            object-position: 50% 30%;
+            transform: scale(1.12);
             transform-origin: center;
-        }
-
-        .loading-illu .pulse {
-            animation: pulse-pop 1s ease-in-out infinite;
-            transform-box: fill-box;
-            transform-origin: center;
-        }
-
-        @keyframes scan-move {
-            0% {
-                transform: translateX(-7px);
-            }
-
-            50% {
-                transform: translateX(7px);
-            }
-
-            100% {
-                transform: translateX(-7px);
-            }
-        }
-
-        @keyframes pulse-pop {
-
-            0%,
-            100% {
-                transform: scale(.96);
-                opacity: .65;
-            }
-
-            50% {
-                transform: scale(1.03);
-                opacity: 1;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .loading-illu * {
-                animation: none !important;
-            }
+            display: block;
         }
     </style>
 </head>
@@ -205,34 +169,15 @@
         <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4 text-center shadow-2xl">
             <p class="inline-block text-base sm:text-lg font-semibold tracking-wide px-4 py-1 rounded-full bg-gradient-to-r from-indigo-50 via-purple-50 to-emerald-50 border border-indigo-200 text-indigo-700 shadow-sm mb-2"
                 id="processingMicrocopy">Reviewing now…</p>
-            <div class="mx-auto mb-2 w-28 h-28">
-                <svg class="loading-illu w-full h-full" viewBox="0 0 120 120" fill="none"
-                    xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M20 52c0-20 14-34 34-34h12c20 0 34 14 34 34v12c0 20-14 34-34 34H54c-20 0-34-14-34-34V52z"
-                        fill="url(#g)" opacity=".18" />
-                    <rect x="34" y="24" width="44" height="62" rx="10" stroke="#4F46E5" stroke-width="3" />
-                    <path d="M44 42h24M44 52h30M44 62h20" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"
-                        opacity=".8" />
-                    <g class="scan">
-                        <circle cx="78" cy="76" r="14" stroke="#10B981" stroke-width="4" />
-                        <path d="M88 86l12 12" stroke="#10B981" stroke-width="4" stroke-linecap="round" />
-                        <path d="M70 76h16" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity=".8" />
-                    </g>
-                    <g class="pulse" opacity=".9">
-                        <path d="M26 38l2.2 5.2L34 45l-5.8 1.8L26 52l-2.2-5.2L18 45l5.8-1.8L26 38z" fill="#F59E0B" />
-                        <circle cx="92" cy="34" r="3.5" fill="#3B82F6" />
-                    </g>
-                    <defs>
-                        <linearGradient id="g" x1="20" y1="18" x2="100" y2="98" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#4F46E5" />
-                            <stop offset="1" stop-color="#10B981" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-                <!-- Placeholder SVG: swap this with any cute animation later -->
+            <div class="mx-auto mb-0 w-72 h-72 sm:w-80 sm:h-80 overflow-hidden rounded-2xl bg-white"
+                id="processingVideoWrap">
+                <video id="processingVideo" class="block w-full h-full object-cover" autoplay loop muted playsinline
+                    preload="metadata" aria-hidden="true">
+                    <source src="{{ url_for('static', filename='images/construction.mp4') }}" type="video/mp4" />
+                </video>
             </div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-1" id="processingTitle">Working on it</h3>
-            <p class="text-gray-600" id="processingSubtitle">Getting things ready…</p>
+            <h3 class="text-xl font-semibold leading-tight text-gray-900 mb-0" id="processingTitle">Working on it</h3>
+            <p class="text-gray-700" id="processingSubtitle">Getting things ready…</p>
         </div>
     </div>
 
@@ -266,10 +211,11 @@
             {% else %}
             <div class="border-t border-gray-200 pt-4"></div>
             <a class="block text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 font-semibold text-center"
-                href="/login">
+                href="/login?tab=login">
                 Sign In
             </a>
-            <a class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/login">
+            <a class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center"
+                href="/login?tab=register">
                 Free Account
             </a>
             {% endif %}
@@ -303,7 +249,7 @@
                             Logout
                         </a>
                         {% else %}
-                        <a href="/login" class="px-4 py-2 text-white rounded hover:bg-primary/90"
+                        <a href="/login?tab=login" class="px-4 py-2 text-white rounded hover:bg-primary/90"
                             style="background-color: #4F46E5;">
                             Sign In
                         </a>
@@ -354,8 +300,8 @@
             </div>
 
             <div class="text-center">
-                <a href="/login"
-                    class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 animate-pulse">
+                <a href="/login?tab=register"
+                    class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                     Free Account
                 </a>
             </div>
@@ -591,8 +537,34 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-3 text-center flex items-center justify-center">
                 <i class="fas fa-palette text-purple-500 mr-2 text-sm"></i>Choose a Resume Template
             </h3>
-            <p class="text-center text-xs text-gray-500 mb-3 sm:hidden">Swipe to see more templates</p>
+            <p class="text-center text-xs text-gray-500 mb-3 sm:hidden">
+                <i class="fas fa-chevron-left mr-1" aria-hidden="true"></i>
+                Swipe to see more templates
+                <i class="fas fa-chevron-right ml-1" aria-hidden="true"></i>
+            </p>
             <div class="relative">
+                <!-- Mobile swipe hints (non-interactive; do not block swipe) -->
+                <div aria-hidden="true"
+                    class="pointer-events-none sm:hidden absolute left-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-r from-gray-100 to-transparent">
+                </div>
+                <div aria-hidden="true"
+                    class="pointer-events-none sm:hidden absolute right-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-l from-gray-100 to-transparent">
+                </div>
+                <div aria-hidden="true"
+                    class="pointer-events-none sm:hidden absolute left-1 top-1/2 -translate-y-1/2 z-20">
+                    <span
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow border border-gray-200 text-gray-500 opacity-80">
+                        <i class="fas fa-chevron-left"></i>
+                    </span>
+                </div>
+                <div aria-hidden="true"
+                    class="pointer-events-none sm:hidden absolute right-1 top-1/2 -translate-y-1/2 z-20">
+                    <span
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow border border-gray-200 text-gray-500 opacity-80">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </div>
+
                 <!-- Carousel controls -->
                 <button type="button" id="templateCarouselPrev"
                     class="hidden sm:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -624,28 +596,6 @@
                         <div class="w-full aspect-[3/4] bg-gray-50 p-2">
                             <img src="{{ url_for('static', filename='images/professional.jpg') }}"
                                 alt="Professional template preview" class="h-full w-full object-contain rounded-md"
-                                loading="lazy" decoding="async">
-                        </div>
-                    </button>
-                    <button data-template="elegant" onclick="selectTemplate('elegant', this)" role="listitem"
-                        class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.2] focus:scale-[1.2] hover:z-10 focus:z-10 snap-start">
-                        <div class="p-3 pb-2">
-                            <h4 class="font-semibold text-gray-800 text-sm">Elegant</h4>
-                        </div>
-                        <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                            <img src="{{ url_for('static', filename='images/elegant.jpg') }}"
-                                alt="Elegant template preview" class="h-full w-full object-contain rounded-md"
-                                loading="lazy" decoding="async">
-                        </div>
-                    </button>
-                    <button data-template="creative" onclick="selectTemplate('creative', this)" role="listitem"
-                        class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.2] focus:scale-[1.2] hover:z-10 focus:z-10 snap-start">
-                        <div class="p-3 pb-2">
-                            <h4 class="font-semibold text-gray-800 text-sm">Creative</h4>
-                        </div>
-                        <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                            <img src="{{ url_for('static', filename='images/creative.jpg') }}"
-                                alt="Creative template preview" class="h-full w-full object-contain rounded-md"
                                 loading="lazy" decoding="async">
                         </div>
                     </button>
@@ -683,15 +633,37 @@
                                 loading="lazy" decoding="async">
                         </div>
                     </button>
-                    <button data-template="executive" onclick="selectTemplate('executive', this)" role="listitem"
+                    <button data-template="creative2" onclick="selectTemplate('creative2', this)" role="listitem"
                         class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.2] focus:scale-[1.2] hover:z-10 focus:z-10 snap-start">
                         <div class="p-3 pb-2">
-                            <h4 class="font-semibold text-gray-800 text-sm">Executive</h4>
+                            <h4 class="font-semibold text-gray-800 text-sm">Creative</h4>
                         </div>
                         <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                            <img src="{{ url_for('static', filename='images/executive.jpg') }}"
-                                alt="Executive template preview" class="h-full w-full object-contain rounded-md"
+                            <img src="{{ url_for('static', filename='images/creative.jpg') }}"
+                                alt="Creative template preview" class="h-full w-full object-contain rounded-md"
                                 loading="lazy" decoding="async">
+                        </div>
+                    </button>
+                    <button data-template="classicRose" onclick="selectTemplate('classicRose', this)" role="listitem"
+                        class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.2] focus:scale-[1.2] hover:z-10 focus:z-10 snap-start">
+                        <div class="p-3 pb-2">
+                            <h4 class="font-semibold text-gray-800 text-sm">Classic</h4>
+                        </div>
+                        <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                            <img src="{{ url_for('static', filename='images/classic.jpg') }}"
+                                alt="Classic template preview" class="h-full w-full object-contain rounded-md"
+                                loading="lazy" decoding="async">
+                        </div>
+                    </button>
+                    <button data-template="minimalSidebar" onclick="selectTemplate('minimalSidebar', this)"
+                        role="listitem"
+                        class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.2] focus:scale-[1.2] hover:z-10 focus:z-10 snap-start">
+                        <div class="p-3 pb-2">
+                            <h4 class="font-semibold text-gray-800 text-sm">Clean</h4>
+                        </div>
+                        <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                            <img src="{{ url_for('static', filename='images/clean.jpg') }}" alt="Clean template preview"
+                                class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
                         </div>
                     </button>
                 </div>
@@ -1245,7 +1217,36 @@
                 var titleEl = document.getElementById('processingTitle');
                 var subtitleEl = document.getElementById('processingSubtitle');
                 var microEl = document.getElementById('processingMicrocopy');
+                var videoEl = document.getElementById('processingVideo');
+                var videoWrapEl = document.getElementById('processingVideoWrap');
                 var microTimer = null;
+
+                function prefersReducedMotion() {
+                    try {
+                        return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                function syncVideoPlaying(isShown) {
+                    try {
+                        if (!videoEl) return;
+                        if (!isShown) {
+                            videoEl.pause();
+                            return;
+                        }
+                        // Restart to avoid showing a random frame from a previous run.
+                        try { videoEl.currentTime = 0; } catch (e) { }
+
+                        if (prefersReducedMotion()) {
+                            videoEl.pause();
+                            return;
+                        }
+                        var p = videoEl.play();
+                        if (p && typeof p.catch === 'function') p.catch(function () { });
+                    } catch (e) { /* ignore */ }
+                }
 
                 function stopMicrocopy() {
                     try { if (microTimer) clearInterval(microTimer); } catch (e) { }
@@ -1259,6 +1260,8 @@
                         overlay.classList.remove('hidden');
                         overlay.classList.add('flex');
 
+                        syncVideoPlaying(true);
+
                         var minimal = !!opts.minimal;
 
                         if (titleEl) titleEl.textContent = opts.title || 'Working on it';
@@ -1267,6 +1270,8 @@
                         // Minimal mode: show only the title line (used for template selection)
                         if (microEl) microEl.style.display = minimal ? 'none' : '';
                         if (subtitleEl) subtitleEl.style.display = minimal ? 'none' : '';
+
+                        // No special spacing hacks in minimal mode.
 
                         stopMicrocopy();
                         if (microEl && !minimal) {
@@ -1299,11 +1304,27 @@
                         if (!overlay) return;
                         overlay.classList.add('hidden');
                         overlay.classList.remove('flex');
+
+                        syncVideoPlaying(false);
                     } catch (e) { /* ignore */ }
                 };
             })();
 
             function selectTemplate(templateName, buttonElement) {
+                // Check authentication first
+                if (!IS_AUTH) {
+                    try {
+                        // Preserve chosen template through login: return to /results?auto_template=...
+                        const u = new URL(window.location.href);
+                        u.searchParams.set('auto_template', templateName);
+                        const nextPath = u.pathname + u.search; // relative + safe
+                        window.location.href = '/login?next=' + encodeURIComponent(nextPath);
+                    } catch (e) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
+
                 // Show processing overlay (placeholder SVG + rotating microcopy)
                 try {
                     if (window.showProcessingOverlay) {
@@ -1330,7 +1351,6 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    credentials: 'same-origin',
                     body: JSON.stringify({
                         template: templateName,
                         source_revision_id: SOURCE_REVISION_ID
@@ -1340,7 +1360,8 @@
                     .then(data => {
                         if (data.success) {
                             // Store structured data in session and redirect
-                            const targetTemplate = (data.template || templateName || '').toString();
+                            // Prefer templateName (what user clicked) over API response to avoid wrong template display
+                            const targetTemplate = (templateName || data.template || '').toString().trim() || 'professional';
                             if (SOURCE_REVISION_ID) {
                                 window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}?rid=${encodeURIComponent(SOURCE_REVISION_ID)}`;
                             } else {
@@ -1371,6 +1392,7 @@
             // If we returned from login with ?auto_template=..., automatically continue the template flow.
             (function () {
                 try {
+                    if (!IS_AUTH) return;
                     const params = new URLSearchParams(window.location.search || '');
                     const t = params.get('auto_template');
                     if (!t) return;

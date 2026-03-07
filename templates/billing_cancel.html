@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cancel Subscription - Resumatic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+    <div class="max-w-xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-gray-200">
+                    <img src="{{ url_for('static', filename='images/logo23_small.png') }}" alt="Resumatic AI"
+                        class="w-[2.4rem] h-[2.4rem] object-contain" loading="lazy" />
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight">Cancel Subscription</h1>
+                    <p class="text-sm text-gray-600">{{ interval_label }} plan</p>
+                </div>
+            </div>
+            <a href="{{ url_for('settings_page') }}"
+                class="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+                <i class="fas fa-arrow-left mr-2 text-gray-600"></i>
+                Back to settings
+            </a>
+        </div>
+
+        <div id="cancelPanel" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <p class="text-gray-600 mb-4">
+                Our resume revisions and job-description-customized resumes can give you the boost you need to land your
+                next role faster. Plus, our job search hub tracks all your applications, a practice job search experts
+                say is crucial for success.
+            </p>
+            <p class="text-gray-700 font-semibold mb-6">
+                Don't give up yet. Stay and keep your edge.
+            </p>
+
+            <!-- Incentive offer (customize messaging here) -->
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-gift text-amber-600 mt-0.5"></i>
+                    <div>
+                        <div class="font-semibold text-amber-900">Special offer: 50% off for 2 months</div>
+                        <p class="text-sm text-amber-800 mt-1">
+                            Lock in half off your next 2 months. No commitment—cancel anytime.
+                        </p>
+                        <a href="{{ url_for('plans') }}?offer=retention"
+                            class="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 font-semibold text-sm">
+                            Claim 50% off now
+                            <i class="fas fa-arrow-right ml-2 text-sm"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-4">
+                <p class="text-sm text-gray-600 mb-4">
+                    If you still want to cancel, you'll keep access until <strong>{{ period_end_display }}</strong>.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <a href="{{ url_for('settings_page') }}"
+                        class="flex-1 inline-flex items-center justify-center px-4 py-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
+                        <i class="fas fa-check mr-2"></i>
+                        Keep my subscription
+                    </a>
+                    <button type="button" id="btnConfirmCancel"
+                        class="flex-1 inline-flex items-center justify-center px-4 py-3 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">
+                        <i class="fas fa-times mr-2"></i>
+                        Cancel at period end
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation modal -->
+        <div id="confirmModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+            <div class="fixed inset-0 bg-black/50" id="modalBackdrop"></div>
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm cancellation</h3>
+                    <p class="text-gray-600 text-sm mb-4">
+                        Your subscription will end on {{ period_end_display }}. You'll keep full access until then.
+                    </p>
+                    <div class="flex gap-3">
+                        <button type="button" id="modalCancel"
+                            class="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">
+                            Go back
+                        </button>
+                        <button type="button" id="modalConfirm"
+                            class="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold">
+                            Yes, cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success/error message (hidden initially) -->
+        <div id="messageBox" class="hidden mt-4 p-4 rounded-lg"></div>
+    </div>
+
+    <script>
+        (function () {
+            const btnConfirm = document.getElementById('btnConfirmCancel');
+            const modal = document.getElementById('confirmModal');
+            const modalBackdrop = document.getElementById('modalBackdrop');
+            const modalCancel = document.getElementById('modalCancel');
+            const modalConfirm = document.getElementById('modalConfirm');
+            const messageBox = document.getElementById('messageBox');
+            const cancelPanel = document.getElementById('cancelPanel');
+
+            function showModal() {
+                modal.classList.remove('hidden');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            function hideModal() {
+                modal.classList.add('hidden');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            function showMessage(text, isError) {
+                messageBox.textContent = text;
+                messageBox.className = 'mt-4 p-4 rounded-lg ' + (isError ? 'bg-red-100 border border-red-400 text-red-800' : 'bg-green-100 border border-green-400 text-green-800');
+                messageBox.classList.remove('hidden');
+            }
+
+            btnConfirm.addEventListener('click', showModal);
+            modalCancel.addEventListener('click', hideModal);
+            modalBackdrop.addEventListener('click', hideModal);
+
+            modalConfirm.addEventListener('click', async function () {
+                modalConfirm.disabled = true;
+                modalConfirm.textContent = 'Canceling...';
+                try {
+                    const res = await fetch('/api/billing/cancel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cancel_at_period_end: true })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        hideModal();
+                        cancelPanel.classList.add('hidden');
+                        showMessage(data.message || 'Your subscription has been canceled.', false);
+                        setTimeout(function () {
+                            window.location.href = "{{ url_for('settings_page') }}?canceled=1";
+                        }, 2000);
+                    } else {
+                        showMessage(data.error || 'Something went wrong. Please try again.', true);
+                        modalConfirm.disabled = false;
+                        modalConfirm.textContent = 'Yes, cancel';
+                    }
+                } catch (err) {
+                    showMessage('Unable to cancel. Please try again.', true);
+                    modalConfirm.disabled = false;
+                    modalConfirm.textContent = 'Yes, cancel';
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>

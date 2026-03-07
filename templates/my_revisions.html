@@ -65,6 +65,71 @@
             div.classList.toggle('hidden');
         }
 
+        // Toggle rename form
+        function toggleRename(revisionId) {
+            const div = document.getElementById(`rename-${revisionId}`);
+            if (!div) return;
+            div.classList.toggle('hidden');
+            if (!div.classList.contains('hidden')) {
+                const input = div.querySelector('input[name="revision_name"]');
+                if (input) {
+                    try { input.focus(); } catch (e) { }
+                }
+            }
+        }
+
+        function cancelRename(revisionId) {
+            const div = document.getElementById(`rename-${revisionId}`);
+            if (!div) return;
+            div.classList.add('hidden');
+        }
+
+        // Submit rename without reloading the page (fallback to normal form submit on error)
+        function attachRenameAjax() {
+            document.querySelectorAll('form.js-rename-form').forEach((form) => {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const revisionId = form.getAttribute('data-revision-id') || '';
+                    const titleEl = revisionId ? document.getElementById(`revision-title-${revisionId}`) : null;
+
+                    try {
+                        const formData = new FormData(form);
+                        const body = new URLSearchParams();
+                        for (const [k, v] of formData.entries()) {
+                            body.append(k, String(v));
+                        }
+
+                        const resp = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body
+                        });
+
+                        const data = await resp.json();
+                        if (!resp.ok || !data || !data.ok) {
+                            throw new Error((data && data.error) || 'Rename failed');
+                        }
+
+                        const input = form.querySelector('input[name="revision_name"]');
+                        const newName = (input && typeof input.value === 'string') ? input.value.trim() : '';
+                        if (titleEl) {
+                            const fallbackName = (titleEl.getAttribute('data-fallback-name') || titleEl.textContent || '').trim();
+                            titleEl.textContent = newName || fallbackName;
+                        }
+
+                        if (revisionId) cancelRename(revisionId);
+                    } catch (err) {
+                        // Preserve the previous behavior if something goes wrong
+                        try { form.submit(); } catch (e2) { }
+                    }
+                });
+            });
+        }
+
         function convertToLocalTime() {
             // Convert date-only elements (for stats)
             document.querySelectorAll('.local-date').forEach(element => {
@@ -75,7 +140,8 @@
                         if (!isNaN(date.getTime())) {
                             const localDate = date.toLocaleDateString('en-US', {
                                 month: 'numeric',
-                                day: 'numeric'
+                                day: 'numeric',
+                                year: 'numeric'
                             });
                             element.textContent = localDate;
                         }
@@ -110,14 +176,21 @@
             });
         }
 
-        // Convert timestamps when page loads
+        // Convert timestamps + attach handlers when page loads
         document.addEventListener('DOMContentLoaded', convertToLocalTime);
+        document.addEventListener('DOMContentLoaded', attachRenameAjax);
 
         // (Template PDF download button removed from my_revisions.)
     </script>
     <style>
         .card-hover {
             transition: all 0.3s ease;
+        }
+
+        /* Performance: avoid fully rendering offscreen revision cards */
+        .rev-card {
+            content-visibility: auto;
+            contain-intrinsic-size: 420px;
         }
 
         .card-hover:hover {
@@ -263,15 +336,17 @@
                 href="/settings">
                 Settings
             </a>
-            <a class="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center mt-2" href="/logout">
+            <a class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center mt-2"
+                href="/logout">
                 Logout
             </a>
             {% else %}
-            <a class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center" href="/login">
+            <a class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center"
+                href="/login?tab=login">
                 Login
             </a>
             <a class="block px-4 py-2 bg-white text-primary border border-primary rounded hover:bg-primary/10 text-center mt-2"
-                href="/login">
+                href="/login?tab=register">
                 Free Account
             </a>
             {% endif %}
@@ -298,14 +373,14 @@
                             href="/contact">Contact</a>
                         {% if user and user.is_authenticated %}
                         <a href="/settings" aria-label="Settings" title="Settings"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
-                            <i aria-hidden="true" class="fas fa-gear"></i>
+                            class="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
+                            Settings
                         </a>
-                        <a href="/logout" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
+                        <a href="/logout" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                             Logout
                         </a>
                         {% else %}
-                        <a href="/login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
+                        <a href="/login?tab=login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
                             Login
                         </a>
                         {% endif %}
@@ -325,7 +400,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center space-x-3">
                     <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-                        <img src="{{ url_for('static', filename='images/logo23_small.png') }}" alt="Resumatic AI"
+                        <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI"
                             class="w-[2.4rem] h-[2.4rem] object-contain" loading="lazy" />
                     </div>
                     <div>
@@ -372,8 +447,8 @@
             <div class="grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-3 items-center">
                 <div>
                     <div
-                        class="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-indigo-100/70 border border-indigo-200 text-indigo-800 text-xs font-semibold">
-                        <i class="fas fa-bullseye"></i>
+                        class="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-indigo-100/70 border border-indigo-200 text-indigo-800 text-base font-semibold">
+                        <i class="fas fa-bullseye text-2xl"></i>
                         Tailor to the job description
                     </div>
 
@@ -428,7 +503,7 @@
                             {% if revisions %}
                             <span class="local-date"
                                 data-utc-date="{{ revisions[0].timestamp.isoformat() if revisions[0].timestamp else '' }}">
-                                {{ revisions[0].timestamp.strftime('%m/%d') if revisions[0].timestamp else 'N/A' }}
+                                {{ revisions[0].timestamp.strftime('%m/%d/%Y') if revisions[0].timestamp else 'N/A' }}
                             </span>
                             {% else %}
                             N/A
@@ -452,7 +527,8 @@
         <!-- Revisions List -->
         <div class="space-y-4">
             {% for rev in revisions %}
-            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg card-hover overflow-hidden">
+            <div
+                class="{{ 'bg-white/90' if loop.index0 is even else 'bg-gray-200/90' }} backdrop-blur-sm rounded-xl shadow-lg card-hover rev-card overflow-hidden">
                 <div class="p-6">
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <!-- Left side - Info -->
@@ -466,13 +542,41 @@
                             </a>
                             <div class="flex-1">
                                 <div class="flex items-center space-x-3 mb-2">
+                                    {% set seq_num = (revisions|length - loop.index0) %}
+                                    {% set fallback_name = ('Resume ' ~ seq_num) %}
+                                    {% set display_name = (rev.revision_name or fallback_name) %}
                                     <h3 class="text-lg font-semibold text-gray-800">
                                         <a href="/view_revision/{{ rev.revision_id }}"
+                                            id="revision-title-{{ rev.revision_id }}"
+                                            data-fallback-name="{{ fallback_name | e }}"
                                             class="hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
-                                            Resume Revision
+                                            {{ display_name | e }}
                                         </a>
                                     </h3>
 
+                                    <button type="button" onclick="toggleRename('{{ rev.revision_id }}')"
+                                        class="text-xs font-semibold text-gray-500 hover:text-gray-700 hover:underline underline-offset-2">
+                                        rename
+                                    </button>
+                                </div>
+                                <div id="rename-{{ rev.revision_id }}" class="hidden mb-2">
+                                    <form action="update_revision_name/{{ rev.revision_id }}" method="POST"
+                                        class="flex items-center gap-2 js-rename-form"
+                                        data-revision-id="{{ rev.revision_id | e }}">
+                                        <input type="hidden" name="revision_id" value="{{ rev.revision_id | e }}" />
+                                        <input type="text" name="revision_name"
+                                            value="{{ (rev.revision_name or '') | e }}" maxlength="80"
+                                            placeholder="{{ display_name | e }}"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                                        <button type="submit"
+                                            class="px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap">
+                                            Save
+                                        </button>
+                                        <button type="button" onclick="cancelRename('{{ rev.revision_id }}')"
+                                            class="px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">
+                                            Cancel
+                                        </button>
+                                    </form>
                                 </div>
                                 <div class="flex flex-col sm:flex-row sm:items-center text-sm text-gray-600">
                                     <div class="flex items-center">
@@ -520,11 +624,17 @@
                             </div>
                             {% if rev.template_versions and rev.template_versions|length > 0 %}
                             <div class="mt-2 pt-2 border-t border-gray-200 flex flex-col gap-2">
+                                {% set _tpl_label = {
+                                'minimalSidebar': 'Clean',
+                                'classicRose': 'Classic',
+                                'creative2': 'Creative',
+                                'boldProfessional': 'Bold Professional'
+                                } %}
                                 {% for tv in rev.template_versions %}
                                 <a href="{{ url_for('edit_revision_template', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
                                     class="inline-flex w-full items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium">
                                     <i class="fas fa-pen-to-square mr-2"></i>
-                                    {{ tv.template_display_name }} Version.
+                                    {{ _tpl_label.get(tv.template_id, tv.template_display_name) }} Version
                                 </a>
                                 {% endfor %}
                             </div>
@@ -680,7 +790,7 @@
         <div class="mt-8 text-center">
             <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-6 text-white">
 
-                <a href="{{ url_for('start') }}"
+                <a href="{{ url_for('upload') }}"
                     class="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
                     <i class="fas fa-plus mr-2"></i>
                     Create a new customized resume
@@ -707,7 +817,7 @@
                     improve it!
                 </p>
                 <div class="space-y-4">
-                    <a href="{{ url_for('start') }}"
+                    <a href="{{ url_for('upload') }}"
                         class="inline-flex items-center px-6 py-3 btn-primary text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200">
                         <i class="fas fa-upload mr-2"></i>
                         Submit resume

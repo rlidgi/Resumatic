@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Resumatic AI - Professional Resume Enhancement{% endblock %}</title>
@@ -61,10 +63,12 @@
                 {% if current_user.is_admin %}
                 <a href="{{ url_for('view_analytics') }}"><i class="fas fa-chart-line"></i> Analytics</a>
                 <a href="{{ url_for('view_users') }}">Users</a>
+                <a href="{{ url_for('admin_stats') }}">Admin</a>
+                <a href="{{ url_for('admin_login_audit') }}">Login Audit</a>
                 {% endif %}
                 <a href="{{ url_for('logout') }}">Logout</a>
                 {% else %}
-                <a href="{{ url_for('login') }}">Sign In to Account</a>
+                <a href="{{ url_for('login', tab='login') }}">Sign In to Account</a>
                 {% endif %}
             </div>
         </nav>

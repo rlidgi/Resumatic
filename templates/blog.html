@@ -25,7 +25,7 @@
         content="Discover expert tips on resume writing, ATS optimization, career development, and job search strategies. Stay ahead in your career with our comprehensive guides." />
     <meta property="og:url" content="https://resumaticai.com/blog" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://resumaticai.com/static/images/logo23_small.png" />
+    <meta property="og:image" content="https://resumaticai.com/static/images/logo23_small.webp" />
     <meta property="og:site_name" content="ResumaticAI" />
     <meta property="og:locale" content="en_US" />
 
@@ -34,7 +34,7 @@
     <meta name="twitter:title" content="ResumaticAI Blog - Expert Resume & Career Advice" />
     <meta name="twitter:description"
         content="Discover expert tips on resume writing, ATS optimization, career development, and job search strategies." />
-    <meta name="twitter:image" content="https://resumaticai.com/static/images/logo23_small.png" />
+    <meta name="twitter:image" content="https://resumaticai.com/static/images/logo23_small.webp" />
     <meta name="twitter:site" content="@ResumaticAI" />
 
     <!-- Canonical URL -->
@@ -156,11 +156,11 @@
                     <a href="/my_revisions" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                         <i class="fas fa-user mr-2"></i>My Account
                     </a>
-                    <a href="/logout" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    <a href="/logout" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                        Logout
                     </a>
                     {% else %}
-                    <a href="/login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
+                    <a href="/login?tab=login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
                     </a>
                     {% endif %}
@@ -178,14 +178,12 @@
     <!-- Mobile Menu -->
     <div class="mobile-menu fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 hidden" id="mobileMenu">
         <div class="flex justify-between items-center mb-8">
-            <img alt="Logo" class="h-12 w-auto" src="/static/images/logo23_small.png" />
+            <img alt="Logo" class="h-12 w-auto" src="/static/images/logo23_small.webp" />
             <button class="text-gray-500 hover:text-gray-900" id="closeMenu">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <nav class="space-y-4">
-            <a class="block text-gray-600 hover:text-primary" href="/#features">Features</a>
-            <a class="block text-gray-600 hover:text-primary" href="/#how-it-works">How it Works</a>
             <a class="block text-gray-600 hover:text-primary" href="/plans">Pricing</a>
             <a class="block text-gray-600 hover:text-primary" href="/blog">Blog</a>
             <a class="block text-gray-600 hover:text-primary" href="/about">About</a>
@@ -200,14 +198,16 @@
                 class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2">
                 <i class="fas fa-gear mr-2"></i>Settings
             </a>
-            <a href="/logout" class="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center mt-2">
+            <a href="/logout"
+                class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center mt-2">
                 Logout
             </a>
             {% else %}
-            <a href="/login" class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center">
+            <a href="/login?tab=login"
+                class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center">
                 Login
             </a>
-            <a href="/login"
+            <a href="/login?tab=register"
                 class="block px-4 py-2 bg-white text-primary border border-primary rounded hover:bg-primary/10 text-center mt-2">
                 Free Account
             </a>
@@ -401,7 +401,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                     <img alt="Logo" class="h-8 w-auto mb-4"
-                        src="{{ url_for('static', filename='images/logo23_small.png') }}" />
+                        src="{{ url_for('static', filename='images/logo23_small.webp') }}" />
                     <p class="text-gray-500">Empowering job seekers with AI-enhanced resumes.</p>
                 </div>
                 <div>

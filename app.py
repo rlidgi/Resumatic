@@ -8,20 +8,44 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 import mammoth
 import logging
- # ...existing code...
-import pdfplumber
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-import mammoth
-import logging
+import os
+import re
+import threading
+import atexit
 import threading
 import atexit
 
-# Import analytics module for tracking Facebook ad performance
-from analytics import analytics
 
 # Import newsletter system
 from newsletter import NewsletterManager, NewsletterConfig
+
+try:
+    from analytics import analytics
+except Exception as _analytics_import_error:
+    class _NoopAnalytics:
+        def track_visit(self, request_obj):
+            return {"type": "organic", "source": "fallback", "error": str(_analytics_import_error)}
+
+        def track_conversion(self, session_data, conversion_type="resume_submission"):
+            return {"status": "skipped", "reason": "analytics_unavailable", "type": conversion_type}
+
+        def get_full_analytics(self):
+            return {
+                "summary": {
+                    "total_visits": 0,
+                    "facebook_ad_visits": 0,
+                    "organic_visits": 0,
+                    "total_conversions": 0,
+                    "facebook_ad_conversions": 0,
+                    "last_updated": ""
+                },
+                "daily_stats": {},
+                "utm_campaigns": {},
+                "referrer_data": {},
+                "facebook_stats": {}
+            }
+
+    analytics = _NoopAnalytics()
 
 from google_auth_oauthlib.flow import Flow
 import google.auth.transport.requests
@@ -60,6 +84,79 @@ app = Flask(__name__)
 # App Service runs behind a reverse proxy. Trust standard forwarding headers so
 # Flask sees the correct scheme/host (important for redirects and health probes).
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+# React SPA shell (built by Vite into static/react)
+_REACT_INDEX_REL_PATH = os.path.join("static", "react", "index.html")
+_REACT_SPA_INFO_CACHE = {
+    "mtime": None,
+    "entry_js": "",
+    "entry_css": "",
+}
+
+
+def _get_react_spa_shell_info():
+    """Return (index_abs_path, entry_js_filename, entry_css_filename, index_mtime_int).
+
+    Cached by index.html mtime to avoid re-reading/parsing on every request.
+    """
+
+    index_abs = os.path.join(app.root_path, _REACT_INDEX_REL_PATH)
+    try:
+        mtime = os.path.getmtime(index_abs)
+    except Exception:
+        return index_abs, "", "", 0
+
+    if _REACT_SPA_INFO_CACHE["mtime"] != mtime:
+        try:
+            with open(index_abs, "r", encoding="utf-8", errors="ignore") as f:
+                html = f.read()
+
+            js_match = re.search(r"/static/react/assets/([^\"\s]+\.js)", html)
+            css_match = re.search(r"/static/react/assets/([^\"\s]+\.css)", html)
+
+            _REACT_SPA_INFO_CACHE["mtime"] = mtime
+            _REACT_SPA_INFO_CACHE["entry_js"] = js_match.group(1) if js_match else ""
+            _REACT_SPA_INFO_CACHE["entry_css"] = css_match.group(1) if css_match else ""
+        except Exception:
+            _REACT_SPA_INFO_CACHE["mtime"] = mtime
+            _REACT_SPA_INFO_CACHE["entry_js"] = ""
+            _REACT_SPA_INFO_CACHE["entry_css"] = ""
+
+    return (
+        index_abs,
+        _REACT_SPA_INFO_CACHE["entry_js"],
+        _REACT_SPA_INFO_CACHE["entry_css"],
+        int(mtime),
+    )
+
+
+@app.route("/react")
+@app.route("/react/<path:subpath>")
+def react_app(subpath=None):
+    index_abs, entry_js, entry_css, index_mtime = _get_react_spa_shell_info()
+    resp = send_file(index_abs)
+
+    # Ensure the SPA shell isn't cached (it points at hashed JS/CSS assets).
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+
+    # Debug headers to confirm exactly which Vite build is being served.
+    # Safe to expose: contains only static asset filenames + file mtime.
+    if entry_js:
+        resp.headers["X-React-Asset-JS"] = entry_js
+    if entry_css:
+        resp.headers["X-React-Asset-CSS"] = entry_css
+    if index_mtime:
+        resp.headers["X-React-Index-MTime"] = str(index_mtime)
+
+    # Optional: include the app build id if present.
+    try:
+        resp.headers["X-Resumatic-Build"] = str(_BUILD_ID)
+    except Exception:
+        pass
+
+    return resp
 
 
 #####################
@@ -1051,7 +1148,7 @@ def load_users():
                 return {user_id: User.from_dict(user_data) for user_id, user_data in users_data.items()}
         return {}
     except Exception as e:
-        print(f"Error loading users: {e}")
+        logger.exception("Error loading users")
         return {}
 
 def save_users():
@@ -1060,9 +1157,8 @@ def save_users():
         users_data = {user_id: user.to_dict() for user_id, user in users.items()}
         with open(USERS_FILE, 'w', encoding='utf-8') as f:
             json.dump(users_data, f, indent=2, ensure_ascii=False)
-        print(f"✅ Saved {len(users)} users to persistent storage")
     except Exception as e:
-        print(f"Error saving users: {e}")
+        logger.exception("Error saving users")
 
 
 
@@ -1070,7 +1166,10 @@ def add_user(user):
     """Add a user and save to persistent storage"""
     users[user.id] = user
     save_users()
-    print(f"✅ Added user: {user.name} ({user.email})")
+    try:
+        logger.info("Added user: %s (%s)", getattr(user, 'name', ''), getattr(user, 'email', ''))
+    except Exception:
+        pass
 
 
 def _normalize_email(email: str) -> str:
@@ -1516,7 +1615,11 @@ def _audit_login_end() -> None:
 
 # Load existing users on startup
 users = load_users()
-print(f"📊 Loaded {len(users)} users from persistent storage")
+try:
+    logger.info("Loaded %s users from persistent storage", len(users))
+except Exception:
+    # Avoid crashing at import-time on Windows consoles that can't encode emojis/unicode.
+    pass
 
 
 
@@ -2562,7 +2665,15 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
 def index():
     # Track the visit with source attribution (only if not already tracked)
     if 'visit_tracked' not in session:
-        source_info = analytics.track_visit(request)
+        analytics_obj = globals().get('analytics')
+        if analytics_obj is not None and hasattr(analytics_obj, 'track_visit'):
+            try:
+                source_info = analytics_obj.track_visit(request)
+            except Exception as e:
+                _safe_log_exception('analytics.track_visit failed', e)
+                source_info = {"type": "organic", "source": "fallback", "error": str(e)}
+        else:
+            source_info = {"type": "organic", "source": "fallback", "error": "analytics_unavailable"}
         session['visit_tracked'] = True
         session['traffic_source'] = source_info
         app.logger.info(f"Homepage visit tracked from server-side: {source_info.get('type', 'unknown')}")
@@ -3069,12 +3180,28 @@ def resume_choose_template():
 def plans():
     current_year = datetime.now().year
     trial_unavailable = False
+    next_url = str(request.args.get('next') or '').strip()
     try:
         if getattr(current_user, 'is_authenticated', False):
             trial_unavailable = _trial_already_used_for_user(current_user)
+            # If the user just purchased via Stripe Payment Link and webhooks haven't updated Azure yet,
+            # try to refresh paid status from Stripe and bounce them back to where they came from.
+            try:
+                if not is_paid_user(current_user) and _stripe_enabled():
+                    if _refresh_paid_status_from_stripe_for_user(current_user):
+                        return redirect(next_url or url_for('my_revisions'))
+            except Exception:
+                pass
     except Exception:
         trial_unavailable = False
-    return render_template("plans.html", year=current_year, user=current_user, trial_unavailable=trial_unavailable)
+    offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
+    return render_template(
+        "plans.html",
+        year=current_year,
+        user=current_user,
+        trial_unavailable=trial_unavailable,
+        offer_retention=offer_retention,
+    )
 
 
 def _get_plan_config(plan_id: str) -> Optional[dict]:
@@ -3634,7 +3761,17 @@ def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
     return None
 
 
-def _redirect_to_stripe_payment_link(plan_id: str) -> Optional['Response']:
+def _get_stripe_retention_promo_code() -> Optional[str]:
+    """Return the promotion code string for retention offer (e.g. RETENTION50). Used with Payment Links."""
+    return (os.getenv('STRIPE_PROMO_CODE_RETENTION') or '').strip() or None
+
+
+def _get_stripe_retention_coupon_id() -> Optional[str]:
+    """Return the coupon ID for retention offer. Used with Checkout Session discounts."""
+    return (os.getenv('STRIPE_COUPON_RETENTION') or '').strip() or None
+
+
+def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
     # Trial must be a subscription with a 14-day trial and auto-convert to monthly unless canceled.
     # If Trial is a one-time Payment Link, it cannot auto-renew. So do NOT use a Payment Link for trial.
@@ -3657,6 +3794,11 @@ def _redirect_to_stripe_payment_link(plan_id: str) -> Optional['Response']:
         pass
     # Helpful for debugging / analytics
     params['metadata[plan_id]'] = plan_id
+    # Retention offer: prefill promotion code so customer gets the discount
+    if offer_retention:
+        promo = _get_stripe_retention_promo_code()
+        if promo:
+            params['prefilled_promo_code'] = promo
 
     sep = '&' if ('?' in link) else '?'
     url = link + (sep + urlencode(params)) if params else link
@@ -3671,6 +3813,7 @@ def checkout():
     Otherwise falls back to the placeholder confirmation page.
     """
     plan_id = request.args.get('plan', '').strip()
+    offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
     plan = _get_plan_config(plan_id)
     if not plan:
         flash("Please select a valid plan.", "danger")
@@ -3741,12 +3884,12 @@ def checkout():
     # For brand-new Monthly/Annual purchases, prefer Stripe Payment Links.
     # This keeps promo-code behavior consistent with what you configure in Stripe.
     if _stripe_enabled() and plan_id in ("monthly_10_95", "annual_6_95"):
-        pl_redirect = _redirect_to_stripe_payment_link(plan_id)
+        pl_redirect = _redirect_to_stripe_payment_link(plan_id, offer_retention=offer_retention)
         if pl_redirect:
             return pl_redirect
 
     # For other plans (or if Payment Links are configured later), still allow Payment Link redirects.
-    pl_redirect = _redirect_to_stripe_payment_link(plan_id)
+    pl_redirect = _redirect_to_stripe_payment_link(plan_id, offer_retention=offer_retention)
     if pl_redirect:
         return pl_redirect
 
@@ -3773,17 +3916,23 @@ def checkout():
                 if fee_price:
                     line_items.append({"price": fee_price, "quantity": 1})
 
-            session_obj = stripe.checkout.Session.create(
-                mode="subscription",
-                line_items=line_items,
-                customer_email=(getattr(current_user, 'email', '') or None),
-                client_reference_id=str(current_user.id),
-                metadata={"plan_id": plan_id},
-                subscription_data=subscription_data,
-                success_url=success_url,
-                cancel_url=cancel_url,
-                allow_promotion_codes=True,
-            )
+            session_params = {
+                "mode": "subscription",
+                "line_items": line_items,
+                "customer_email": (getattr(current_user, 'email', '') or None),
+                "client_reference_id": str(current_user.id),
+                "metadata": {"plan_id": plan_id},
+                "subscription_data": subscription_data,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+                "allow_promotion_codes": True,
+            }
+            # Retention offer: pre-apply coupon when user came from cancel flow
+            if offer_retention:
+                coupon_id = _get_stripe_retention_coupon_id()
+                if coupon_id:
+                    session_params["discounts"] = [{"coupon": coupon_id}]
+            session_obj = stripe.checkout.Session.create(**session_params)
             return redirect(session_obj.url, code=303)
         except Exception as e:
             logger.error(f"Stripe checkout session create failed: {str(e)}")
@@ -4097,6 +4246,98 @@ def billing_portal():
         flash("Unable to open billing portal. Please try again.", "danger")
         return redirect(url_for("my_revisions"))
 
+
+@app.route("/billing/cancel")
+@login_required
+def billing_cancel_page():
+    """Custom cancellation flow: show incentive modal, then cancel via API."""
+    if not _stripe_enabled():
+        flash("Billing is not configured.", "danger")
+        return redirect(url_for("plans"))
+
+    user_id = getattr(current_user, "id", "")
+    subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+    if not subscription_id:
+        flash("No active subscription found. If you just canceled, your access continues until the end of your billing period.", "info")
+        return redirect(url_for("settings_page"))
+
+    # Fetch subscription details for display
+    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    try:
+        sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+        status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
+        if status not in ("active", "trialing"):
+            flash("Your subscription is not active.", "info")
+            return redirect(url_for("settings_page"))
+
+        current_period_end = _stripe_obj_get(sub, "current_period_end", None)
+        period_end_display = ""
+        if current_period_end:
+            try:
+                dt = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
+                period_end_display = dt.strftime("%B %d, %Y")
+            except Exception:
+                period_end_display = "end of billing period"
+
+        interval_label = "Monthly"
+        si_data = list(getattr(getattr(sub, "items", None), "data", []) or [])
+        if si_data:
+            p = getattr(si_data[0], "price", None) or (si_data[0] if isinstance(si_data[0], dict) else {}).get("price")
+            if p:
+                interval = str(_stripe_obj_get(p, "recurring", {}).get("interval", "") or "").lower()
+                interval_count = int(_stripe_obj_get(p, "recurring", {}).get("interval_count", 1) or 1)
+                if interval == "year" or (interval == "month" and interval_count == 12):
+                    interval_label = "Annual"
+    except Exception as e:
+        logger.error(f"billing_cancel_page subscription fetch: {str(e)}")
+        flash("Unable to load subscription details. Please try again.", "danger")
+        return redirect(url_for("settings_page"))
+
+    return render_template(
+        "billing_cancel.html",
+        subscription_id=subscription_id,
+        interval_label=interval_label,
+        period_end_display=period_end_display or "end of billing period",
+    )
+
+
+@app.route("/api/billing/cancel", methods=["POST"])
+@login_required
+def api_billing_cancel():
+    """Cancel subscription via Stripe API. Called after user confirms in custom modal."""
+    if not _stripe_enabled():
+        return jsonify({"error": "Billing not configured"}), 400
+
+    user_id = getattr(current_user, "id", "")
+    subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+    if not subscription_id:
+        return jsonify({"error": "No active subscription found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    cancel_at_period_end = data.get("cancel_at_period_end", True)
+
+    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    try:
+        if cancel_at_period_end:
+            stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+            return jsonify({
+                "success": True,
+                "cancel_at_period_end": True,
+                "message": "Your subscription will cancel at the end of your billing period. You'll keep access until then.",
+            })
+        else:
+            stripe.Subscription.delete(subscription_id)
+            return jsonify({
+                "success": True,
+                "cancel_at_period_end": False,
+                "message": "Your subscription has been canceled.",
+            })
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(f"api_billing_cancel Stripe error: {str(e)}")
+        return jsonify({"error": str(e.user_message) if getattr(e, "user_message", None) else "Invalid request"}), 400
+    except Exception as e:
+        logger.error(f"api_billing_cancel error: {str(e)}")
+        return jsonify({"error": "Unable to cancel subscription. Please try again."}), 500
 
 
 @app.route("/results", methods=["POST"])
@@ -6760,6 +7001,139 @@ def is_paid_user(user_obj: Optional['User']) -> bool:
     except Exception:
         return False
 
+
+def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> bool:
+    """Best-effort: infer paid status from Stripe by email/customer and persist to Azure profile.
+
+    This is a safety net for cases where Stripe webhooks are delayed/misconfigured, or when
+    Payment Links complete but the webhook hasn't updated Azure yet.
+    """
+    try:
+        if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+            return False
+        if not _stripe_enabled():
+            return False
+
+        user_id = str(getattr(user_obj, 'id', '') or '').strip()
+        email = str(getattr(user_obj, 'email', '') or '').strip()
+        if not user_id or not email:
+            return False
+
+        prof = get_user_profile_azure(user_id) or {}
+        customer_id = str(prof.get('stripe_customer_id') or '').strip()
+        subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
+
+        try:
+            if not customer_id:
+                customer_id = _find_stripe_customer_id_by_email(email)
+        except Exception:
+            customer_id = customer_id or ''
+
+        def _paid_until_from_plan_id(plan_id: str) -> str:
+            pid = str(plan_id or '').strip()
+            plan = _get_plan_config(pid) or {}
+            days = int(plan.get('duration_days') or 31)
+            if days < 1:
+                days = 31
+            return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+        # Find best subscription for this customer (active > trialing > others).
+        best_sub_id = subscription_id
+        best_status = ''
+        paid_until = ''
+        plan_status_guess = ''
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            if best_sub_id:
+                sub = stripe.Subscription.retrieve(best_sub_id)
+                best_status = str(getattr(sub, 'status', '') or '').strip().lower()
+                cpe = getattr(sub, 'current_period_end', None)
+                if cpe:
+                    paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+            elif customer_id:
+                subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+                sdata = list(getattr(subs, 'data', []) or [])
+
+                def _rank(sub):
+                    status = str(getattr(sub, 'status', '') or '').strip().lower()
+                    cpe = int(getattr(sub, 'current_period_end', 0) or 0)
+                    sr = 0
+                    if status == 'active':
+                        sr = 3
+                    elif status == 'trialing':
+                        sr = 2
+                    elif status in ('past_due', 'unpaid'):
+                        sr = 1
+                    return (sr, cpe)
+
+                if sdata:
+                    best = sorted(sdata, key=_rank, reverse=True)[0]
+                    best_sub_id = str(getattr(best, 'id', '') or '').strip()
+                    best_status = str(getattr(best, 'status', '') or '').strip().lower()
+                    cpe = getattr(best, 'current_period_end', None)
+                    if cpe:
+                        paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+        except Exception:
+            # If Stripe is unreachable/misconfigured, don't crash gating.
+            return False
+
+        paid_flag = best_status in ('active', 'trialing')
+
+        # Fallback for Payment Links / one-time checkout sessions:
+        # If the Payment Link is configured in Stripe as a one-time payment (no subscription),
+        # we can still grant access for the plan duration based on the most recent paid checkout session.
+        if (not paid_flag) and customer_id:
+            try:
+                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                sessions = stripe.checkout.Session.list(customer=customer_id, limit=10)
+                sdata = list(getattr(sessions, 'data', []) or [])
+                # Prefer the most recent *paid* session.
+                sdata = sorted(sdata, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True)
+                for s in sdata:
+                    status = str(getattr(s, 'status', '') or '').strip().lower()
+                    pay_status = str(getattr(s, 'payment_status', '') or '').strip().lower()
+                    mode = str(getattr(s, 'mode', '') or '').strip().lower()
+                    if status == 'complete' and pay_status in ('paid', 'no_payment_required'):
+                        meta = getattr(s, 'metadata', None) or {}
+                        plan_id = str(meta.get('plan_id') or '').strip()
+                        # If metadata is missing, still treat as paid (default ~monthly duration).
+                        plan_status_guess = plan_id or 'paid'
+                        paid_until = paid_until or _paid_until_from_plan_id(plan_id or 'monthly_10_95')
+                        paid_flag = True
+                        # If this session actually created a subscription, store it too.
+                        try:
+                            sid = str(getattr(s, 'subscription', '') or '').strip()
+                            if sid:
+                                best_sub_id = sid
+                        except Exception:
+                            pass
+                        break
+            except Exception:
+                pass
+
+        # Persist back to Azure profile for future requests.
+        try:
+            table_client = get_users_table_client()
+            entity = {"PartitionKey": user_id, "RowKey": "profile"}
+            entity["email"] = email
+            if customer_id:
+                entity["stripe_customer_id"] = str(customer_id)
+            if best_sub_id:
+                entity["stripe_subscription_id"] = str(best_sub_id)
+            if paid_until:
+                entity["paid_until"] = paid_until
+            if paid_flag:
+                entity["is_paid"] = True
+                entity["plan_status"] = plan_status_guess or "active"
+            table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+        except Exception:
+            # Ignore Azure persistence errors; still return the computed paid flag.
+            pass
+
+        return bool(paid_flag)
+    except Exception:
+        return False
+
 def is_paid_user_id(user_id: str) -> bool:
     try:
         u = users.get(str(user_id))
@@ -7027,6 +7401,8 @@ def settings_page():
     if _requires_email_verification(current_user):
         flash('Please verify your email to access settings.', 'danger')
         return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
+    if str(request.args.get('canceled') or '').strip() == '1':
+        flash('Your subscription has been canceled. You\'ll keep access until the end of your billing period.', 'success')
     prof = get_user_profile_azure(getattr(current_user, 'id', '')) or {}
     paid_until_raw = str(prof.get('paid_until') or '').strip()
     customer_id = str(prof.get('stripe_customer_id') or '').strip()
@@ -7050,6 +7426,18 @@ def settings_page():
     debug_info = None
 
     paid_flag = bool(is_paid_user(current_user))
+    # Self-heal paid status even if webhooks are delayed/missing (Payment Links in local dev).
+    if (not paid_flag) and _stripe_enabled():
+        try:
+            if _refresh_paid_status_from_stripe_for_user(current_user):
+                paid_flag = True
+                prof = get_user_profile_azure(getattr(current_user, 'id', '')) or prof
+                plan_status_raw = str(prof.get('plan_status') or plan_status_raw).strip()
+                paid_until_raw = str(prof.get('paid_until') or paid_until_raw).strip()
+                customer_id = str(prof.get('stripe_customer_id') or customer_id).strip()
+                subscription_id = str(prof.get('stripe_subscription_id') or subscription_id).strip()
+        except Exception:
+            pass
 
     # If webhook hasn't populated Stripe ids yet (or paid flag is stale), recover them via email lookup.
     # This allows newly-purchased users to see accurate plan dates immediately.
@@ -7373,6 +7761,18 @@ def api_me():
                 "revisions_used": 0,
             })
         paid = is_paid_user(current_user)
+        # Safety net: if webhooks haven't updated Azure yet, try to recover paid status from Stripe.
+        if (not paid) and _stripe_enabled():
+            try:
+                # Don't hammer Stripe on every poll; cache briefly in session.
+                now_ts = int(time.time())
+                last_ts = int(session.get('stripe_paid_refresh_at') or 0)
+                if now_ts - last_ts > 30:
+                    session['stripe_paid_refresh_at'] = now_ts
+                    session.modified = True
+                    paid = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid
+            except Exception:
+                pass
         used = 0
         try:
             used = len(get_user_revisions(current_user.id))
@@ -7592,9 +7992,8 @@ def download_revision_template_pdf(revision_id):
     }
     session.modified = True
 
-    download_url = url_for('react_app', subpath=f"template-download/{template_id}")
-    # rid is a client-side fallback if session linkage is lost.
-    return redirect(f"{download_url}?autodownload=1&rid={revision_id}&return=%2Fmy_revisions")
+    # Server-side PDF generation (avoids html2canvas issues with OKLAB/OKLCH colors).
+    return redirect(url_for('api_template_pdf', template_id=template_id))
 
 @app.route('/update_notes/<revision_id>', methods=['POST'])
 @login_required
@@ -9157,15 +9556,6 @@ def serve_file():
 import os
 from flask import send_file
 
-@app.route("/react")
-@app.route("/react/<path:subpath>")
-def react_app(subpath=None):
-    resp = send_file(os.path.join("static", "react", "index.html"))
-    # Ensure the SPA shell isn't cached (it points at hashed JS/CSS assets).
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp.headers["Pragma"] = "no-cache"
-    resp.headers["Expires"] = "0"
-    return resp
 
 
 

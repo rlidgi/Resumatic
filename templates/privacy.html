@@ -399,7 +399,7 @@
 					<a class="text-gray-600 hover:text-primary transition-colors" href="/about">About</a>
 					<a class="text-gray-600 hover:text-primary transition-colors" href="/#faq">FAQ</a>
 
-					<a href="/login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
+					<a href="/login?tab=login" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">
 						<i class="fas fa-sign-in-alt mr-2"></i>Login
 					</a>
 
@@ -440,14 +440,16 @@
 				href="/settings">
 				Settings
 			</a>
-			<a class="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center mt-2" href="/logout">
+			<a class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center mt-2"
+				href="/logout">
 				Logout
 			</a>
 			{% else %}
-			<a href="/login" class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center">
+			<a href="/login?tab=login"
+				class="block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-center">
 				Login
 			</a>
-			<a href="/login"
+			<a href="/login?tab=register"
 				class="block px-4 py-2 bg-white text-primary border border-primary rounded hover:bg-primary/10 text-center mt-2">
 				Free Account
 			</a>

@@ -1,0 +1,197 @@
+import argparse
+import json
+import sys
+import urllib.request
+from pathlib import Path
+
+# Ensure the repo root (where app.py lives) is importable when running from scripts/.
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+
+def build_long_resume_structured() -> dict:
+    long_bullets = (
+        "Led cross-functional initiatives spanning product, engineering, and operations; "
+        "improved reliability, reduced cycle time, and standardized delivery practices across teams.\n"
+        "Built dashboards and alerting, implemented incident response playbooks, and partnered with stakeholders "
+        "to translate ambiguous requirements into measurable milestones.\n"
+        "Optimized data pipelines and performance hotspots; conducted root-cause analysis and implemented durable fixes."
+    )
+
+    experience = []
+    for i in range(1, 10):
+        experience.append(
+            {
+                "title": f"Senior Software Engineer {i}",
+                "company": f"Example Company {i}",
+                "location": "Remote",
+                "dates": f"202{i}-01 – 202{i}-12",
+                "description": long_bullets,
+            }
+        )
+
+    education = []
+    for i in range(1, 5):
+        education.append(
+            {
+                "school": f"Example University {i}",
+                "degree": "B.S.",
+                "field": "Computer Science",
+                "dates": f"201{i} – 201{i+1}",
+                "location": "CA",
+            }
+        )
+
+    return {
+        "name": "Alex Candidate",
+        "title": "Software Engineer",
+        "summary": (
+            "Full-stack engineer with experience building reliable web products and internal tools. "
+            "Strong focus on performance, maintainability, and clear stakeholder communication."
+        ),
+        "phone": "(555) 555-5555",
+        "email": "alex.candidate@example.com",
+        "location": "Los Angeles, CA",
+        "website": "https://example.com",
+        "skills": [
+            "Python",
+            "TypeScript",
+            "React",
+            "Flask",
+            "PostgreSQL",
+            "Azure",
+            "CI/CD",
+            "Playwright",
+            "Monitoring",
+            "Testing",
+        ],
+        "experience": experience,
+        "education": education,
+        "projects": [
+            {
+                "name": "Example Project",
+                "role": "Owner",
+                "dates": "2024",
+                "description": "Built a portfolio project demonstrating multi-page PDF export and robust pagination rules.",
+            }
+        ],
+    }
+
+
+def get_signed_session_cookie(template_name: str) -> str:
+    # Import the Flask app so we can generate a correctly signed session cookie.
+    import app as appmod
+
+    flask_app = appmod.app
+
+    # Use the existing admin user ID from users_data.json (must exist in the running server process too).
+    admin_user_id = "108278720993144058808"
+
+    structured_resume = build_long_resume_structured()
+
+    with flask_app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["_user_id"] = admin_user_id
+            sess["_fresh"] = True
+            sess["template_data"] = {
+                "structured_resume": structured_resume,
+                "template_name": template_name,
+                "revised_resume": "",
+                "source_revision_id": "",
+            }
+
+        # Make a request so Flask writes the session into the client cookie jar.
+        client.get("/")
+
+        session_cookie = None
+        try:
+            c = client.get_cookie("session")
+            if c:
+                session_cookie = c.value
+        except Exception:
+            session_cookie = None
+
+        if not session_cookie:
+            jar = getattr(client, "cookie_jar", None)
+            if jar is not None:
+                for c in jar:
+                    if getattr(c, "name", "") == "session":
+                        session_cookie = getattr(c, "value", None)
+                        break
+
+        if not session_cookie:
+            raise RuntimeError("Could not extract Flask session cookie from test client.")
+
+    return session_cookie
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--template", required=True, help="Template id to request (e.g. boldProfessional, classicrose)")
+    ap.add_argument("--host", default="http://127.0.0.1:5000")
+    ap.add_argument("--out", default=None)
+    ap.add_argument("--all-headers", action="store_true", help="Include all response headers in output")
+    args = ap.parse_args()
+
+    template = str(args.template).strip()
+    if not template:
+        print("ERROR: template is required")
+        return 2
+
+    session_cookie = get_signed_session_cookie(template)
+
+    url = (
+        f"{args.host}/api/template-pdf/{urllib.parse.quote(template)}"
+        "?fontScale=1&paragraphGapPx=0&spacingScale=1&_ts=1"
+    )
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={
+            "Accept": "application/pdf",
+            "Cookie": f"session={session_cookie}",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            status = getattr(resp, "status", None) or 200
+            headers = dict(resp.headers.items())
+            ct = resp.headers.get("content-type", "")
+            body = resp.read()
+    except Exception as e:
+        print(f"ERROR: Request failed: {type(e).__name__}: {e}")
+        return 3
+
+    out_path = args.out or f"temp_store/{template}-debug.pdf"
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(out_path).write_bytes(body)
+
+    if args.all_headers:
+        interesting = headers
+    else:
+        # Print key verification headers if present.
+        interesting = {
+            k: v
+            for k, v in headers.items()
+            if k.lower().startswith("x-resumatic-") or k.lower() in ("content-type", "cache-control")
+        }
+
+    print(
+        json.dumps(
+            {
+                "status": status,
+                "content_type": ct,
+                "bytes": len(body),
+                "saved": out_path,
+                "headers": interesting,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

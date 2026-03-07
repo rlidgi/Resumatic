@@ -1,0 +1,31 @@
+/* Inter latin subset - served locally for consistent PDF generation.
+   No external font fetches; headless Chromium loads these from same origin.
+   font-display: block ensures text waits for Inter before rendering (matches PDF). */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url(/static/fonts/inter/inter-latin-400-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 500;
+  src: url(/static/fonts/inter/inter-latin-500-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 600;
+  src: url(/static/fonts/inter/inter-latin-600-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url(/static/fonts/inter/inter-latin-700-normal.woff2) format('woff2');
+}

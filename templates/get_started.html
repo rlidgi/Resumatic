@@ -10,6 +10,15 @@
     })(window, document, "clarity", "script", "sjihir10df");
   </script>
 
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-KRPLMCR73G');
+  </script>
+
 
   <meta charset="utf-8">
   <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
@@ -48,7 +57,7 @@
   <header class="border-b bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
       <a href="/" class="inline-flex items-center gap-3">
-        <img src="/static/images/logo23_small.png" alt="Resumatic AI" width="40" height="40">
+        <img src="/static/images/logo23_small.webp" alt="Resumatic AI" width="40" height="40">
         <span class="text-xl font-bold">Resumatic AI</span>
       </a>
       <nav class="hidden md:flex items-center gap-6 text-gray-700">
@@ -76,7 +85,9 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <a href="{{ url_for('resume_new') }}"
+        {% set new_resume_href = url_for('resume_new') if (user and user.is_authenticated) else url_for('login',
+        tab='register', next=url_for('resume_new')) %}
+        <a href="{{ new_resume_href }}"
           class="group bg-white rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all transition-colors p-7 flex items-center gap-3 hover:bg-emerald-100 hover:border-emerald-400">
           <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
@@ -87,7 +98,9 @@
           <h2 class="text-xl font-bold text-gray-900">Build new resume</h2>
         </a>
 
-        <a href="{{ url_for('start') }}"
+        {% set improve_resume_href = url_for('upload') if (user and user.is_authenticated) else url_for('login',
+        tab='register', next=url_for('upload')) %}
+        <a href="{{ improve_resume_href }}"
           class="group bg-white rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all transition-colors p-7 flex items-center gap-3 hover:bg-indigo-100 hover:border-indigo-400">
           <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"

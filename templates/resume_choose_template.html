@@ -45,7 +45,7 @@
                     class="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700 text-sm font-semibold">My
                     Account</a>
                 {% else %}
-                <a href="/login"
+                <a href="/login?tab=login"
                     class="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700 text-sm font-semibold">Login</a>
                 {% endif %}
             </div>
@@ -79,10 +79,36 @@
                         <i class="fas fa-palette text-purple-500 mr-2 text-sm"></i>
                         Templates
                     </h2>
-                    <p class="text-xs text-gray-500 sm:hidden">Swipe to see more</p>
+                    <p class="text-xs text-gray-500 sm:hidden">
+                        <i class="fas fa-chevron-left mr-1" aria-hidden="true"></i>
+                        Swipe to see more
+                        <i class="fas fa-chevron-right ml-1" aria-hidden="true"></i>
+                    </p>
                 </div>
 
                 <div class="relative">
+                    <!-- Mobile swipe hints (non-interactive; do not block swipe) -->
+                    <div aria-hidden="true"
+                        class="pointer-events-none sm:hidden absolute left-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-r from-white to-transparent">
+                    </div>
+                    <div aria-hidden="true"
+                        class="pointer-events-none sm:hidden absolute right-0 top-0 bottom-0 w-10 z-10 bg-gradient-to-l from-white to-transparent">
+                    </div>
+                    <div aria-hidden="true"
+                        class="pointer-events-none sm:hidden absolute left-1 top-1/2 -translate-y-1/2 z-20">
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow border border-gray-200 text-gray-500 opacity-80">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    </div>
+                    <div aria-hidden="true"
+                        class="pointer-events-none sm:hidden absolute right-1 top-1/2 -translate-y-1/2 z-20">
+                        <span
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/95 shadow border border-gray-200 text-gray-500 opacity-80">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    </div>
+
                     <button type="button" id="templateCarouselPrev"
                         class="hidden sm:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         aria-label="Previous templates">
@@ -113,27 +139,6 @@
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
                                 <img src="{{ url_for('static', filename='images/professional.jpg') }}"
                                     alt="Professional template" class="h-full w-full object-contain rounded-md"
-                                    loading="lazy" decoding="async">
-                            </div>
-                        </button>
-                        <button data-template="elegant" onclick="selectTemplate('elegant', this)" role="listitem"
-                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
-                            <div class="p-3 pb-2">
-                                <h3 class="font-semibold text-gray-800 text-sm">Elegant</h3>
-                            </div>
-                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/elegant.jpg') }}" alt="Elegant template"
-                                    class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
-                            </div>
-                        </button>
-                        <button data-template="creative" onclick="selectTemplate('creative', this)" role="listitem"
-                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
-                            <div class="p-3 pb-2">
-                                <h3 class="font-semibold text-gray-800 text-sm">Creative</h3>
-                            </div>
-                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/creative.jpg') }}"
-                                    alt="Creative template" class="h-full w-full object-contain rounded-md"
                                     loading="lazy" decoding="async">
                             </div>
                         </button>
@@ -171,15 +176,37 @@
                                     class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
                             </div>
                         </button>
-                        <button data-template="executive" onclick="selectTemplate('executive', this)" role="listitem"
+                        <button data-template="minimalSidebar" onclick="selectTemplate('minimalSidebar', this)"
+                            role="listitem"
                             class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
                             <div class="p-3 pb-2">
-                                <h3 class="font-semibold text-gray-800 text-sm">Executive</h3>
+                                <h3 class="font-semibold text-gray-800 text-sm">Clean</h3>
                             </div>
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/executive.jpg') }}"
-                                    alt="Executive template" class="h-full w-full object-contain rounded-md"
+                                <img src="{{ url_for('static', filename='images/clean.jpg') }}" alt="Clean template"
+                                    class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="creative2" onclick="selectTemplate('creative2', this)" role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Creative</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/creative.jpg') }}"
+                                    alt="Creative template preview" class="h-full w-full object-contain rounded-md"
                                     loading="lazy" decoding="async">
+                            </div>
+                        </button>
+                        <button data-template="classicRose" onclick="selectTemplate('classicRose', this)"
+                            role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.08] focus:scale-[1.08] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h3 class="font-semibold text-gray-800 text-sm">Classic</h3>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/classic.jpg') }}" alt="Classic template"
+                                    class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
                             </div>
                         </button>
                     </div>
@@ -189,9 +216,22 @@
     </main>
 
     <script>
+        const IS_AUTH = (document.body.getAttribute('data-is-auth') === 'true');
         const SOURCE_REVISION_ID = '';
 
         function selectTemplate(templateName, buttonElement) {
+            if (!IS_AUTH) {
+                try {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('auto_template', templateName);
+                    const nextPath = u.pathname + u.search;
+                    window.location.href = '/login?next=' + encodeURIComponent(nextPath);
+                } catch (e) {
+                    window.location.href = '/login';
+                }
+                return;
+            }
+
             const originalContent = buttonElement.innerHTML;
             buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
             buttonElement.disabled = true;
@@ -200,13 +240,13 @@
             fetch('/api/parse-resume-for-template', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
                 body: JSON.stringify({ template: templateName, source_revision_id: SOURCE_REVISION_ID })
             })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        const targetTemplate = (data.template || templateName || '').toString();
+                        // Prefer templateName (what user clicked) over API response
+                        const targetTemplate = (templateName || data.template || '').toString().trim() || 'professional';
                         window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}?edit=1`;
                     } else {
                         alert('Error: ' + (data.error || 'Failed to parse resume'));
@@ -223,9 +263,10 @@
                 });
         }
 
-        // Auto-continue after login (kept for compatibility with older links)
+        // Auto-continue after login
         (function () {
             try {
+                if (!IS_AUTH) return;
                 const params = new URLSearchParams(window.location.search || '');
                 const t = params.get('auto_template');
                 if (!t) return;

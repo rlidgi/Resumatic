@@ -1,7 +1,7 @@
 {
-  "total_visits": 918,
+  "total_visits": 921,
   "facebook_ad_visits": 0,
-  "organic_visits": 363,
+  "organic_visits": 364,
   "total_conversions": 283,
   "facebook_ad_conversions": 0,
   "daily_stats": {
@@ -972,15 +972,26 @@
       "other": 0,
       "conversions": 2,
       "facebook_ad_conversions": 0
+    },
+    "2026-03-07": {
+      "total": 3,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 2,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
     }
   },
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 554,
+      "count": 556,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-02-21"
+      "last_seen": "2026-03-07"
     },
     "http://127.0.0.1:5000/": {
       "count": 178,
@@ -1149,7 +1160,13 @@
       "conversions": 0,
       "conversion_rate": 0.0,
       "last_seen": "2026-02-20"
+    },
+    "http://127.0.0.1:5000/create-resume/": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-03-07"
     }
   },
-  "last_updated": "2026-02-23"
+  "last_updated": "2026-03-07"
 }

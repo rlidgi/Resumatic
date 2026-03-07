@@ -176,6 +176,12 @@
                                     Registered Users (Azure)
                                 </a>
                             </div>
+                            <div class="col-md-4 mb-3">
+                                <a href="/admin/login_audit" class="btn btn-dark btn-lg w-100">
+                                    <i class="fas fa-right-to-bracket me-2"></i>
+                                    Login Audit
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -190,7 +196,8 @@
                     </div>
                     <div class="card-body">
                         <p class="text-muted mb-3">
-                            Paste the user’s email and delete. This removes their local auth record and deletes their Azure profile and all resume revisions,
+                            Paste the user’s email and delete. This removes their local auth record and deletes their
+                            Azure profile and all resume revisions,
                             so they can register again with a clean slate.
                         </p>
                         <form method="post" action="/admin/delete_user" class="row g-3">
@@ -198,15 +205,18 @@
                             <input type="hidden" name="admin_csrf" value="{{ session.get('admin_csrf') or '' }}">
                             <div class="col-md-7">
                                 <label class="form-label" for="deleteEmail">User email</label>
-                                <input class="form-control" id="deleteEmail" name="email" type="email" placeholder="user@example.com" required>
+                                <input class="form-control" id="deleteEmail" name="email" type="email"
+                                    placeholder="user@example.com" required>
                             </div>
                             <div class="col-md-5">
                                 <label class="form-label" for="deleteUserId">User ID (optional)</label>
-                                <input class="form-control" id="deleteUserId" name="user_id" type="text" placeholder="1149...">
+                                <input class="form-control" id="deleteUserId" name="user_id" type="text"
+                                    placeholder="1149...">
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
-                                    <input class="form-check-input" id="deleteRevisions" name="delete_revisions" type="checkbox" checked>
+                                    <input class="form-check-input" id="deleteRevisions" name="delete_revisions"
+                                        type="checkbox" checked>
                                     <label class="form-check-label" for="deleteRevisions">
                                         Also delete all resume revisions (recommended)
                                     </label>
@@ -221,7 +231,8 @@
                             </div>
                         </form>
                         <div class="mt-3">
-                            <a href="/admin/delete_user" class="small text-muted">Open full delete page (shows JSON result)</a>
+                            <a href="/admin/delete_user" class="small text-muted">Open full delete page (shows JSON
+                                result)</a>
                         </div>
                     </div>
                 </div>

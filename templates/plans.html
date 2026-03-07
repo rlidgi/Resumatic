@@ -10,6 +10,15 @@
             y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
         })(window, document, "clarity", "script", "sjihir10df");
     </script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-KRPLMCR73G');
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Choose Your Plan</title>
@@ -205,8 +214,7 @@
         .wrap {
             width: min(1100px, 92vw);
             margin: 0 auto;
-            /* Leave room for sticky checkout bar */
-            padding: 32px 0 160px;
+            padding: 32px 0 64px;
         }
 
         header {
@@ -410,6 +418,17 @@
             background: linear-gradient(180deg, rgba(var(--accent-rgb), 1), rgba(var(--accent-rgb), .86));
         }
 
+        .btn.lilac {
+            border-color: rgba(var(--accent-rgb), .32);
+            background: rgba(var(--accent-rgb), .10);
+            color: var(--accent);
+        }
+
+        .btn.lilac:hover {
+            border-color: rgba(var(--accent-rgb), .52);
+            background: rgba(var(--accent-rgb), .14);
+        }
+
         ul.features {
             margin: 16px 0 0;
             padding: 0;
@@ -490,56 +509,6 @@
             font-size: 14px;
         }
 
-        .sticky {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(249, 250, 251, .88);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid var(--line);
-            padding: 12px 0;
-            box-shadow: 0 -10px 30px rgba(17, 24, 39, .08);
-        }
-
-        .sticky .inner {
-            width: min(1100px, 92vw);
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-        }
-
-        .sticky .mini {
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.2;
-        }
-
-        .sticky .mini strong {
-            color: var(--text);
-            display: block;
-            font-size: 14px;
-        }
-
-        .sticky .cta {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .select {
-            padding: 10px 12px;
-            border-radius: 14px;
-            border: 1px solid var(--line);
-            background: rgba(255, 255, 255, .95);
-            color: var(--text);
-            font-weight: 600;
-        }
-
         @media (max-width: 980px) {
             .card {
                 grid-column: span 6;
@@ -555,25 +524,10 @@
         }
 
         @media (max-width: 620px) {
-            .wrap {
-                /* Sticky bar gets taller on small screens */
-                padding-bottom: 240px;
-            }
-
             .card {
                 grid-column: span 12;
             }
 
-            .sticky .inner {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .sticky .cta {
-                justify-content: stretch;
-            }
-
-            .select,
             .btn {
                 width: 100%;
             }
@@ -689,14 +643,14 @@
                 <p class="plan">Free</p>
                 <div class="price"><strong>$0</strong></div>
                 <p class="note">Try Resumatic with a couple of revisions.</p>
-                <a class="btn" href="/start">Continue free</a>
+                <a class="btn lilac" href="/upload">Continue free</a>
 
                 <p class="micro"><b>No credit card required.</b></p>
 
                 <ul class="features">
                     <li><span class="check"></span>2 resume revisions</li>
                     <li><span class="check"></span>All templates + sections</li>
-                    <li><span class="check"></span>No PDF downloads</li>
+                    <li><span class="check"></span><b>No PDF downloads</b></li>
                 </ul>
             </article>
 
@@ -710,7 +664,7 @@
                 <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b> below.</p>
                 {% else %}
                 <p class="note">Try everything and download your resume today.</p>
-                <a class="btn" href="/checkout?plan=trial_14d">Start trial</a>
+                <a class="btn lilac" href="/checkout?plan=trial_14d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
 
                 <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
                 {% endif %}
@@ -744,7 +698,7 @@
                 <p class="plan">Monthly</p>
                 <div class="price"><strong>$10.95</strong><span>/ month</span></div>
                 <p class="note">Flexible month-to-month access.</p>
-                <a class="btn" href="/checkout?plan=monthly_10_95">Go monthly</a>
+                <a class="btn lilac" href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go monthly</a>
 
                 <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
 
@@ -775,43 +729,16 @@
                     <summary>Is payment secure?</summary>
                     <p>Use a trusted processor (Stripe/PayPal) and serve everything over HTTPS.</p>
                 </details>
+                <details>
+                    <summary>Do you offer a satisfaction guarantee?</summary>
+                    <p>
+                        Yes, if you’re not satisfied, contact support and we’ll help you get it resolved. If it’s
+                        still not a fit, we’ll refund your most recent payment.
+                    </p>
+                </details>
             </div>
         </section>
     </div>
-
-    <div class="sticky">
-        <div class="inner">
-            <div class="mini">
-                <strong>Continue to checkout</strong>
-                Choose a plan to proceed.
-            </div>
-            <div class="cta">
-                <select class="select" id="planSelect" aria-label="Select plan">
-                    <option value="annual_6_95" selected>Annual — $6.95/mo (billed yearly)</option>
-                    {% if trial_unavailable %}
-                    <option value="trial_14d" disabled>2-Week Trial — $1.85 (already used)</option>
-                    {% else %}
-                    <option value="trial_14d">2-Week Trial — $1.85</option>
-                    {% endif %}
-                    <option value="monthly_10_95">Monthly — $10.95/mo</option>
-                </select>
-                <a class="btn primary" id="stickyBtn" href="/checkout?plan=annual_6_95">Continue</a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const planSelect = document.getElementById("planSelect");
-        const stickyBtn = document.getElementById("stickyBtn");
-
-        function syncCta() {
-            const plan = planSelect.value;
-            stickyBtn.href = "/checkout?plan=" + encodeURIComponent(plan);
-        }
-
-        planSelect.addEventListener("change", syncCta);
-        syncCta();
-    </script>
 
     <script>
         (function () {

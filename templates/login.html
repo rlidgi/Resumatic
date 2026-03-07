@@ -2,260 +2,405 @@
 <html lang="en">
 
 <head>
+
+
+  <!-- Clarity tracking code for https://resumaticai.com/ -->
+  <script defer="">
+    (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+      t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
+      y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+    })(window, document, "clarity", "script", "sjihir10df");
+  </script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-KRPLMCR73G');
+  </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="description"
     content="Login or sign up to ResumaticAI to access your personalized AI-powered resume enhancement tools. Secure authentication options available.">
   <title>Login / Sign Up | Resumatic AI</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon2.ico') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .tab-button {
-      transition: all 0.3s ease;
+    /* Background waves to match the provided reference image */
+    .auth-bg {
+      background: radial-gradient(1200px 600px at 20% 20%, rgba(59, 130, 246, 0.35), transparent 60%),
+        radial-gradient(900px 500px at 80% 25%, rgba(99, 102, 241, 0.30), transparent 55%),
+        radial-gradient(900px 600px at 70% 85%, rgba(14, 165, 233, 0.25), transparent 60%),
+        linear-gradient(180deg, #EEF2FF 0%, #EFF6FF 38%, #F8FAFC 100%);
     }
 
-    .tab-button.active {
-      border-bottom: 2px solid #3b82f6;
-      color: #3b82f6;
+    .auth-dots {
+      background-image: radial-gradient(rgba(99, 102, 241, 0.20) 1px, transparent 1px);
+      background-size: 22px 22px;
     }
 
-    .form-error {
-      color: #dc2626;
-      font-size: 0.875rem;
-      margin-top: 0.25rem;
+    /* Reduce vertical height on short viewports (e.g., smaller laptops, mobile landscape) */
+    @media (max-height: 760px) {
+      .auth-tight {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+      }
+
+      .auth-brand {
+        margin-bottom: 0.75rem !important;
+      }
+
+      .auth-card {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+      }
+
+      .auth-divider {
+        margin-top: 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+      }
+    }
+
+    /* Mild compaction for common laptop heights so the card fully fits on initial load */
+    @media (max-height: 900px) {
+      .auth-tight {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+        /* Avoid vertical centering pushing the card below the fold */
+        justify-content: flex-start !important;
+        /* Visually "zoom out" the whole auth layout */
+        transform: scale(0.92) !important;
+        transform-origin: top center !important;
+      }
+
+      .auth-brand {
+        margin-bottom: 0.5rem !important;
+      }
+
+      .auth-card {
+        padding-top: 0.9rem !important;
+        padding-bottom: 0.9rem !important;
+      }
+
+      .auth-divider {
+        margin-top: 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+      }
     }
   </style>
 </head>
 
-<body class="bg-gray-50 flex items-center justify-center min-h-screen py-8">
-  <div class="bg-white shadow-xl rounded-lg p-8 w-full max-w-md">
-    <!-- Logo/Header -->
-    <div class="text-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">ResumaticAI</h1>
-      <p class="text-gray-600 text-sm">Resume Enhancement Platform</p>
-    </div>
+<body class="auth-bg relative min-h-screen overflow-x-hidden">
+  <!-- Decorative layers -->
+  <div aria-hidden="true" class="absolute inset-0 auth-dots opacity-40"></div>
+  <svg aria-hidden="true" class="absolute bottom-0 left-0 right-0 w-full h-[80vh] opacity-70 pointer-events-none"
+    viewBox="0 0 1440 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M0 92C160 62 280 58 420 84C560 110 680 144 820 138C960 132 1090 92 1240 78C1330 70 1388 80 1440 94L1440 240L0 240Z"
+      fill="rgb(99 102 241 / 0.24)" />
+    <path
+      d="M0 162C120 176 250 168 380 146C510 124 640 96 780 100C920 104 1060 136 1185 150C1290 162 1370 148 1440 124L1440 240L0 240Z"
+      fill="rgb(14 165 233 / 0.33)" />
+  </svg>
 
-    <!-- Tab Navigation -->
-    <div class="flex border-b border-gray-200 mb-6">
-      <button onclick="showTab('login')" id="login-tab"
-        class="tab-button active flex-1 py-3 px-4 text-center font-semibold text-gray-700 hover:text-blue-600">
-        Sign In
-      </button>
-      <button onclick="showTab('register')" id="register-tab"
-        class="tab-button flex-1 py-3 px-4 text-center font-semibold text-gray-700 hover:text-blue-600">
-        Sign Up
-      </button>
-    </div>
-
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="mb-4">
-      {% for category, message in messages %}
-      <div
-        class="p-3 rounded-lg mb-2 {% if category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'danger' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-        {{ message }}
+  <main
+    class="auth-tight relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-4 py-4 sm:py-7 pb-5 sm:pb-8">
+    <!-- Brand (top) -->
+    <div class="auth-brand mb-2 sm:mb-4 flex items-center gap-3">
+      <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="36" height="36"
+        class="h-9 w-9 rounded-xl bg-white/70 p-1 shadow-sm" />
+      <div class="text-sm sm:text-xl font-semibold tracking-tight text-slate-900">
+        <span class="font-extrabold">ResumaticAI</span><span class="font-medium text-slate-700">.com</span>
       </div>
-      {% endfor %}
     </div>
-    {% endif %}
-    {% endwith %}
 
-    <!-- Social Login Buttons -->
-    <div id="login-form" class="tab-content">
-      <div class="flex flex-col gap-3 mb-6">
-        <a href="{{ url_for('google_login') }}"
-          class="flex items-center justify-center gap-3 w-full py-3 text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-md">
-          <i class="fab fa-google text-lg"></i>
-          <span class="font-semibold">Continue with Google</span>
+    <section
+      class="auth-card w-full max-w-md rounded-3xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-slate-200/70 px-4 sm:px-8 py-3.5 sm:py-6">
+      {% if request.args.get('reset_sent') %}
+      <div class="mb-5">
+        <div class="rounded-xl px-4 py-3 text-sm bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200">
+          If an account exists with that email, a password reset link has been sent. Check your inbox and spam folder.
+        </div>
+      </div>
+      {% endif %}
+
+      {% if request.args.get('expired') == 'idle' %}
+      <div class="mb-5">
+        <div class="rounded-xl px-4 py-3 text-sm bg-blue-50 text-blue-900 ring-1 ring-blue-200">
+          For your security, you were signed out due to inactivity. Please log in again.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="mb-5 space-y-2">
+        {% for category, message in messages %}
+        <div
+          class="rounded-xl px-4 py-3 text-sm {% if category == 'success' %}bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200{% elif category == 'danger' %}bg-rose-50 text-rose-900 ring-1 ring-rose-200{% else %}bg-blue-50 text-blue-900 ring-1 ring-blue-200{% endif %}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <!-- Headings -->
+      <header class="text-center">
+        <h1 id="authTitle" class="text-base sm:text-2xl font-medium text-slate-900 leading-tight tracking-tight">
+          Create an account
+        </h1>
+      </header>
+
+      <!-- Google auth -->
+      <div class="mt-3 sm:mt-4">
+        <a id="googleAuthBtn" href="{{ url_for('google_login') }}"
+          class="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-2 text-slate-900 ring-1 ring-slate-200 shadow-sm hover:bg-slate-50 transition">
+          <span aria-hidden="true" class="inline-flex h-6 w-6 items-center justify-center">
+            <!-- Simple, recognizable Google "G" mark (inline SVG) -->
+            <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img"
+              aria-label="Google">
+              <path fill="#EA4335"
+                d="M24 9.5c3.6 0 6.1 1.6 7.5 2.9l5.1-5.1C33.5 4.5 29.2 2.5 24 2.5 14.9 2.5 7.2 7.7 4.1 15.3l6.3 4.9C12.0 14.1 17.5 9.5 24 9.5z" />
+              <path fill="#4285F4"
+                d="M45.5 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.1c-.2 2.0-1.3 5.0-3.9 7.0l6.0 4.7c3.6-3.3 7.3-8.2 7.3-14.4z" />
+              <path fill="#FBBC05"
+                d="M10.4 28.2c-.5-1.5-.8-3.1-.8-4.7s.3-3.2.8-4.7l-6.3-4.9C2.9 16.9 2.2 20.0 2.2 23.5s.7 6.6 1.9 9.4l6.3-4.7z" />
+              <path fill="#34A853"
+                d="M24 44.5c5.2 0 9.6-1.7 12.8-4.7l-6.0-4.7c-1.6 1.1-3.7 1.9-6.8 1.9-6.5 0-12.0-4.4-13.9-10.4l-6.3 4.7C7.2 39.3 14.9 44.5 24 44.5z" />
+            </svg>
+          </span>
+          <span class="font-semibold">Sign up with Google</span>
         </a>
       </div>
 
       <!-- Divider -->
-      <div class="flex items-center my-6">
-        <hr class="flex-grow border-gray-300">
-        <span class="mx-4 text-gray-400 text-sm">OR</span>
-        <hr class="flex-grow border-gray-300">
+      <div class="auth-divider my-3 sm:my-6 flex items-center gap-4">
+        <div class="h-px flex-1 bg-slate-200"></div>
+        <span class="text-xs font-semibold text-slate-400">OR</span>
+        <div class="h-px flex-1 bg-slate-200"></div>
       </div>
 
-      <!-- Email/Password Login Form -->
-      <form method="POST" action="{{ url_for('login') }}" id="loginForm">
-        <input type="hidden" name="action" value="login">
+      <!-- Register view (default, matches reference image) -->
+      <div id="registerView">
+        <form method="POST" action="{{ url_for('login') }}" id="registerForm" class="space-y-2.5 sm:space-y-4">
+          <input type="hidden" name="action" value="register">
+          <!-- Hidden fields to keep backend validation while matching the reference UI -->
+          <input type="hidden" id="register-confirm-hidden" name="confirm_password" value="">
 
-        <div class="mb-4">
-          <label for="login-email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-          <input type="email" id="login-email" name="email" required
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="you@example.com">
-        </div>
+          <div>
+            <label for="register-name" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-0.5">Name <span
+                class="text-rose-600">*</span></label>
+            <input type="text" id="register-name" name="name" required autocomplete="name"
+              class="w-full rounded-xl bg-white px-4 py-2 text-slate-900 ring-1 ring-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Your name">
+          </div>
 
-        <div class="mb-6">
-          <label for="login-password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-          <input type="password" id="login-password" name="password" required
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter your password">
-        </div>
+          <div>
+            <label for="register-email" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-0.5">Email <span
+                class="text-rose-600">*</span></label>
+            <input type="email" id="register-email" name="email" required autocomplete="email"
+              class="w-full rounded-xl bg-white px-4 py-2 text-slate-900 ring-1 ring-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="you@example.com">
+          </div>
 
-        <div class="mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <div></div>
-            <a href="{{ url_for('forgot_password') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              Forgot Password?
+          <div>
+            <label for="register-password" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-0.5">Password
+              <span class="text-rose-600">*</span></label>
+            <div class="relative">
+              <input type="password" id="register-password" name="password" required minlength="8"
+                autocomplete="new-password"
+                class="w-full rounded-xl bg-white px-4 py-2 pr-12 text-slate-900 ring-1 ring-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter a password">
+              <button type="button" data-toggle-password="register-password"
+                class="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true">
+                  <path d="M2 12C3.6 7.8 7.4 5 12 5C16.6 5 20.4 7.8 22 12C20.4 16.2 16.6 19 12 19C7.4 19 3.6 16.2 2 12Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                  <path
+                    d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                    stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-slate-500 hidden sm:block">Must be at least 8 characters.</p>
+          </div>
+
+          <button type="submit"
+            class="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 px-4 py-2 font-semibold text-white shadow-lg hover:from-cyan-600 hover:to-indigo-700 transition">
+            Create Account
+          </button>
+
+          <p class="text-center text-sm text-slate-700">
+            Already have an account?
+            <button type="button" id="toLogin" class="font-semibold text-indigo-700 hover:text-indigo-900">
+              Log in
+            </button>
+          </p>
+        </form>
+      </div>
+
+      <!-- Login view -->
+      <div id="loginView" class="hidden">
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm" class="space-y-2.5 sm:space-y-4">
+          <input type="hidden" name="action" value="login">
+
+          <div>
+            <label for="login-email" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-0.5">Email <span
+                class="text-rose-600">*</span></label>
+            <input type="email" id="login-email" name="email" required autocomplete="email"
+              class="w-full rounded-xl bg-white px-4 py-2 text-slate-900 ring-1 ring-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="you@example.com">
+          </div>
+
+          <div>
+            <label for="login-password" class="block text-xs sm:text-sm font-semibold text-slate-700 mb-0.5">Password
+              <span class="text-rose-600">*</span></label>
+            <div class="relative">
+              <input type="password" id="login-password" name="password" required autocomplete="current-password"
+                class="w-full rounded-xl bg-white px-4 py-2 pr-12 text-slate-900 ring-1 ring-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter your password">
+              <button type="button" data-toggle-password="login-password"
+                class="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                aria-label="Show password">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true">
+                  <path d="M2 12C3.6 7.8 7.4 5 12 5C16.6 5 20.4 7.8 22 12C20.4 16.2 16.6 19 12 19C7.4 19 3.6 16.2 2 12Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                  <path
+                    d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                    stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end">
+            <a href="{{ url_for('forgot_password') }}"
+              class="text-xs sm:text-sm font-semibold text-indigo-700 hover:text-indigo-900">
+              Forgot password?
             </a>
           </div>
-        </div>
 
-        <button type="submit"
-          class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors mb-4">
-          Sign In
-        </button>
-      </form>
-    </div>
+          <button type="submit"
+            class="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 px-4 py-2 font-semibold text-white shadow-lg hover:from-cyan-600 hover:to-indigo-700 transition">
+            Log in
+          </button>
 
-    <!-- Register Form -->
-    <div id="register-form" class="tab-content hidden">
-
-      <div class="flex flex-col gap-3 mb-6">
-        <a href="{{ url_for('google_login') }}"
-          class="flex items-center justify-center gap-3 w-full py-3 text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-md">
-          <i class="fab fa-google text-lg"></i>
-          <span class="font-semibold">Continue with Google</span>
-        </a>
+          <p class="text-center text-sm text-slate-700">
+            Don't have an account?
+            <button type="button" id="toRegister" class="font-semibold text-indigo-700 hover:text-indigo-900">
+              Create one
+            </button>
+          </p>
+        </form>
       </div>
 
-      <!-- Divider -->
-      <div class="flex items-center my-6">
-        <hr class="flex-grow border-gray-300">
-        <span class="mx-4 text-gray-400 text-sm">OR</span>
-        <hr class="flex-grow border-gray-300">
-      </div>
-
-      <!-- Email/Password Registration Form -->
-      <form method="POST" action="{{ url_for('login') }}" id="registerForm">
-        <input type="hidden" name="action" value="register">
-
-        <div class="mb-4">
-          <label for="register-name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-          <input type="text" id="register-name" name="name" required
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="John Doe">
-        </div>
-
-        <div class="mb-4">
-          <label for="register-email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-          <input type="email" id="register-email" name="email" required
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="you@example.com">
-        </div>
-
-        <div class="mb-4">
-          <label for="register-password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-          <input type="password" id="register-password" name="password" required minlength="8"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="At least 8 characters">
-          <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long</p>
-        </div>
-
-        <div class="mb-6">
-          <label for="register-confirm-password" class="block text-sm font-medium text-gray-700 mb-2">Confirm
-            Password</label>
-          <input type="password" id="register-confirm-password" name="confirm_password" required minlength="8"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Re-enter your password">
-          <p id="password-match" class="text-xs mt-1 hidden"></p>
-        </div>
-
-        <button type="submit"
-          class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors mb-4">
-          Create Account
-        </button>
-      </form>
-    </div>
-
-    <!-- Footer -->
-    <p class="text-center text-xs text-gray-500 mt-6">
-      By signing in, you agree to our
-      <a href="{{ url_for('terms_privacy') }}" class="text-blue-600 hover:text-blue-800 underline">Terms of Service</a>
-      and
-      <a href="{{ url_for('privacy') }}" class="text-blue-600 hover:text-blue-800 underline">Privacy Policy</a>
-    </p>
-  </div>
+      <p class="mt-3 sm:mt-6 text-center text-xs text-slate-600">
+        By registering you agree to ResumaticAI.com's
+        <a href="{{ url_for('terms_privacy') }}"
+          class="underline underline-offset-2 text-slate-700 hover:text-slate-900">Terms of Service</a>
+        and
+        <a href="{{ url_for('privacy') }}"
+          class="underline underline-offset-2 text-slate-700 hover:text-slate-900">Privacy Policy</a>
+      </p>
+    </section>
+  </main>
 
   <script>
-    function showTab(tab) {
-      // Hide all forms
-      document.getElementById('login-form').classList.add('hidden');
-      document.getElementById('register-form').classList.add('hidden');
+    (function () {
+      var registerView = document.getElementById('registerView');
+      var loginView = document.getElementById('loginView');
+      var toLogin = document.getElementById('toLogin');
+      var toRegister = document.getElementById('toRegister');
+      var authTitle = document.getElementById('authTitle');
+      var googleBtn = document.getElementById('googleAuthBtn');
 
-      // Remove active class from all tabs
-      document.getElementById('login-tab').classList.remove('active');
-      document.getElementById('register-tab').classList.remove('active');
+      function setMode(mode) {
+        var isRegister = (mode === 'register');
+        if (registerView) registerView.classList.toggle('hidden', !isRegister);
+        if (loginView) loginView.classList.toggle('hidden', isRegister);
 
-      // Show selected form and activate tab
-      if (tab === 'login') {
-        document.getElementById('login-form').classList.remove('hidden');
-        document.getElementById('login-tab').classList.add('active');
-      } else {
-        document.getElementById('register-form').classList.remove('hidden');
-        document.getElementById('register-tab').classList.add('active');
+        if (authTitle) {
+          authTitle.textContent = isRegister ? 'Create an account' : 'Log in to ResumaticAI';
+        }
+        if (googleBtn) {
+          googleBtn.querySelector('span.font-semibold').textContent = isRegister ? 'Sign up with Google' : 'Sign in with Google';
+        }
       }
-    }
 
-    // Password match validation
-    const registerPassword = document.getElementById('register-password');
-    const confirmPassword = document.getElementById('register-confirm-password');
-    const passwordMatch = document.getElementById('password-match');
+      if (toLogin) toLogin.addEventListener('click', function () { setMode('login'); });
+      if (toRegister) toRegister.addEventListener('click', function () { setMode('register'); });
 
-    if (confirmPassword) {
-      confirmPassword.addEventListener('input', function () {
-        if (registerPassword.value && confirmPassword.value) {
-          passwordMatch.classList.remove('hidden');
-          if (registerPassword.value === confirmPassword.value) {
-            passwordMatch.textContent = 'Passwords match ✓';
-            passwordMatch.className = 'text-xs mt-1 text-green-600';
-            confirmPassword.setCustomValidity('');
-          } else {
-            passwordMatch.textContent = 'Passwords do not match';
-            passwordMatch.className = 'text-xs mt-1 text-red-600';
-            confirmPassword.setCustomValidity('Passwords do not match');
+      // Password visibility toggles
+      var toggles = document.querySelectorAll('button[data-toggle-password]');
+      for (var i = 0; i < toggles.length; i++) {
+        toggles[i].addEventListener('click', function (e) {
+          var id = this.getAttribute('data-toggle-password');
+          var input = document.getElementById(id);
+          if (!input) return;
+          var isHidden = (input.type === 'password');
+          input.type = isHidden ? 'text' : 'password';
+          this.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+        });
+      }
+
+      // Keep backend validation satisfied while matching the reference UI
+      var registerForm = document.getElementById('registerForm');
+      if (registerForm) {
+        registerForm.addEventListener('submit', function () {
+          var emailEl = document.getElementById('register-email');
+          var pwEl = document.getElementById('register-password');
+          var nameEl = document.getElementById('register-name');
+          var confirmHidden = document.getElementById('register-confirm-hidden');
+
+          var email = (emailEl && emailEl.value || '').trim();
+          var password = (pwEl && pwEl.value || '');
+
+          if (confirmHidden) confirmHidden.value = password;
+          // If the name is blank for any reason, fall back to deriving it from email
+          // so server-side validation can still pass.
+          if (nameEl && !String(nameEl.value || '').trim()) {
+            var derived = '';
+            if (email.indexOf('@') > 0) derived = email.split('@')[0];
+            derived = (derived || 'ResumaticAI User').replace(/[._-]+/g, ' ').trim();
+            nameEl.value = derived;
           }
-        } else {
-          passwordMatch.classList.add('hidden');
-          confirmPassword.setCustomValidity('');
-        }
-      });
-    }
-
-    // Form validation
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-      registerForm.addEventListener('submit', function (e) {
-        if (registerPassword.value !== confirmPassword.value) {
-          e.preventDefault();
-          alert('Passwords do not match. Please try again.');
-          return false;
-        }
-        if (registerPassword.value.length < 8) {
-          e.preventDefault();
-          alert('Password must be at least 8 characters long.');
-          return false;
-        }
-      });
-    }
-
-    // Honor server-side preferred initial tab (helps keep Sign Up visible on validation errors)
-    try {
-      const initialTab = "{{ active_tab | default('login') }}";
-      if (initialTab === 'register') {
-        showTab('register');
-      } else {
-        showTab('login');
+        });
       }
-    } catch (e) {
-      // no-op
-    }
+
+      // Honor server-side preferred initial view (used on validation errors)
+      try {
+        var initialTab = "{{ active_tab | default('') }}";
+        // Client-side fallback: honor the URL query param too (e.g. /login?tab=register)
+        try {
+          var qs = new URLSearchParams(window.location.search || '');
+          var tabParam = String(qs.get('tab') || '').trim().toLowerCase();
+          if (tabParam) {
+            if (tabParam === 'register' || tabParam === 'signup' || tabParam === 'sign-up' || tabParam === 'create' || tabParam === 'create-account') {
+              initialTab = 'register';
+            } else if (tabParam === 'login' || tabParam === 'signin' || tabParam === 'sign-in') {
+              initialTab = 'login';
+            }
+          }
+        } catch (e2) {
+          // ignore
+        }
+        initialTab = String(initialTab || '').trim().toLowerCase();
+        setMode(initialTab === 'register' ? 'register' : 'login');
+      } catch (e) {
+        setMode('login');
+      }
+    })();
   </script>
 </body>
 

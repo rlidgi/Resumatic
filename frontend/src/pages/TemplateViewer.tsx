@@ -2,59 +2,27 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import ProfessionalTemplate from '../components/templates/ProfessionalTemplate';
 import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
-import ElegantTemplate from '../components/templates/ElegantTemplate';
-import CreativeTemplate from '../components/templates/CreativeTemplate';
+import Creative2Template from '../components/templates/Creative2Template';
+import ClassicRoseTemplate from '../components/templates/ClassicRoseTemplate';
 import BoldProfessionalTemplate from '../components/templates/BoldProfessionalTemplate';
 import TraditionalTemplate from '../components/templates/TraditionalTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
+import CleanTemplate from '../components/templates/CleanTemplate';
 import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
 
-const TemplateRenderer = React.memo(
-    function TemplateRenderer(props: {
-        Component: React.ComponentType<any>;
-        content: string;
-        editMode: boolean;
-        sectionOrder: string[];
-        onSectionOrderChange: (order: string[]) => void;
-        hiddenSectionKeys: string[];
-        onHiddenSectionKeysChange: (keys: string[]) => void;
-        onContentChange?: (changes: any) => void;
-    }) {
-        const {
-            Component,
-            content,
-            editMode,
-            sectionOrder,
-            onSectionOrderChange,
-            hiddenSectionKeys,
-            onHiddenSectionKeysChange,
-            onContentChange,
-        } = props;
-
-        return (
-            <Component
-                content={content}
-                editMode={editMode}
-                sectionOrder={sectionOrder}
-                onSectionOrderChange={onSectionOrderChange}
-                hiddenSectionKeys={hiddenSectionKeys}
-                onHiddenSectionKeysChange={onHiddenSectionKeysChange}
-                onContentChange={onContentChange}
-            />
-        );
-    },
-    (prev, next) =>
-        prev.Component === next.Component &&
-        prev.content === next.content &&
-        prev.editMode === next.editMode &&
-        prev.sectionOrder === next.sectionOrder &&
-        prev.onSectionOrderChange === next.onSectionOrderChange &&
-        prev.hiddenSectionKeys === next.hiddenSectionKeys &&
-        prev.onHiddenSectionKeysChange === next.onHiddenSectionKeysChange &&
-        prev.onContentChange === next.onContentChange,
-);
+const TEMPLATE_DISPLAY_NAMES: Record<string, string> = {
+    classicrose: 'Classic',
+    classic_rose: 'Classic',
+    minimalsidebar: 'Clean',
+    minimal_sidebar: 'Clean',
+    creative2: 'Creative',
+    creative_2: 'Creative',
+};
 
 function formatTemplateDisplayName(raw?: string): string {
+    const key = String(raw || '').toLowerCase().replace(/[-_]/g, '');
+    if (TEMPLATE_DISPLAY_NAMES[key]) return TEMPLATE_DISPLAY_NAMES[key];
+
     const normalized = String(raw || '')
         .replace(/[_-]+/g, ' ')
         .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -80,12 +48,112 @@ export default function TemplateViewer() {
     const returnTo = String(qs.get('return') || '').trim();
     const editParam = String(qs.get('edit') || '').trim().toLowerCase();
     const ridParam = String(qs.get('rid') || '').trim();
+    const embedParam = String(qs.get('embed') || '').trim().toLowerCase();
+    const isEmbed = embedParam === '1' || embedParam === 'true';
+
+    // Embed mode is rendered inside an iframe (create-resume wizard preview).
+    // Avoid "phantom" root scrollbars by disabling html/body scrolling and using
+    // the root container as the only scroll surface.
+    useEffect(() => {
+        if (!isEmbed) return;
+
+        const html = document.documentElement;
+        const body = document.body;
+
+        const prev = {
+            htmlOverflow: html.style.overflow,
+            htmlOverflowX: html.style.overflowX,
+            htmlOverflowY: html.style.overflowY,
+            bodyOverflow: body.style.overflow,
+            bodyOverflowX: body.style.overflowX,
+            bodyOverflowY: body.style.overflowY,
+            bodyMargin: body.style.margin,
+            rootOverflowY: embedRootRef.current?.style.overflowY || '',
+            rootOverscroll: embedRootRef.current?.style.overscrollBehaviorY || '',
+        };
+
+        // Never allow the document root to scroll in embed mode.
+        // The `.tv-embed` container will handle scrolling.
+        html.style.overflow = 'hidden';
+        html.style.overflowX = 'hidden';
+        html.style.overflowY = 'hidden';
+        body.style.overflow = 'hidden';
+        body.style.overflowX = 'hidden';
+        body.style.overflowY = 'hidden';
+        body.style.margin = '0';
+
+        const HIDE_CLASS = 'tv-embed-no-scrollbar';
+        const updateScrollbarVisibility = () => {
+            const root = embedRootRef.current;
+            if (!root) return;
+
+            const delta = root.scrollHeight - root.clientHeight;
+            // Ignore tiny overflows caused by subpixel rounding / transforms.
+            const scrollable = delta > 8;
+
+            // Only allow vertical scrolling when needed.
+            // This prevents "always-on" scrollbars for short content.
+            root.style.overflowY = scrollable ? 'auto' : 'hidden';
+            root.style.overscrollBehaviorY = 'contain';
+
+            root.classList.toggle(HIDE_CLASS, !scrollable);
+
+            if (!scrollable) root.scrollTop = 0;
+        };
+
+        const styleEl = document.createElement('style');
+        styleEl.setAttribute('data-tv-embed-scrollbar-fix', '1');
+        styleEl.textContent = `
+            .tv-embed.${HIDE_CLASS},
+            .tv-embed.${HIDE_CLASS} * {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .tv-embed.${HIDE_CLASS}::-webkit-scrollbar,
+            .tv-embed.${HIDE_CLASS} *::-webkit-scrollbar {
+                width: 0;
+                height: 0;
+            }
+        `;
+        document.head.appendChild(styleEl);
+
+        // Recompute on layout changes so the scrollbar is only hidden when content fits.
+        const rafUpdate = () => window.requestAnimationFrame(updateScrollbarVisibility);
+        const onResize = () => rafUpdate();
+        window.addEventListener('resize', onResize);
+
+        let ro: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== 'undefined') {
+            ro = new ResizeObserver(() => rafUpdate());
+            ro.observe(embedRootRef.current || body);
+        }
+
+        rafUpdate();
+        const intervalId = window.setInterval(updateScrollbarVisibility, 750);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('resize', onResize);
+            ro?.disconnect();
+            embedRootRef.current?.classList.remove(HIDE_CLASS);
+            if (embedRootRef.current) {
+                embedRootRef.current.style.overflowY = prev.rootOverflowY;
+                embedRootRef.current.style.overscrollBehaviorY = prev.rootOverscroll;
+            }
+            styleEl.remove();
+            html.style.overflow = prev.htmlOverflow;
+            html.style.overflowX = prev.htmlOverflowX;
+            html.style.overflowY = prev.htmlOverflowY;
+            body.style.overflow = prev.bodyOverflow;
+            body.style.overflowX = prev.bodyOverflowX;
+            body.style.overflowY = prev.bodyOverflowY;
+            body.style.margin = prev.bodyMargin;
+        };
+    }, [isEmbed]);
     // When users come from the "Create new resume" flow, they land here with ?edit=1
     // and no analysis/results context. In that case, "Back to Results" is misleading.
-    const isCreateNewResumeFlow = !isDownloadOnly && !returnTo && (editParam === '1' || editParam === 'true') && !ridParam;
-    const showBackLink = !isCreateNewResumeFlow;
+    const isCreateNewResumeFlow = !isEmbed && !isDownloadOnly && !returnTo && (editParam === '1' || editParam === 'true') && !ridParam;
     const backHref = returnTo || (isCreateNewResumeFlow ? '/' : '/results');
-    const backLabel = 'Back to Results';
     const [resumeData, setResumeData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -109,6 +177,7 @@ export default function TemplateViewer() {
     const [pdfPreviewPages, setPdfPreviewPages] = useState(1);
     const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1056);
     const [pdfPreviewSnapshotHtml, setPdfPreviewSnapshotHtml] = useState<string>('');
+    const embedRootRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewMeasureInnerRef = useRef<HTMLDivElement | null>(null);
     const autoDownloadTriggeredRef = useRef(false);
@@ -121,10 +190,12 @@ export default function TemplateViewer() {
     const [editingExperienceIndex, setEditingExperienceIndex] = useState<number | null>(null);
     const [showAllWorkHistoryDescriptions, setShowAllWorkHistoryDescriptions] = useState(false);
 
-    // AI edit assistance (summary + experience description)
+    // AI edit assistance (summary + experience + projects + custom sections)
     const [aiEditError, setAiEditError] = useState<string | null>(null);
     const [aiBusySummary, setAiBusySummary] = useState(false);
     const [aiBusyExperience, setAiBusyExperience] = useState<Record<number, boolean>>({});
+    const [aiBusyProjects, setAiBusyProjects] = useState<Record<number, boolean>>({});
+    const [aiBusyCustom, setAiBusyCustom] = useState<Record<string, boolean>>({});
 
     // Download feedback modal (shown after printing/export)
     const [downloadFeedbackOpen, setDownloadFeedbackOpen] = useState(false);
@@ -133,6 +204,11 @@ export default function TemplateViewer() {
     const [downloadFeedbackComparison, setDownloadFeedbackComparison] = useState<'improved' | 'same' | 'worse' | ''>('');
     const [downloadFeedbackComment, setDownloadFeedbackComment] = useState('');
     const [downloadFeedbackSubmitting, setDownloadFeedbackSubmitting] = useState(false);
+
+    const DOWNLOAD_FEEDBACK_DELAY_MS = 60_000;
+    const downloadFeedbackTimeoutRef = useRef<number | null>(null);
+    const meRef = useRef<typeof me>(null);
+    const downloadFeedbackOpenRef = useRef(false);
 
     // Inline editing mode
     const [inlineEditMode, setInlineEditMode] = useState(false);
@@ -161,11 +237,6 @@ export default function TemplateViewer() {
     // Mobile-only fullscreen preview
     const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
-    // In edit mode, typing into sidebar fields should not re-render the preview on each keystroke.
-    // Keep keystrokes in local draft state and commit to resumeData only on blur (or Save).
-    const [draftFields, setDraftFields] = useState<Record<string, string>>({});
-    const [draftExperienceDescriptions, setDraftExperienceDescriptions] = useState<Record<number, string>>({});
-
     useEffect(() => {
         if (!mobileNavOpen) return;
         const onKeyDown = (e: KeyboardEvent) => {
@@ -192,6 +263,23 @@ export default function TemplateViewer() {
         };
     }, [mobilePreviewOpen]);
 
+    useEffect(() => {
+        meRef.current = me;
+    }, [me]);
+
+    useEffect(() => {
+        downloadFeedbackOpenRef.current = downloadFeedbackOpen;
+    }, [downloadFeedbackOpen]);
+
+    useEffect(() => {
+        return () => {
+            if (downloadFeedbackTimeoutRef.current != null) {
+                window.clearTimeout(downloadFeedbackTimeoutRef.current);
+                downloadFeedbackTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
     // Debug logging
     useEffect(() => {
         console.log('TemplateViewer: inlineEditMode changed to:', inlineEditMode);
@@ -212,19 +300,48 @@ export default function TemplateViewer() {
     }, [inlineEditMode]);
 
     useEffect(() => {
-        fetch('/api/me', { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(data => setMe(data))
-            .catch(() => setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }));
+        let cancelled = false;
+        const loadMe = () => {
+            fetch('/api/me', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => { if (!cancelled) setMe(data); })
+                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }); });
+        };
+        loadMe();
+
+        // If the user purchases in another tab (or returns from Stripe), refresh plan gating on focus.
+        const onFocus = () => loadMe();
+        const onVis = () => { if (document.visibilityState === 'visible') loadMe(); };
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVis);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVis);
+        };
     }, []);
 
     function openDownloadFeedbackModal() {
-        if (!me?.is_authenticated) return;
+        if (!meRef.current?.is_authenticated) return;
         setDownloadFeedbackRating(0);
         setDownloadFeedbackComparison('');
         setDownloadFeedbackComment('');
         setDownloadFeedbackSubmitting(false);
         setDownloadFeedbackOpen(true);
+    }
+
+    function scheduleDownloadFeedbackModal() {
+        if (!meRef.current?.is_authenticated) return;
+        if (downloadFeedbackTimeoutRef.current != null) {
+            window.clearTimeout(downloadFeedbackTimeoutRef.current);
+            downloadFeedbackTimeoutRef.current = null;
+        }
+        downloadFeedbackTimeoutRef.current = window.setTimeout(() => {
+            downloadFeedbackTimeoutRef.current = null;
+            if (!meRef.current?.is_authenticated) return;
+            if (downloadFeedbackOpenRef.current) return;
+            openDownloadFeedbackModal();
+        }, DOWNLOAD_FEEDBACK_DELAY_MS);
     }
 
     function closeDownloadFeedbackModal() {
@@ -256,7 +373,7 @@ export default function TemplateViewer() {
         }
     }
 
-    function printElementViaHiddenIframe(el: HTMLElement): Promise<void> {
+    function printElementViaHiddenIframe(el: HTMLElement, settings: { fontScale: number; paragraphGapPx: number; spacingScale: number }): Promise<void> {
         // Popup-free export: print dialog using an isolated iframe (no popup), prints only the resume DOM.
         // We render into a fixed Letter canvas with @page margin 0, but add a controlled "print padding"
         // so the PDF matches the on-page HTML spacing.
@@ -279,8 +396,18 @@ export default function TemplateViewer() {
 
             const isOnePage = false;
 
+            // Explicitly inject style settings into print context so PDF matches on-screen adjustments
+            const fs = String(settings.fontScale);
+            const pg = `${settings.paragraphGapPx}px`;
+            const ss = String(settings.spacingScale);
+
             const printCss = `
-          @page { size: letter; margin: 0 !important; }
+          #printTarget, #printTarget .tv-style-root {
+            --tv-font-scale: ${fs};
+            --tv-paragraph-gap: ${pg};
+            --tv-space-scale: ${ss};
+          }
+                    @page { size: letter; margin: 8mm 0mm !important; }
           html, body {
             width: ${pageWidthPx}px;
             margin: 0 !important;
@@ -303,6 +430,26 @@ export default function TemplateViewer() {
             box-sizing: border-box !important;
             padding: ${printPadPx}px !important;
           }
+                    /* Many templates have an outer wrapper with top padding/margin (e.g., Tailwind p-8 or pt-9).
+                         That spacing only applies at the start of the document, making page 1 look like it
+                         has a larger top margin than page 2+. Strip only the TOP spacing from the first wrapper
+                         and rely on @page margin for consistent per-page top whitespace. */
+                    #printTarget > *:first-child {
+                        margin-top: 0 !important;
+                        padding-top: 0 !important;
+                    }
+                    #printTarget > *:first-child > :first-of-type {
+                        margin-top: 0 !important;
+                        padding-top: 0 !important;
+                    }
+                    #printTarget > *:first-child > :first-of-type > :first-of-type {
+                        margin-top: 0 !important;
+                        padding-top: 0 !important;
+                    }
+                    #printTarget > *:first-child > :first-of-type > :first-of-type > :first-of-type {
+                        margin-top: 0 !important;
+                        padding-top: 0 !important;
+                    }
           /* Fill the printable canvas edge-to-edge (strip outer "card" gutters like mx-auto/max-w-*) */
           #printTarget > * {
             width: ${availW}px !important;
@@ -403,6 +550,31 @@ export default function TemplateViewer() {
           #printTarget .tv-style-root .pb-0 { padding-bottom: 0 !important; }
           /* Scaling (set by JS) */
           #printTarget[data-scale] > * { transform-origin: top left !important; }
+
+             /* Creative2 template: preserve its left accent gutter (pl-12) and right padding (pr-8)
+                 while slightly compacting vertical padding for multi-page print/PDF. */
+             #printTarget [data-template="creative2"] .creative2-body { padding-left: 3rem !important; padding-right: 2rem !important; padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+          #printTarget [data-template="creative2"] .creative2-body > div:first-child { margin-bottom: 0.5rem !important; }
+          #printTarget [data-template="creative2"] .creative2-summary { margin-top: 0.25rem !important; line-height: 1.35 !important; max-width: none !important; }
+                    /* Printing fragmentation: keep normal flow, but render a two-column layout via floats (more paginatable than CSS grid). */
+                    #printTarget [data-template="creative2"] .creative2-grid { display: block !important; }
+                    #printTarget [data-template="creative2"] .creative2-grid::after { content: "" !important; display: block !important; clear: both !important; }
+                    #printTarget [data-template="creative2"] .creative2-grid > aside { float: left !important; width: 32% !important; }
+                    #printTarget [data-template="creative2"] .creative2-grid > main { display: block !important; margin-left: 36% !important; }
+                    #printTarget [data-template="creative2"] .creative2-grid > * + * { margin-top: 0 !important; }
+          #printTarget [data-template="creative2"] .creative2-template section { margin-bottom: 0.5rem !important; }
+          #printTarget [data-template="creative2"] .creative2-template section h3 { margin-bottom: 0.25rem !important; }
+          #printTarget [data-template="creative2"] .creative2-template .space-y-4 > * + * { margin-top: 0.5rem !important; }
+          #printTarget [data-template="creative2"] .creative2-template .space-y-5 > * + * { margin-top: 0.5rem !important; }
+          #printTarget [data-template="creative2"] .creative2-template .space-y-2 > * + * { margin-top: 0.25rem !important; }
+          /* Allow header/summary to break normally so body can start on page 1 when space is tight */
+          #printTarget [data-template="creative2"] .creative2-body > div:first-child { page-break-after: auto !important; break-after: auto !important; }
+                    /* IMPORTANT: allow the main body to paginate (grid is forced to block above) */
+                    #printTarget [data-template="creative2"] .creative2-grid { page-break-before: auto !important; page-break-inside: auto !important; break-inside: auto !important; }
+                    /* Keep individual items together where possible (but still allow the section as a whole to span pages) */
+                    /* Allow long items to split across pages; avoid flex in print which often prevents fragmentation */
+                    #printTarget [data-template="creative2"] .creative2-item { display: flow-root !important; page-break-inside: auto !important; break-inside: auto !important; }
+                    #printTarget [data-template="creative2"] .creative2-item > span { float: left !important; margin-right: 0.75rem !important; }
         `;
 
             const iframe = document.createElement('iframe');
@@ -515,14 +687,10 @@ export default function TemplateViewer() {
                 return;
             }
             // Use isolated iframe print to preserve layout (avoids OKLCH parsing issues in html2canvas)
-            await printElementViaHiddenIframe(root);
+            await printElementViaHiddenIframe(root, styleSettings);
 
-            // After print dialog closes (printed or cancelled), wait a short moment then show feedback modal.
-            if (me?.is_authenticated) {
-                window.setTimeout(() => {
-                    openDownloadFeedbackModal();
-                }, 2000);
-            }
+            // After PDF export, wait then show feedback modal.
+            scheduleDownloadFeedbackModal();
         } catch (e: any) {
             console.error('PDF export failed:', e);
             alert(`PDF export failed (${e?.message || 'unknown error'}).`);
@@ -535,29 +703,59 @@ export default function TemplateViewer() {
         if (downloadingPdf) return;
         setDownloadingPdf(true);
         try {
-            const root =
-                document.getElementById('templatePrintContent') ||
-                pdfPreviewMeasureInnerRef.current ||
-                document.getElementById('templatePrintRoot');
-            if (!root) {
-                throw new Error('Could not find the resume element to export.');
+            const filename = `resume-${String(templateName || 'resume')}.pdf`;
+            const safeTemplate = String(templateName || 'professional');
+            const qs = new URLSearchParams({
+                fontScale: String(styleSettings.fontScale),
+                paragraphGapPx: String(styleSettings.paragraphGapPx),
+                spacingScale: String(styleSettings.spacingScale),
+            });
+            // Cache-bust: browsers/proxies sometimes cache GET PDFs even when content changes.
+            qs.set('_ts', String(Date.now()));
+            const pdfEndpointUrl = `/api/template-pdf/${encodeURIComponent(safeTemplate)}?${qs.toString()}`;
+            const controller = new AbortController();
+            const timeoutMs = 120_000;
+            const t = window.setTimeout(() => controller.abort(), timeoutMs);
+            const res = await fetch(pdfEndpointUrl, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    Accept: 'application/pdf',
+                    'Cache-Control': 'no-cache',
+                    Pragma: 'no-cache',
+                },
+                signal: controller.signal,
+            });
+            window.clearTimeout(t);
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `HTTP ${res.status}`);
+            }
+            const ct = String(res.headers.get('content-type') || '');
+            if (!ct.toLowerCase().includes('application/pdf')) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `Unexpected response (${ct || 'no content-type'})`);
+            }
+            const blob = await res.blob();
+            if (!blob || blob.size < 200) {
+                throw new Error(`PDF generation returned an empty file. You can also try opening ${pdfEndpointUrl} directly.`);
+            }
+            const blobUrl = URL.createObjectURL(blob);
+            try {
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } finally {
+                window.setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             }
 
-            // True download (no print dialog): html2pdf.js
-            const mod: any = await import('html2pdf.js');
-            const html2pdf: any = mod?.default || mod;
-
-            const filename = `resume-${String(templateName || 'resume')}.pdf`;
-            await html2pdf()
-                .from(root)
-                .set({
-                    margin: 0.2,
-                    filename,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-                })
-                .save();
+            if (!isDownloadOnly && me?.is_authenticated) {
+                scheduleDownloadFeedbackModal();
+            }
             return true;
         } catch (e: any) {
             console.error('PDF download failed:', e);
@@ -570,8 +768,6 @@ export default function TemplateViewer() {
     const loadTemplateData = React.useCallback(async () => {
         console.log('TemplateViewer: Fetching template data...');
         try {
-            setDraftFields({});
-            setDraftExperienceDescriptions({});
             const res = await fetch('/api/template-data');
             console.log('TemplateViewer: Response status:', res.status);
             if (!res.ok) {
@@ -687,9 +883,9 @@ export default function TemplateViewer() {
         window.setTimeout(attemptDownload, 100);
     }, [resumeData, loading, error, isDownloadOnly]);
 
-    async function saveEditedResume(resumeOverride?: any): Promise<boolean> {
+    async function saveEditedResume(resumeOverride?: any) {
         const payloadResume = resumeOverride ?? resumeData;
-        if (!payloadResume) return false;
+        if (!payloadResume) return;
         setEditSaving(true);
         setEditSaveError(null);
         setEditSaveSuccess(false);
@@ -739,11 +935,8 @@ export default function TemplateViewer() {
                 }
                 window.setTimeout(() => setEditSaveHubMessage(null), 8000);
             }
-
-            return true;
         } catch (e: any) {
             setEditSaveError(e?.message || 'Failed to save changes.');
-            return false;
         } finally {
             setEditSaving(false);
         }
@@ -753,40 +946,11 @@ export default function TemplateViewer() {
         setResumeData((prev: any) => ({ ...(prev || {}), [key]: value }));
     };
 
-    const clearDraftField = React.useCallback((key: string) => {
-        setDraftFields((prev) => {
-            if (!prev || !(key in prev)) return prev || {};
-            const next = { ...(prev || {}) };
-            delete next[key];
-            return next;
-        });
-    }, []);
-
-    const setDraftField = React.useCallback((key: string, value: string) => {
-        setDraftFields((prev) => ({ ...(prev || {}), [key]: String(value ?? '') }));
-    }, []);
-
-    const commitDraftField = React.useCallback((key: string, value: string) => {
-        clearDraftField(key);
-        setField(key, value);
-    }, [clearDraftField]);
-
-    const clearDraftExperienceDescription = React.useCallback((idx: number) => {
-        setDraftExperienceDescriptions((prev) => {
-            if (!prev || !(idx in prev)) return prev || {};
-            const next = { ...(prev || {}) };
-            delete next[idx];
-            return next;
-        });
-    }, []);
-
-    const setDraftExperienceDescription = React.useCallback((idx: number, value: string) => {
-        setDraftExperienceDescriptions((prev) => ({ ...(prev || {}), [idx]: String(value ?? '') }));
-    }, []);
-
-    const handleTemplateContentChange = React.useCallback((changes: any) => {
-        setInlineEditChanges((prev: any) => ({ ...(prev || {}), ...(changes || {}) }));
-    }, []);
+    const getSectionLabel = (key: string, fallback: string): string => {
+        const h = resumeData?.section_headings?.[key];
+        const s = String(h ?? '').trim();
+        return s ? s : fallback;
+    };
 
     const normalizeList = (v: any): string[] => {
         if (!v) return [];
@@ -806,33 +970,125 @@ export default function TemplateViewer() {
         });
     };
 
-    const commitDraftExperienceDescription = React.useCallback((idx: number, value: string) => {
-        clearDraftExperienceDescription(idx);
-        updateExperienceDescription(idx, value);
-    }, [clearDraftExperienceDescription]);
-
-    const applyDraftsToResume = React.useCallback((baseResume: any) => {
-        const base = baseResume || {};
-        const next: any = { ...base };
-
-        for (const [k, v] of Object.entries(draftFields || {})) {
-            next[k] = v;
-        }
-
-        const exp: any[] = Array.isArray(next.experience) ? next.experience : [];
-        const expDrafts = draftExperienceDescriptions || {};
-        if (exp.length && Object.keys(expDrafts).length > 0) {
-            next.experience = exp.map((e, i) => {
-                if (!(i in expDrafts)) return e;
-                return { ...(e || {}), description: expDrafts[i] };
+    const linksList: any[] = Array.isArray(resumeData?.links) ? resumeData.links : [];
+    const updateLinkField = (idx: number, field: 'label' | 'url', value: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.links) ? prev.links : [];
+            const nextArr = prevArr.map((l, i) => {
+                if (i !== idx) return l;
+                const cur = (l && typeof l === 'object') ? l : {};
+                if (field === 'label') return { ...(cur || {}), label: value };
+                // Keep compatibility with templates that read url||href.
+                return { ...(cur || {}), url: value };
             });
+            return { ...(prev || {}), links: nextArr };
+        });
+    };
+
+    const educationList: any[] = Array.isArray(resumeData?.education) ? resumeData.education : [];
+    const addEducationItem = () => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
+            const nextArr = [...prevArr, { degree: '', year: '', institution: '' }];
+            return { ...(prev || {}), education: nextArr };
+        });
+    };
+    const updateEducationField = (idx: number, field: string, value: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
+            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
+            return { ...(prev || {}), education: nextArr };
+        });
+    };
+
+    const projectsList: any[] = Array.isArray(resumeData?.projects) ? resumeData.projects : [];
+    const addProjectItem = () => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
+            const nextArr = [...prevArr, { title: '', technologies: '', link: '', description: '' }];
+            return { ...(prev || {}), projects: nextArr };
+        });
+    };
+    const updateProjectField = (idx: number, field: string, value: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
+            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
+            return { ...(prev || {}), projects: nextArr };
+        });
+    };
+
+    const certificationsList: any[] = Array.isArray(resumeData?.certifications) ? resumeData.certifications : [];
+    const addCertificationItem = () => {
+        // If the user previously hid (deleted) the Certifications section via the template UI,
+        // adding a certification should make it visible again.
+        const nextHidden = (Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).filter((k) => String(k) !== 'certifications');
+        setHiddenSectionKeys(nextHidden);
+
+        if (Array.isArray(sectionOrder) && sectionOrder.length > 0 && !sectionOrder.includes('certifications')) {
+            setSectionOrder([...sectionOrder, 'certifications']);
         }
 
-        return next;
-    }, [draftFields, draftExperienceDescriptions]);
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
+            const nextArr = [...prevArr, { name: '', issuer: '', year: '' }];
+            return { ...(prev || {}), certifications: nextArr };
+        });
+    };
+    const updateCertification = (idx: number, patch: any) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
+            const nextArr = prevArr.map((c, i) => {
+                if (i !== idx) return c;
+                if (typeof c === 'string') return String(patch ?? '');
+                return { ...(c || {}), ...(patch || {}) };
+            });
+            return { ...(prev || {}), certifications: nextArr };
+        });
+    };
+
+    const customSectionsList: any[] = Array.isArray(resumeData?.custom_sections) ? resumeData.custom_sections : [];
+    const addCustomSection = () => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
+            const nextArr = [...prevArr, { heading: '', content: '' }];
+            return { ...(prev || {}), custom_sections: nextArr };
+        });
+    };
+    const updateCustomSectionHeading = (sectionIndex: number, heading: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
+            const nextArr = prevArr.map((sec, i) => (i === sectionIndex ? { ...(sec || {}), heading } : sec));
+            return { ...(prev || {}), custom_sections: nextArr };
+        });
+    };
+    const updateCustomSectionBody = (sectionIndex: number, value: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
+            const nextArr = prevArr.map((sec, i) => {
+                if (i !== sectionIndex) return sec;
+                // Prefer writing to `content` (templates read content/text/body)
+                return { ...(sec || {}), content: value };
+            });
+            return { ...(prev || {}), custom_sections: nextArr };
+        });
+    };
+    const updateCustomSectionItem = (sectionIndex: number, itemIndex: number, field: string, value: string) => {
+        setResumeData((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
+            const nextArr = prevArr.map((sec, i) => {
+                if (i !== sectionIndex) return sec;
+                const cur = (sec && typeof sec === 'object') ? sec : {};
+                const items = Array.isArray(cur.items) ? [...cur.items] : [];
+                const curItem = (items[itemIndex] && typeof items[itemIndex] === 'object') ? items[itemIndex] : {};
+                items[itemIndex] = { ...(curItem || {}), [field]: value };
+                return { ...(cur || {}), items };
+            });
+            return { ...(prev || {}), custom_sections: nextArr };
+        });
+    };
 
     async function aiRewriteResumeField(args: {
-        field: 'summary' | 'experience_description';
+        field: 'summary' | 'experience_description' | 'project_description' | 'custom_section';
         text: string;
         meta?: any;
     }): Promise<string> {
@@ -867,7 +1123,19 @@ export default function TemplateViewer() {
     // - "Content scale" matches the Save-as-PDF fit logic (width-fit)
     useEffect(() => {
         const PAGE_W = 816;
-        const PAGE_H = 1056;
+        // Keep the content viewport at true Letter height (11in * 96dpi).
+        // Then grow the *page frame* to include the visual top/bottom padding.
+        const CONTENT_H = 1056;
+        // Match server-side Playwright PDF margins: 0.32in top/bottom, 0in left/right.
+        // (0.32in * 96dpi = 30.72px)
+        const PAD_TOP = 31;
+        const PAD_BOTTOM = 31;
+        // Extra visual canvas height (frame only). Does not increase the content viewport.
+        // Extra visual canvas height (frame only). Can be negative to reduce frame height
+        // while keeping the fixed 1056px content viewport unchanged.
+        const EXTRA_FRAME_PX = -20;
+        const PAGE_H = CONTENT_H + PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX;
+        const VIEW_H = CONTENT_H;
         const container = pdfPreviewContainerRef.current;
         const inner = pdfPreviewMeasureInnerRef.current;
         if (!container || !inner) return;
@@ -879,19 +1147,93 @@ export default function TemplateViewer() {
             const contentW = Math.max(1, inner.scrollWidth || inner.getBoundingClientRect().width);
             const contentH = Math.max(1, inner.scrollHeight || inner.getBoundingClientRect().height);
             const scaleW = PAGE_W / contentW;
-            const scaleH = PAGE_H / contentH;
             const s = Math.min(1, scaleW);
             setPdfPreviewContentScale(s);
 
-            const scaledH = contentH * s;
+            // Build a snapshot with explicit per-section "push to next page" spacers.
+            // This keeps section blocks from being split by the preview's page windowing,
+            // so the on-screen preview matches the generated PDF's page breaks more closely.
+            let extraSpacerPx = 0;
+            if (!inlineEditMode) {
+                try {
+                    const innerRect = inner.getBoundingClientRect();
+                    const liveSections = Array.from(inner.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
+
+                    // Decide which sections need a spacer before them.
+                    // Use scaled coordinates because the preview windowing operates in scaled px.
+                    const spacerByKey = new Map<string, number>();
+                    let shift = 0;
+                    for (const sec of liveSections) {
+                        const key = String(sec.getAttribute('data-tv-section-key') || '').trim();
+                        if (!key) continue;
+
+                        const r = sec.getBoundingClientRect();
+                        const topUnscaled = Math.max(0, r.top - innerRect.top);
+                        const hUnscaled = Math.max(1, r.height);
+
+                        const top = (topUnscaled * s) + shift;
+                        const h = hUnscaled * s;
+                        if (h >= (VIEW_H - 1)) {
+                            // Too tall to keep together; allow it to span pages.
+                            continue;
+                        }
+                        const pageIdx = Math.floor(top / VIEW_H);
+                        const within = top - (pageIdx * VIEW_H);
+                        const remaining = VIEW_H - within;
+                        // If this section would be split, push it to the next page.
+                        if (remaining > 0.5 && remaining < (h - 0.5)) {
+                            const spacer = Math.max(1, Math.ceil(remaining));
+                            spacerByKey.set(key, spacer);
+                            shift += spacer;
+                        }
+                    }
+                    extraSpacerPx = shift;
+
+                    const rawHtml = inner.outerHTML || '';
+                    if (rawHtml) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(rawHtml, 'text/html');
+                        const root = doc.body.firstElementChild as HTMLElement | null;
+                        if (root && spacerByKey.size > 0) {
+                            const nodes = Array.from(root.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
+                            const denom = Math.max(0.0001, s);
+                            for (const node of nodes) {
+                                const key = String(node.getAttribute('data-tv-section-key') || '').trim();
+                                const spacerH = spacerByKey.get(key);
+                                if (!spacerH) continue;
+                                const spacer = doc.createElement('div');
+                                spacer.setAttribute('data-tv-preview-spacer', 'true');
+                                spacer.style.display = 'block';
+                                spacer.style.width = '100%';
+                                // IMPORTANT:
+                                // - `spacerH` is in *scaled* preview pixels (because VIEW_H is in the same units as our translateY stride).
+                                // - The snapshot HTML is later scaled by `pdfPreviewContentScale`.
+                                // Convert back to *unscaled* px so the visual spacer height becomes `spacerH` after scaling.
+                                spacer.style.height = `${Math.max(1, Math.ceil(spacerH / denom))}px`;
+                                node.parentNode?.insertBefore(spacer, node);
+                            }
+                        }
+                        setPdfPreviewSnapshotHtml(root ? (root.outerHTML || '') : rawHtml);
+                    } else {
+                        setPdfPreviewSnapshotHtml('');
+                    }
+                } catch {
+                    extraSpacerPx = 0;
+                    setPdfPreviewSnapshotHtml('');
+                }
+            } else {
+                setPdfPreviewSnapshotHtml('');
+            }
+
+            const scaledH = (contentH * s) + (inlineEditMode ? 0 : extraSpacerPx);
             // Page count:
             // - In view mode, tolerate a couple pixels of measurement jitter to avoid phantom extra pages.
             // - In inline edit mode, prefer being conservative (never undercount pages) to avoid clipping/cropping.
             const EPS_PX = inlineEditMode ? 0 : 2;
             const pages =
-                scaledH <= (PAGE_H + EPS_PX)
+                scaledH <= (VIEW_H + EPS_PX)
                     ? 1
-                    : Math.max(1, Math.ceil((scaledH - EPS_PX) / PAGE_H));
+                    : Math.max(1, Math.ceil((scaledH - EPS_PX) / VIEW_H));
             setPdfPreviewPages(pages);
 
             // Prefer filling available width. If there are exactly 2 pages, scale so both pages can sit side-by-side.
@@ -910,21 +1252,10 @@ export default function TemplateViewer() {
                 setPdfPreviewLastPageHeightPx(PAGE_H);
             } else {
                 // Keep full-height pages for intermediate pages.
-                const pagesForHeight = Math.max(1, Math.ceil(scaledH / PAGE_H));
-                const remainder = Math.max(1, scaledH - (pagesForHeight - 1) * PAGE_H);
-                setPdfPreviewLastPageHeightPx(Math.min(PAGE_H, Math.ceil(remainder)));
-            }
-
-            // Snapshot the rendered resume HTML so we can "window" it across multiple pages without re-rendering N times.
-            // But skip snapshot in edit mode so we see live updates
-            if (!inlineEditMode) {
-                try {
-                    setPdfPreviewSnapshotHtml(inner.outerHTML || '');
-                } catch {
-                    setPdfPreviewSnapshotHtml('');
-                }
-            } else {
-                setPdfPreviewSnapshotHtml('');
+                const pagesForHeight = Math.max(1, Math.ceil(scaledH / VIEW_H));
+                const remainderContent = Math.max(1, scaledH - (pagesForHeight - 1) * VIEW_H);
+                const lastFrame = Math.min(PAGE_H, (PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX + Math.ceil(remainderContent)));
+                setPdfPreviewLastPageHeightPx(lastFrame);
             }
         };
 
@@ -996,13 +1327,10 @@ export default function TemplateViewer() {
         );
     }
 
-    // Convert structured data to JSON string for templates.
-    // Memoized so typing into sidebar drafts does not re-stringify or trigger preview work.
-    const content = React.useMemo(() => JSON.stringify(resumeData), [resumeData]);
-
-    useEffect(() => {
-        console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
-    }, [content]);
+    // Convert structured data to JSON string for templates
+    // The templates expect a JSON string that parseResumeContent can parse
+    const content = JSON.stringify(resumeData);
+    console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
 
     // Render appropriate template based on templateName
     let TemplateComponent;
@@ -1030,14 +1358,25 @@ export default function TemplateViewer() {
         case 'lavenderClassic':
         case 'lavender-classic':
         case 'lavender_classic':
-            TemplateComponent = ElegantTemplate;
+            TemplateComponent = ClassicRoseTemplate;
             break;
         case 'creative':
         case 'popart':
         case 'popArt':
         case 'pop-art':
         case 'pop_art':
-            TemplateComponent = CreativeTemplate;
+            TemplateComponent = Creative2Template;
+            break;
+        case 'creative2':
+        case 'creative-2':
+        case 'creative_2':
+            TemplateComponent = Creative2Template;
+            break;
+        case 'classicRose':
+        case 'classicrose':
+        case 'classic-rose':
+        case 'classic_rose':
+            TemplateComponent = ClassicRoseTemplate;
             break;
         case 'boldProfessional':
         case 'boldprofessional':
@@ -1063,6 +1402,12 @@ export default function TemplateViewer() {
         case 'clean_sidebar':
             TemplateComponent = ModernTemplate;
             break;
+        case 'minimalSidebar':
+        case 'minimalsidebar':
+        case 'minimal-sidebar':
+        case 'minimal_sidebar':
+            TemplateComponent = CleanTemplate;
+            break;
         default:
             return (
                 <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -1083,9 +1428,14 @@ export default function TemplateViewer() {
     const isTimelineBlue = templateName === 'executive' || templateName === 'timelineblue' || templateName === 'timelineBlue' || templateName === 'timeline-blue' || templateName === 'timeline_blue';
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Offscreen export root (used by server-side Playwright PDF generation) */}
-            <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', opacity: 0, pointerEvents: 'none' }}>
+        <div
+            ref={embedRootRef}
+            className={isEmbed ? 'tv-embed bg-transparent overflow-x-hidden overflow-y-hidden h-screen' : 'min-h-screen bg-gray-100'}
+        >
+            {/* Offscreen export root (used by server-side Playwright PDF generation)
+               NOTE: keep this out of the document's scrollable overflow area to avoid
+               spurious scrollbars (especially in iframe embed mode). */}
+            <div style={{ position: 'fixed', left: '-100000px', top: 0, width: '816px', opacity: 0, pointerEvents: 'none' }}>
                 <div id="templatePrintRoot">
                     <div
                         id="templatePrintContent"
@@ -1099,8 +1449,7 @@ export default function TemplateViewer() {
                             ['--tv-space-scale']: String(styleSettings.spacingScale),
                         }}
                     >
-                        <TemplateRenderer
-                            Component={TemplateComponent}
+                        <TemplateComponent
                             content={content}
                             editMode={false}
                             sectionOrder={sectionOrder}
@@ -1111,87 +1460,94 @@ export default function TemplateViewer() {
                     </div>
                 </div>
             </div>
-            <header className="border-b bg-white">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-                    <a href="/" className="inline-flex items-center gap-3">
-                        <img src="/static/images/logo23_small.png" alt="Resumatic AI" width={40} height={40} />
-                        <span className="text-xl font-bold text-gray-900">Resumatic AI</span>
-                    </a>
 
-                    <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
-                        <a href="/" className="hover:text-indigo-600 font-semibold">Home</a>
-                        <a href="/blog" className="hover:text-indigo-600 font-semibold">Blog</a>
-                        <a href="/about" className="hover:text-indigo-600 font-semibold">About</a>
-                        {showBackLink && (
-                            <a href={backHref} className="hover:text-indigo-600 font-semibold">{backLabel}</a>
-                        )}
-                        {me?.is_authenticated ? (
-                            <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
-                                My Account
+            {!isEmbed && (
+                <>
+                    <header className="border-b bg-white">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                            <a href="/" className="inline-flex items-center gap-3">
+                                <img src="/static/images/logo23_small.png" alt="Resumatic AI" width={40} height={40} />
+                                <span className="text-xl font-bold text-gray-900">Resumatic AI</span>
                             </a>
-                        ) : (
-                            <a href="/login" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
-                                Login
-                            </a>
-                        )}
-                    </nav>
 
-                    <button
-                        type="button"
-                        onClick={() => setMobileNavOpen(v => !v)}
-                        className="md:hidden inline-flex items-center justify-center p-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                        aria-controls="mobileMenu"
-                        aria-expanded={mobileNavOpen ? 'true' : 'false'}
-                    >
-                        <span className="sr-only">Open menu</span>
-                        <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
-                </div>
-            </header>
+                            <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
+                                <a href="/" className="hover:text-indigo-600 font-semibold">Home</a>
+                                <a href="/blog" className="hover:text-indigo-600 font-semibold">Blog</a>
+                                <a href="/about" className="hover:text-indigo-600 font-semibold">About</a>
+                                {me?.is_authenticated ? (
+                                    <>
+                                        <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
+                                            My Account
+                                        </a>
+                                        <a href="/logout" className="text-white bg-red-500 px-4 py-2 rounded-xl hover:bg-red-600">
+                                            Sign Out
+                                        </a>
+                                    </>
+                                ) : (
+                                    <a href="/login" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
+                                        Login
+                                    </a>
+                                )}
+                            </nav>
 
-            {/* Mobile overlay */}
-            <div
-                className={`fixed inset-0 bg-black/30 z-40 transition-opacity md:hidden ${mobileNavOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                aria-hidden={mobileNavOpen ? 'false' : 'true'}
-                onClick={() => setMobileNavOpen(false)}
-            />
+                            <button
+                                type="button"
+                                onClick={() => setMobileNavOpen(v => !v)}
+                                className="md:hidden inline-flex items-center justify-center p-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                aria-controls="mobileMenu"
+                                aria-expanded={mobileNavOpen ? 'true' : 'false'}
+                            >
+                                <span className="sr-only">Open menu</span>
+                                <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </header>
 
-            {/* Mobile Menu (right-side slide-in) */}
-            <div
-                id="mobileMenu"
-                className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 md:hidden transform transition-transform duration-300 ease-in-out ${mobileNavOpen ? 'translate-x-0' : 'translate-x-full'}`}
-                aria-label="Mobile"
-            >
-                <div className="flex justify-between items-center mb-8">
-                    <img alt="Logo" className="h-12 w-auto" src="/static/images/logo23_small.png" loading="lazy" width={64} height={64} />
-                    <button
-                        type="button"
-                        className="text-gray-500 hover:text-gray-900"
-                        aria-label="Close menu"
+                    {/* Mobile overlay */}
+                    <div
+                        className={`fixed inset-0 bg-black/30 z-40 transition-opacity md:hidden ${mobileNavOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        aria-hidden={mobileNavOpen ? 'false' : 'true'}
                         onClick={() => setMobileNavOpen(false)}
-                    >
-                        ✕
-                    </button>
-                </div>
-                <nav className="space-y-4">
-                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/" onClick={() => setMobileNavOpen(false)}>Home</a>
-                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/blog" onClick={() => setMobileNavOpen(false)}>Blog</a>
-                    <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
-                    {showBackLink && (
-                        <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href={backHref} onClick={() => setMobileNavOpen(false)}>{backLabel}</a>
-                    )}
-                    {me?.is_authenticated ? (
-                        <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
-                    ) : (
-                        <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/login" onClick={() => setMobileNavOpen(false)}>Login</a>
-                    )}
-                </nav>
-            </div>
+                    />
 
-            <main className="py-8 px-4">
-                <div className="max-w-7xl mx-auto">
+                    {/* Mobile Menu (right-side slide-in) */}
+                    <div
+                        id="mobileMenu"
+                        className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 md:hidden transform transition-transform duration-300 ease-in-out ${mobileNavOpen ? 'translate-x-0' : 'translate-x-full'}`}
+                        aria-label="Mobile"
+                    >
+                        <div className="flex justify-between items-center mb-8">
+                            <img alt="Logo" className="h-12 w-auto" src="/static/images/logo23_small.png" loading="lazy" width={64} height={64} />
+                            <button
+                                type="button"
+                                className="text-gray-500 hover:text-gray-900"
+                                aria-label="Close menu"
+                                onClick={() => setMobileNavOpen(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <nav className="space-y-4">
+                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/" onClick={() => setMobileNavOpen(false)}>Home</a>
+                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/blog" onClick={() => setMobileNavOpen(false)}>Blog</a>
+                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
+                            {me?.is_authenticated ? (
+                                <>
+                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
+                                    <a className="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center" href="/logout" onClick={() => setMobileNavOpen(false)}>Sign Out</a>
+                                </>
+                            ) : (
+                                <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/login" onClick={() => setMobileNavOpen(false)}>Login</a>
+                            )}
+                        </nav>
+                    </div>
+                </>
+            )}
+
+            <main className={isEmbed ? '' : 'py-8 px-4'}>
+                <div className={isEmbed ? '' : 'max-w-7xl mx-auto'}>
                     <style>{`
                   /* Mobile should match desktop: make key md:* utilities behave like desktop even on small viewports. */
                   #templatePrintRoot .md\\:flex-row { flex-direction: row !important; }
@@ -1271,7 +1627,7 @@ export default function TemplateViewer() {
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                        height: var(--pdf-page-h, 1056px);
+                                                                                height: var(--pdf-page-h, 1098px);
                     background: #fff;
                     position: relative;
                                         overflow: hidden;
@@ -1281,9 +1637,10 @@ export default function TemplateViewer() {
                                     .pdfPreviewPageContinuous {
                                         height: auto !important;
                                         overflow: visible !important;
+                                        box-shadow: none !important;
                                     }
-                                    /* Remove the bottom "end-of-document" shadow line on the LAST page only (except in 2-up view, where alignment matters) */
-                                    .pdfPreviewPageLast:not(.pdfPreviewPageTwoUp) {
+                                    /* Remove the bottom "end-of-document" shadow marker on the LAST page. */
+                                    .pdfPreviewPageLast {
                                         box-shadow: none !important;
                                     }
                   .pdfPreviewTarget {
@@ -1291,17 +1648,32 @@ export default function TemplateViewer() {
                     top: 0;
                     left: 0;
                     width: 816px;
-                                        height: var(--pdf-page-h, 1056px);
+                                                                                height: var(--pdf-page-h, 1098px);
                                         overflow: hidden;
                                         contain: paint;
+                                                                                --pdf-pad-top: 31px;
+                                                                                --pdf-pad-bottom: 31px;
                   }
+                                    /* Remove template outer "card" shadow/ring in preview (clipped shadows can look like an end marker). */
+                                    .pdfPreviewTarget .tv-style-root > * {
+                                        box-shadow: none !important;
+                                    }
+                                                                        .pdfPreviewViewport {
+                                                                                position: absolute;
+                                                                                left: 0;
+                                                                                right: 0;
+                                                                                top: var(--pdf-pad-top);
+                                                                                height: 1056px;
+                                                                                overflow: hidden;
+                                                                        }
                                     .pdfPreviewTargetContinuous {
                                         height: auto !important;
                                         overflow: visible !important;
                                         contain: none !important;
                                     }
                   /* Match the print iframe's outer-gutter stripping */
-                  .pdfPreviewTarget > * {
+                                    .pdfPreviewTarget > *,
+                                    .pdfPreviewViewport > * {
                     width: 816px !important;
                     max-width: none !important;
                     margin: 0 !important;
@@ -1379,7 +1751,7 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .tv-style-root .pb-0 { padding-bottom: 0 !important; }
                 `}</style>
 
-                    {isDownloadOnly && (
+                    {!isEmbed && isDownloadOnly && (
                         <div className="mb-4">
                             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
                                 <div className="text-base font-semibold text-gray-900">Resume PDF download</div>
@@ -1388,6 +1760,15 @@ export default function TemplateViewer() {
                                     {downloadOnlyStatus === 'starting' && 'Preparing your PDF. Your download should start shortly…'}
                                     {downloadOnlyStatus === 'done' && 'Download started. You can return to Job Search Hub.'}
                                     {downloadOnlyStatus === 'failed' && 'Auto-download did not start.'}
+                                </div>
+
+                                <div className="mt-3 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
+                                    <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
+                                        <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                                    </span>
+                                    <p>
+                                        Note, pdf download may not match the screen display. Download the PDF to determine optimal settings.
+                                    </p>
                                 </div>
 
                                 {downloadOnlyStatus === 'failed' && downloadOnlyError && (
@@ -1403,7 +1784,8 @@ export default function TemplateViewer() {
                                         disabled={downloadingPdf}
                                         onClick={() => {
                                             if (me && !me.is_paid) {
-                                                window.location.href = '/plans';
+                                                const next = `${window.location.pathname}${window.location.search || ''}`;
+                                                window.location.href = `/plans?next=${encodeURIComponent(next)}`;
                                                 return;
                                             }
                                             setDownloadOnlyStatus('starting');
@@ -1432,25 +1814,12 @@ export default function TemplateViewer() {
                         </div>
                     )}
 
-                    {!isDownloadOnly && (
+                    {!isEmbed && !isDownloadOnly && (
                         <>
                             {/* Header with back button and template name */}
                             <div id="templateViewerHeader" className="mb-3">
                                 <h1 className="text-2xl font-bold text-gray-800 break-words">{templateDisplayName || templateName} Template</h1>
-                                <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                    <div className="shrink-0">
-                                        {showBackLink && (
-                                            <button
-                                                onClick={() => window.location.href = backHref}
-                                                className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-                                            >
-                                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                                </svg>
-                                                {backLabel}
-                                            </button>
-                                        )}
-                                    </div>
+                                <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
                                     <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                                         {/* Edit Mode now available for ALL templates */}
                                         <button
@@ -1468,12 +1837,8 @@ export default function TemplateViewer() {
                                                 type="button"
                                                 onClick={async () => {
                                                     const merged = { ...(resumeData || {}), ...(inlineEditChanges || {}) };
-                                                    const withDrafts = applyDraftsToResume(merged);
-                                                    const ok = await saveEditedResume(withDrafts);
-                                                    if (!ok) return;
-                                                    setResumeData(withDrafts);
-                                                    setDraftFields({});
-                                                    setDraftExperienceDescriptions({});
+                                                    setResumeData(merged);
+                                                    await saveEditedResume(merged);
                                                     setInlineEditChanges({});
                                                 }}
                                                 className={`px-3 py-2 rounded-lg border transition-colors flex items-center gap-2 ${editSaving
@@ -1493,17 +1858,30 @@ export default function TemplateViewer() {
                                                 </span>
                                             </div>
                                         ) : (
-                                            <button
-                                                onClick={() => {
-                                                    if (downloadingPdf) return;
-                                                    if (me?.is_paid) downloadPdf();
-                                                    else window.location.href = '/plans';
-                                                }}
-                                                className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                disabled={downloadingPdf}
-                                            >
-                                                Download PDF
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (downloadingPdf) return;
+                                                        if (!me) return;
+                                                        if (!me?.is_paid) {
+                                                            const next = `${window.location.pathname}${window.location.search || ''}`;
+                                                            window.location.href = `/plans?next=${encodeURIComponent(next)}`;
+                                                            return;
+                                                        }
+                                                        try {
+                                                            await downloadPdfAsFile();
+                                                        } catch (e: any) {
+                                                            console.error('PDF download failed:', e);
+                                                            alert(`PDF download failed (${e?.message || 'unknown error'}).`);
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                    disabled={downloadingPdf || !me}
+                                                >
+                                                    {!me ? 'Loading…' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -1537,9 +1915,9 @@ export default function TemplateViewer() {
                         </>
                     )}
 
-                    <div className={`grid ${isDownloadOnly ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} gap-4 sm:gap-6`}>
+                    <div className={`grid ${(isDownloadOnly || isEmbed) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} gap-4 sm:gap-6`}>
                         {/* Left settings panel */}
-                        {!isDownloadOnly && (
+                        {!isDownloadOnly && !isEmbed && (
                             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
                                 <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 border-b border-gray-100">
                                     <div className="flex items-start">
@@ -1556,10 +1934,14 @@ export default function TemplateViewer() {
                                                     In many cases, recruiters prefer a one‑page resume. Use the sliders below to adjust font size and spacing to fit cleanly.
                                                 </p>
                                             </div>
-                                            <div className="mt-2 inline-flex items-center gap-2 text-xs text-gray-500">
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 border border-gray-200">
-                                                    Preview: {pdfPreviewPages} page{pdfPreviewPages === 1 ? '' : 's'}
+
+                                            <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
+                                                <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
+                                                    <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
                                                 </span>
+                                                <p>
+                                                    Note, pdf download may not match the screen display. Download the PDF to determine optimal settings.
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -1683,236 +2065,706 @@ export default function TemplateViewer() {
                                             <div className="space-y-3">
                                                 <Field label="Name">
                                                     <input
-                                                        value={draftFields?.name ?? String(resumeData?.name ?? '')}
-                                                        onChange={(e) => setDraftField('name', e.target.value)}
-                                                        onBlur={(e) => commitDraftField('name', e.target.value)}
+                                                        value={String(resumeData?.name ?? '')}
+                                                        onChange={(e) => setField('name', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
                                                 <Field label="Title">
                                                     <input
-                                                        value={draftFields?.title ?? String(resumeData?.title ?? '')}
-                                                        onChange={(e) => setDraftField('title', e.target.value)}
-                                                        onBlur={(e) => commitDraftField('title', e.target.value)}
+                                                        value={String(resumeData?.title ?? '')}
+                                                        onChange={(e) => setField('title', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <Field label="Email">
                                                         <input
-                                                            value={draftFields?.email ?? String(resumeData?.email ?? '')}
-                                                            onChange={(e) => setDraftField('email', e.target.value)}
-                                                            onBlur={(e) => commitDraftField('email', e.target.value)}
+                                                            value={String(resumeData?.email ?? '')}
+                                                            onChange={(e) => setField('email', e.target.value)}
                                                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                         />
                                                     </Field>
                                                     <Field label="Phone">
                                                         <input
-                                                            value={draftFields?.phone ?? String(resumeData?.phone ?? '')}
-                                                            onChange={(e) => setDraftField('phone', e.target.value)}
-                                                            onBlur={(e) => commitDraftField('phone', e.target.value)}
+                                                            value={String(resumeData?.phone ?? '')}
+                                                            onChange={(e) => setField('phone', e.target.value)}
                                                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                         />
                                                     </Field>
                                                 </div>
                                                 <Field label="Location">
                                                     <input
-                                                        value={draftFields?.location ?? String(resumeData?.location ?? '')}
-                                                        onChange={(e) => setDraftField('location', e.target.value)}
-                                                        onBlur={(e) => commitDraftField('location', e.target.value)}
+                                                        value={String(resumeData?.location ?? '')}
+                                                        onChange={(e) => setField('location', e.target.value)}
                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                     />
                                                 </Field>
-                                                <label className="block">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <div className="text-xs font-semibold text-gray-700">Professional summary</div>
-                                                        <button
-                                                            type="button"
-                                                            className={
-                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                (aiBusySummary
-                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                            }
-                                                            disabled={aiBusySummary}
-                                                            onClick={async () => {
-                                                                try {
-                                                                    setAiBusySummary(true);
-                                                                    const currentText = draftFields?.summary ?? String(resumeData?.summary ?? '');
-                                                                    const currentTitle = draftFields?.title ?? String(resumeData?.title ?? '');
-                                                                    const nextText = await aiRewriteResumeField({
-                                                                        field: 'summary',
-                                                                        text: currentText,
-                                                                        meta: {
-                                                                            title: currentTitle,
-                                                                        },
-                                                                    });
-                                                                    commitDraftField('summary', nextText);
-                                                                } catch (e: any) {
-                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                } finally {
-                                                                    setAiBusySummary(false);
-                                                                }
-                                                            }}
-                                                        >
-                                                            {aiBusySummary ? (
-                                                                'Improving…'
-                                                            ) : (
-                                                                <>
-                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                    Enhance with AI
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                    <textarea
-                                                        value={draftFields?.summary ?? String(resumeData?.summary ?? '')}
-                                                        onChange={(e) => setDraftField('summary', e.target.value)}
-                                                        onBlur={(e) => commitDraftField('summary', e.target.value)}
-                                                        rows={4}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </label>
 
-                                                <ListField
-                                                    label="Skills"
-                                                    values={normalizeList(resumeData?.skills)}
-                                                    onChange={(vals: string[]) => setField('skills', vals)}
-                                                />
-                                                <ListField
-                                                    label="Languages"
-                                                    values={normalizeList(resumeData?.languages)}
-                                                    onChange={(vals: string[]) => setField('languages', vals)}
-                                                />
+                                                {(String(resumeData?.website ?? resumeData?.portfolio ?? '').trim() || linksList.length > 0) && (
+                                                    <Field label="Website">
+                                                        <input
+                                                            value={String(resumeData?.website ?? resumeData?.portfolio ?? '')}
+                                                            onChange={(e) => setField('website', e.target.value)}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                        />
+                                                    </Field>
+                                                )}
 
-                                                {/* Work history: edit descriptions/bullets */}
-                                                <div className="pt-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-xs font-semibold text-gray-700">Work history descriptions</div>
-                                                        {experienceList.length > 0 && (
-                                                            <button
-                                                                type="button"
-                                                                className="text-xs text-gray-600 hover:text-gray-800"
-                                                                onClick={() => {
-                                                                    if (showAllWorkHistoryDescriptions) {
-                                                                        setShowAllWorkHistoryDescriptions(false);
-                                                                        setEditingExperienceIndex(null);
-                                                                        return;
-                                                                    }
-                                                                    if (editingExperienceIndex !== null) {
-                                                                        setEditingExperienceIndex(null);
-                                                                        return;
-                                                                    }
-                                                                    setShowAllWorkHistoryDescriptions(true);
-                                                                }}
-                                                            >
-                                                                {showAllWorkHistoryDescriptions
-                                                                    ? 'Collapse all'
-                                                                    : (editingExperienceIndex !== null ? 'Collapse' : 'Expand all')}
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    {experienceList.length === 0 ? (
-                                                        <div className="mt-2 text-sm text-gray-500">No work history found in this resume.</div>
-                                                    ) : (
+                                                {(linksList.length > 0) && (
+                                                    <div>
+                                                        <div className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1">Links</div>
                                                         <div className="mt-2 space-y-2">
-                                                            {experienceList.map((exp: any, idx: number) => {
-                                                                const title = String(exp?.title || exp?.position || exp?.role || 'Role');
-                                                                const company = String(exp?.company || exp?.organization || '');
-                                                                const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
-                                                                const isOpen = showAllWorkHistoryDescriptions || editingExperienceIndex === idx;
+                                                            {linksList.map((l: any, idx: number) => {
+                                                                const label = String(l?.label ?? l?.name ?? l?.title ?? '').trim();
+                                                                const url = String(l?.url ?? l?.href ?? '').trim();
                                                                 return (
-                                                                    <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                if (showAllWorkHistoryDescriptions) {
-                                                                                    setShowAllWorkHistoryDescriptions(false);
-                                                                                    setEditingExperienceIndex(idx);
-                                                                                    return;
-                                                                                }
-                                                                                setEditingExperienceIndex(isOpen ? null : idx);
-                                                                            }}
-                                                                            className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                        >
-                                                                            <div className="min-w-0">
-                                                                                <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                    {title}
-                                                                                </div>
-                                                                                <div className="text-xs text-gray-600 truncate">
-                                                                                    {[company, dates].filter(Boolean).join(' · ')}
-                                                                                </div>
+                                                                    <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                            <Field label="Label">
+                                                                                <input
+                                                                                    value={label}
+                                                                                    onChange={(e) => updateLinkField(idx, 'label', e.target.value)}
+                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                />
+                                                                            </Field>
+                                                                            <Field label="URL">
+                                                                                <input
+                                                                                    value={url}
+                                                                                    onChange={(e) => updateLinkField(idx, 'url', e.target.value)}
+                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                />
+                                                                            </Field>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(() => {
+                                                    const hidden = new Set((Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).map(String));
+                                                    const blocks: Record<string, React.ReactNode> = {};
+
+                                                    const skillsVals = normalizeList(resumeData?.skills);
+                                                    const languageVals = normalizeList(resumeData?.languages);
+
+                                                    blocks.summary = (
+                                                        <label className="block">
+                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-2">
+                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('summary', 'Professional summary')}</div>
+                                                                <button
+                                                                    type="button"
+                                                                    className={
+                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                        (aiBusySummary
+                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                            : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                    }
+                                                                    disabled={aiBusySummary}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            setAiBusySummary(true);
+                                                                            const nextText = await aiRewriteResumeField({
+                                                                                field: 'summary',
+                                                                                text: String(resumeData?.summary ?? ''),
+                                                                                meta: {
+                                                                                    title: String(resumeData?.title ?? ''),
+                                                                                },
+                                                                            });
+                                                                            setField('summary', nextText);
+                                                                        } catch (e: any) {
+                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                        } finally {
+                                                                            setAiBusySummary(false);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {aiBusySummary ? (
+                                                                        'Improving…'
+                                                                    ) : (
+                                                                        <>
+                                                                            <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                            Assist with AI
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                            <textarea
+                                                                value={String(resumeData?.summary ?? '')}
+                                                                onChange={(e) => setField('summary', e.target.value)}
+                                                                rows={4}
+                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                            />
+                                                        </label>
+                                                    );
+
+                                                    blocks.skills = (
+                                                        <ListField
+                                                            label={getSectionLabel('skills', 'Skills')}
+                                                            values={skillsVals}
+                                                            onChange={(vals: string[]) => setField('skills', vals)}
+                                                        />
+                                                    );
+
+                                                    blocks.languages = (
+                                                        <ListField
+                                                            label={getSectionLabel('languages', 'Languages')}
+                                                            values={languageVals}
+                                                            onChange={(vals: string[]) => setField('languages', vals)}
+                                                        />
+                                                    );
+
+                                                    blocks.education = (
+                                                        <div>
+                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('education', 'Education')}</div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
+                                                                    onClick={addEducationItem}
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                            {educationList.length === 0 ? (
+                                                                <div className="mt-2 text-sm text-gray-500">No education entries yet.</div>
+                                                            ) : (
+                                                                <div className="mt-2 space-y-2">
+                                                                    {educationList.map((edu: any, idx: number) => (
+                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                                <Field label="Degree">
+                                                                                    <input
+                                                                                        value={String(edu?.degree ?? '')}
+                                                                                        onChange={(e) => updateEducationField(idx, 'degree', e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
+                                                                                <Field label="Year">
+                                                                                    <input
+                                                                                        value={String(edu?.year ?? '')}
+                                                                                        onChange={(e) => updateEducationField(idx, 'year', e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
                                                                             </div>
-                                                                            <div className="text-xs text-indigo-700 shrink-0">
-                                                                                {showAllWorkHistoryDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
+                                                                            <div className="mt-2">
+                                                                                <Field label="Institution">
+                                                                                    <input
+                                                                                        value={String(edu?.institution ?? '')}
+                                                                                        onChange={(e) => updateEducationField(idx, 'institution', e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
                                                                             </div>
-                                                                        </button>
-                                                                        {isOpen && (
-                                                                            <div className="p-3 bg-white">
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+
+                                                    blocks.projects = (
+                                                        <div>
+                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('projects', 'Projects')}</div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
+                                                                    onClick={addProjectItem}
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                            {projectsList.length === 0 ? (
+                                                                <div className="mt-2 text-sm text-gray-500">No projects yet.</div>
+                                                            ) : (
+                                                                <div className="mt-2 space-y-2">
+                                                                    {projectsList.map((proj: any, idx: number) => (
+                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
+                                                                            <Field label="Title">
+                                                                                <input
+                                                                                    value={String(proj?.title ?? '')}
+                                                                                    onChange={(e) => updateProjectField(idx, 'title', e.target.value)}
+                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                />
+                                                                            </Field>
+                                                                            <div className="mt-2">
+                                                                                <Field label="Technologies">
+                                                                                    <input
+                                                                                        value={String(proj?.technologies ?? '')}
+                                                                                        onChange={(e) => updateProjectField(idx, 'technologies', e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
+                                                                            </div>
+                                                                            <div className="mt-2">
+                                                                                <Field label="Link">
+                                                                                    <input
+                                                                                        value={String(proj?.link ?? '')}
+                                                                                        onChange={(e) => updateProjectField(idx, 'link', e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
+                                                                            </div>
+                                                                            <div className="mt-2">
                                                                                 <label className="block">
                                                                                     <div className="flex items-center justify-between mb-1">
-                                                                                        <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
+                                                                                        <div className="text-xs font-semibold text-gray-700">Description</div>
                                                                                         <button
                                                                                             type="button"
                                                                                             className={
                                                                                                 'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                ((aiBusyExperience[idx] ?? false)
+                                                                                                ((aiBusyProjects[idx] ?? false)
                                                                                                     ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
                                                                                                     : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
                                                                                             }
-                                                                                            disabled={aiBusyExperience[idx] ?? false}
+                                                                                            disabled={aiBusyProjects[idx] ?? false}
                                                                                             onClick={async () => {
                                                                                                 try {
-                                                                                                    setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                    const currentText = draftExperienceDescriptions?.[idx] ?? String(exp?.description ?? '');
+                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: true }));
                                                                                                     const nextText = await aiRewriteResumeField({
-                                                                                                        field: 'experience_description',
-                                                                                                        text: currentText,
+                                                                                                        field: 'project_description',
+                                                                                                        text: String(proj?.description ?? ''),
                                                                                                         meta: {
-                                                                                                            title,
-                                                                                                            company,
-                                                                                                            dates,
+                                                                                                            title: String(proj?.title ?? ''),
+                                                                                                            technologies: String(proj?.technologies ?? ''),
+                                                                                                            link: String(proj?.link ?? ''),
                                                                                                         },
                                                                                                     });
-                                                                                                    commitDraftExperienceDescription(idx, nextText);
+                                                                                                    updateProjectField(idx, 'description', nextText);
                                                                                                 } catch (e: any) {
                                                                                                     setAiEditError(String(e?.message || 'AI edit failed.'));
                                                                                                 } finally {
-                                                                                                    setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
+                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: false }));
                                                                                                 }
                                                                                             }}
                                                                                         >
-                                                                                            {(aiBusyExperience[idx] ?? false) ? (
+                                                                                            {(aiBusyProjects[idx] ?? false) ? (
                                                                                                 'Rewriting…'
                                                                                             ) : (
                                                                                                 <>
                                                                                                     <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                    Enhance with AI
+                                                                                                    Assist with AI
                                                                                                 </>
                                                                                             )}
                                                                                         </button>
                                                                                     </div>
                                                                                     <textarea
-                                                                                        rows={6}
-                                                                                        value={draftExperienceDescriptions?.[idx] ?? String(exp?.description ?? '')}
-                                                                                        onChange={(e) => setDraftExperienceDescription(idx, e.target.value)}
-                                                                                        onBlur={(e) => commitDraftExperienceDescription(idx, e.target.value)}
-                                                                                        placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
+                                                                                        rows={4}
+                                                                                        value={String(proj?.description ?? '')}
+                                                                                        onChange={(e) => updateProjectField(idx, 'description', e.target.value)}
                                                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                                                     />
                                                                                 </label>
-                                                                                <div className="mt-2 text-xs text-gray-500">
-                                                                                    Tip: start lines with “- ” to render bullets.
-                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+
+                                                    blocks.certifications = (
+                                                        <div>
+                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('certifications', 'Certifications')}</div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
+                                                                    onClick={addCertificationItem}
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                            {certificationsList.length === 0 ? (
+                                                                <div className="mt-2 text-sm text-gray-500">No certifications yet.</div>
+                                                            ) : (
+                                                                <div className="mt-2 space-y-2">
+                                                                    {certificationsList.map((cert: any, idx: number) => (
+                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
+                                                                            {typeof cert === 'string' ? (
+                                                                                <Field label="Certification">
+                                                                                    <input
+                                                                                        value={String(cert ?? '')}
+                                                                                        onChange={(e) => updateCertification(idx, e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </Field>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Field label="Name">
+                                                                                        <input
+                                                                                            value={String(cert?.name ?? '')}
+                                                                                            onChange={(e) => updateCertification(idx, { name: e.target.value })}
+                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                        />
+                                                                                    </Field>
+                                                                                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                                        <Field label="Issuer">
+                                                                                            <input
+                                                                                                value={String(cert?.issuer ?? '')}
+                                                                                                onChange={(e) => updateCertification(idx, { issuer: e.target.value })}
+                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                            />
+                                                                                        </Field>
+                                                                                        <Field label="Year">
+                                                                                            <input
+                                                                                                value={String(cert?.year ?? '')}
+                                                                                                onChange={(e) => updateCertification(idx, { year: e.target.value })}
+                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                            />
+                                                                                        </Field>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+
+                                                    if (customSectionsList.length > 0) {
+                                                        customSectionsList.forEach((sec: any, sIdx: number) => {
+                                                            const heading = String(sec?.heading || sec?.title || sec?.label || `Section ${sIdx + 1}`).trim();
+                                                            const items = Array.isArray(sec?.items) ? sec.items : [];
+                                                            const body = sec?.content ?? sec?.text ?? sec?.body ?? '';
+                                                            blocks[`custom_${sIdx}`] = (
+                                                                <div>
+                                                                    <div className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1">{heading || 'Custom section'}</div>
+                                                                    <div className="mt-2 rounded-xl border border-gray-200 p-3 bg-white">
+                                                                        <Field label="Section name">
+                                                                            <input
+                                                                                value={String(sec?.heading ?? heading)}
+                                                                                onChange={(e) => updateCustomSectionHeading(sIdx, e.target.value)}
+                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                            />
+                                                                        </Field>
+
+                                                                        {items.length > 0 ? (
+                                                                            <div className="mt-2 space-y-2">
+                                                                                {items.map((it: any, iIdx: number) => (
+                                                                                    <div key={iIdx} className="rounded-lg border border-gray-100 bg-gray-50 p-2">
+                                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                                            <Field label="Title">
+                                                                                                <input
+                                                                                                    value={String(it?.title ?? '')}
+                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'title', e.target.value)}
+                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                                                                                                />
+                                                                                            </Field>
+                                                                                            <Field label="Date">
+                                                                                                <input
+                                                                                                    value={String(it?.date ?? '')}
+                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'date', e.target.value)}
+                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                                                                                                />
+                                                                                            </Field>
+                                                                                        </div>
+                                                                                        <div className="mt-2">
+                                                                                            <Field label="Subtitle">
+                                                                                                <input
+                                                                                                    value={String(it?.subtitle ?? '')}
+                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'subtitle', e.target.value)}
+                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                                                                                                />
+                                                                                            </Field>
+                                                                                        </div>
+                                                                                        <div className="mt-2">
+                                                                                            <label className="block">
+                                                                                                <div className="flex items-center justify-between mb-1">
+                                                                                                    <div className="text-xs font-semibold text-gray-700">Content</div>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className={
+                                                                                                            'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                                                            ((aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false)
+                                                                                                                ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                                                                : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                                                        }
+                                                                                                        disabled={aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false}
+                                                                                                        onClick={async () => {
+                                                                                                            const k = `custom_${sIdx}_item_${iIdx}`;
+                                                                                                            try {
+                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
+                                                                                                                const nextText = await aiRewriteResumeField({
+                                                                                                                    field: 'custom_section',
+                                                                                                                    text: String(it?.content ?? ''),
+                                                                                                                    meta: {
+                                                                                                                        heading,
+                                                                                                                        item_title: String(it?.title ?? ''),
+                                                                                                                        item_subtitle: String(it?.subtitle ?? ''),
+                                                                                                                    },
+                                                                                                                });
+                                                                                                                updateCustomSectionItem(sIdx, iIdx, 'content', nextText);
+                                                                                                            } catch (e: any) {
+                                                                                                                setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                                                            } finally {
+                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        {(aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false) ? (
+                                                                                                            'Rewriting…'
+                                                                                                        ) : (
+                                                                                                            <>
+                                                                                                                <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                                                                Assist with AI
+                                                                                                            </>
+                                                                                                        )}
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                                <textarea
+                                                                                                    rows={4}
+                                                                                                    value={String(it?.content ?? '')}
+                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'content', e.target.value)}
+                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                                                                                                />
+                                                                                            </label>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="mt-2">
+                                                                                <label className="block">
+                                                                                    <div className="flex items-center justify-between mb-1">
+                                                                                        <div className="text-xs font-semibold text-gray-700">Content</div>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className={
+                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                                                ((aiBusyCustom[`custom_${sIdx}_body`] ?? false)
+                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                                            }
+                                                                                            disabled={aiBusyCustom[`custom_${sIdx}_body`] ?? false}
+                                                                                            onClick={async () => {
+                                                                                                const k = `custom_${sIdx}_body`;
+                                                                                                try {
+                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
+                                                                                                    const nextText = await aiRewriteResumeField({
+                                                                                                        field: 'custom_section',
+                                                                                                        text: String(body ?? ''),
+                                                                                                        meta: { heading },
+                                                                                                    });
+                                                                                                    updateCustomSectionBody(sIdx, nextText);
+                                                                                                } catch (e: any) {
+                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                                                } finally {
+                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            {(aiBusyCustom[`custom_${sIdx}_body`] ?? false) ? (
+                                                                                                'Rewriting…'
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                                                    Assist with AI
+                                                                                                </>
+                                                                                            )}
+                                                                                        </button>
+                                                                                    </div>
+                                                                                    <textarea
+                                                                                        rows={5}
+                                                                                        value={String(body ?? '')}
+                                                                                        onChange={(e) => updateCustomSectionBody(sIdx, e.target.value)}
+                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                    />
+                                                                                </label>
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                );
-                                                            })}
+                                                                </div>
+                                                            );
+                                                        });
+                                                    } else {
+                                                        blocks.custom_sections = (
+                                                            <div>
+                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                                                                    <div className="text-sm font-bold text-gray-900">Custom sections</div>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
+                                                                        onClick={addCustomSection}
+                                                                    >
+                                                                        Add
+                                                                    </button>
+                                                                </div>
+                                                                <div className="mt-2 text-sm text-gray-500">No custom sections yet.</div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    if (experienceList.length > 0) {
+                                                        blocks.experience = (
+                                                            <div className="pt-1">
+                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                                                                    <div className="text-sm font-bold text-gray-900">{getSectionLabel('experience', 'Work history')} descriptions</div>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="text-xs text-gray-600 hover:text-gray-800"
+                                                                        onClick={() => {
+                                                                            if (showAllWorkHistoryDescriptions) {
+                                                                                setShowAllWorkHistoryDescriptions(false);
+                                                                                setEditingExperienceIndex(null);
+                                                                                return;
+                                                                            }
+                                                                            if (editingExperienceIndex !== null) {
+                                                                                setEditingExperienceIndex(null);
+                                                                                return;
+                                                                            }
+                                                                            setShowAllWorkHistoryDescriptions(true);
+                                                                        }}
+                                                                    >
+                                                                        {showAllWorkHistoryDescriptions
+                                                                            ? 'Collapse all'
+                                                                            : (editingExperienceIndex !== null ? 'Collapse' : 'Expand all')}
+                                                                    </button>
+                                                                </div>
+
+                                                                <div className="mt-2 space-y-2">
+                                                                    {experienceList.map((exp: any, idx: number) => {
+                                                                        const title = String(exp?.title || exp?.position || exp?.role || 'Role');
+                                                                        const company = String(exp?.company || exp?.organization || '');
+                                                                        const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
+                                                                        const isOpen = showAllWorkHistoryDescriptions || editingExperienceIndex === idx;
+                                                                        return (
+                                                                            <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        if (showAllWorkHistoryDescriptions) {
+                                                                                            setShowAllWorkHistoryDescriptions(false);
+                                                                                            setEditingExperienceIndex(idx);
+                                                                                            return;
+                                                                                        }
+                                                                                        setEditingExperienceIndex(isOpen ? null : idx);
+                                                                                    }}
+                                                                                    className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
+                                                                                >
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="text-sm font-semibold text-gray-900 truncate">
+                                                                                            {title}
+                                                                                        </div>
+                                                                                        <div className="text-xs text-gray-600 truncate">
+                                                                                            {[company, dates].filter(Boolean).join(' · ')}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="text-xs text-indigo-700 shrink-0">
+                                                                                        {showAllWorkHistoryDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
+                                                                                    </div>
+                                                                                </button>
+                                                                                {isOpen && (
+                                                                                    <div className="p-3 bg-white">
+                                                                                        <label className="block">
+                                                                                            <div className="flex items-center justify-between mb-1">
+                                                                                                <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    className={
+                                                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                                                        ((aiBusyExperience[idx] ?? false)
+                                                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                                                            : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                                                    }
+                                                                                                    disabled={aiBusyExperience[idx] ?? false}
+                                                                                                    onClick={async () => {
+                                                                                                        try {
+                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
+                                                                                                            const nextText = await aiRewriteResumeField({
+                                                                                                                field: 'experience_description',
+                                                                                                                text: String(exp?.description ?? ''),
+                                                                                                                meta: {
+                                                                                                                    title,
+                                                                                                                    company,
+                                                                                                                    dates,
+                                                                                                                },
+                                                                                                            });
+                                                                                                            updateExperienceDescription(idx, nextText);
+                                                                                                        } catch (e: any) {
+                                                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                                                        } finally {
+                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
+                                                                                                        }
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {(aiBusyExperience[idx] ?? false) ? (
+                                                                                                        'Rewriting…'
+                                                                                                    ) : (
+                                                                                                        <>
+                                                                                                            <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                                                            Assist with AI
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <textarea
+                                                                                                rows={6}
+                                                                                                value={String(exp?.description ?? '')}
+                                                                                                onChange={(e) => updateExperienceDescription(idx, e.target.value)}
+                                                                                                placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
+                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                            />
+                                                                                        </label>
+                                                                                        <div className="mt-2 text-xs text-gray-500">
+                                                                                            Tip: start lines with “- ” to render bullets.
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    const presentKeys = Object.keys(blocks).filter((k) => Boolean(blocks[k]));
+
+                                                    const defaultOrder: string[] = [
+                                                        'summary',
+                                                        'experience',
+                                                        ...(customSectionsList.length > 0
+                                                            ? customSectionsList.map((_: any, i: number) => `custom_${i}`)
+                                                            : ['custom_sections']),
+                                                        'education',
+                                                        'projects',
+                                                        'certifications',
+                                                        'skills',
+                                                        'languages',
+                                                    ];
+
+                                                    const rawBase = (Array.isArray(sectionOrder) && sectionOrder.length > 0) ? sectionOrder : defaultOrder;
+                                                    const base = (() => {
+                                                        if (!blocks.custom_sections) return rawBase;
+                                                        if (rawBase.includes('custom_sections')) return rawBase;
+                                                        const expIdx = rawBase.indexOf('experience');
+                                                        if (expIdx >= 0) {
+                                                            return [...rawBase.slice(0, expIdx + 1), 'custom_sections', ...rawBase.slice(expIdx + 1)];
+                                                        }
+                                                        return [...rawBase, 'custom_sections'];
+                                                    })();
+                                                    const orderedKeys = [
+                                                        ...base,
+                                                        ...presentKeys.filter((k) => !base.includes(k)),
+                                                    ].filter((k) => Boolean(blocks[k]) && !hidden.has(String(k)));
+
+                                                    if (orderedKeys.length === 0) return null;
+
+                                                    return (
+                                                        <div className="divide-y divide-gray-200">
+                                                            {orderedKeys.map((k) => (
+                                                                <div key={k} className="py-3 first:pt-0">
+                                                                    {blocks[k]}
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    )}
-                                                </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
@@ -1945,18 +2797,18 @@ export default function TemplateViewer() {
                                         </div>
                                         {inlineEditMode && (
                                             <div className="mt-2 text-xs text-gray-600">
-                                                Tap on any text to edit
+                                                Click/Tap on any text to edit
                                             </div>
                                         )}
                                     </div>
                                 )}
 
                                 <div className={mobilePreviewOpen ? 'flex-1 min-h-0 px-3 pb-3 pt-2 sm:p-0' : ''}>
-                                    {!mobilePreviewOpen && (
+                                    {!isEmbed && !mobilePreviewOpen && (
                                         <div className="sm:hidden mb-2 flex items-center justify-between gap-2">
                                             <div className="min-w-0">
                                                 {inlineEditMode && (
-                                                    <div className="text-xs text-gray-600">Tap on any text to edit</div>
+                                                    <div className="text-xs text-gray-600">Click/Tap on any text to edit</div>
                                                 )}
                                             </div>
                                             <button
@@ -1970,33 +2822,34 @@ export default function TemplateViewer() {
                                     )}
                                     <div
                                         ref={pdfPreviewContainerRef}
-                                        className={`bg-gray-100 rounded-lg p-4 ${mobilePreviewOpen ? 'h-full overflow-auto' : 'overflow-x-auto'}`}
+                                        className={`${isEmbed ? 'bg-transparent p-0 rounded-none overflow-hidden' : 'bg-gray-100 rounded-lg p-4'} ${mobilePreviewOpen ? 'h-full overflow-auto' : (!isEmbed ? 'overflow-x-auto' : '')}`}
                                     >
                                         {/* Hidden measurement render (used to compute pages + capture HTML snapshot) */}
-                                        <div style={{ position: 'absolute', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
+                                        <div style={{ position: 'fixed', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
                                             <div className="pdfPreviewPage">
                                                 <div className="pdfPreviewTarget">
-                                                    <div
-                                                        ref={pdfPreviewMeasureInnerRef}
-                                                        className="tv-style-root"
-                                                        style={{
-                                                            // @ts-ignore
-                                                            ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
-                                                            // @ts-ignore
-                                                            ['--tv-font-scale']: String(styleSettings.fontScale),
-                                                            // @ts-ignore
-                                                            ['--tv-space-scale']: String(styleSettings.spacingScale),
-                                                        }}
-                                                    >
-                                                        <TemplateRenderer
-                                                            Component={TemplateComponent}
-                                                            content={content}
-                                                            editMode={false}
-                                                            sectionOrder={sectionOrder}
-                                                            onSectionOrderChange={setSectionOrder}
-                                                            hiddenSectionKeys={hiddenSectionKeys}
-                                                            onHiddenSectionKeysChange={setHiddenSectionKeys}
-                                                        />
+                                                    <div className="pdfPreviewViewport">
+                                                        <div
+                                                            ref={pdfPreviewMeasureInnerRef}
+                                                            className="tv-style-root"
+                                                            style={{
+                                                                // @ts-ignore
+                                                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                                                // @ts-ignore
+                                                                ['--tv-font-scale']: String(styleSettings.fontScale),
+                                                                // @ts-ignore
+                                                                ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                            }}
+                                                        >
+                                                            <TemplateComponent
+                                                                content={content}
+                                                                editMode={false}
+                                                                sectionOrder={sectionOrder}
+                                                                onSectionOrderChange={setSectionOrder}
+                                                                hiddenSectionKeys={hiddenSectionKeys}
+                                                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2017,15 +2870,15 @@ export default function TemplateViewer() {
                                                                     Edit mode
                                                                 </div>
                                                                 <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
-                                                                    <div className="break-words">Tap any content to edit.</div>
+                                                                    <div className="break-words">Click/Tap any content to edit.</div>
                                                                     <div className="flex items-start gap-2">
                                                                         <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                                                                        <span className="break-words">Drag sections using the handle on the left of each section.</span>
+                                                                        <span className="break-words">Drag sections using the handle on the left of each section. Drop on the right to delete.</span>
                                                                     </div>
                                                                     <div className="flex items-start gap-2 flex-wrap">
                                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
                                                                             <Wand2 className="w-3 h-3" />
-                                                                            <span>Enhance with AI</span>
+                                                                            <span>Assist with AI</span>
                                                                         </span>
                                                                         <span className="break-words">On the left sidebar, editing and AI rewriting are also available.</span>
                                                                     </div>
@@ -2033,7 +2886,11 @@ export default function TemplateViewer() {
                                                             </div>
                                                         </div>
                                                     ) : null}
-                                                    <div style={{ transform: `scale(${pdfPreviewPageScale})`, transformOrigin: 'top left' }}>
+                                                    <div
+                                                        style={isEmbed
+                                                            ? ({ zoom: pdfPreviewPageScale } as any)
+                                                            : ({ transform: `scale(${pdfPreviewPageScale})`, transformOrigin: 'top left' })}
+                                                    >
                                                         {inlineEditMode ? (
                                                             // Edit mode: render a continuous scroll canvas (no page slicing).
                                                             <div className="pdfPreviewPage pdfPreviewPageContinuous">
@@ -2056,15 +2913,14 @@ export default function TemplateViewer() {
                                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
                                                                             }}
                                                                         >
-                                                                            <TemplateRenderer
-                                                                                Component={TemplateComponent}
+                                                                            <TemplateComponent
                                                                                 content={content}
                                                                                 editMode={inlineEditMode}
                                                                                 sectionOrder={sectionOrder}
                                                                                 onSectionOrderChange={setSectionOrder}
                                                                                 hiddenSectionKeys={hiddenSectionKeys}
                                                                                 onHiddenSectionKeysChange={setHiddenSectionKeys}
-                                                                                onContentChange={handleTemplateContentChange}
+                                                                                onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
                                                                             />
                                                                         </div>
                                                                     </div>
@@ -2074,18 +2930,20 @@ export default function TemplateViewer() {
                                                             // View mode: paged preview (with optional snapshot windowing).
                                                             <div className={pdfPreviewPages === 2 ? 'grid grid-cols-[816px_816px] gap-6 items-start' : 'space-y-6'}>
                                                                 {Array.from({ length: pdfPreviewPages }).map((_, idx) => (
-                                                                    <div key={idx} className="space-y-8">
-                                                                        <div className="inline-flex items-center gap-3 w-full">
-                                                                            <div
-                                                                                className={
-                                                                                    'inline-flex items-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200 font-semibold ' +
-                                                                                    (pdfPreviewPages === 2 ? 'px-6 py-3 text-3xl' : 'px-4 py-2 text-lg')
-                                                                                }
-                                                                            >
-                                                                                Page {idx + 1}{pdfPreviewPages > 1 ? ` of ${pdfPreviewPages}` : ''}
+                                                                    <div key={idx} className={isEmbed ? '' : 'space-y-8'}>
+                                                                        {!isEmbed && (
+                                                                            <div className="inline-flex items-center gap-3 w-full">
+                                                                                <div
+                                                                                    className={
+                                                                                        'inline-flex items-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200 font-semibold ' +
+                                                                                        (pdfPreviewPages === 2 ? 'px-6 py-3 text-3xl' : 'px-4 py-2 text-lg')
+                                                                                    }
+                                                                                >
+                                                                                    Page {idx + 1}{pdfPreviewPages > 1 ? ` of ${pdfPreviewPages}` : ''}
+                                                                                </div>
+                                                                                <div className="h-px flex-1 bg-gray-300/80" />
                                                                             </div>
-                                                                            <div className="h-px flex-1 bg-gray-300/80" />
-                                                                        </div>
+                                                                        )}
                                                                         <div
                                                                             className={
                                                                                 `pdfPreviewPage` +
@@ -2096,49 +2954,58 @@ export default function TemplateViewer() {
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1056}px`,
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1098}px`,
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
-                                                                                {!pdfPreviewSnapshotHtml ? (
-                                                                                    <div
-                                                                                        style={{
-                                                                                            transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
-                                                                                            transformOrigin: 'top left',
-                                                                                        }}
-                                                                                    >
-                                                                                        <div
-                                                                                            className="tv-style-root"
-                                                                                            style={{
-                                                                                                // @ts-ignore
-                                                                                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
-                                                                                                // @ts-ignore
-                                                                                                ['--tv-font-scale']: String(styleSettings.fontScale),
-                                                                                                // @ts-ignore
-                                                                                                ['--tv-space-scale']: String(styleSettings.spacingScale),
-                                                                                            }}
-                                                                                        >
-                                                                                            <TemplateRenderer
-                                                                                                Component={TemplateComponent}
-                                                                                                content={content}
-                                                                                                editMode={false}
-                                                                                                sectionOrder={sectionOrder}
-                                                                                                onSectionOrderChange={setSectionOrder}
-                                                                                                hiddenSectionKeys={hiddenSectionKeys}
-                                                                                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                <div className="pdfPreviewViewport">
+                                                                                    {(() => {
+                                                                                        // Keep stride equal to the viewport height.
+                                                                                        // (The viewport is fixed at Letter height; padding is outside it.)
+                                                                                        const VIEW_H = 1056;
+                                                                                        // Avoid 1px overlap at page boundaries (can duplicate the last line on the next page)
+                                                                                        // due to rounding/subpixel rasterization.
+                                                                                        const y = (idx * VIEW_H) + (idx > 0 ? 1 : 0);
+                                                                                        return !pdfPreviewSnapshotHtml ? (
+                                                                                            <div
+                                                                                                style={{
+                                                                                                    transform: `translateY(-${y}px) scale(${pdfPreviewContentScale})`,
+                                                                                                    transformOrigin: 'top left',
+                                                                                                }}
+                                                                                            >
+                                                                                                <div
+                                                                                                    className="tv-style-root"
+                                                                                                    style={{
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-font-scale']: String(styleSettings.fontScale),
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <TemplateComponent
+                                                                                                        content={content}
+                                                                                                        editMode={false}
+                                                                                                        sectionOrder={sectionOrder}
+                                                                                                        onSectionOrderChange={setSectionOrder}
+                                                                                                        hiddenSectionKeys={hiddenSectionKeys}
+                                                                                                        onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                                    />
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div
+                                                                                                style={{
+                                                                                                    transform: `translateY(-${y}px) scale(${pdfPreviewContentScale})`,
+                                                                                                    transformOrigin: 'top left',
+                                                                                                }}
+                                                                                                // eslint-disable-next-line react/no-danger
+                                                                                                dangerouslySetInnerHTML={{ __html: pdfPreviewSnapshotHtml }}
                                                                                             />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div
-                                                                                        style={{
-                                                                                            transform: `translateY(-${idx * 1056}px) scale(${pdfPreviewContentScale})`,
-                                                                                            transformOrigin: 'top left',
-                                                                                        }}
-                                                                                        // eslint-disable-next-line react/no-danger
-                                                                                        dangerouslySetInnerHTML={{ __html: pdfPreviewSnapshotHtml }}
-                                                                                    />
-                                                                                )}
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -2156,7 +3023,7 @@ export default function TemplateViewer() {
                     </div>
                 </div>
 
-                {downloadFeedbackOpen && (
+                {!isEmbed && downloadFeedbackOpen && (
                     <div
                         className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
                         role="dialog"
@@ -2312,8 +3179,8 @@ function ListField({
     const [draft, setDraft] = React.useState('');
     return (
         <div>
-            <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold text-gray-700">{label}</div>
+            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
+                <div className="text-sm font-bold text-gray-900">{label}</div>
                 <button
                     type="button"
                     className="text-xs text-indigo-700 hover:text-indigo-800"
