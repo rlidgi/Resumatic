@@ -1,3 +1,5 @@
+# Timezone database for Windows (enables DST-aware ZoneInfo like America/Los_Angeles)
+tzdata
 annotated-types==0.7.0
 anyio==4.9.0
 azure-data-tables==12.4.4

@@ -272,6 +272,11 @@ export default function Creative2Template({
                                                         <div className="font-semibold text-sm">{editMode ? <EditableText value={String(edu.degree || edu.title || 'Degree')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.degree || edu.title || 'Degree')}</div>
                                                         <div className="text-xs text-black/70">{editMode ? <EditableText value={String(edu.school || edu.institution || '')} onChange={(v) => updateEducation(idx, 'school', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.school || edu.institution || '')}</div>
                                                         <div className="text-xs text-black/60">{editMode ? <EditableText value={String(edu.year || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'graduationDate', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.year || edu.graduationDate || '')}</div>
+                                                        {String(edu?.gpa ?? '').trim() ? (
+                                                            <div className="text-xs text-black/60">
+                                                                GPA: {editMode ? <EditableText value={String(edu?.gpa ?? '')} onChange={(v) => updateEducation(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : String(edu?.gpa ?? '').trim()}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             ))

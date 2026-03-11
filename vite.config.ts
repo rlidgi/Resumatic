@@ -17,6 +17,10 @@ export default defineConfig(({ mode }) => {
                     target: devBackendUrl,
                     changeOrigin: true,
                 },
+                '/static': {
+                    target: devBackendUrl,
+                    changeOrigin: true,
+                },
             },
         },
         build: {

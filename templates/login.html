@@ -4,14 +4,7 @@
 <head>
 
 
-  <!-- Clarity tracking code for https://resumaticai.com/ -->
-  <script defer="">
-    (function (c, l, a, r, i, t, y) {
-      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-      t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-      y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-    })(window, document, "clarity", "script", "sjihir10df");
-  </script>
+  {% include "_clarity.html" %}
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
@@ -112,12 +105,11 @@
   <main
     class="auth-tight relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-4 py-4 sm:py-7 pb-5 sm:pb-8">
     <!-- Brand (top) -->
-    <div class="auth-brand mb-2 sm:mb-4 flex items-center gap-3">
-      <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="36" height="36"
-        class="h-9 w-9 rounded-xl bg-white/70 p-1 shadow-sm" />
-      <div class="text-sm sm:text-xl font-semibold tracking-tight text-slate-900">
-        <span class="font-extrabold">ResumaticAI</span><span class="font-medium text-slate-700">.com</span>
-      </div>
+    <div class="auth-brand mb-2 sm:mb-4 flex items-center justify-center">
+      <a href="/" aria-label="ResumaticAI Home" class="inline-flex">
+        <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="48"
+          height="48" class="h-12 w-auto object-contain" decoding="async" />
+      </a>
     </div>
 
     <section

@@ -2,13 +2,7 @@
 <html lang="en">
 
 <head>
-    <script defer>
-        (function (c, l, a, r, i, t, y) {
-            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-        })(window, document, "clarity", "script", "sjihir10df");
-    </script>
+    {% include "_clarity.html" %}
 
     <meta charset="utf-8">
     <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
@@ -66,6 +60,69 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #4F46E5 0%, #10B981 100%);
+        }
+
+        .bg-size-200 {
+            background-size: 200% 200%;
+        }
+
+        .bg-pos-0 {
+            background-position: 0% 50%;
+        }
+
+        .bg-pos-100 {
+            background-position: 100% 50%;
+        }
+
+        /* Cute SVG loader (used in Loading Overlay) */
+        .loading-illu .scan {
+            animation: scan-move 1.2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        .loading-illu .pulse {
+            animation: pulse-pop 1s ease-in-out infinite;
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+
+        @keyframes scan-move {
+            0% {
+                transform: translateX(-7px);
+            }
+
+            50% {
+                transform: translateX(7px);
+            }
+
+            100% {
+                transform: translateX(-7px);
+            }
+        }
+
+        @keyframes pulse-pop {
+
+            0%,
+            100% {
+                transform: scale(.96);
+                opacity: .65;
+            }
+
+            50% {
+                transform: scale(1.03);
+                opacity: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .loading-illu * {
+                animation: none !important;
+            }
         }
     </style>
 </head>
@@ -152,7 +209,7 @@
                 {% endif %}
 
                 <div class="bg-white/85 rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 backdrop-blur-md">
-                    <form class="space-y-6" action="/results" method="POST">
+                    <form id="resumeForm" class="space-y-6" action="/results" method="POST">
                         <div class="relative mb-8">
                             <label class="flex items-center justify-between mb-4" for="jobDescription">
                                 <span class="text-lg font-semibold text-gray-900 flex items-center">
@@ -178,8 +235,8 @@
                         </div>
 
                         <div class="mt-10 pt-6 border-t border-gray-200 text-center">
-                            <button type="submit"
-                                class="group relative inline-flex w-full sm:w-auto items-center justify-center px-6 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary via-secondary to-primary hover:opacity-95 focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 hover:shadow-2xl transform hover:scale-[1.02]">
+                            <button id="submitButton" type="submit"
+                                class="group relative inline-flex w-full sm:w-auto items-center justify-center px-6 py-4 sm:px-12 sm:py-5 text-lg sm:text-xl font-bold rounded-xl sm:rounded-2xl text-white bg-gradient-to-r from-primary via-secondary to-primary bg-size-200 bg-pos-0 hover:bg-pos-100 hover:from-primary/80 hover:via-secondary/80 hover:to-primary/80 focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-500 hover:shadow-2xl transform hover:scale-[1.02]">
                                 <div
                                     class="relative flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-center">
                                     <i
@@ -197,6 +254,57 @@
         </section>
     </main>
 
+    <div id="loadingOverlay" role="alert"
+        class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] hidden flex items-center justify-center"
+        aria-live="polite">
+        <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+            <p class="inline-block text-base sm:text-lg font-semibold tracking-wide px-4 py-1 rounded-full bg-gradient-to-r from-indigo-50 via-purple-50 to-emerald-50 border border-indigo-200 text-indigo-700 shadow-sm mb-2"
+                id="loadingMicrocopy">Reviewing now…</p>
+            <div class="mx-auto mb-2 w-28 h-28">
+                <svg class="loading-illu w-full h-full" viewBox="0 0 120 120" fill="none"
+                    xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M20 52c0-20 14-34 34-34h12c20 0 34 14 34 34v12c0 20-14 34-34 34H54c-20 0-34-14-34-34V52z"
+                        fill="url(#g)" opacity=".18" />
+                    <rect x="34" y="24" width="44" height="62" rx="10" stroke="#4F46E5" stroke-width="3" />
+                    <path d="M44 42h24M44 52h30M44 62h20" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"
+                        opacity=".8" />
+                    <g class="scan">
+                        <circle cx="78" cy="76" r="14" stroke="#10B981" stroke-width="4" />
+                        <path d="M88 86l12 12" stroke="#10B981" stroke-width="4" stroke-linecap="round" />
+                        <path d="M70 76h16" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity=".8" />
+                    </g>
+                    <g class="pulse" opacity=".9">
+                        <path d="M26 38l2.2 5.2L34 45l-5.8 1.8L26 52l-2.2-5.2L18 45l5.8-1.8L26 38z" fill="#F59E0B" />
+                        <circle cx="92" cy="34" r="3.5" fill="#3B82F6" />
+                    </g>
+                    <defs>
+                        <linearGradient id="g" x1="20" y1="18" x2="100" y2="98" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5" />
+                            <stop offset="1" stop-color="#10B981" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-1">Enhancing your resume</h3>
+            <p class="text-gray-600 mb-4" id="loadingSubtitle">Getting things ready…</p>
+
+            <div>
+                <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div id="loadingProgressFill"
+                        class="h-2 bg-primary rounded-full transition-all duration-500 ease-out" style="width: 0%">
+                    </div>
+                </div>
+                <div class="mt-2 text-sm text-gray-600"><span id="loadingProgressLabel">0%</span><span
+                        id="loadingProgressSuffix"> complete</span></div>
+            </div>
+
+            <div class="mt-6 text-xs text-gray-500">
+                <i class="fas fa-shield-alt mr-1"></i>
+                Your data is processed securely
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             try {
@@ -210,6 +318,165 @@
                     });
                 }
             } catch (_) { /* no-op */ }
+
+            const form = document.getElementById('resumeForm');
+            const resumeTextarea = document.getElementById('resume');
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    const resumeText = (resumeTextarea && resumeTextarea.value) ? String(resumeTextarea.value) : '';
+                    if (!resumeText.trim()) {
+                        e.preventDefault();
+                        alert('Please paste your resume text before continuing.');
+                        return;
+                    }
+
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.classList.remove('hidden');
+
+                    // Cute rotating microcopy (separate from loadingSubtitle which is used for step updates)
+                    try {
+                        const micro = document.getElementById('loadingMicrocopy');
+                        if (micro) {
+                            try {
+                                if (window.__loadingMicrocopyTimer) {
+                                    clearInterval(window.__loadingMicrocopyTimer);
+                                    window.__loadingMicrocopyTimer = null;
+                                }
+                            } catch (_) { /* ignore */ }
+
+                            const messages = [
+                                'Reviewing now…',
+                                'Finding useful information…',
+                                'Spotting strong action verbs…',
+                                'Tuning keywords for ATS…',
+                                'Polishing clarity and impact…'
+                            ];
+                            let i = 0;
+                            micro.textContent = messages[0];
+
+                            const t = setInterval(() => {
+                                i += 1;
+                                if (i >= messages.length) {
+                                    clearInterval(t);
+                                    try { window.__loadingMicrocopyTimer = null; } catch (_) { /* ignore */ }
+                                    return;
+                                }
+                                micro.textContent = messages[i];
+                            }, 2000);
+                            try { window.__loadingMicrocopyTimer = t; } catch (_) { /* ignore */ }
+
+                            window.addEventListener('pagehide', () => {
+                                try {
+                                    clearInterval(t);
+                                    window.__loadingMicrocopyTimer = null;
+                                } catch (_) { /* ignore */ }
+                            }, { once: true });
+                        }
+                    } catch (_) { /* ignore */ }
+
+                    const fill = document.getElementById('loadingProgressFill');
+                    const label = document.getElementById('loadingProgressLabel');
+                    const suffix = document.getElementById('loadingProgressSuffix');
+                    const subtitle = document.getElementById('loadingSubtitle');
+
+                    const steps = [
+                        { text: 'Reading resume text', target: 5 },
+                        { text: 'Analyzing content', target: 10 },
+                        { text: 'Optimizing for ATS', target: 15 },
+                        { text: 'Scoring and feedback', target: 20 },
+                        { text: 'Preparing results', target: 20 }
+                    ];
+
+                    function activateStep(subtitleText) {
+                        try {
+                            if (subtitle) subtitle.textContent = subtitleText;
+                        } catch (_) { /* no-op */ }
+                    }
+
+                    function setProgress(pct) {
+                        try {
+                            const clamped = Math.max(0, Math.min(100, pct));
+                            if (fill) fill.style.width = clamped + '%';
+                            if (label) {
+                                if (clamped >= 96 && clamped < 100) {
+                                    label.textContent = 'Almost there…';
+                                    if (suffix) suffix.style.display = 'none';
+                                } else {
+                                    label.textContent = clamped + '%';
+                                    if (suffix) suffix.style.display = '';
+                                }
+                            }
+                        } catch (_) { /* no-op */ }
+                    }
+
+                    let delay = 250;
+                    steps.forEach((s, idx) => {
+                        setTimeout(() => {
+                            activateStep(s.text + '…');
+                            setProgress(s.target);
+                        }, delay);
+                        delay += idx === 0 ? 700 : 900;
+                    });
+
+                    // After step 5 becomes active, ramp from 20% towards 99% until navigation completes
+                    function startFinalRamp() {
+                        try {
+                            let rafId;
+                            let startTs = 0;
+                            let oscillate = false;
+                            const loop = (ts) => {
+                                if (!startTs) startTs = ts;
+                                const elapsed = ts - startTs;
+                                if (!oscillate) {
+                                    const target = Math.min(99, Math.floor(20 + 79 * (1 - Math.exp(-elapsed / 2000))));
+                                    setProgress(target);
+                                    if (target >= 96) {
+                                        oscillate = true;
+                                        if (subtitle) subtitle.textContent = 'Finalizing your results…';
+                                    }
+                                } else {
+                                    const width = 98 + 1 * Math.sin(ts / 450);
+                                    if (fill) fill.style.width = Math.max(97, Math.min(99, width)).toFixed(2) + '%';
+                                    if (label && label.textContent !== 'Almost there…') label.textContent = 'Almost there…';
+                                    if (suffix) suffix.style.display = 'none';
+                                }
+                                rafId = requestAnimationFrame(loop);
+                            };
+                            rafId = requestAnimationFrame(loop);
+
+                            function finish() {
+                                if (rafId) cancelAnimationFrame(rafId);
+                                setProgress(100);
+                            }
+
+                            window.addEventListener('beforeunload', finish, { once: true });
+                            window.addEventListener('pagehide', finish, { once: true });
+                            document.addEventListener('visibilitychange', function onVis() {
+                                if (document.hidden) {
+                                    document.removeEventListener('visibilitychange', onVis);
+                                    finish();
+                                }
+                            });
+                        } catch (_) { /* no-op */ }
+                    }
+
+                    // Schedule the final ramp to begin just after the last step activates
+                    setTimeout(() => startFinalRamp(), delay + 200);
+                });
+            }
+
+            // If the user hits Back and the page is restored from cache (bfcache),
+            // ensure we don't get stuck with the processing overlay visible.
+            function hideLoadingOverlay() {
+                try {
+                    const overlay = document.getElementById('loadingOverlay');
+                    if (overlay) overlay.classList.add('hidden');
+                } catch (_) { /* ignore */ }
+            }
+
+            window.addEventListener('pageshow', function () {
+                hideLoadingOverlay();
+            });
         });
     </script>
 </body>

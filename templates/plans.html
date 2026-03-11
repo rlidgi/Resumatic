@@ -2,14 +2,7 @@
 <html lang="en">
 
 <head>
-    <!-- Clarity tracking code for https://resumaticai.com/ -->
-    <script defer>
-        (function (c, l, a, r, i, t, y) {
-            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-        })(window, document, "clarity", "script", "sjihir10df");
-    </script>
+    {% include "_clarity.html" %}
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
@@ -87,8 +80,9 @@
         }
 
         .brand img {
-            width: 34px;
-            height: 34px;
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
         }
 
         .nav-links {
@@ -572,9 +566,9 @@
 <body>
     <nav class="topbar" aria-label="Main navigation">
         <div class="topbar-inner">
-            <a class="brand" href="/" aria-label="ResumaticAI Home">
-                <img src="/static/images/logo23_small.png" alt="ResumaticAI" width="34" height="34" decoding="async">
-                <span>ResumaticAI</span>
+            <a class="brand" href="/" aria-label="Resumatic AI Home">
+                <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="80"
+                    height="80" decoding="async">
             </a>
 
             <div class="nav-links" aria-label="Primary">
@@ -664,7 +658,8 @@
                 <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b> below.</p>
                 {% else %}
                 <p class="note">Try everything and download your resume today.</p>
-                <a class="btn lilac" href="/checkout?plan=trial_14d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
+                <a class="btn lilac"
+                    href="/checkout?plan=trial_14d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
 
                 <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
                 {% endif %}
@@ -698,7 +693,9 @@
                 <p class="plan">Monthly</p>
                 <div class="price"><strong>$10.95</strong><span>/ month</span></div>
                 <p class="note">Flexible month-to-month access.</p>
-                <a class="btn lilac" href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go monthly</a>
+                <a class="btn lilac"
+                    href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go
+                    monthly</a>
 
                 <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
 

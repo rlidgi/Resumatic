@@ -1,0 +1,8 @@
+timestamp_iso,signup_method,user_id,email,ref,utm_source,utm_medium,utm_campaign,utm_content,utm_term,traffic_type,traffic_campaign,traffic_referrer,first_seen_at,last_seen_at,landing_path
+2026-02-23T07:33:05.068871+00:00,email_password,email_7d755a6ab23749f3,qryd11@mail.com,,,,,,,organic,,http://127.0.0.1:5000/,,,
+2026-03-03T00:37:50.903241+00:00,email_password,email_8871383283d143c5,dwoodson@chemic.com,,,,,,,organic,,http://127.0.0.1:5000/,,,
+2026-03-04T03:30:09.152464+00:00,email_password,email_9f3ade2bc00445b1,qryddas11@mail.com,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-03-04T06:04:56.705438+00:00,email_password,email_5f121c0667534e17,qryd11@mail.com,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-03-04T09:16:18.582244+00:00,google_oauth,118176337076595091507,rlidgi@student.mtsac.edu,,,,,,,organic,,http://127.0.0.1:5000/react/template-viewer/modern,,,
+2026-03-05T00:28:47.586833+00:00,email_password,email_df86e8de59a04c2c,rliddasasgi@cccapply.org,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-03-05T00:36:54.226301+00:00,email_password,email_84554dbb03154a96,qryd11@mail.com,,,,,,,organic,,http://127.0.0.1:5000/,,,

@@ -1,0 +1,545 @@
+
+=== HTTP Debug ===
+status_code: 200
+final_url: https://www.jobs-ups.com/global/en/job/R25044927/Operations-Coordinator-Cell-and-Gene-Marken-Sun-Thurs-8AM-4-30P
+content_type: text/html; charset=UTF-8
+server: 
+
+=== Extract Result ===
+URL: https://www.jobs-ups.com/global/en/job/R25044927/Operations-Coordinator-Cell-and-Gene-Marken-Sun-Thurs-8AM-4-30P
+Error: <none>
+Extracted chars: 1111
+
+=== Extracted Text (first 3000 chars) ===
+Operations Coordinator, Cell and Gene - Marken Sun-Thurs 8AM-4:30P in 720 S HINDRY AVE, INGLEWOOD, CA 90301, United States of America | Operations at United Parcel Service
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Job
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Follow Us
+_____
+
+
+Stay up to date with UPS on social media.
+
+
+
+
+@UPSJobs Instagram
+
+
+
+
+
+
+
+skip this widget
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+View this profile on Instagram
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+UPSjobs (@upsjobs) • Instagram photos and videos
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+We're sorry… the job you are trying to apply for has been filled.
+
+
+Maybe you would like to consider the Categories below :
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+200 Gibraltar Road
+
+
+
+
+
+Suite 315, Horsham, PA 19044
+
+
+
+
+
+TEL:
+
+
+
+888-985-7755
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+follow us
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Copyright ©1994- 2024 United Parcel Service of America, Inc. All rights reserved.
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+be778917261a4e1b8b4cc1cd35a3d16c
+
+
+=== Playwright Rendered Extract (JS-enabled) ===
+Error: <none>
+Extracted chars: 7521
+
+=== Rendered Text (first 3000 chars) ===
+Skip to main content
+UPS Jobs
+Hiring Process
+About UPS
+Benefits
+FAQ
+🌐 Language Selector
+Saved Jobs
+(0)
+-
+Operations Coordinator, Cell and Gene - Marken Sun-Thurs 8AM-4:30P
+Location :
+720 S HINDRY AVE, INGLEWOOD, CA 90301, United States of America
+Category :
+Operations
+widget :
+Full time
+Employment Type :
+Permanent
+Job ID :
+R25044927
+Posted Date :
+February 17th 2026
+Apply Now
+Save job
+Description
+
+Before you apply to a job, select your language preference from the options available at the top right of this page.
+
+Explore your next opportunity at a Fortune Global 500 organization. Envision innovative possibilities, experience our rewarding culture, and work with talented teams that help you become better every day. We know what it takes to lead UPS into tomorrow—people with a unique combination of skill + passion. If you have the qualities and drive to lead yourself or teams, there are roles ready to cultivate your skills and take you to the next level.
+
+Job Description:
+
+Marken, UPS Healthcare Precision Logistics (formerly Marken, MNX & Polar Speed), the clinical and advanced therapy subsidiary of UPS Healthcare, unites expertise across healthcare and complex secure logistics to drive the success of our clients through innovation. 
+
+Job Purpose:
+
+This role will be responsible for successfully supporting Marken's Cell & Gene Operations Team, taking an active role in the ongoing development of operational ability in Cell & Gene Therapy logistics, to ensure the highest levels of customer service, commerciality, quality & satisfaction.
+
+Main Duties and Responsibilities:
+
+Responsible for successfully supporting the Cell and Gene team with daily operations and liaise with the Control Tower Coordinators as it relates to cell and gene shipments.
+
+Utilize technology to provide enhanced monitoring, management and control of shipments as required
+
+Collaborate with LSPs, Branches and Depots to arrange and coordinate shipment solutions
+
+Preparation, Placement, control and arrangement of appropriate packaging (Controlled temperature shippers & LN2 Dry shippers), equipment (GPS tracking devices, Temperature monitors) and trained operatives are according to Cell & Gene project specifications-COPs or SOPs.
+
+Coordinating and Dispatching drivers for collections and deliveries ensuring that they are on time, and they adhere to the clients’ expectations regarding documentation – GDP requirements.
+
+Work with the regulatory team to ensure trade compliance for all Import and Export shipments
+
+Book shipments with Airlines (Create MAWB) and Integrator to ensure best routing solution for all Cell & Gene shipments
+
+Ensure proper handling and storage of all Cell & Gene shipments with Airlines and Ground handling facilities
+
+Label and prepare shipments for Export (some heavy lifting may be required) and ensure that a driver is dispatched to meet the airline cut-off time for international shipments.
+
+Ensure Marken’s Maestro system performance compliance with all necessary data 

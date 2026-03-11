@@ -534,6 +534,17 @@ export default function ExecutiveTemplate({
                                             className="text-[11px] text-slate-600"
                                             as="div"
                                         />
+                                        {String(edu?.gpa ?? '').trim() ? (
+                                            <div className="text-[11px] text-slate-500">
+                                                GPA: <EditableText
+                                                    value={String(edu?.gpa ?? '')}
+                                                    onChange={(v) => updateEducation(idx, 'gpa', v)}
+                                                    editMode={editMode}
+                                                    className="inline"
+                                                    as="span"
+                                                />
+                                            </div>
+                                        ) : null}
                                     </div>
                                     <EditableText
                                         value={String(edu.year || edu.dates || edu.graduationDate || "")}
@@ -898,10 +909,10 @@ export default function ExecutiveTemplate({
                                             pointerEvents: activeKey ? 'auto' : 'none',
                                         }}
                                         className={
-                                            'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity ' +
+                                            'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] md:w-[160px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity border-red-400 bg-red-50 text-red-700 ' +
                                             ((isOver || manualTrashHover)
-                                                ? 'border-red-500 bg-red-50 text-red-700'
-                                                : 'border-gray-300 bg-white text-gray-700')
+                                                ? 'border-red-600 bg-red-100 text-red-800'
+                                                : '')
                                         }
                                         aria-label="Drop here to remove section"
                                     >

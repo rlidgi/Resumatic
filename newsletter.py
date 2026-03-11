@@ -8,6 +8,8 @@ import json
 import csv
 import smtplib
 import logging
+import ast
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -47,6 +49,207 @@ class NewsletterGenerator:
             timeout=60.0,
             max_retries=3
         )
+
+    @staticmethod
+    def _strip_code_fences(text: str) -> str:
+        raw = (text or '').strip()
+        if not raw:
+            return ''
+        if raw.startswith('```'):
+            raw = re.sub(r'^```(?:json)?\s*\n?', '', raw, flags=re.IGNORECASE)
+            raw = re.sub(r'\n?```\s*$', '', raw)
+        return raw.strip()
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> str:
+        """Extract the first top-level JSON object from a blob (best-effort)."""
+        s = text or ''
+        start = s.find('{')
+        if start < 0:
+            return ''
+
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(s)):
+            ch = s[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == '\\':
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+                continue
+            if ch == '{':
+                depth += 1
+                continue
+            if ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return s[start:i + 1].strip()
+
+        # Unbalanced braces; return tail as last resort.
+        return s[start:].strip()
+
+    @staticmethod
+    def _cleanup_jsonish(text: str) -> str:
+        """Clean up common JSON formatting issues (best-effort)."""
+        s = (text or '').strip()
+        if not s:
+            return ''
+
+        # Remove BOM / zero-width
+        s = s.replace('\ufeff', '').replace('\u200b', '')
+
+        # Fix smart quotes that break JSON
+        s = s.replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+
+        # Remove trailing commas before closing braces/brackets
+        s = re.sub(r',\s*([}\]])', r'\1', s)
+        return s.strip()
+
+    @classmethod
+    def _parse_llm_json(cls, raw_content: str) -> Dict:
+        """Parse JSON from an LLM response with graceful repair/fallback."""
+        candidates: list[str] = []
+
+        raw = (raw_content or '').strip()
+        if raw:
+            candidates.append(raw)
+
+        no_fences = cls._strip_code_fences(raw)
+        if no_fences and no_fences != raw:
+            candidates.append(no_fences)
+
+        extracted = cls._extract_first_json_object(no_fences or raw)
+        if extracted:
+            candidates.append(extracted)
+
+        # Cleanup pass for each candidate
+        cleaned_candidates = []
+        for c in candidates:
+            cleaned_candidates.append(cls._cleanup_jsonish(c))
+        candidates.extend([c for c in cleaned_candidates if c])
+
+        seen: set[str] = set()
+        unique_candidates: list[str] = []
+        for c in candidates:
+            if c and c not in seen:
+                seen.add(c)
+                unique_candidates.append(c)
+
+        last_err: Exception | None = None
+        for c in unique_candidates:
+            try:
+                obj = json.loads(c)
+                if isinstance(obj, dict):
+                    return obj
+            except Exception as e:
+                last_err = e
+
+            # Fallback: tolerate single quotes / python-literal output
+            try:
+                py_obj = ast.literal_eval(c)
+                if isinstance(py_obj, dict):
+                    return py_obj
+            except Exception as e:
+                last_err = e
+
+        raise ValueError(f"Invalid JSON response from OpenAI") from last_err
+
+    @staticmethod
+    def _strip_bullet_prefix(text: str) -> str:
+        text = (text or "").strip()
+        if not text:
+            return ""
+        for prefix in ("•", "-", "–", "—", "*", "+"):
+            if text.startswith(prefix):
+                return text[len(prefix):].lstrip()
+        # Handle numeric bullets like "1. foo" or "2) bar"
+        if len(text) >= 3 and text[0].isdigit() and text[1] in (".", ")"):
+            return text[2:].lstrip()
+        return text
+
+    @classmethod
+    def _normalize_bullets_to_string(cls, value) -> str:
+        """Ensure bullet content is a string using the '• ' delimiter."""
+        if value is None:
+            return ""
+
+        if isinstance(value, (list, tuple)):
+            items = [cls._strip_bullet_prefix(str(v)) for v in value]
+            items = [v for v in items if v]
+            return ("• " + "\n• ".join(items)) if items else ""
+
+        # If it's a plain string, attempt to normalize common bullet formats
+        text = str(value).strip()
+        if not text:
+            return ""
+
+        # Already in preferred delimiter format
+        if "• " in text:
+            return text
+
+        # Convert newline-based bullets to preferred delimiter
+        lines = [ln.strip() for ln in text.replace("\r\n", "\n").split("\n") if ln.strip()]
+        bulletish = [ln for ln in lines if ln.startswith(("•", "-", "–", "—", "*", "+")) or (len(ln) >= 3 and ln[0].isdigit() and ln[1] in (".", ")"))]
+        if len(lines) >= 2 and bulletish:
+            items = [cls._strip_bullet_prefix(ln) for ln in lines]
+            items = [v for v in items if v]
+            return ("• " + "\n• ".join(items)) if items else ""
+
+        return text
+
+    @staticmethod
+    def _normalize_text(value) -> str:
+        """Coerce any JSON value into a human-readable string."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, (list, tuple)):
+            parts = [str(v).strip() for v in value if str(v).strip()]
+            return "\n\n".join(parts)
+        if isinstance(value, dict):
+            # Best-effort: keep it compact but readable
+            try:
+                return json.dumps(value, ensure_ascii=False)
+            except Exception:
+                return str(value)
+        return str(value).strip()
+
+    @classmethod
+    def _normalize_newsletter_content(cls, content: Dict) -> Dict[str, str]:
+        """Normalize LLM JSON so templates always receive strings."""
+        if not isinstance(content, dict):
+            return {
+                "executive_summary": "",
+                "featured_article": "",
+                "quick_tips": "",
+                "tool_spotlight": "",
+                "industry_insights": "",
+                "success_story": "",
+                "upcoming_trends": "",
+                "call_to_action": "",
+            }
+
+        normalized = {
+            "executive_summary": cls._normalize_text(content.get("executive_summary")),
+            "featured_article": cls._normalize_text(content.get("featured_article")),
+            "quick_tips": cls._normalize_bullets_to_string(content.get("quick_tips")),
+            "tool_spotlight": cls._normalize_text(content.get("tool_spotlight")),
+            "industry_insights": cls._normalize_text(content.get("industry_insights")),
+            "success_story": cls._normalize_text(content.get("success_story")),
+            "upcoming_trends": cls._normalize_text(content.get("upcoming_trends")),
+            "call_to_action": cls._normalize_text(content.get("call_to_action")),
+        }
+
+        return normalized
         
     def generate_newsletter_content(self, month: str, year: int, custom_topics: Optional[List[str]] = None) -> Dict[str, str]:
         """
@@ -113,21 +316,21 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
             )
             
             raw_content = response.choices[0].message.content
-            
-            # Clean up response if it has markdown formatting
-            if raw_content.startswith("```"):
-                import re
-                raw_content = re.sub(r"^```(?:json)?\n", "", raw_content)
-                raw_content = re.sub(r"\n```$", "", raw_content)
-            
+
             try:
-                content = json.loads(raw_content)
+                content = self._parse_llm_json(raw_content)
+                content = self._normalize_newsletter_content(content)
                 logger.info(f"Successfully generated newsletter content for {month} {year}")
                 return content
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {str(e)}")
-                logger.error(f"Raw content: {raw_content}")
-                raise ValueError("Invalid JSON response from OpenAI")
+            except Exception as e:
+                logger.error(f"Failed to parse newsletter JSON: {type(e).__name__}: {str(e)}")
+                # Keep logs safe-ish: include a truncated payload for debugging.
+                try:
+                    snippet = (raw_content or '')
+                    logger.error("Raw content (first 2000 chars): %s", snippet[:2000])
+                except Exception:
+                    pass
+                raise
                 
         except Exception as e:
             logger.error(f"Error generating newsletter content: {str(e)}")

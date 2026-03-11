@@ -43,6 +43,16 @@ export default function CleanTemplate({
         });
     }, [emit]);
 
+    const updateEducation = useCallback((index: number, field: string, value: string) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.education) ? [...prev.education] : [];
+            updated[index] = { ...(updated[index] || {}), [field]: value };
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateSkill = useCallback((index: number, field: 'name' | 'level', value: string) => {
         setEditedData((prev: any) => {
             const skills = normalizeSkillsWithLevel(prev?.skills);
@@ -134,6 +144,7 @@ export default function CleanTemplate({
     const skills = normalizeSkillsWithLevel(data.skills);
     const languages = normalizeLanguages(data.languages);
     const experience = Array.isArray(data.experience) ? data.experience : [];
+    const education = Array.isArray(data.education) ? data.education : [];
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const certifications = normalizeCertifications(data.certifications);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
@@ -254,6 +265,19 @@ export default function CleanTemplate({
                                 ))}
                                 {experience.length === 0 && (
                                     <div className="text-xs text-slate-500">Add experience to populate this section.</div>
+                                )}
+                            </div>
+                        </SectionBlock>
+                    )}
+
+                    {(education.length > 0 || showEmpty) && (
+                        <SectionBlock title={getHeading('education', 'EDUCATION')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
+                            <div className="space-y-4">
+                                {education.map((edu: any, idx: number) => (
+                                    <EducationEntry key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                                ))}
+                                {education.length === 0 && (
+                                    <div className="text-xs text-slate-500">Add education to populate this section.</div>
                                 )}
                             </div>
                         </SectionBlock>
@@ -428,6 +452,73 @@ function ProjectEntry({ proj, editMode, idx, onUpdate }: { proj: any; editMode: 
                 </div>
             ) : editMode ? (
                 <EditableText value="" onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs mt-2" as="div" placeholder="Add description" multiline />
+            ) : null}
+        </div>
+    );
+}
+
+function EducationEntry({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean; idx: number; onUpdate: (i: number, f: string, v: string) => void }) {
+    const degree = String(edu?.degree || edu?.title || '').trim();
+    const field = String(edu?.field || edu?.focus || edu?.major || '').trim();
+    const school = String(edu?.institution || edu?.school || '').trim();
+    const year = String(edu?.year || edu?.dates || edu?.graduationDate || '').trim();
+    const location = String(edu?.location || edu?.city || '').trim();
+    const gpa = String(edu?.gpa ?? '').trim();
+
+    return (
+        <div>
+            <div className="flex items-baseline justify-between gap-2">
+                <div className="text-xs font-bold text-black">
+                    {editMode ? (
+                        <>
+                            <EditableText value={degree || school || 'Education'} onChange={(v) => onUpdate(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs font-bold inline" as="span" />
+                            {field ? (
+                                <>
+                                    {' — '}
+                                    <EditableText value={field} onChange={(v) => onUpdate(idx, 'field', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs font-bold inline" as="span" />
+                                </>
+                            ) : null}
+                        </>
+                    ) : (
+                        <>
+                            {degree || school || 'Education'}
+                            {field ? ` — ${field}` : ''}
+                        </>
+                    )}
+                </div>
+                {(year || editMode) ? (
+                    editMode ? (
+                        <EditableText value={year} onChange={(v) => onUpdate(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs shrink-0" as="span" placeholder="Year" />
+                    ) : (
+                        <span className="text-xs text-black shrink-0">{year}</span>
+                    )
+                ) : null}
+            </div>
+
+            {(school && degree) ? (
+                editMode ? (
+                    <EditableText value={school} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-slate-600 mt-0.5" as="div" />
+                ) : (
+                    <div className="text-xs text-slate-600 mt-0.5">{school}</div>
+                )
+            ) : null}
+
+            {(location || editMode) ? (
+                editMode ? (
+                    <EditableText value={location} onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-slate-600 mt-0.5" as="div" placeholder="Location" />
+                ) : location ? (
+                    <div className="text-xs text-slate-600 mt-0.5">{location}</div>
+                ) : null
+            ) : null}
+
+            {gpa ? (
+                editMode ? (
+                    <div className="text-xs text-slate-600 mt-0.5">
+                        GPA: <EditableText value={gpa} onChange={(v) => onUpdate(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs inline" as="span" />
+                    </div>
+                ) : (
+                    <div className="text-xs text-slate-600 mt-0.5">GPA: {gpa}</div>
+                )
             ) : null}
         </div>
     );

@@ -37,6 +37,49 @@ function formatTemplateDisplayName(raw?: string): string {
         .join(' ');
 }
 
+function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
+    const key = String(rawTemplateName || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]/g, '');
+    if (!key) return null;
+
+    // Match the same aliases used by the template switch() below.
+    switch (key) {
+        case 'executive':
+        case 'timelineblue':
+            return 12;
+
+        case 'elegant':
+        case 'lavenderclassic':
+        case 'classicrose':
+            return 12;
+
+        case 'creative':
+        case 'creative2':
+        case 'popart':
+            return 8;
+
+        case 'boldprofessional':
+        case 'orangeheader':
+            return 10;
+
+        case 'traditional':
+        case 'bluelineclassic':
+            return 12;
+
+        case 'modern':
+        case 'cleansidebar':
+            return 18;
+
+        case 'minimalsidebar':
+            return 10;
+
+        default:
+            return null;
+    }
+}
+
 export default function TemplateViewer() {
     const { templateName } = useParams<{ templateName: string }>();
     const location = useLocation();
@@ -989,7 +1032,7 @@ export default function TemplateViewer() {
     const addEducationItem = () => {
         setResumeData((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
-            const nextArr = [...prevArr, { degree: '', year: '', institution: '' }];
+            const nextArr = [...prevArr, { degree: '', year: '', institution: '', gpa: '' }];
             return { ...(prev || {}), education: nextArr };
         });
     };
@@ -1466,8 +1509,7 @@ export default function TemplateViewer() {
                     <header className="border-b bg-white">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                             <a href="/" className="inline-flex items-center gap-3">
-                                <img src="/static/images/logo23_small.png" alt="Resumatic AI" width={40} height={40} />
-                                <span className="text-xl font-bold text-gray-900">Resumatic AI</span>
+                                <img src="/static/images/logo23_small.webp" alt="Resumatic AI" className="h-16 w-auto object-contain" width={96} height={96} loading="lazy" />
                             </a>
 
                             <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
@@ -1519,7 +1561,7 @@ export default function TemplateViewer() {
                         aria-label="Mobile"
                     >
                         <div className="flex justify-between items-center mb-8">
-                            <img alt="Logo" className="h-12 w-auto" src="/static/images/logo23_small.png" loading="lazy" width={64} height={64} />
+                            <img alt="Logo" className="h-16 w-auto object-contain" src="/static/images/logo23_small.webp" loading="lazy" width={96} height={96} />
                             <button
                                 type="button"
                                 className="text-gray-500 hover:text-gray-900"
@@ -1767,7 +1809,7 @@ export default function TemplateViewer() {
                                         <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
                                     </span>
                                     <p>
-                                        Note, pdf download may not match the screen display. Download the PDF to determine optimal settings.
+                                        Note, pdf download may not match the screen display due to different screen display settings. Download the PDF to determine optimal settings.
                                     </p>
                                 </div>
 
@@ -1785,7 +1827,7 @@ export default function TemplateViewer() {
                                         onClick={() => {
                                             if (me && !me.is_paid) {
                                                 const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                window.location.href = `/plans?next=${encodeURIComponent(next)}`;
+                                                window.location.href = `/plans?next=${encodeURIComponent(next)}&reason=pdf`;
                                                 return;
                                             }
                                             setDownloadOnlyStatus('starting');
@@ -1866,7 +1908,7 @@ export default function TemplateViewer() {
                                                         if (!me) return;
                                                         if (!me?.is_paid) {
                                                             const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                            window.location.href = `/plans?next=${encodeURIComponent(next)}`;
+                                                            window.location.href = `/plans?next=${encodeURIComponent(next)}&reason=pdf`;
                                                             return;
                                                         }
                                                         try {
@@ -2202,6 +2244,11 @@ export default function TemplateViewer() {
                                                     blocks.skills = (
                                                         <ListField
                                                             label={getSectionLabel('skills', 'Skills')}
+                                                            hint={(() => {
+                                                                const limit = getTemplateSkillsLimit(templateName);
+                                                                if (!limit) return undefined;
+                                                                return '# of skills limited by template';
+                                                            })()}
                                                             values={skillsVals}
                                                             onChange={(vals: string[]) => setField('skills', vals)}
                                                         />
@@ -2257,6 +2304,15 @@ export default function TemplateViewer() {
                                                                                         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
                                                                                     />
                                                                                 </Field>
+                                                                                <div className="mt-2">
+                                                                                    <Field label="GPA">
+                                                                                        <input
+                                                                                            value={String(edu?.gpa ?? '')}
+                                                                                            onChange={(e) => updateEducationField(idx, 'gpa', e.target.value)}
+                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                        />
+                                                                                    </Field>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     ))}
@@ -2866,9 +2922,7 @@ export default function TemplateViewer() {
                                                     {inlineEditMode ? (
                                                         <div className="mb-3 rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
                                                             <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
-                                                                <div className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 px-3 py-1 text-xs sm:text-sm font-semibold w-fit">
-                                                                    Edit mode
-                                                                </div>
+
                                                                 <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
                                                                     <div className="break-words">Click/Tap any content to edit.</div>
                                                                     <div className="flex items-start gap-2">
@@ -3169,10 +3223,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ListField({
     label,
+    hint,
     values,
     onChange,
 }: {
     label: string;
+    hint?: string;
     values: string[];
     onChange: (vals: string[]) => void;
 }) {
@@ -3180,7 +3236,10 @@ function ListField({
     return (
         <div>
             <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                <div className="text-sm font-bold text-gray-900">{label}</div>
+                <div className="flex items-baseline gap-2 min-w-0">
+                    <div className="text-sm font-bold text-gray-900 truncate">{label}</div>
+                    {hint ? <div className="text-xs font-normal text-gray-500 whitespace-nowrap">{hint}</div> : null}
+                </div>
                 <button
                     type="button"
                     className="text-xs text-indigo-700 hover:text-indigo-800"

@@ -8,13 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
-    <script defer>
-        (function (c, l, a, r, i, t, y) {
-            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-        })(window, document, "clarity", "script", "sjihir10df");
-    </script>
+    {% include "_clarity.html" %}
 </head>
 
 <body class="bg-gray-50 text-gray-900">
@@ -22,7 +16,7 @@
         <div class="flex items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-                    <img src="{{ url_for('static', filename='images/logo23_small.png') }}" alt="Resumatic AI"
+                    <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI"
                         class="w-[2.4rem] h-[2.4rem] object-contain" loading="lazy" />
                 </div>
                 <div>
@@ -125,6 +119,15 @@
                         </a>
 
                         {% if is_paid %}
+                        {% if cancel_scheduled %}
+                        <div
+                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 font-semibold">
+                            Cancellation scheduled
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Your plan will end at the end of your billing period.
+                        </p>
+                        {% else %}
                         <a href="/billing/cancel"
                             class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
                             Cancel subscription
@@ -132,6 +135,7 @@
                         <p class="text-xs text-gray-500">
                             Billing is managed securely by Stripe.
                         </p>
+                        {% endif %}
                         {% else %}
                         <p class="text-xs text-gray-500">
                             You’re on the free plan. Choose a plan above to enable PDF downloads and unlimited

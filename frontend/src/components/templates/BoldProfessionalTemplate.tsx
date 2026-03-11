@@ -646,6 +646,7 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
     const school = edu.institution || edu.school || "";
     const location = edu.location || edu.city || "";
     const date = edu.year || edu.dates || edu.graduationDate || "";
+    const gpa = String(edu?.gpa ?? "").trim();
 
     return (
         <div className="flex items-baseline justify-between gap-4">
@@ -659,6 +660,12 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                         {school && degree ? <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
                         {location ? <span className="text-black/70"> • </span> : null}
                         {location ? <EditableText value={String(location)} onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
+                        {gpa ? <span className="text-black/70"> • </span> : null}
+                        {gpa ? (
+                            <span className="text-black/70">
+                                GPA: <EditableText value={String(gpa)} onChange={(v) => onUpdate(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                            </span>
+                        ) : null}
                     </>
                 ) : (
                     <>
@@ -666,6 +673,7 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                         {field ? <span className="text-black/70">: {String(field)}</span> : null}
                         {school && degree ? <span className="text-black/70"> — {String(school)}</span> : null}
                         {location ? <span className="text-black/70"> • {String(location)}</span> : null}
+                        {gpa ? <span className="text-black/70"> • GPA: {String(gpa)}</span> : null}
                     </>
                 )}
             </div>

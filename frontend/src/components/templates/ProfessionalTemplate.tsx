@@ -381,11 +381,27 @@ export default function ProfessionalTemplate({
                                             className="text-slate-700 text-sm"
                                             as="div"
                                         />
+                                        {String(edu?.gpa ?? '').trim() ? (
+                                            <div className="text-xs text-slate-600">
+                                                GPA: <EditableText
+                                                    value={String(edu?.gpa ?? '')}
+                                                    onChange={(v) => updateEducation(idx, 'gpa', v)}
+                                                    editMode={editMode}
+                                                    liveUpdate
+                                                    layoutSafe
+                                                    as="span"
+                                                    className="inline"
+                                                />
+                                            </div>
+                                        ) : null}
                                     </>
                                 ) : (
                                     <>
                                         <h4 className="font-bold text-slate-900 text-sm">{edu.degree}</h4>
                                         <p className="text-slate-700 text-sm">{edu.institution}</p>
+                                        {String(edu?.gpa ?? '').trim() ? (
+                                            <div className="text-xs text-slate-600">GPA: {String(edu?.gpa ?? '').trim()}</div>
+                                        ) : null}
                                     </>
                                 )}
                             </div>

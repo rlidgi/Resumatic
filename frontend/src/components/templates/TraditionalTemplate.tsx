@@ -570,6 +570,7 @@ function EduRow({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean;
     const school = edu.institution || edu.school || "";
     const location = edu.location || edu.city || "";
     const date = edu.year || edu.dates || edu.graduationDate || "";
+    const gpa = String(edu?.gpa ?? "").trim();
 
     return (
         <div className="grid grid-cols-12 gap-6">
@@ -615,6 +616,15 @@ function EduRow({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean;
                         <EditableText value={String(location)} onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe className="text-black/70" as="div" />
                     ) : (
                         <div className="text-black/70">{String(location)}</div>
+                    )
+                ) : null}
+                {gpa ? (
+                    editMode ? (
+                        <div className="text-black/70">
+                            GPA: <EditableText value={String(gpa)} onChange={(v) => onUpdate(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe className="inline" as="span" />
+                        </div>
+                    ) : (
+                        <div className="text-black/70">GPA: {String(gpa)}</div>
                     )
                 ) : null}
             </div>

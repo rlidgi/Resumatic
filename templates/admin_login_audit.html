@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+    {% include "_clarity.html" %}
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Login Audit | ResumaticAI</title>
@@ -41,12 +43,20 @@
                             Source file not found yet (will be created after the first successful login).
                             {% endif %}
                             {% endif %}
+                            {% if pacific_now_label %}
+                            <span class="ms-2">| Pacific TZ: {{ pacific_now_label }}{% if pacific_tz_source %} ({{
+                                pacific_tz_source }}){% endif %}</span>
+                            {% endif %}
                         </div>
                     </div>
                     <div>
                         <a href="/admin/stats" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-chart-line me-1"></i>
                             Admin Dashboard
+                        </a>
+                        <a href="/admin/cancellation_feedback" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-user-minus me-1"></i>
+                            Cancellation Feedback
                         </a>
                         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-home me-1"></i>
@@ -68,7 +78,9 @@
                                     <tr>
                                         <th scope="col">Email</th>
                                         <th scope="col">Login (Pacific)</th>
+                                        <th scope="col">Last activity (Pacific)</th>
                                         <th scope="col">Logout (Pacific)</th>
+                                        <th scope="col">Estimated logout (idle)</th>
                                         <th scope="col">Duration (minutes)</th>
                                         <th scope="col">Method</th>
                                         <th scope="col">User ID</th>
@@ -79,7 +91,9 @@
                                     <tr>
                                         <td class="text-break">{{ s.get('email','') }}</td>
                                         <td class="text-break">{{ s.get('login_time_pst','') }}</td>
+                                        <td class="text-break">{{ s.get('last_activity_time_pst','') }}</td>
                                         <td class="text-break">{{ s.get('logout_time_pst','') or '' }}</td>
+                                        <td class="text-break">{{ s.get('estimated_logout_time_pst','') or '' }}</td>
                                         <td>{{ s.get('duration_minutes', '') if s.get('duration_minutes', None) is not
                                             none else '' }}</td>
                                         <td>{{ s.get('login_method','') }}</td>

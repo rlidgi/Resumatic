@@ -43,7 +43,12 @@ Set all Stripe values to **live** keys/IDs (not `sk_test` / `price_test` / `buy.
 Optional (used as fallback):
 - `STRIPE_PAYMENTLINK_MONTHLY_10_95` = `https://buy.stripe.com/...` (live)
 - `STRIPE_PAYMENTLINK_ANNUAL_6_95` = `https://buy.stripe.com/...` (live)
-- `STRIPE_PAYMENTLINK_TRIAL_14D` = `https://buy.stripe.com/...` (live)  
+- `STRIPE_PAYMENTLINK_TRIAL_14D` = `https://buy.stripe.com/...` (live)
+
+Retention offer (cancel-flow incentive):
+- `STRIPE_COUPON_RETENTION` = coupon ID (e.g. `retention_50`) for Checkout Session API (classic billing only)
+- `STRIPE_PROMO_CODE_RETENTION` = promotion code string (e.g. `RETENTION50`) for Payment Links
+- For flexible billing, the cancel-page "Claim 50% off" uses customer balance credit (no env var needed; optional `STRIPE_RETENTION_CREDIT_CENTS` to override the auto-calculated amount)  
 
 ### Storage
 - `AZURE_STORAGE_CONNECTION_STRING` = production storage account connection string

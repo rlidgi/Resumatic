@@ -9,6 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import mammoth
 import logging
 import os
+import time
 import re
 import threading
 import atexit
@@ -689,6 +690,12 @@ LOGIN_AUDIT_FILE = "login_audit.json"
 LOGIN_AUDIT_SESSION_KEY = "login_audit_id"
 _LOGIN_AUDIT_VERSION = 1
 
+# Persisting last activity can be useful for interpreting sessions without explicit logout.
+# Throttle updates to avoid excessive disk/DB writes.
+LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY = 'login_audit_last_activity_at'
+LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY = 'login_audit_last_activity_write_at'
+LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS = int(os.getenv('LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS', '60') or '60')
+
 # Auth session timeouts
 # - Idle timeout: log out after N minutes with no authenticated requests.
 # These are best-effort guards to reduce risk from unattended sessions.
@@ -704,6 +711,12 @@ AZURE_LOGIN_AUDIT_TABLE = os.getenv('AZURE_LOGIN_AUDIT_TABLE', 'LoginAudit')
 LOGIN_AUDIT_SESSION_PK_KEY = 'login_audit_pk'
 LOGIN_AUDIT_SESSION_RK_KEY = 'login_audit_rk'
 LOGIN_AUDIT_SESSION_LOGIN_AT_KEY = 'login_audit_login_at'
+
+# Azure Users table: record each login session as a separate row (append-only).
+# This keeps the existing profile row (RowKey='profile') intact while allowing multiple sessions per user.
+USERS_SESSION_ROWKEY_KEY = 'users_session_rk'
+USERS_SESSION_LOGIN_AT_KEY = 'users_session_login_at'
+USERS_SESSION_AUDIT_ID_KEY = 'users_session_audit_id'
 
 # Email verification
 EMAIL_VERIFY_TOKEN_EXPIRY_HOURS = int(os.getenv('EMAIL_VERIFY_TOKEN_EXPIRY_HOURS', '48'))
@@ -1042,14 +1055,14 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
             <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
                 <p>Hi there,</p>
-                <p>Welcome to ResumaticAI — I’m really glad you’re here.</p>
-                <p>I’m Yaron, the founder of ResumaticAI. I’m currently pursuing a PhD in Machine Learning, specializing in natural language processing — the technology behind modern large language models.</p>
-                <p>I built ResumaticAI because I saw two things:</p>
+                <p>Welcome to ResumaticAI — We're really glad you’re here.</p>
+                
+                <p>We built ResumaticAI because we saw two things:</p>
                 <ul>
                     <li>AI has become incredibly powerful.</li>
                     <li>Most resume tools still feel generic.</li>
                 </ul>
-                <p>Resumes aren’t just documents — they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.</p>
+                <p>Resumes aren’t just documents, they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.</p>
                 <p>Here’s what you can do right now:</p>
                 <ul>
                     <li>Upload your resume for instant AI-powered feedback</li>
@@ -1057,7 +1070,7 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                     <li>Tailor your resume to specific job descriptions</li>
                     <li>Improve structure, clarity, and ATS compatibility</li>
                 </ul>
-                <p>We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email — I read every message personally.</p>
+                <p>We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email.</p>
                 <p>Ready to get started?</p>
                 <p>Visit: <a href=\"https://resumaticai.com\" style=\"color: #2563eb;\">https://resumaticai.com</a></p>
                 <p>Let’s build a resume that gets you interviews.</p>
@@ -1074,11 +1087,9 @@ def send_welcome_email(email: str, user_name: str) -> bool:
             [
                 'Hi there,',
                 '',
-                "Welcome to ResumaticAI — I’m really glad you’re here.",
+                "Welcome to ResumaticAI — We're really glad you’re here.",
                 '',
-                "I’m Yaron, the founder of ResumaticAI. I’m currently pursuing a PhD in Machine Learning, specializing in natural language processing — the technology behind modern large language models.",
-                '',
-                'I built ResumaticAI because I saw two things:',
+                'We built ResumaticAI because we saw two things:',
                 '',
                 '• AI has become incredibly powerful.',
                 '• Most resume tools still feel generic.',
@@ -1241,7 +1252,14 @@ def _get_pacific_tzinfo():
         try:
             return ZoneInfo('America/Los_Angeles')
         except Exception:
-            pass
+            # On Windows, the IANA timezone database may be missing.
+            # If the optional `tzdata` package is installed, ZoneInfo can use it.
+            try:
+                import tzdata  # noqa: F401
+
+                return ZoneInfo('America/Los_Angeles')
+            except Exception:
+                pass
 
     # Python <3.9: try backports.
     try:
@@ -1425,6 +1443,132 @@ def _azure_login_audit_list(limit: int = 500) -> list[dict]:
     return out
 
 
+def _table_safe_str(value: object, *, max_len: int = 1024) -> str:
+    try:
+        s = str(value or '')
+    except Exception:
+        s = ''
+    s = s.replace('\x00', '')
+    if max_len and len(s) > int(max_len):
+        s = s[: int(max_len)]
+    return s
+
+
+def _best_effort_client_ip() -> str:
+    """Best-effort client IP (supports Azure/App Service reverse proxy)."""
+    try:
+        xff = _table_safe_str(request.headers.get('X-Forwarded-For', ''), max_len=256)
+        if xff:
+            # XFF can be a comma-separated chain; keep the left-most.
+            return (xff.split(',', 1)[0] or '').strip()
+    except Exception:
+        pass
+    try:
+        return _table_safe_str(getattr(request, 'remote_addr', ''), max_len=64)
+    except Exception:
+        return ''
+
+
+def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login_at: str, login_method: str, row_key: str, login_audit_pk: str = '', login_audit_rk: str = '') -> None:
+    """Record a login session row in the Azure Users table (best-effort).
+
+    Writes:
+    - MERGE into (PK=user_id, RK='profile') for convenient last-login fields
+    - REPLACE into (PK=user_id, RK=<session row_key>) to create an append-only session record
+    """
+    try:
+        # On login we can afford to ensure the table exists.
+        table_client = get_users_table_client(create_if_missing=True)
+
+        # Update profile with last-login markers (do not clobber existing profile fields).
+        profile_patch = {
+            'PartitionKey': str(user_id),
+            'RowKey': 'profile',
+            'last_login_at': str(login_at or ''),
+            'last_login_method': _table_safe_str(login_method, max_len=64),
+            'last_session_rowkey': _table_safe_str(row_key, max_len=128),
+        }
+        if email:
+            profile_patch['email'] = _table_safe_str(email, max_len=254)
+        try:
+            table_client.upsert_entity(profile_patch, mode=UpdateMode.MERGE)
+        except Exception:
+            pass
+
+        # Insert an append-only session row.
+        user_agent = ''
+        referer = ''
+        try:
+            user_agent = _table_safe_str(request.headers.get('User-Agent', ''), max_len=512)
+            referer = _table_safe_str(request.headers.get('Referer', ''), max_len=512)
+        except Exception:
+            user_agent = ''
+            referer = ''
+        ip = _best_effort_client_ip()
+
+        entity = {
+            'PartitionKey': str(user_id),
+            'RowKey': str(row_key),
+            'record_type': 'session',
+            'audit_id': _table_safe_str(audit_id, max_len=64),
+            'email': _table_safe_str(email, max_len=254),
+            'login_at': _table_safe_str(login_at, max_len=64),
+            'last_activity_at': _table_safe_str(login_at, max_len=64),
+            'logout_at': '',
+            'login_method': _table_safe_str(login_method, max_len=64),
+            'ip': _table_safe_str(ip, max_len=64),
+            'user_agent': user_agent,
+            'referer': referer,
+        }
+        if login_audit_pk:
+            entity['login_audit_pk'] = _table_safe_str(login_audit_pk, max_len=16)
+        if login_audit_rk:
+            entity['login_audit_rk'] = _table_safe_str(login_audit_rk, max_len=128)
+
+        table_client.upsert_entity(entity, mode=UpdateMode.REPLACE)
+    except Exception:
+        # Never block login on telemetry persistence.
+        return
+
+
+def _azure_users_session_activity(*, user_id: str, row_key: str, activity_at: str) -> None:
+    """Update last_activity_at for a session row (best-effort, MERGE)."""
+    try:
+        if not user_id or not row_key:
+            return
+        table_client = get_users_table_client(create_if_missing=False)
+        patch = {
+            'PartitionKey': str(user_id),
+            'RowKey': str(row_key),
+            'last_activity_at': _table_safe_str(activity_at, max_len=64),
+        }
+        table_client.upsert_entity(patch, mode=UpdateMode.MERGE)
+    except Exception:
+        return
+
+
+def _azure_users_session_end(*, user_id: str, row_key: str, logout_at: str, duration_seconds: int | None) -> None:
+    """Close a session row in Users table (best-effort, MERGE)."""
+    try:
+        if not user_id or not row_key:
+            return
+        table_client = get_users_table_client(create_if_missing=False)
+        patch = {
+            'PartitionKey': str(user_id),
+            'RowKey': str(row_key),
+            'logout_at': _table_safe_str(logout_at, max_len=64),
+            'last_activity_at': _table_safe_str(logout_at, max_len=64),
+        }
+        if duration_seconds is not None:
+            try:
+                patch['duration_seconds'] = int(duration_seconds)
+            except Exception:
+                pass
+        table_client.upsert_entity(patch, mode=UpdateMode.MERGE)
+    except Exception:
+        return
+
+
 def _audit_login_start(user: "User", login_method: str) -> None:
     """Create a login audit record and pin it to the session."""
     try:
@@ -1435,6 +1579,15 @@ def _audit_login_start(user: "User", login_method: str) -> None:
         email = _normalize_email(getattr(user, 'email', ''))
         user_id = str(getattr(user, 'id', '') or '')
         login_at = now.isoformat()
+
+        # Generate a per-login session RowKey for the Azure Users table (append-only per session).
+        users_session_rk = f"session_{now.strftime('%Y%m%dT%H%M%S%f')}_{audit_id}"
+        try:
+            session[USERS_SESSION_ROWKEY_KEY] = users_session_rk
+            session[USERS_SESSION_LOGIN_AT_KEY] = login_at
+            session[USERS_SESSION_AUDIT_ID_KEY] = audit_id
+        except Exception:
+            pass
 
         # Initialize auth session timestamps (used for idle/absolute timeouts).
         _auth_set_session_times(start_iso=login_at, activity_iso=login_at)
@@ -1450,16 +1603,45 @@ def _audit_login_start(user: "User", login_method: str) -> None:
                 'user_id': user_id,
                 'email': email,
                 'login_at': login_at,
+                'last_activity_at': login_at,
                 'logout_at': '',
                 'login_method': str(login_method or '').strip() or '',
                 # duration_seconds will be written on logout
             }
+            # Also record this session in the Azure Users table (best-effort).
+            try:
+                _azure_users_session_start(
+                    user_id=user_id,
+                    email=email,
+                    audit_id=audit_id,
+                    login_at=login_at,
+                    login_method=str(login_method or '').strip() or '',
+                    row_key=users_session_rk,
+                    login_audit_pk=pk,
+                    login_audit_rk=rk,
+                )
+            except Exception:
+                pass
             if _azure_login_audit_upsert(entity):
                 session[LOGIN_AUDIT_SESSION_KEY] = audit_id
                 session[LOGIN_AUDIT_SESSION_PK_KEY] = pk
                 session[LOGIN_AUDIT_SESSION_RK_KEY] = rk
                 session[LOGIN_AUDIT_SESSION_LOGIN_AT_KEY] = login_at
+                session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = login_at
                 return
+
+        # If Azure login audit isn't enabled, still try to record the session in Users table.
+        try:
+            _azure_users_session_start(
+                user_id=user_id,
+                email=email,
+                audit_id=audit_id,
+                login_at=login_at,
+                login_method=str(login_method or '').strip() or '',
+                row_key=users_session_rk,
+            )
+        except Exception:
+            pass
 
         # Fallback: JSON file store.
         record = {
@@ -1467,6 +1649,7 @@ def _audit_login_start(user: "User", login_method: str) -> None:
             'user_id': user_id,
             'email': email,
             'login_at': login_at,
+            'last_activity_at': login_at,
             'logout_at': None,
             'duration_seconds': None,
             'login_method': str(login_method or '').strip() or None,
@@ -1482,8 +1665,89 @@ def _audit_login_start(user: "User", login_method: str) -> None:
             _save_login_audit_store(store)
 
         session[LOGIN_AUDIT_SESSION_KEY] = audit_id
+        session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = login_at
     except Exception:
         logger.exception("Error starting login audit")
+
+
+def _audit_login_activity(activity_iso: str) -> None:
+    """Update the current login audit record's last activity (best-effort, throttled)."""
+    try:
+        audit_id = session.get(LOGIN_AUDIT_SESSION_KEY)
+        if not audit_id:
+            return
+
+        now_dt = _parse_iso_datetime(activity_iso) or datetime.now(timezone.utc)
+
+        # Throttle writes (in-session).
+        try:
+            last_write_dt = _parse_iso_datetime(session.get(LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY))
+        except Exception:
+            last_write_dt = None
+        if last_write_dt is not None:
+            try:
+                if (now_dt - last_write_dt).total_seconds() < float(LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS):
+                    # Still update the in-memory session key for UI estimates.
+                    session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
+                    return
+            except Exception:
+                pass
+
+        # Best-effort: also update the per-session row in the Azure Users table.
+        try:
+            uid = str(getattr(current_user, 'id', '') or '').strip()
+            users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+            if uid and users_rk:
+                _azure_users_session_activity(user_id=uid, row_key=users_rk, activity_at=str(activity_iso))
+        except Exception:
+            pass
+
+        # If this session has Azure PK/RK, update the Azure record.
+        pk = str(session.get(LOGIN_AUDIT_SESSION_PK_KEY) or '').strip()
+        rk = str(session.get(LOGIN_AUDIT_SESSION_RK_KEY) or '').strip()
+        if pk and rk and _azure_login_audit_enabled():
+            existing = _azure_login_audit_get(pk, rk) or {}
+            merged = dict(existing) if isinstance(existing, dict) else {}
+            merged.update({
+                'PartitionKey': pk,
+                'RowKey': rk,
+                'audit_id': str(audit_id),
+                'last_activity_at': str(activity_iso),
+            })
+            # Ensure required fields exist (Azure upsert replaces entity).
+            merged.setdefault('login_at', str(session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or (merged.get('login_at') if isinstance(merged, dict) else '') or ''))
+            merged.setdefault('logout_at', (merged.get('logout_at') if isinstance(merged, dict) else '') or '')
+            merged.setdefault('email', (merged.get('email') if isinstance(merged, dict) else '') or '')
+            merged.setdefault('user_id', (merged.get('user_id') if isinstance(merged, dict) else '') or '')
+            merged.setdefault('login_method', (merged.get('login_method') if isinstance(merged, dict) else '') or '')
+            _azure_login_audit_upsert(merged)
+
+            session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
+            session[LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
+            return
+
+        # JSON file store update.
+        with _LOGIN_AUDIT_LOCK:
+            store = _load_login_audit_store()
+            sessions = store.get('sessions')
+            if not isinstance(sessions, dict):
+                return
+            rec = sessions.get(audit_id)
+            if not isinstance(rec, dict):
+                return
+            # Don't touch closed sessions.
+            if rec.get('logout_at'):
+                return
+            rec['last_activity_at'] = str(activity_iso)
+            sessions[audit_id] = rec
+            store['sessions'] = sessions
+            _save_login_audit_store(store)
+
+        session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
+        session[LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
+    except Exception:
+        # Swallow to avoid impacting request handling.
+        return
 
 
 @app.before_request
@@ -1526,6 +1790,11 @@ def _enforce_auth_session_timeouts():
 
         # Update last activity for this authenticated request.
         session[AUTH_LAST_ACTIVITY_AT_KEY] = now_iso
+        # Persist last activity to the login audit store for admin visibility.
+        try:
+            _audit_login_activity(now_iso)
+        except Exception:
+            pass
     except Exception:
         return None
     return None
@@ -1557,6 +1826,7 @@ def _audit_login_end() -> None:
                 'PartitionKey': pk,
                 'RowKey': rk,
                 'audit_id': str(audit_id),
+                'last_activity_at': now_iso,
                 'logout_at': now_iso,
             }
             if duration is not None:
@@ -1576,11 +1846,25 @@ def _audit_login_end() -> None:
 
             _azure_login_audit_upsert(merged)
 
+            # Also close the per-session row in the Azure Users table (best-effort).
+            try:
+                uid = str(getattr(current_user, 'id', '') or '').strip()
+                users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+                if uid and users_rk:
+                    _azure_users_session_end(user_id=uid, row_key=users_rk, logout_at=now_iso, duration_seconds=duration)
+            except Exception:
+                pass
+
             # Clear session keys regardless (avoid leaking state).
             session.pop(LOGIN_AUDIT_SESSION_KEY, None)
             session.pop(LOGIN_AUDIT_SESSION_PK_KEY, None)
             session.pop(LOGIN_AUDIT_SESSION_RK_KEY, None)
             session.pop(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY, None)
+            session.pop(LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY, None)
+            session.pop(LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY, None)
+            session.pop(USERS_SESSION_ROWKEY_KEY, None)
+            session.pop(USERS_SESSION_LOGIN_AT_KEY, None)
+            session.pop(USERS_SESSION_AUDIT_ID_KEY, None)
             return
 
         now = datetime.now(timezone.utc)
@@ -1604,12 +1888,27 @@ def _audit_login_end() -> None:
                 duration = None
 
             rec['logout_at'] = now_iso
+            rec['last_activity_at'] = now_iso
             rec['duration_seconds'] = duration
             sessions[audit_id] = rec
             store['sessions'] = sessions
             _save_login_audit_store(store)
 
+        # Best-effort: close the per-session row in the Azure Users table even when audit is file-based.
+        try:
+            uid = str(getattr(current_user, 'id', '') or '').strip()
+            users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+            if uid and users_rk:
+                _azure_users_session_end(user_id=uid, row_key=users_rk, logout_at=now_iso, duration_seconds=duration)
+        except Exception:
+            pass
+
         session.pop(LOGIN_AUDIT_SESSION_KEY, None)
+        session.pop(LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY, None)
+        session.pop(LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY, None)
+        session.pop(USERS_SESSION_ROWKEY_KEY, None)
+        session.pop(USERS_SESSION_LOGIN_AT_KEY, None)
+        session.pop(USERS_SESSION_AUDIT_ID_KEY, None)
     except Exception:
         logger.exception("Error ending login audit")
 
@@ -3195,6 +3494,8 @@ def plans():
     except Exception:
         trial_unavailable = False
     offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
+    if str(request.args.get('reason') or '').strip().lower() == 'pdf':
+        flash('PDF downloads are not available on free accounts.', 'info')
     return render_template(
         "plans.html",
         year=current_year,
@@ -3771,6 +4072,49 @@ def _get_stripe_retention_coupon_id() -> Optional[str]:
     return (os.getenv('STRIPE_COUPON_RETENTION') or '').strip() or None
 
 
+def _compute_retention_credit_cents(subscription) -> int:
+    """Compute 50% off for one month (applied twice = 50% off for 2 months). Works with flexible billing."""
+    try:
+        override = (os.getenv('STRIPE_RETENTION_CREDIT_CENTS') or '').strip()
+        if override and override.isdigit():
+            return int(override)
+    except Exception:
+        pass
+    # 50% of one month: monthly $5.48, annual $3.48
+    DEFAULT_MONTHLY_HALF_CENTS = 548   # 50% of $10.95
+    DEFAULT_ANNUAL_HALF_CENTS = 348    # 50% of $6.95
+    try:
+        price_id, interval, interval_count = _get_subscription_price_id_and_recurring(subscription)
+        items = getattr(subscription, 'items', None)
+        items_data = list(getattr(items, 'data', []) or []) if items else []
+        if not items_data:
+            is_annual = interval == 'year' or (interval == 'month' and interval_count == 12)
+            return DEFAULT_ANNUAL_HALF_CENTS if is_annual else DEFAULT_MONTHLY_HALF_CENTS
+        first = items_data[0]
+        price = getattr(first, 'price', None) if not isinstance(first, dict) else (first.get('price') if isinstance(first, dict) else None)
+        unit = 0
+        if price is not None:
+            if isinstance(price, dict):
+                unit = int(price.get('unit_amount') or 0)
+            elif isinstance(price, str):
+                try:
+                    p = stripe.Price.retrieve(price)
+                    unit = int(getattr(p, 'unit_amount', 0) or 0)
+                except Exception:
+                    pass
+            else:
+                unit = int(getattr(price, 'unit_amount', 0) or 0)
+        if unit <= 0:
+            is_annual = interval == 'year' or (interval == 'month' and interval_count == 12)
+            return DEFAULT_ANNUAL_HALF_CENTS if is_annual else DEFAULT_MONTHLY_HALF_CENTS
+        # 50% of one month (applied to each of next 2 invoices)
+        if interval == 'year' or (interval == 'month' and interval_count == 12):
+            return (unit // 12) // 2  # half of one month of annual
+        return unit // 2  # half of one month of monthly
+    except Exception:
+        return DEFAULT_MONTHLY_HALF_CENTS
+
+
 def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
     # Trial must be a subscription with a 14-day trial and auto-convert to monthly unless canceled.
@@ -4175,6 +4519,34 @@ def stripe_webhook():
             except Exception:
                 pass
 
+        # Retention offer: add second 50% credit when first invoice after offer is paid
+        if etype == "invoice.paid":
+            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+            inv = data
+            if not inv.get("subscription"):
+                pass  # Skip non-subscription invoices
+            else:
+                customer_id = str(inv.get("customer") or "").strip()
+                if customer_id:
+                    try:
+                        cust = stripe.Customer.retrieve(customer_id)
+                        meta = dict(getattr(cust, "metadata", None) or {})
+                        credit_cents_str = meta.get("retention_2nd_credit_cents", "").strip()
+                        if credit_cents_str and credit_cents_str.isdigit():
+                            credit_cents = int(credit_cents_str)
+                            currency = str(inv.get("currency") or "usd").lower()
+                            stripe.Customer.create_balance_transaction(
+                                customer_id,
+                                amount=-credit_cents,
+                                currency=currency,
+                                description="Retention offer: 50% off month 2 of 2",
+                            )
+                            meta["retention_2nd_credit_cents"] = ""
+                            stripe.Customer.modify(customer_id, metadata=meta)
+                            logger.info(f"Applied retention 2nd credit: {credit_cents} cents for customer {customer_id}")
+                    except Exception as e:
+                        logger.warning(f"retention 2nd credit webhook error: {str(e)}")
+
         # Keep subscription status in sync (cancel/expire)
         if etype in ("customer.subscription.updated", "customer.subscription.deleted"):
             stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
@@ -4247,6 +4619,31 @@ def billing_portal():
         return redirect(url_for("my_revisions"))
 
 
+CANCELLATION_FEEDBACK_FILE = "cancellation_feedback.json"
+
+
+def _append_cancellation_feedback(user_id: str, subscription_id: str, reason: str, reason_other: str, email: str = "") -> None:
+    """Append cancellation reason to feedback file (best-effort)."""
+    try:
+        records = []
+        if os.path.exists(CANCELLATION_FEEDBACK_FILE):
+            with open(CANCELLATION_FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                records = list(data.get("records") or [])
+        records.append({
+            "user_id": str(user_id or ""),
+            "subscription_id": str(subscription_id or ""),
+            "reason": str(reason or ""),
+            "reason_other": str(reason_other or ""),
+            "email": str(email or ""),
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+        with open(CANCELLATION_FEEDBACK_FILE, "w", encoding="utf-8") as f:
+            json.dump({"records": records}, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+
 @app.route("/billing/cancel")
 @login_required
 def billing_cancel_page():
@@ -4293,12 +4690,120 @@ def billing_cancel_page():
         flash("Unable to load subscription details. Please try again.", "danger")
         return redirect(url_for("settings_page"))
 
-    return render_template(
+    resp = make_response(render_template(
         "billing_cancel.html",
         subscription_id=subscription_id,
         interval_label=interval_label,
         period_end_display=period_end_display or "end of billing period",
+    ))
+    # Avoid showing stale/cached cancellation UI.
+    resp.headers["Cache-Control"] = "no-store, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+
+    # Help verify which deployment is serving this page.
+    try:
+        resp.headers["X-Resumatic-Build"] = str(_BUILD_ID)
+    except Exception:
+        pass
+    return resp
+
+
+def _apply_retention_offer(subscription_id: str) -> tuple[bool, str]:
+    """Apply retention offer: $5.48 off each of next 2 months (works with flexible billing).
+    First credit now; second credit added via invoice.paid webhook."""
+    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+    customer_id = str(getattr(sub, "customer", "") or "").strip()
+    if not customer_id:
+        return False, "Subscription has no customer."
+    credit_cents = _compute_retention_credit_cents(sub)
+    if credit_cents <= 0:
+        return False, "Could not compute retention credit amount."
+    currency = "usd"
+    try:
+        price = getattr(getattr(sub, "items", None), "data", []) or []
+        if price:
+            p = getattr(price[0], "price", None) if price else None
+            if p:
+                currency = str(getattr(p, "currency", "usd") or "usd")
+    except Exception:
+        pass
+    stripe.Customer.create_balance_transaction(
+        customer_id,
+        amount=-credit_cents,
+        currency=currency,
+        description="Retention offer: 50% off month 1 of 2",
     )
+    stripe.Customer.modify(
+        customer_id,
+        metadata={"retention_2nd_credit_cents": str(credit_cents)},
+    )
+    stripe.Subscription.modify(subscription_id, cancel_at_period_end=False)
+    return True, "50% off applied! Your next 2 months will be half price. You keep full access until your current period ends."
+
+
+@app.route("/billing/apply-retention")
+@login_required
+def billing_apply_retention():
+    """Apply the retention offer to the user's existing subscription. Preserves remaining time."""
+    if not _stripe_enabled():
+        flash("Billing is not configured.", "danger")
+        return redirect(url_for("plans"))
+
+    user_id = getattr(current_user, "id", "")
+    subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+    if not subscription_id:
+        flash("No active subscription found.", "danger")
+        return redirect(url_for("settings_page"))
+
+    try:
+        success, msg = _apply_retention_offer(subscription_id)
+        if success:
+            flash(msg, "success")
+            return redirect(url_for("settings_page"))
+        flash(msg or "Unable to apply offer. Please try again.", "danger")
+        return redirect(url_for("billing_cancel_page"))
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(f"billing_apply_retention Stripe error: {str(e)}")
+        flash(str(e.user_message) if getattr(e, "user_message", None) else "Unable to apply offer. Please try again.", "danger")
+        return redirect(url_for("billing_cancel_page"))
+    except Exception as e:
+        logger.error(f"billing_apply_retention error: {str(e)}")
+        flash("Unable to apply the offer. Please try again.", "danger")
+        return redirect(url_for("billing_cancel_page"))
+
+
+@app.route("/api/billing/apply-retention", methods=["POST"])
+@login_required
+def api_billing_apply_retention():
+    """Apply retention offer via API. Returns JSON for use by fetch()."""
+    if not _stripe_enabled():
+        return jsonify({"success": False, "error": "Billing is not configured."}), 400
+
+    user_id = getattr(current_user, "id", "")
+    subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+    if not subscription_id:
+        return jsonify({"success": False, "error": "No active subscription found."}), 404
+
+    try:
+        success, msg = _apply_retention_offer(subscription_id)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": msg,
+                "redirect_url": url_for("settings_page"),
+            })
+        return jsonify({"success": False, "error": msg or "Unable to apply offer. Please try again."}), 400
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(f"api_billing_apply_retention Stripe error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e.user_message) if getattr(e, "user_message", None) else "Unable to apply offer. Please try again.",
+        }), 400
+    except Exception as e:
+        logger.error(f"api_billing_apply_retention error: {str(e)}")
+        return jsonify({"success": False, "error": "Unable to apply the offer. Please try again."}), 500
 
 
 @app.route("/api/billing/cancel", methods=["POST"])
@@ -4315,11 +4820,23 @@ def api_billing_cancel():
 
     data = request.get_json(silent=True) or {}
     cancel_at_period_end = data.get("cancel_at_period_end", True)
+    cancel_reason = str(data.get("cancel_reason") or "").strip()
+    cancel_reason_other = str(data.get("cancel_reason_other") or "").strip()
 
     stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
     try:
         if cancel_at_period_end:
             stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+            if cancel_reason or cancel_reason_other:
+                try:
+                    email = str(getattr(current_user, "email", "") or "")
+                    logger.info(
+                        "billing_cancel reason user_id=%s subscription_id=%s reason=%s other=%s",
+                        user_id, subscription_id, cancel_reason, cancel_reason_other,
+                    )
+                    _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
+                except Exception as e:
+                    logger.warning("billing_cancel feedback save failed: %s", str(e))
             return jsonify({
                 "success": True,
                 "cancel_at_period_end": True,
@@ -6491,6 +7008,7 @@ def admin_login_audit():
                     'user_id': str(e.get('user_id') or ''),
                     'email': str(e.get('email') or ''),
                     'login_at': str(e.get('login_at') or ''),
+                    'last_activity_at': str(e.get('last_activity_at') or ''),
                     'logout_at': (str(e.get('logout_at') or '') or None),
                     'duration_seconds': e.get('duration_seconds', None),
                     'login_method': str(e.get('login_method') or '') or None,
@@ -6524,7 +7042,25 @@ def admin_login_audit():
     for rec in sessions_list:
         out = dict(rec)
         out['login_time_pst'] = _format_datetime_pacific(rec.get('login_at'))
+        out['last_activity_time_pst'] = _format_datetime_pacific(rec.get('last_activity_at') or rec.get('login_at'))
         out['logout_time_pst'] = _format_datetime_pacific(rec.get('logout_at'))
+
+        # If there is no explicit logout, estimate when the idle timeout would have logged them out.
+        try:
+            idle_seconds, _ = _auth_timeout_seconds()
+            if not out.get('logout_at') and idle_seconds:
+                last_dt = _parse_iso_datetime(rec.get('last_activity_at') or rec.get('login_at'))
+                if last_dt is not None:
+                    est_dt = last_dt + timedelta(seconds=int(idle_seconds))
+                    out['estimated_logout_at'] = est_dt.isoformat()
+                    out['estimated_logout_time_pst'] = _format_datetime_pacific(out.get('estimated_logout_at'))
+                else:
+                    out['estimated_logout_time_pst'] = ''
+            else:
+                out['estimated_logout_time_pst'] = ''
+        except Exception:
+            out['estimated_logout_time_pst'] = ''
+
         try:
             secs = out.get('duration_seconds', None)
             if secs is None:
@@ -6541,6 +7077,50 @@ def admin_login_audit():
         store_version=(store.get('version') if isinstance(store, dict) else None),
         file_present=file_present,
         source_label=source_label,
+    )
+
+
+@app.route("/admin/cancellation_feedback")
+@app.route("/admin/cancellation_feedback/")
+@login_required
+def admin_cancellation_feedback():
+    """Admin UI for viewing subscription cancellation reasons."""
+    if not current_user.is_authenticated:
+        flash("You need to log in to view this page.", "danger")
+        return redirect(url_for("login"))
+    if not getattr(current_user, "is_admin", False):
+        flash("You do not have permission to view this page.", "danger")
+        return redirect(url_for("index"))
+
+    records = []
+    file_present = False
+    try:
+        if os.path.exists(CANCELLATION_FEEDBACK_FILE):
+            file_present = True
+            with open(CANCELLATION_FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                records = list(data.get("records") or [])
+        records.reverse()
+    except Exception as e:
+        logger.warning("Failed to load cancellation feedback: %s", str(e))
+
+    reason_labels = {
+        "too_expensive": "Too expensive",
+        "found_job": "Found a job / no longer need",
+        "different_service": "Using a different service",
+        "not_using": "Not using it enough",
+        "missing_features": "Missing features I need",
+        "technical_issues": "Technical issues",
+        "other": "Other",
+    }
+    for r in records:
+        r["reason_label"] = reason_labels.get(r.get("reason", ""), r.get("reason", "") or "—")
+        r["at_pacific"] = _format_datetime_pacific(r.get("at"))
+
+    return render_template(
+        "admin_cancellation_feedback.html",
+        records=records,
+        file_present=file_present,
     )
 
 
@@ -6835,8 +7415,8 @@ def get_table_client(table_name: str = None, create_if_missing: bool = True):
 # Azure Users table helpers
 AZURE_USERS_TABLE = os.getenv('AZURE_USERS_TABLE', 'Users')
 
-def get_users_table_client():
-    return get_table_client(AZURE_USERS_TABLE)
+def get_users_table_client(*, create_if_missing: bool = True):
+    return get_table_client(AZURE_USERS_TABLE, create_if_missing=create_if_missing)
 
 def _collect_registered_users_from_azure_users_table(table_override: str = None):
     """Collect user profiles directly from the Azure Users table.
@@ -7426,6 +8006,7 @@ def settings_page():
     debug_info = None
 
     paid_flag = bool(is_paid_user(current_user))
+    cancel_scheduled = False
     # Self-heal paid status even if webhooks are delayed/missing (Payment Links in local dev).
     if (not paid_flag) and _stripe_enabled():
         try:
@@ -7501,6 +8082,12 @@ def settings_page():
         if paid_flag and subscription_id and _stripe_enabled():
             stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
             sub_obj = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+            # If a user has already scheduled cancellation (cancel_at_period_end), keep them paid
+            # through the period end, but hide the cancel button in Settings.
+            try:
+                cancel_scheduled = bool(_stripe_obj_get(sub_obj, "cancel_at_period_end", False)) or bool(_stripe_obj_get(sub_obj, "cancel_at", None))
+            except Exception:
+                cancel_scheduled = False
             # Always try SubscriptionItem.list to reliably get price/recurring
             # (some Stripe responses omit items.data even with expand).
             si_err = ""
@@ -7742,6 +8329,7 @@ def settings_page():
         email=(getattr(current_user, 'email', '') or '').strip(),
         name=(getattr(current_user, 'name', '') or '').strip(),
         is_paid=paid_flag,
+        cancel_scheduled=bool(cancel_scheduled),
         plan_status=plan_status_raw,
         interval_label=interval_label,
         next_billing_display=_format_paid_until(next_billing_iso),
@@ -8108,6 +8696,17 @@ def registered_users_json():
     users_rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
     return jsonify({"table": resolved_table, "columns": all_keys, "users": users_rows})
 
+def _format_value_pacific_if_datetime(val):
+    """Format datetime values to Pacific time for display."""
+    if val is None:
+        return val
+    if hasattr(val, "isoformat"):
+        return _format_datetime_pacific(val.isoformat())
+    if isinstance(val, str) and ("T" in val or (len(val) >= 19 and val[4] == "-" and val[7] == "-")):
+        return _format_datetime_pacific(val)
+    return val
+
+
 @app.route('/admin/registered_users')
 @login_required
 def registered_users_view():
@@ -8116,6 +8715,11 @@ def registered_users_view():
         return redirect(url_for("index"))
     table_name = (request.args.get('table') or '').strip() or 'Users'
     data, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    for row in data:
+        for k in list(row.keys()):
+            v = row.get(k)
+            if v is not None and (hasattr(v, "isoformat") or (isinstance(v, str) and "T" in v)):
+                row[k] = _format_value_pacific_if_datetime(v)
     return render_template('admin_registered_users.html', users=data, azure_users_table_name=resolved_table, columns=all_keys)
 
 @app.route('/admin/registered_users.csv')
@@ -8259,6 +8863,89 @@ def users_azure_csv():
         })
     except Exception as e:
         logger.error(f"users_azure_csv error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/admin/user_sessions_azure.json')
+@login_required
+def user_sessions_azure_json():
+    """Admin-only: list login session rows stored in the Azure Users table.
+
+    Query params:
+      - user_id: optional filter (PartitionKey)
+      - limit: optional max rows (default 200)
+    """
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Forbidden"}), 403
+
+    user_id = str(request.args.get('user_id') or '').strip()
+    try:
+        limit = int(request.args.get('limit') or 200)
+    except Exception:
+        limit = 200
+    if limit < 1:
+        limit = 1
+    if limit > 2000:
+        limit = 2000
+
+    try:
+        table_client = get_users_table_client(create_if_missing=False)
+        sessions: list[dict] = []
+
+        # Prefer server-side querying when possible.
+        pager = None
+        if user_id:
+            try:
+                pager = table_client.query_entities(
+                    f"PartitionKey eq '{user_id}' and record_type eq 'session'"
+                )
+            except Exception:
+                pager = None
+        else:
+            try:
+                pager = table_client.query_entities("record_type eq 'session'")
+            except Exception:
+                pager = None
+
+        if pager is None:
+            pager = table_client.list_entities()
+
+        for e in pager:
+            try:
+                if str(e.get('record_type') or '') != 'session':
+                    continue
+                if user_id and str(e.get('PartitionKey') or '').strip() != user_id:
+                    continue
+                sessions.append({
+                    'user_id': str(e.get('PartitionKey') or ''),
+                    'row_key': str(e.get('RowKey') or ''),
+                    'email': e.get('email') or '',
+                    'login_at': e.get('login_at') or '',
+                    'last_activity_at': e.get('last_activity_at') or '',
+                    'logout_at': e.get('logout_at') or '',
+                    'duration_seconds': e.get('duration_seconds', None),
+                    'login_method': e.get('login_method') or '',
+                    'ip': e.get('ip') or '',
+                    # Keep UA/referer for debugging; can be large.
+                    'user_agent': e.get('user_agent') or '',
+                    'referer': e.get('referer') or '',
+                    'login_audit_pk': e.get('login_audit_pk') or '',
+                    'login_audit_rk': e.get('login_audit_rk') or '',
+                })
+            except Exception:
+                continue
+            if limit and len(sessions) >= limit:
+                break
+
+        # Sort by login_at descending (ISO strings are sortable when consistently formatted).
+        sessions.sort(key=lambda r: str(r.get('login_at') or ''), reverse=True)
+        return jsonify({
+            'count': len(sessions),
+            'user_id': user_id or None,
+            'sessions': sessions,
+        })
+    except Exception as e:
+        logger.error(f"user_sessions_azure_json error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 # Admin: set plan/subscription fields on Azure Users profile (manual override until Stripe is integrated)

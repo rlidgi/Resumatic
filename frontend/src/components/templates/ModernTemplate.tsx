@@ -473,37 +473,51 @@ export default function ModernTemplate({
                             onTitleChange={(v) => updateSectionHeading('education', v)}
                         >
                             <div className="space-y-4">
-                                {education.map((edu: any, idx: number) => (
-                                    <div key={idx}>
-                                        <div className="text-[12px] font-semibold text-slate-900">
-                                            {editMode ? (
-                                                <EditableText value={String(edu.degree || edu.title || 'Degree')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="div" />
-                                            ) : (
-                                                edu.degree || edu.title || "Degree"
-                                            )}
+                                {education.map((edu: any, idx: number) => {
+                                    const gpa = String(edu?.gpa ?? '').trim();
+
+                                    return (
+                                        <div key={idx}>
+                                            <div className="text-[12px] font-semibold text-slate-900">
+                                                {editMode ? (
+                                                    <EditableText value={String(edu.degree || edu.title || 'Degree')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="div" />
+                                                ) : (
+                                                    edu.degree || edu.title || "Degree"
+                                                )}
+                                            </div>
+                                            <div className="text-[11px] text-slate-700 font-medium">
+                                                {editMode ? (
+                                                    <EditableText value={String(edu.institution || edu.school || '')} onChange={(v) => updateEducation(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="div" />
+                                                ) : (
+                                                    edu.institution || edu.school || ""
+                                                )}
+                                            </div>
+                                            <div className="mt-1 text-[11px] text-slate-500 flex items-center gap-2">
+                                                {editMode ? (
+                                                    <EditableText value={String(edu.year || edu.dates || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                ) : (
+                                                    edu.year || edu.dates || edu.graduationDate || ""
+                                                )}
+                                                {(edu.location || edu.city) ? <span className="text-slate-300">•</span> : null}
+                                                {editMode ? (
+                                                    <EditableText value={String(edu.location || edu.city || '')} onChange={(v) => updateEducation(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                ) : (
+                                                    edu.location || edu.city || ""
+                                                )}
+                                                {gpa ? <span className="text-slate-300">•</span> : null}
+                                                {gpa ? (
+                                                    editMode ? (
+                                                        <span>
+                                                            GPA: <EditableText value={String(gpa)} onChange={(v) => updateEducation(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                        </span>
+                                                    ) : (
+                                                        <span>GPA: {String(gpa)}</span>
+                                                    )
+                                                ) : null}
+                                            </div>
                                         </div>
-                                        <div className="text-[11px] text-slate-700 font-medium">
-                                            {editMode ? (
-                                                <EditableText value={String(edu.institution || edu.school || '')} onChange={(v) => updateEducation(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="div" />
-                                            ) : (
-                                                edu.institution || edu.school || ""
-                                            )}
-                                        </div>
-                                        <div className="mt-1 text-[11px] text-slate-500 flex items-center gap-2">
-                                            {editMode ? (
-                                                <EditableText value={String(edu.year || edu.dates || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                            ) : (
-                                                edu.year || edu.dates || edu.graduationDate || ""
-                                            )}
-                                            {(edu.location || edu.city) ? <span className="text-slate-300">•</span> : null}
-                                            {editMode ? (
-                                                <EditableText value={String(edu.location || edu.city || '')} onChange={(v) => updateEducation(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                            ) : (
-                                                edu.location || edu.city || ""
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 {education.length === 0 ? (
                                     <div className="text-[11px] text-slate-500">Add education to populate this section.</div>
                                 ) : null}

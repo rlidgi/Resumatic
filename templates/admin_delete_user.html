@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+    {% include "_clarity.html" %}
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delete User Account</title>
@@ -40,7 +42,8 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <p class="text-muted mb-3">
-                    This will remove the user from local auth storage and attempt to delete their Azure profile and resume revisions.
+                    This will remove the user from local auth storage and attempt to delete their Azure profile and
+                    resume revisions.
                     The user can sign up again with the same email, and will start with a clean slate.
                 </p>
 
@@ -49,19 +52,22 @@
                     <div class="row g-3">
                         <div class="col-md-7">
                             <label class="form-label" for="email">Email (recommended)</label>
-                            <input class="form-control" id="email" name="email" type="email" placeholder="user@example.com"
-                                value="{{ prefill_email or '' }}">
-                            <div class="form-text">If the user used Google login, email lookup will resolve their Google user id.</div>
+                            <input class="form-control" id="email" name="email" type="email"
+                                placeholder="user@example.com" value="{{ prefill_email or '' }}">
+                            <div class="form-text">If the user used Google login, email lookup will resolve their Google
+                                user id.</div>
                         </div>
                         <div class="col-md-5">
                             <label class="form-label" for="user_id">User ID (optional)</label>
                             <input class="form-control" id="user_id" name="user_id" type="text" placeholder="1149..."
                                 value="{{ prefill_user_id or '' }}">
-                            <div class="form-text">Use this if you know the exact id and want to delete that specific account.</div>
+                            <div class="form-text">Use this if you know the exact id and want to delete that specific
+                                account.</div>
                         </div>
                         <div class="col-12">
                             <div class="form-check">
-                                <input class="form-check-input" id="delete_revisions" name="delete_revisions" type="checkbox" checked>
+                                <input class="form-check-input" id="delete_revisions" name="delete_revisions"
+                                    type="checkbox" checked>
                                 <label class="form-check-label" for="delete_revisions">
                                     Also delete all resume revisions (recommended)
                                 </label>
@@ -92,4 +98,3 @@
 </body>
 
 </html>
-

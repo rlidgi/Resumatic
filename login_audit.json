@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "sessions": {
+    "949009f325cf4022952a1a4888663c82": {
+      "audit_id": "949009f325cf4022952a1a4888663c82",
+      "user_id": "114906300473310032380",
+      "email": "rlidgi@go.pasadena.edu",
+      "login_at": "2026-03-06T01:52:14.120547+00:00",
+      "logout_at": "2026-03-06T01:54:27.236692+00:00",
+      "duration_seconds": 133,
+      "login_method": "google_oauth"
+    }
+  }
+}

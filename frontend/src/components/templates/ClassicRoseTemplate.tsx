@@ -218,6 +218,11 @@ export default function ClassicRoseTemplate({
                                                 </div>
                                                 <div className="text-xs text-slate-600">{editMode ? <EditableText value={String(edu.school || edu.institution || '')} onChange={(v) => updateEducation(idx, 'school', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.school || edu.institution || '')}</div>
                                                 <div className="text-xs text-slate-500">{editMode ? <EditableText value={String(edu.year || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'graduationDate', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.year || edu.graduationDate || '')}</div>
+                                                {String(edu?.gpa ?? '').trim() ? (
+                                                    <div className="text-xs text-slate-500">
+                                                        GPA: {editMode ? <EditableText value={String(edu?.gpa ?? '')} onChange={(v) => updateEducation(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : String(edu?.gpa ?? '').trim()}
+                                                    </div>
+                                                ) : null}
                                             </div>
                                         ))
                                     ) : (

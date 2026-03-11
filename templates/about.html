@@ -13,14 +13,7 @@
         gtag('config', 'G-KRPLMCR73G');
     </script>
 
-    <!-- Clarity tracking code for https://resumaticai.com/ -->
-    <script defer>
-        (function (c, l, a, r, i, t, y) {
-            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-        })(window, document, "clarity", "script", "sjihir10df");
-    </script>
+    {% include "_clarity.html" %}
 
 
     <meta property="og:title" content="About - Resumatic AI" />
@@ -28,7 +21,7 @@
         content="Discover what Resumatic AI is and how it helps with resume building and career growth." />
     <meta property="og:url" content="https://resumaticai.com/about" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://resumaticai.com/static/images/logo23.png" />
+    <meta property="og:image" content="https://resumaticai.com/static/images/logo23_small.webp" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
@@ -36,7 +29,7 @@
     <meta name="twitter:title" content="About - Resumatic AI">
     <meta name="twitter:description"
         content="Discover what Resumatic AI is and how it helps with resume building and career growth.">
-    <meta name="twitter:image" content="https://resumaticai.com/static/images/logo23.png">
+    <meta name="twitter:image" content="https://resumaticai.com/static/images/logo23_small.webp">
 
 
 
@@ -115,7 +108,7 @@
                     <div class="flex items-center">
                         <a class="flex items-center" href="/">
                             <img alt="Resumatic AI Logo" class="h-8 w-auto"
-                                src="{{ url_for('static', filename='images/logo23_small.png') }}" />
+                                src="{{ url_for('static', filename='images/logo23_small.webp') }}" />
                             <span class="sr-only">Resumatic AI</span>
                         </a>
                     </div>
@@ -153,7 +146,7 @@
         <!-- Mobile Menu (matches blog.html) -->
         <div class="mobile-menu fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 hidden" id="mobileMenu">
             <div class="flex justify-between items-center mb-8">
-                <img alt="Logo" class="h-12 w-auto" src="/static/images/logo23_small.png" />
+                <img alt="Logo" class="h-12 w-auto" src="/static/images/logo23_small.webp" />
                 <button class="text-gray-500 hover:text-gray-900" id="closeMenu">
                     <i class="fas fa-times"></i>
                 </button>
@@ -313,7 +306,7 @@
             <section class="mb-5">
                 <div class="row justify-content-center">
                     <div class="col-lg-8">
-                        <div class="card bg-primary text-white border-0">
+                        <div class="card bg-indigo-500 text-white border-0">
                             <div class="card-body p-5 text-center">
                                 <i class="bi bi-stars section-icon"></i>
                                 <h3 class="h4 fw-bold mb-3">Ready to Transform Your Career?</h3>
@@ -346,19 +339,11 @@
                 </div>
                 <div class="col-md-6 text-center text-md-end">
                     <p class="mb-0">
-                        <i class="bi bi-c-circle me-1"></i>2025 Resumatic AI. All rights reserved.
+                        <i class="bi bi-c-circle me-1"></i>2026 Resumatic AI. All rights reserved.
                     </p>
                 </div>
             </div>
-            <hr class="my-3 opacity-25">
-            <div class="row">
-                <div class="col-12 text-center">
-                    <small class="text-muted">
-                        <i class="bi bi-heart-fill text-danger me-1"></i>
-                        Made with passion for your career success
-                    </small>
-                </div>
-            </div>
+
         </div>
     </footer>
 

@@ -4,14 +4,7 @@
 <head>
 
 
-    <!-- Clarity tracking code for https://resumaticai.com/ -->
-    <script defer="">
-        (function (c, l, a, r, i, t, y) {
-            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
-            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
-            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
-        })(window, document, "clarity", "script", "sjihir10df");
-    </script>
+    {% include "_clarity.html" %}
 
     <!-- Google Tag Manager -->
     <script type="text/javascript" async=""
@@ -345,6 +338,36 @@
             background-position: 0 0, 10px 10px;
             background-attachment: fixed;
             opacity: 0.05;
+        }
+
+        /* Hero sizing: avoid 100vh + body padding (fixed header offset) */
+        .hero-viewport {
+            min-height: min(calc(100vh - (4.75rem + env(safe-area-inset-top))), 52rem);
+        }
+
+        @media (min-width: 640px) {
+            .hero-viewport {
+                min-height: min(calc(100vh - (4rem + env(safe-area-inset-top))), 52rem);
+            }
+        }
+
+        @supports (height: 100dvh) {
+            .hero-viewport {
+                min-height: min(calc(100dvh - (4.75rem + env(safe-area-inset-top))), 52rem);
+            }
+
+            @media (min-width: 640px) {
+                .hero-viewport {
+                    min-height: min(calc(100dvh - (4rem + env(safe-area-inset-top))), 52rem);
+                }
+            }
+        }
+
+        /* Fixed backgrounds can be janky on touch devices (even when >768px wide) */
+        @media (hover: none) and (pointer: coarse) {
+            .hero-pattern {
+                background-attachment: scroll !important;
+            }
         }
 
 
@@ -3917,7 +3940,7 @@
 
         <!-- Hero Section -->
         <section aria-labelledby="hero-heading"
-            class="relative min-h-screen flex items-start bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-hidden">
+            class="relative hero-viewport flex items-start bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-hidden">
             <!-- Background pattern -->
             <div class="absolute inset-0 hero-pattern"></div>
             <!-- Enhanced hero backdrop (subtle blobs + mesh pattern) -->
@@ -3947,7 +3970,16 @@
                             </h1>  -->
                             <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-8" id="hero-heading">
                                 <span class="gradient-text">Elevate Your Resume</span>
-                                <br>with AI
+                                <br>with <span class="inline-flex items-center gap-2">AI
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" class="w-[1em] h-[1em] text-primary">
+                                        <path fill="currentColor"
+                                            d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2z" />
+                                        <path fill="currentColor"
+                                            d="M5 13l.9 3.1L9 17l-3.1.9L5 21l-.9-3.1L1 17l3.1-.9L5 13z" />
+                                        <path fill="currentColor"
+                                            d="M19 13l.9 3.1L23 17l-3.1.9L19 21l-.9-3.1L15 17l3.1-.9L19 13z" />
+                                    </svg>
+                                </span>
                             </h1>
 
                             <p class="text-lg lg:text-xl text-gray-600 leading-relaxed max-w-xl">
@@ -3967,8 +3999,6 @@
                                 <span class="hidden sm:inline">Get Started Now</span>
                                 <span class="sm:hidden">Get Started</span>
                                 {% endif %}
-                                <i
-                                    class="fas fa-arrow-right ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform"></i>
                             </a>
                         </div>
 
@@ -4056,19 +4086,7 @@
         <section aria-labelledby="features-heading" class="py-6 bg-gradient-to-b from-white to-gray-50 scroll-mt-20"
             id="features">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-20 scroll-reveal revealed" style="transition-delay: 0ms;">
-
-                    <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 scroll-reveal revealed"
-                        id="features-heading" style="transition-delay: 100ms;">
-                        AI Resume Builder <span class="gradient-text">Features</span>
-                    </h2>
-                    <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed scroll-reveal revealed"
-                        style="transition-delay: 200ms;">
-                        Our AI-powered tools help you create a professional, compelling resume that gets noticed by
-                        employers and
-                        passes ATS systems.
-                    </p>
-                </div>
+                <div class="text-center mb-0 scroll-reveal revealed" style="transition-delay: 0ms;"></div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                     <!-- Enhanced Feature Cards -->
@@ -4157,7 +4175,7 @@
 
                             <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 scroll-reveal revealed"
                                 style="transition-delay: 100ms;">
-                                How Our AI Resume Builder <span class="gradient-text">Works</span>
+                                How it <span class="gradient-text">Works</span>
                             </h2>
                             <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed scroll-reveal revealed"
                                 style="transition-delay: 200ms;">
@@ -5363,8 +5381,7 @@
                                 </summary>
                                 <div class="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
                                     <p>
-                                        ResumaticAI is currently supported by ads on some pages, which allows us to
-                                        offer our core services completely free of charge. We offer premium features
+                                        We offer premium features
                                         or usage beyond free quotas, but a free tier is available.
                                     </p>
                                 </div>
@@ -5380,8 +5397,8 @@
                                 <div class="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
                                     <p>
                                         At times the complexity of formatting in your resume such as
-                                        tables, images, or complex layouts may cause processing issues. For this
-                                        reason
+                                        tables, images, or complex layouts may cause processing issues. When a resume
+                                        fails to process,
                                         we provide the option of copying and pasting the text of
                                         your resume, which generally leads to equivalent revision quality.
                                     </p>
@@ -5501,12 +5518,9 @@
                 <!-- Company Info -->
                 <div class="lg:col-span-2">
                     <div class="flex items-center mb-6">
-                        <img alt="Resumatic AI Logo" class="h-16 w-auto mr-4" src="/static/images/logo23_small.webp"
+                        <img alt="Resumatic AI Logo" class="h-16 w-auto mr-4" src="/static/images/logo23_small1.webp"
                             width="64" height="64" decoding="async">
-                        <div>
-                            <h3 class="text-2xl font-bold">Resumatic AI</h3>
-                            <p class="text-gray-400">AI-Powered Resume Enhancement</p>
-                        </div>
+
                     </div>
                     <p class="text-lg text-gray-300 leading-relaxed mb-6 max-w-md">
                         Empowering job seekers worldwide with AI-enhanced resumes. Transform your career prospects with
@@ -5571,6 +5585,15 @@
                                 <i
                                     class="fas fa-chevron-right mr-2 text-primary group-hover:text-secondary text-sm"></i>
                                 About Us
+                            </a>
+                        </li>
+                        <li>
+                            <a class="text-gray-300 hover:text-white hover:translate-x-1 transform transition-all duration-200 flex items-center group"
+                                href="https://studentbeans.com/en-us/us/beansid-connect/hosted/resumaticai-us-1"
+                                target="_blank" rel="noopener noreferrer">
+                                <i
+                                    class="fas fa-chevron-right mr-2 text-primary group-hover:text-secondary text-sm"></i>
+                                Student discount
                             </a>
                         </li>
                     </ul>

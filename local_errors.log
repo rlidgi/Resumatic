@@ -1,0 +1,2502 @@
+
+[2026-02-24T23:20:27.365353Z] local_errors.log initialized
+
+[2026-02-24T23:24:53.638677Z] local_errors.log initialized
+
+[2026-02-24T23:29:39.324544Z] local_errors.log initialized
+
+[2026-02-24T23:37:36.856723Z] local_errors.log initialized
+
+[2026-02-24T23:57:49.071903Z] local_errors.log initialized
+
+[2026-02-25T00:15:33.839403Z] local_errors.log initialized
+
+[2026-02-25T00:39:27.453926Z] local_errors.log initialized
+
+[2026-02-25T00:39:43.968684Z] local_errors.log initialized
+
+[2026-02-25T00:50:27.321682Z] local_errors.log initialized
+[2026-02-25T00:50:46.559278Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:52:07.195253Z] results_route POST: start
+[2026-02-25T00:52:07.264885Z] results_route POST: received upload filename=updated_actuarial_resume_2.docx
+[2026-02-25T00:52:09.841394Z] results_route POST: extracted_text_len=1068
+[2026-02-25T00:52:09.841394Z] results_route POST: calling revise_resume resume_len=1068 jd_len=0
+[2026-02-25T00:52:37.048990Z] results_route POST: revise_resume ok revised_len=2434
+[2026-02-25T00:52:37.663057Z] results_route POST: redirecting to results_get
+[2026-02-25T00:52:37.690708Z] results_get GET: start
+[2026-02-25T00:52:37.690708Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T00:52:44.640808Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:53:15.818248Z] results_route POST: start
+[2026-02-25T00:53:15.825941Z] results_route POST: received upload filename=updated_actuarial_resume_3.docx
+[2026-02-25T00:53:15.908244Z] results_route POST: extracted_text_len=1536
+[2026-02-25T00:53:15.914664Z] results_route POST: calling revise_resume resume_len=1536 jd_len=0
+[2026-02-25T00:53:46.171074Z] results_route POST: revise_resume ok revised_len=3399
+[2026-02-25T00:53:46.653847Z] results_route POST: redirecting to results_get
+[2026-02-25T00:53:46.672594Z] results_get GET: start
+[2026-02-25T00:53:46.672594Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T00:53:52.258772Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:55:23.271542Z] results_route POST: start
+[2026-02-25T00:55:23.276535Z] results_route POST: calling revise_resume resume_len=15 jd_len=0
+[2026-02-25T00:55:42.716388Z] results_route POST: revise_resume ok revised_len=2112
+[2026-02-25T00:55:43.227236Z] results_route POST: redirecting to results_get
+[2026-02-25T00:55:43.247381Z] results_get GET: start
+[2026-02-25T00:55:43.248362Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T00:55:49.474221Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:55:55.107934Z] results_route POST: start
+[2026-02-25T00:55:55.115282Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-02-25T00:56:22.057051Z] results_route POST: revise_resume ok revised_len=2279
+[2026-02-25T00:56:22.530610Z] results_route POST: redirecting to results_get
+[2026-02-25T00:56:22.557207Z] results_get GET: start
+[2026-02-25T00:56:22.558425Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T00:56:27.650130Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:56:32.663017Z] results_route POST: start
+[2026-02-25T00:56:32.669325Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-02-25T00:56:50.368209Z] results_route POST: revise_resume ok revised_len=1933
+[2026-02-25T00:56:50.897190Z] results_route POST: redirecting to results_get
+[2026-02-25T00:56:50.918411Z] results_get GET: start
+[2026-02-25T00:56:50.919406Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T00:57:23.953813Z] start GET: pid=24364 build=1771980434
+[2026-02-25T00:57:28.946491Z] results_route POST: start
+[2026-02-25T00:57:29.000631Z] results_route POST: calling revise_resume resume_len=12 jd_len=0
+[2026-02-25T00:57:48.123359Z] results_route POST: revise_resume ok revised_len=2225
+[2026-02-25T00:57:48.612724Z] results_route POST: redirecting to results_get
+[2026-02-25T00:57:48.636681Z] results_get GET: start
+[2026-02-25T00:57:48.637678Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T00:58:51.396287Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T00:59:04.320174Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T00:59:16.079591Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:00:52.786190Z] local_errors.log initialized
+
+[2026-02-25T01:00:59.909593Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1458, in dispatch_request
+    self.raise_routing_exception(req)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1440, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\ctx.py", line 353, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\routing\map.py", line 629, in match
+    raise NotFound() from None
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:01:10.302976Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:01:23.347057Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:01:34.956482Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1458, in dispatch_request
+    self.raise_routing_exception(req)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1440, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\ctx.py", line 353, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\routing\map.py", line 629, in match
+    raise NotFound() from None
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+[2026-02-25T01:01:44.096195Z] start GET: pid=16000 build=1771980434
+
+[2026-02-25T01:01:49.053720Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:02:16.403466Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:02:32.071225Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:02:44.898627Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+[2026-02-25T01:03:27.577062Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:03:34.209326Z] results_route POST: start
+[2026-02-25T01:03:34.217658Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-02-25T01:03:52.111321Z] results_route POST: revise_resume ok revised_len=2188
+[2026-02-25T01:03:52.625942Z] results_route POST: redirecting to results_get
+[2026-02-25T01:03:52.654719Z] results_get GET: start
+[2026-02-25T01:03:52.655850Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:03:57.336138Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:04:02.510672Z] results_route POST: start
+[2026-02-25T01:04:02.520341Z] results_route POST: calling revise_resume resume_len=18 jd_len=0
+[2026-02-25T01:04:20.765707Z] results_route POST: revise_resume ok revised_len=1838
+[2026-02-25T01:04:21.266910Z] results_route POST: redirecting to results_get
+[2026-02-25T01:04:21.291988Z] results_get GET: start
+[2026-02-25T01:04:21.291988Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:04:29.062316Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:04:38.566933Z] results_route POST: start
+[2026-02-25T01:04:38.574932Z] results_route POST: received upload filename=actuarial_resume.docx
+[2026-02-25T01:04:40.930672Z] results_route POST: extracted_text_len=1318
+[2026-02-25T01:04:40.934667Z] results_route POST: calling revise_resume resume_len=1318 jd_len=0
+[2026-02-25T01:05:02.500653Z] results_route POST: revise_resume ok revised_len=2103
+[2026-02-25T01:05:03.066810Z] results_route POST: redirecting to results_get
+[2026-02-25T01:05:03.074489Z] results_get GET: start
+[2026-02-25T01:05:03.080043Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:05:42.410355Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:06:17.219497Z] results_route POST: start
+[2026-02-25T01:06:17.229604Z] results_route POST: calling revise_resume resume_len=1842 jd_len=0
+[2026-02-25T01:06:47.476494Z] results_route POST: revise_resume ok revised_len=4121
+[2026-02-25T01:06:47.991061Z] results_route POST: redirecting to results_get
+[2026-02-25T01:06:48.025013Z] results_get GET: start
+[2026-02-25T01:06:48.025013Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:06:52.170133Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:07:05.663009Z] results_route POST: start
+[2026-02-25T01:07:05.676748Z] results_route POST: received upload filename=updated_actuarial_resume_4.docx
+[2026-02-25T01:07:05.963028Z] results_route POST: extracted_text_len=2065
+[2026-02-25T01:07:05.966931Z] results_route POST: calling revise_resume resume_len=2065 jd_len=0
+[2026-02-25T01:07:30.852556Z] results_route POST: revise_resume ok revised_len=3161
+[2026-02-25T01:07:31.338634Z] results_route POST: redirecting to results_get
+[2026-02-25T01:07:31.372539Z] results_get GET: start
+[2026-02-25T01:07:31.372539Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T01:16:36.822183Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1458, in dispatch_request
+    self.raise_routing_exception(req)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1440, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\ctx.py", line 353, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\routing\map.py", line 629, in match
+    raise NotFound() from None
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+
+[2026-02-25T01:16:38.813834Z] unhandled exception
+NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 502, in <lambda>
+    view_func=lambda **kw: self_ref().send_static_file(**kw),  # type: ignore # noqa: B950
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\scaffold.py", line 317, in send_static_file
+    return send_from_directory(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\helpers.py", line 557, in send_from_directory
+    return werkzeug.utils.send_from_directory(  # type: ignore[return-value]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\utils.py", line 575, in send_from_directory
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+
+[2026-02-25T01:30:19.261266Z] results_get GET: start
+[2026-02-25T01:30:19.264779Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:50:05.097874Z] results_get GET: start
+[2026-02-25T01:50:05.102077Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:51:34.411331Z] results_get GET: start
+[2026-02-25T01:51:34.414797Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:51:36.760440Z] results_get GET: start
+[2026-02-25T01:51:36.761438Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:51:55.434575Z] results_get GET: start
+[2026-02-25T01:51:55.435839Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:54:00.378869Z] start GET: pid=16000 build=1771980434
+[2026-02-25T01:54:05.642628Z] results_route POST: start
+[2026-02-25T01:54:05.735858Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-02-25T01:54:23.707664Z] results_route POST: revise_resume ok revised_len=1819
+[2026-02-25T01:54:24.217888Z] results_route POST: redirecting to results_get
+[2026-02-25T01:54:24.237164Z] results_get GET: start
+[2026-02-25T01:54:24.238295Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:55:04.629650Z] results_get GET: start
+[2026-02-25T01:55:04.629650Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T01:58:27.280346Z] results_get GET: start
+[2026-02-25T01:58:27.282555Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:01:41.507183Z] results_get GET: start
+[2026-02-25T02:01:41.508182Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T02:03:02.461138Z] local_errors.log initialized
+[2026-02-25T02:07:40.451251Z] results_get GET: start
+[2026-02-25T02:07:40.453259Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:12:14.522094Z] results_get GET: start
+[2026-02-25T02:12:14.524094Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T02:15:19.370141Z] local_errors.log initialized
+[2026-02-25T02:15:21.630769Z] results_get GET: start
+[2026-02-25T02:15:21.636597Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:17:21.332881Z] results_get GET: start
+[2026-02-25T02:17:21.374202Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:18:16.219645Z] results_get GET: start
+[2026-02-25T02:18:16.220773Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:18:56.535327Z] results_get GET: start
+[2026-02-25T02:18:56.536839Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:20:59.609368Z] results_get GET: start
+[2026-02-25T02:20:59.612807Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:26:07.707380Z] results_get GET: start
+[2026-02-25T02:26:07.709729Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T02:27:27.294045Z] local_errors.log initialized
+[2026-02-25T02:27:32.495773Z] results_get GET: start
+[2026-02-25T02:27:32.496768Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:27:35.514092Z] results_get GET: start
+[2026-02-25T02:27:35.515091Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:34:18.207659Z] start GET: pid=2868 build=1771986436
+[2026-02-25T02:34:24.580285Z] results_route POST: start
+[2026-02-25T02:34:24.627386Z] results_route POST: calling revise_resume resume_len=1570 jd_len=0
+[2026-02-25T02:34:47.920195Z] results_route POST: revise_resume ok revised_len=2423
+[2026-02-25T02:34:48.489389Z] results_route POST: redirecting to results_get
+[2026-02-25T02:34:48.562676Z] results_get GET: start
+[2026-02-25T02:34:48.565428Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:37:58.437355Z] results_get GET: start
+[2026-02-25T02:37:58.487893Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:40:53.502425Z] results_get GET: start
+[2026-02-25T02:40:53.504424Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:43:19.928797Z] results_get GET: start
+[2026-02-25T02:43:19.930800Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:46:11.570322Z] results_get GET: start
+[2026-02-25T02:46:11.571323Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:48:00.650116Z] results_get GET: start
+[2026-02-25T02:48:00.654340Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:48:48.181967Z] results_get GET: start
+[2026-02-25T02:48:48.183969Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:49:23.847216Z] results_get GET: start
+[2026-02-25T02:49:23.848254Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T02:54:23.423167Z] results_get GET: start
+[2026-02-25T02:54:23.426443Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,structured_resume
+[2026-02-25T02:54:23.482492Z] results_get GET: start
+[2026-02-25T02:54:23.483498Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,structured_resume
+[2026-02-25T02:54:23.531000Z] results_get GET: start
+[2026-02-25T02:54:23.531998Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,structured_resume
+[2026-02-25T02:56:25.497533Z] results_get GET: start
+[2026-02-25T02:56:25.498624Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,structured_resume
+[2026-02-25T03:27:18.247816Z] results_get GET: start
+[2026-02-25T03:27:18.250822Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T03:27:51.282906Z] results_get GET: start
+[2026-02-25T03:27:51.283416Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T03:28:04.731748Z] results_get GET: start
+[2026-02-25T03:28:04.733414Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T03:28:25.926211Z] results_get GET: start
+[2026-02-25T03:28:25.927209Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T10:45:42.298058Z] local_errors.log initialized
+
+[2026-02-25T10:46:53.181383Z] local_errors.log initialized
+
+[2026-02-25T20:37:43.006776Z] parse_resume error
+RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8207, in parse_resume
+    parsing_response = client.chat.completions.create(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+
+[2026-02-25T20:37:43.006776Z] parse_resume_for_template error
+RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3995, in parse_resume_for_template
+    parsed_result = parse_resume(revised_resume)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8207, in parse_resume
+    parsing_response = client.chat.completions.create(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+
+[2026-02-25T20:39:38.276140Z] parse_resume error
+RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8207, in parse_resume
+    """
+        
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+
+[2026-02-25T20:39:38.296454Z] parse_resume_for_template error
+RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3995, in parse_resume_for_template
+    parsed_result = parse_resume(revised_resume)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8207, in parse_resume
+    """
+        
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+[2026-02-25T20:48:46.491728Z] results_get GET: start
+[2026-02-25T20:48:46.494288Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:49:44.323151Z] results_get GET: start
+[2026-02-25T20:49:44.323151Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:49:47.819156Z] results_get GET: start
+[2026-02-25T20:49:47.821451Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:49:51.982087Z] results_get GET: start
+[2026-02-25T20:49:51.984087Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:49:58.911555Z] results_get GET: start
+[2026-02-25T20:49:58.913854Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T20:50:09.915825Z] local_errors.log initialized
+[2026-02-25T20:54:55.920719Z] results_get GET: start
+[2026-02-25T20:54:55.921721Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:54:59.766110Z] results_get GET: start
+[2026-02-25T20:54:59.767346Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T20:55:00.627059Z] local_errors.log initialized
+[2026-02-25T20:57:10.046942Z] results_get GET: start
+[2026-02-25T20:57:10.048946Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T20:58:58.207346Z] results_get GET: start
+[2026-02-25T20:58:58.209358Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T21:02:10.739569Z] local_errors.log initialized
+[2026-02-25T21:02:15.533663Z] results_get GET: start
+[2026-02-25T21:02:15.533663Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:04:54.270702Z] results_get GET: start
+[2026-02-25T21:04:54.272701Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:05:21.594058Z] results_get GET: start
+[2026-02-25T21:05:21.595077Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:05:32.395237Z] results_get GET: start
+[2026-02-25T21:05:32.396237Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:14:04.570060Z] results_get GET: start
+[2026-02-25T21:14:04.572061Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T21:20:26.183427Z] local_errors.log initialized
+[2026-02-25T21:20:35.668738Z] results_get GET: start
+[2026-02-25T21:20:35.669737Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:27:21.320023Z] results_get GET: start
+[2026-02-25T21:27:21.325364Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T21:27:29.311933Z] local_errors.log initialized
+[2026-02-25T21:35:24.169883Z] results_get GET: start
+[2026-02-25T21:35:24.173145Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:37:21.248226Z] results_get GET: start
+[2026-02-25T21:37:21.250425Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:37:38.639846Z] results_get GET: start
+[2026-02-25T21:37:38.639846Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:37:54.854379Z] results_get GET: start
+[2026-02-25T21:37:54.862837Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T21:37:57.610739Z] results_get GET: start
+[2026-02-25T21:37:57.612494Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T21:37:58.589730Z] local_errors.log initialized
+[2026-02-25T21:47:44.731048Z] results_get GET: start
+[2026-02-25T21:47:44.735579Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T22:02:10.371141Z] results_get GET: start
+[2026-02-25T22:02:10.375068Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T22:02:14.632804Z] local_errors.log initialized
+[2026-02-25T22:02:15.098135Z] results_get GET: start
+[2026-02-25T22:02:15.098135Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T22:03:22.023318Z] start GET: pid=41936 build=1772015989
+[2026-02-25T22:03:57.573390Z] results_route POST: start
+[2026-02-25T22:03:57.638463Z] results_route POST: calling revise_resume resume_len=1948 jd_len=0
+[2026-02-25T22:04:27.393563Z] results_route POST: revise_resume ok revised_len=3390
+[2026-02-25T22:04:27.900107Z] results_route POST: redirecting to results_get
+[2026-02-25T22:04:27.952227Z] results_get GET: start
+[2026-02-25T22:04:27.953232Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T22:05:17.613510Z] results_get GET: start
+[2026-02-25T22:05:17.615508Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T22:05:52.670312Z] results_get GET: start
+[2026-02-25T22:05:52.675099Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-25T22:24:41.469707Z] results_get GET: start
+[2026-02-25T22:24:41.472222Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-25T22:31:43.454107Z] local_errors.log initialized
+
+[2026-02-25T22:33:27.820935Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    'revision_id': e['RowKey'],
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T22:33:36.016855Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    'revision_id': e['RowKey'],
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T22:33:44.361467Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    'revision_id': e['RowKey'],
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T22:37:16.035126Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    'revision_id': e['RowKey'],
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T22:37:31.781658Z] local_errors.log initialized
+
+[2026-02-25T22:44:49.822805Z] local_errors.log initialized
+
+[2026-02-25T22:45:20.902624Z] local_errors.log initialized
+
+[2026-02-25T22:52:06.890627Z] local_errors.log initialized
+
+[2026-02-25T22:59:28.694044Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:03:02.786743Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:03:24.969417Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:03:27.409843Z] local_errors.log initialized
+
+[2026-02-25T23:04:08.189890Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:06:32.225055Z] local_errors.log initialized
+
+[2026-02-25T23:06:37.168258Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:06:58.846677Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    })
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:08:23.544624Z] local_errors.log initialized
+
+[2026-02-25T23:10:24.146718Z] local_errors.log initialized
+
+[2026-02-25T23:10:57.962933Z] local_errors.log initialized
+
+[2026-02-25T23:11:11.876098Z] unhandled exception
+BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6002, in my_revisions
+    try:
+       ^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 477, in top-level template code
+    <form action="{{ url_for('update_revision_name', revision_id=rev.revision_id) }}" method="POST" class="mb-2">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'update_revision_name' with values ['revision_id']. Did you mean 'view_revision' instead?
+
+
+[2026-02-25T23:19:16.970299Z] local_errors.log initialized
+
+[2026-02-25T23:20:00.645203Z] local_errors.log initialized
+
+[2026-02-25T23:20:39.979921Z] local_errors.log initialized
+
+[2026-02-25T23:25:54.101222Z] local_errors.log initialized
+
+[2026-02-25T23:28:17.143252Z] local_errors.log initialized
+
+[2026-02-25T23:28:47.664986Z] local_errors.log initialized
+
+[2026-02-25T23:30:15.694135Z] local_errors.log initialized
+
+[2026-02-25T23:30:32.103395Z] local_errors.log initialized
+
+[2026-02-25T23:31:46.555437Z] local_errors.log initialized
+
+[2026-02-25T23:32:32.178275Z] local_errors.log initialized
+
+[2026-02-25T23:34:59.254880Z] local_errors.log initialized
+
+[2026-02-25T23:42:38.251363Z] local_errors.log initialized
+
+[2026-02-25T23:44:15.808580Z] local_errors.log initialized
+
+[2026-02-25T23:47:23.238568Z] local_errors.log initialized
+
+[2026-02-25T23:48:11.978828Z] local_errors.log initialized
+
+[2026-02-25T23:51:52.341037Z] local_errors.log initialized
+
+[2026-02-25T23:52:18.181161Z] local_errors.log initialized
+
+[2026-02-25T23:56:03.609800Z] local_errors.log initialized
+
+[2026-02-25T23:56:06.989377Z] local_errors.log initialized
+
+[2026-02-25T23:58:18.926681Z] local_errors.log initialized
+
+[2026-02-26T00:08:25.727438Z] local_errors.log initialized
+
+[2026-02-26T00:08:31.769287Z] local_errors.log initialized
+
+[2026-02-26T00:10:03.928915Z] local_errors.log initialized
+
+[2026-02-26T00:15:24.857841Z] local_errors.log initialized
+
+[2026-02-26T00:15:35.653226Z] local_errors.log initialized
+
+[2026-02-26T00:16:25.054956Z] local_errors.log initialized
+
+[2026-02-26T00:33:19.996487Z] local_errors.log initialized
+
+[2026-02-26T00:39:18.969410Z] local_errors.log initialized
+
+[2026-02-26T00:39:27.472941Z] local_errors.log initialized
+
+[2026-02-26T00:46:02.777466Z] local_errors.log initialized
+[2026-02-26T00:46:36.715994Z] results_get GET: start
+[2026-02-26T00:46:36.715994Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T00:46:40.124668Z] results_get GET: start
+[2026-02-26T00:46:40.124668Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T01:21:20.806858Z] local_errors.log initialized
+
+[2026-02-26T01:24:17.584119Z] local_errors.log initialized
+
+[2026-02-26T01:24:27.411042Z] local_errors.log initialized
+
+[2026-02-26T01:29:42.921172Z] local_errors.log initialized
+
+[2026-02-26T01:29:54.439236Z] local_errors.log initialized
+
+[2026-02-26T01:33:51.056042Z] local_errors.log initialized
+
+[2026-02-26T01:34:33.564679Z] local_errors.log initialized
+
+[2026-02-26T01:37:24.446277Z] local_errors.log initialized
+
+[2026-02-26T01:37:46.913020Z] local_errors.log initialized
+
+[2026-02-26T01:39:56.679614Z] local_errors.log initialized
+
+[2026-02-26T01:40:06.065405Z] local_errors.log initialized
+
+[2026-02-26T01:41:07.960267Z] local_errors.log initialized
+
+[2026-02-26T01:41:31.379595Z] local_errors.log initialized
+
+[2026-02-26T01:51:04.347358Z] local_errors.log initialized
+
+[2026-02-26T01:51:18.257551Z] local_errors.log initialized
+
+[2026-02-26T04:49:21.147021Z] local_errors.log initialized
+
+[2026-02-26T04:52:59.130997Z] local_errors.log initialized
+[2026-02-26T05:10:24.240538Z] results_get GET: start
+[2026-02-26T05:10:24.243536Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T05:10:34.040394Z] results_get GET: start
+[2026-02-26T05:10:34.041396Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T05:13:45.685808Z] results_get GET: start
+[2026-02-26T05:13:45.687242Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T05:19:51.490263Z] local_errors.log initialized
+
+[2026-02-26T05:20:47.968055Z] local_errors.log initialized
+
+[2026-02-26T05:21:13.106499Z] local_errors.log initialized
+[2026-02-26T05:26:31.089805Z] results_get GET: start
+[2026-02-26T05:26:31.091384Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T05:34:06.197610Z] local_errors.log initialized
+
+[2026-02-26T05:37:27.647551Z] local_errors.log initialized
+
+[2026-02-26T05:38:51.198897Z] local_errors.log initialized
+
+[2026-02-26T05:38:59.019472Z] local_errors.log initialized
+
+[2026-02-26T05:41:12.117087Z] local_errors.log initialized
+
+[2026-02-26T05:41:59.656455Z] local_errors.log initialized
+
+[2026-02-26T05:52:29.570179Z] local_errors.log initialized
+
+[2026-02-26T05:54:02.921850Z] local_errors.log initialized
+
+[2026-02-26T05:58:02.974619Z] local_errors.log initialized
+
+[2026-02-26T05:59:40.509855Z] local_errors.log initialized
+
+[2026-02-26T06:00:45.644523Z] local_errors.log initialized
+
+[2026-02-26T06:00:54.589699Z] local_errors.log initialized
+
+[2026-02-26T06:09:00.198205Z] local_errors.log initialized
+
+[2026-02-26T06:09:04.100155Z] local_errors.log initialized
+[2026-02-26T07:14:24.761487Z] results_get GET: start
+[2026-02-26T07:14:24.764008Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T07:23:48.470308Z] results_get GET: start
+[2026-02-26T07:23:48.473499Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T07:29:43.548947Z] local_errors.log initialized
+
+[2026-02-26T07:35:57.098852Z] local_errors.log initialized
+
+[2026-02-26T07:39:02.076178Z] local_errors.log initialized
+[2026-02-26T07:41:13.308067Z] results_get GET: start
+[2026-02-26T07:41:13.310420Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T07:44:46.638068Z] local_errors.log initialized
+
+[2026-02-26T07:47:53.450873Z] local_errors.log initialized
+
+[2026-02-26T07:48:16.968164Z] local_errors.log initialized
+
+[2026-02-26T07:58:10.630333Z] local_errors.log initialized
+
+[2026-02-26T07:59:38.654882Z] local_errors.log initialized
+[2026-02-26T08:03:03.732038Z] results_get GET: start
+[2026-02-26T08:03:03.733206Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T08:04:08.781536Z] results_get GET: start
+[2026-02-26T08:04:08.784242Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T08:04:50.685281Z] results_get GET: start
+[2026-02-26T08:04:50.687653Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T08:08:04.212871Z] local_errors.log initialized
+[2026-02-26T08:11:08.683600Z] results_get GET: start
+[2026-02-26T08:11:08.691030Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-02-26T08:16:37.156788Z] results_get GET: start
+[2026-02-26T08:16:37.156788Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T08:17:52.382902Z] local_errors.log initialized
+[2026-02-26T08:17:56.402685Z] results_get GET: start
+[2026-02-26T08:17:56.404162Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T08:19:59.116222Z] local_errors.log initialized
+
+[2026-02-26T08:39:53.691759Z] local_errors.log initialized
+
+[2026-02-26T08:41:23.808900Z] local_errors.log initialized
+
+[2026-02-26T08:41:45.013566Z] local_errors.log initialized
+
+[2026-02-26T08:42:32.137533Z] local_errors.log initialized
+
+[2026-02-26T08:43:00.472708Z] local_errors.log initialized
+
+[2026-02-26T08:43:29.816094Z] local_errors.log initialized
+
+[2026-02-26T08:43:59.809207Z] local_errors.log initialized
+
+[2026-02-26T08:44:55.815707Z] local_errors.log initialized
+
+[2026-02-26T08:45:24.373754Z] local_errors.log initialized
+
+[2026-02-26T08:46:35.369167Z] local_errors.log initialized
+
+[2026-02-26T08:47:30.772905Z] local_errors.log initialized
+
+[2026-02-26T08:49:21.997505Z] local_errors.log initialized
+
+[2026-02-26T08:49:57.236006Z] local_errors.log initialized
+
+[2026-02-26T08:50:51.832985Z] local_errors.log initialized
+
+[2026-02-26T08:51:02.846100Z] local_errors.log initialized
+[2026-02-26T09:06:06.648984Z] results_get GET: start
+[2026-02-26T09:06:06.652244Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-26T23:38:11.828544Z] local_errors.log initialized
+
+[2026-02-26T23:46:25.219043Z] local_errors.log initialized
+
+[2026-02-26T23:55:28.373730Z] local_errors.log initialized
+[2026-02-27T00:04:44.219728Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:09:17.457837Z] results_route POST: start
+[2026-02-27T00:09:17.960451Z] results_route POST: calling revise_resume resume_len=15 jd_len=11
+[2026-02-27T00:09:34.878464Z] results_route POST: revise_resume ok revised_len=2366
+[2026-02-27T00:09:35.739096Z] results_route POST: redirecting to results_get
+[2026-02-27T00:09:35.762655Z] results_get GET: start
+[2026-02-27T00:09:35.763678Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:15:03.226462Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:16:07.291527Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:16:34.784661Z] results_route POST: start
+[2026-02-27T00:16:35.255143Z] results_route POST: calling revise_resume resume_len=1912 jd_len=0
+[2026-02-27T00:17:04.614357Z] results_route POST: revise_resume ok revised_len=3293
+[2026-02-27T00:17:05.539566Z] results_route POST: redirecting to results_get
+[2026-02-27T00:17:05.563510Z] results_get GET: start
+[2026-02-27T00:17:05.564506Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:20:20.197817Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:20:29.517294Z] results_route POST: start
+[2026-02-27T00:20:30.003593Z] results_route POST: calling revise_resume resume_len=1912 jd_len=0
+[2026-02-27T00:20:54.435505Z] results_route POST: revise_resume ok revised_len=3973
+[2026-02-27T00:20:55.348825Z] results_route POST: redirecting to results_get
+[2026-02-27T00:20:55.369912Z] results_get GET: start
+[2026-02-27T00:20:55.369912Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:22:19.493145Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:22:54.931492Z] results_route POST: start
+[2026-02-27T00:22:55.399119Z] results_route POST: calling revise_resume resume_len=1912 jd_len=0
+[2026-02-27T00:23:25.062042Z] results_route POST: revise_resume ok revised_len=4027
+[2026-02-27T00:23:25.958101Z] results_route POST: redirecting to results_get
+[2026-02-27T00:23:25.978808Z] results_get GET: start
+[2026-02-27T00:23:25.978808Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:23:45.885693Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:24:59.205891Z] results_route POST: start
+[2026-02-27T00:24:59.748155Z] results_route POST: calling revise_resume resume_len=426 jd_len=0
+[2026-02-27T00:25:24.086126Z] results_route POST: revise_resume ok revised_len=2663
+[2026-02-27T00:25:24.983328Z] results_route POST: redirecting to results_get
+[2026-02-27T00:25:25.005289Z] results_get GET: start
+[2026-02-27T00:25:25.005289Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:26:07.097001Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:26:37.424393Z] results_route POST: start
+[2026-02-27T00:26:38.011036Z] results_route POST: calling revise_resume resume_len=81 jd_len=0
+[2026-02-27T00:26:53.018157Z] results_route POST: revise_resume ok revised_len=1870
+[2026-02-27T00:26:53.910116Z] results_route POST: redirecting to results_get
+[2026-02-27T00:26:53.930130Z] results_get GET: start
+[2026-02-27T00:26:53.932509Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:27:56.535844Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:28:09.549206Z] results_route POST: start
+[2026-02-27T00:28:10.038924Z] results_route POST: calling revise_resume resume_len=81 jd_len=0
+[2026-02-27T00:28:27.493938Z] results_route POST: revise_resume ok revised_len=1916
+[2026-02-27T00:28:28.365644Z] results_route POST: redirecting to results_get
+[2026-02-27T00:28:28.383641Z] results_get GET: start
+[2026-02-27T00:28:28.383641Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-02-27T00:29:39.872226Z] results_route POST: start
+[2026-02-27T00:29:40.427968Z] results_route POST: calling revise_resume resume_len=77 jd_len=0
+[2026-02-27T00:29:55.742217Z] results_route POST: revise_resume ok revised_len=1572
+[2026-02-27T00:29:56.708985Z] results_route POST: redirecting to results_get
+[2026-02-27T00:29:56.741267Z] results_get GET: start
+[2026-02-27T00:29:56.743416Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-27T00:36:51.865149Z] local_errors.log initialized
+
+[2026-02-27T00:37:28.916163Z] local_errors.log initialized
+
+[2026-02-27T00:37:46.941540Z] local_errors.log initialized
+[2026-02-27T00:43:57.454289Z] start GET: pid=48340 build=1772148972
+[2026-02-27T00:44:51.030074Z] results_route POST: start
+[2026-02-27T00:44:51.761097Z] results_route POST: calling revise_resume resume_len=52 jd_len=0
+[2026-02-27T00:45:11.287920Z] results_route POST: revise_resume ok revised_len=1944
+[2026-02-27T00:45:12.140519Z] results_route POST: redirecting to results_get
+[2026-02-27T00:45:12.160941Z] results_get GET: start
+[2026-02-27T00:45:12.162202Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-02-27T06:02:30.539029Z] local_errors.log initialized
+
+[2026-02-27T06:04:38.230528Z] local_errors.log initialized
+
+[2026-02-27T06:05:56.035206Z] local_errors.log initialized
+
+[2026-02-27T06:34:31.260106Z] local_errors.log initialized
+
+[2026-02-27T06:35:20.474116Z] local_errors.log initialized
+
+[2026-02-27T06:58:11.909994Z] local_errors.log initialized
+
+[2026-02-27T07:05:46.723730Z] local_errors.log initialized
+
+[2026-02-27T07:08:37.906120Z] local_errors.log initialized
+
+[2026-02-27T07:09:41.245731Z] local_errors.log initialized
+
+[2026-02-27T07:23:59.750861Z] local_errors.log initialized
+
+[2026-02-27T07:27:15.819273Z] local_errors.log initialized
+[2026-02-27T07:45:08.340526Z] results_get GET: start
+[2026-02-27T07:45:08.341964Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-02-27T09:13:09.223399Z] local_errors.log initialized
+
+[2026-02-27T09:14:19.824864Z] local_errors.log initialized
+[2026-02-27T09:14:53.866555Z] start GET: pid=35732 build=1772183566
+[2026-02-27T09:15:59.433062Z] results_route POST: start
+[2026-02-27T09:16:17.015804Z] results_route POST: calling revise_resume resume_len=6 jd_len=7521 has_jd_url=True
+[2026-02-27T09:16:40.906153Z] results_route POST: revise_resume ok revised_len=3700
+[2026-02-27T09:16:41.460594Z] results_route POST: redirecting to results_get
+[2026-02-27T09:16:41.489502Z] results_get GET: start
+[2026-02-27T09:16:41.490657Z] results_get GET: has results_data keys=feedback,job_description,job_description_url,original_resume,revised_resume,source_revision_id
+
+[2026-02-27T23:44:04.226388Z] local_errors.log initialized
+
+[2026-02-27T23:50:16.678612Z] local_errors.log initialized
+
+[2026-02-27T23:55:58.332726Z] local_errors.log initialized
+[2026-02-28T10:14:34.372284Z] start GET: pid=31400 build=1772183972
+
+[2026-02-28T10:15:31.736494Z] local_errors.log initialized
+[2026-02-28T21:36:30.282785Z] start GET: pid=31400 build=1772183972
+
+[2026-02-28T22:38:09.328133Z] local_errors.log initialized
+
+[2026-02-28T22:39:07.900323Z] local_errors.log initialized
+
+[2026-02-28T22:47:59.257590Z] local_errors.log initialized
+
+[2026-02-28T22:50:30.451914Z] local_errors.log initialized
+
+[2026-02-28T22:52:17.327039Z] local_errors.log initialized
+
+[2026-02-28T22:53:52.316276Z] local_errors.log initialized
+
+[2026-02-28T22:54:16.095215Z] local_errors.log initialized
+
+[2026-02-28T22:59:25.455890Z] local_errors.log initialized
+[2026-03-01T21:41:57.964978Z] results_get GET: start
+[2026-03-01T21:41:57.966371Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-03-03T02:12:15.437967Z] local_errors.log initialized
+
+[2026-03-03T03:14:40.316986Z] local_errors.log initialized
+
+[2026-03-03T03:17:01.916745Z] local_errors.log initialized
+
+[2026-03-03T10:25:41.395222Z] local_errors.log initialized
+[2026-03-04T01:52:15.651035Z] start GET: pid=38288 build=1772508238
+[2026-03-04T01:58:10.057233Z] start GET: pid=38288 build=1772508238
+
+[2026-03-04T01:58:10.223725Z] unhandled exception
+TemplateNotFound: start.html
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2119, in start
+    return render_template("upload.html", year=current_year, user=current_user)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 64, in get_source
+    return self._get_source_fast(environment, template)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 98, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: start.html
+
+
+[2026-03-04T02:01:58.168049Z] local_errors.log initialized
+[2026-03-04T02:02:01.559042Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:02:07.396794Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:03:37.961342Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:05:07.136987Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:05:21.824120Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:06:57.455218Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:07:16.686206Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:07:49.549850Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:09:57.154849Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:10:02.405079Z] results_route POST: start
+[2026-03-04T02:10:02.498615Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+
+[2026-03-04T02:10:22.121466Z] local_errors.log initialized
+[2026-03-04T02:10:22.842207Z] results_route POST: revise_resume ok revised_len=2187
+[2026-03-04T02:10:22.860831Z] results_route POST: redirecting to results_get
+[2026-03-04T02:10:22.882985Z] results_get GET: start
+[2026-03-04T02:10:22.884703Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume
+[2026-03-04T02:10:37.453992Z] results_get GET: start
+[2026-03-04T02:10:37.454614Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume
+[2026-03-04T02:11:33.128223Z] upload GET: pid=22432 build=1772589428
+[2026-03-04T02:11:47.354792Z] upload GET: pid=22432 build=1772589428
+
+[2026-03-04T02:12:15.783538Z] local_errors.log initialized
+[2026-03-04T02:14:47.840581Z] results_get GET: start
+[2026-03-04T02:14:47.841881Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume
+[2026-03-04T02:33:17.666030Z] results_get GET: start
+[2026-03-04T02:33:17.668601Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume
+
+[2026-03-04T02:42:03.442031Z] local_errors.log initialized
+
+[2026-03-04T02:42:17.442899Z] local_errors.log initialized
+
+[2026-03-04T02:42:22.625389Z] local_errors.log initialized
+
+[2026-03-04T03:07:36.303802Z] local_errors.log initialized
+
+[2026-03-04T03:18:21.827887Z] local_errors.log initialized
+
+[2026-03-04T03:19:02.739429Z] local_errors.log initialized
+
+[2026-03-04T03:19:46.929677Z] local_errors.log initialized
+
+[2026-03-04T03:19:51.652053Z] local_errors.log initialized
+
+[2026-03-04T03:23:42.917635Z] local_errors.log initialized
+
+[2026-03-04T03:27:53.796316Z] local_errors.log initialized
+[2026-03-04T03:34:43.624923Z] upload GET: pid=24828 build=1772593718
+[2026-03-04T03:36:07.116550Z] upload GET: pid=24828 build=1772593718
+[2026-03-04T03:36:19.108917Z] results_route POST: start
+[2026-03-04T03:36:19.114215Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-03-04T03:36:35.874932Z] results_route POST: revise_resume ok revised_len=2096
+[2026-03-04T03:36:35.881155Z] results_route POST: redirecting to results_get
+[2026-03-04T03:36:35.893718Z] results_get GET: start
+[2026-03-04T03:36:35.894325Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume
+[2026-03-04T03:40:49.989170Z] upload GET: pid=24828 build=1772593718
+
+[2026-03-04T03:43:01.381338Z] local_errors.log initialized
+
+[2026-03-04T03:43:05.099465Z] local_errors.log initialized
+[2026-03-04T04:19:03.121720Z] upload GET: pid=6168 build=1772595618
+
+[2026-03-04T04:19:59.297811Z] local_errors.log initialized
+
+[2026-03-04T04:20:10.084391Z] local_errors.log initialized
+
+[2026-03-04T04:20:17.334843Z] local_errors.log initialized
+
+[2026-03-04T04:37:38.411423Z] local_errors.log initialized
+
+[2026-03-04T04:38:58.243454Z] local_errors.log initialized
+
+[2026-03-04T05:10:33.332819Z] local_errors.log initialized
+[2026-03-04T06:12:06.585665Z] results_get GET: start
+[2026-03-04T06:12:06.589475Z] results_get GET: no results_data in session
+
+[2026-03-04T06:13:19.481768Z] local_errors.log initialized
+[2026-03-04T06:16:36.787789Z] upload GET: pid=24984 build=1772599047
+[2026-03-04T06:16:44.349231Z] results_route POST: start
+[2026-03-04T06:16:44.457103Z] results_route POST: calling revise_resume resume_len=2034 jd_len=0
+[2026-03-04T06:17:16.190915Z] results_route POST: revise_resume ok revised_len=3131
+[2026-03-04T06:17:16.726522Z] results_route POST: redirecting to results_get
+[2026-03-04T06:17:16.752257Z] results_get GET: start
+[2026-03-04T06:17:16.753059Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-03-04T06:18:08.478391Z] upload GET: pid=24984 build=1772599047
+[2026-03-04T06:18:12.933871Z] results_route POST: start
+[2026-03-04T06:18:12.939840Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-03-04T06:18:31.770958Z] results_route POST: revise_resume ok revised_len=2147
+[2026-03-04T06:18:32.300240Z] results_route POST: redirecting to results_get
+[2026-03-04T06:18:32.323391Z] results_get GET: start
+[2026-03-04T06:18:32.324138Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-03-04T06:18:38.664480Z] results_route POST: start
+[2026-03-04T06:18:38.675244Z] results_route POST: calling revise_resume resume_len=2034 jd_len=0
+[2026-03-04T06:19:04.764420Z] results_route POST: revise_resume ok revised_len=3165
+[2026-03-04T06:19:05.203903Z] results_route POST: redirecting to results_get
+
+[2026-03-04T06:48:23.284877Z] local_errors.log initialized
+
+[2026-03-04T06:54:17.358956Z] local_errors.log initialized
+
+[2026-03-04T07:47:09.042033Z] local_errors.log initialized
+
+[2026-03-04T07:59:48.696732Z] local_errors.log initialized
+
+[2026-03-04T08:24:35.523638Z] local_errors.log initialized
+
+[2026-03-04T08:24:51.066064Z] local_errors.log initialized
+
+[2026-03-04T08:52:40.743505Z] local_errors.log initialized
+
+[2026-03-04T09:22:24.225567Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 1725, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+[2026-03-04T09:49:11.177684Z] upload GET: pid=24984 build=1772614351
+[2026-03-04T09:49:17.603100Z] results_route POST: start
+[2026-03-04T09:49:17.665070Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-03-04T09:49:34.964988Z] results_route POST: revise_resume ok revised_len=2101
+[2026-03-04T09:49:35.468870Z] results_route POST: redirecting to results_get
+
+[2026-03-04T22:48:47.733833Z] local_errors.log initialized
+
+[2026-03-04T23:03:37.642970Z] local_errors.log initialized
+
+[2026-03-04T23:03:58.471963Z] local_errors.log initialized
+
+[2026-03-04T23:22:06.488804Z] local_errors.log initialized
+
+[2026-03-05T00:27:53.376870Z] local_errors.log initialized
+
+[2026-03-05T00:28:03.064938Z] local_errors.log initialized
+
+[2026-03-05T00:41:15.748183Z] local_errors.log initialized
+
+[2026-03-05T00:41:17.527318Z] local_errors.log initialized
+
+[2026-03-05T00:45:00.893231Z] local_errors.log initialized
+
+[2026-03-05T00:49:40.929693Z] local_errors.log initialized
+
+[2026-03-05T00:53:00.348141Z] local_errors.log initialized
+
+[2026-03-05T00:55:19.551526Z] local_errors.log initialized
+
+[2026-03-05T00:56:15.983190Z] local_errors.log initialized
+[2026-03-05T02:27:10.772226Z] upload GET: pid=28392 build=1772672168
+
+[2026-03-05T02:38:00.245430Z] local_errors.log initialized
+
+[2026-03-05T02:45:17.562419Z] local_errors.log initialized
+
+[2026-03-05T03:07:31.605241Z] local_errors.log initialized
+
+[2026-03-05T03:17:17.203474Z] local_errors.log initialized
+[2026-03-05T05:12:48.395562Z] upload GET: pid=54960 build=1772672168
+
+[2026-03-05T05:48:03.495427Z] local_errors.log initialized
+
+[2026-03-05T05:49:15.499199Z] local_errors.log initialized
+
+[2026-03-05T05:49:37.037931Z] local_errors.log initialized
+
+[2026-03-05T05:49:46.547612Z] local_errors.log initialized
+
+[2026-03-05T05:50:03.010995Z] local_errors.log initialized
+
+[2026-03-05T05:50:53.851457Z] local_errors.log initialized
+[2026-03-05T05:50:54.339317Z] results_route POST: start
+[2026-03-05T05:50:54.349753Z] results_route POST: received upload filename=foo.txt
+
+[2026-03-05T05:50:54.359019Z] extract_text_from_file error
+ValueError: Unsupported file format: txt
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 7839, in extract_text_from_file
+    raise ValueError(f"Unsupported file format: {file_extension}")
+ValueError: Unsupported file format: txt
+
+
+[2026-03-05T05:50:54.364282Z] upload processing failed
+ValueError: Failed to extract text from file: Unsupported file format: txt
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 7839, in extract_text_from_file
+    raise ValueError(f"Unsupported file format: {file_extension}")
+ValueError: Unsupported file format: txt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3670, in results_route
+    resume_text = extract_text_from_file(file)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 7844, in extract_text_from_file
+    raise ValueError(f"Failed to extract text from file: {str(e)}")
+ValueError: Failed to extract text from file: Unsupported file format: txt
+
+[2026-03-05T05:50:54.367983Z] results_route POST: upload processing failed (see exception block above)
+[2026-03-05T06:03:06.234831Z] upload GET: pid=54960 build=1772672168
+[2026-03-05T06:03:48.534685Z] results_route POST: start
+[2026-03-05T06:03:48.598584Z] results_route POST: received upload filename=Dialnet-RegresionGammaConElPaqueteGammaregEnR-7396808.pdf
+[2026-03-05T06:03:55.423324Z] results_route POST: extracted_text_len=22382
+[2026-03-05T06:03:55.427884Z] results_route POST: calling revise_resume resume_len=22382 jd_len=0
+[2026-03-05T06:04:25.785600Z] results_route POST: revise_resume ok revised_len=4329
+[2026-03-05T06:04:26.423884Z] results_route POST: redirecting to results_get
+[2026-03-05T06:04:26.462742Z] results_get GET: start
+[2026-03-05T06:04:26.464174Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-03-05T06:04:29.559955Z] upload GET: pid=54960 build=1772672168
+[2026-03-05T06:06:07.968966Z] results_route POST: start
+[2026-03-05T06:06:07.990790Z] results_route POST: received upload filename=edaw.pdf
+[2026-03-05T06:06:14.499607Z] results_route POST: extracted_text_len=0
+[2026-03-05T06:06:14.501695Z] results_route POST: extracted text empty
+
+[2026-03-05T06:08:59.622320Z] local_errors.log initialized
+[2026-03-05T06:08:59.746932Z] results_get GET: start
+[2026-03-05T06:08:59.746932Z] results_get GET: no results_data in session
+
+[2026-03-05T06:09:13.872280Z] local_errors.log initialized
+
+[2026-03-05T06:11:16.564666Z] local_errors.log initialized
+[2026-03-05T06:11:22.825162Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:11:39.628665Z] results_route POST: start
+[2026-03-05T06:11:39.648741Z] results_route POST: received upload filename=edaw.pdf
+[2026-03-05T06:11:46.492665Z] results_route POST: extracted_text_len=0
+[2026-03-05T06:11:46.494082Z] results_route POST: extracted text empty
+[2026-03-05T06:12:17.895620Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:13:57.937963Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:14:27.018079Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:15:50.949890Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:16:59.984628Z] upload GET: pid=59280 build=1772690929
+[2026-03-05T06:19:31.988758Z] results_route POST: start
+[2026-03-05T06:19:32.031376Z] results_route POST: received upload filename=edaw.pdf
+[2026-03-05T06:19:43.776459Z] results_route POST: extracted_text_len=0
+[2026-03-05T06:19:43.777742Z] results_route POST: extracted text empty
+
+[2026-03-05T06:19:59.080372Z] local_errors.log initialized
+[2026-03-05T06:20:58.488612Z] upload GET: pid=59280 build=1772690929
+
+[2026-03-05T06:21:19.799129Z] local_errors.log initialized
+[2026-03-05T06:22:20.175048Z] upload GET: pid=59280 build=1772690929
+
+[2026-03-05T09:47:14.823576Z] local_errors.log initialized
+
+[2026-03-05T09:51:12.299379Z] local_errors.log initialized
+
+[2026-03-05T23:53:30.824065Z] local_errors.log initialized
+
+[2026-03-05T23:56:15.466424Z] local_errors.log initialized
+
+[2026-03-05T23:57:45.758405Z] local_errors.log initialized
+
+[2026-03-05T23:58:21.187357Z] local_errors.log initialized
+
+[2026-03-06T00:03:39.975814Z] local_errors.log initialized
+
+[2026-03-06T00:03:49.005526Z] local_errors.log initialized
+
+[2026-03-06T00:04:08.729590Z] local_errors.log initialized
+
+[2026-03-06T01:48:25.449113Z] local_errors.log initialized
+
+[2026-03-06T01:48:39.116036Z] local_errors.log initialized
+
+[2026-03-06T01:49:21.251783Z] local_errors.log initialized
+
+[2026-03-06T01:49:50.081741Z] local_errors.log initialized
+
+[2026-03-06T01:50:00.476171Z] local_errors.log initialized
+
+[2026-03-06T01:50:38.562928Z] local_errors.log initialized
+
+[2026-03-06T01:58:18.022802Z] local_errors.log initialized
+
+[2026-03-06T02:00:13.748714Z] local_errors.log initialized
+
+[2026-03-06T02:01:05.909632Z] local_errors.log initialized
+
+[2026-03-06T02:02:51.593781Z] local_errors.log initialized
+
+[2026-03-06T02:03:09.930109Z] local_errors.log initialized
+
+[2026-03-06T02:04:36.415486Z] local_errors.log initialized
+
+[2026-03-06T02:05:24.318969Z] local_errors.log initialized
+
+[2026-03-06T02:19:35.542896Z] local_errors.log initialized
+
+[2026-03-06T02:27:53.549754Z] local_errors.log initialized
+
+[2026-03-06T03:25:58.683238Z] local_errors.log initialized
+
+[2026-03-06T10:35:26.411295Z] local_errors.log initialized
+
+[2026-03-06T10:37:12.771123Z] local_errors.log initialized
+
+[2026-03-06T10:38:27.437002Z] local_errors.log initialized
+
+[2026-03-06T10:40:05.565946Z] local_errors.log initialized
+
+[2026-03-06T10:47:06.821626Z] local_errors.log initialized
+
+[2026-03-06T10:54:41.548048Z] local_errors.log initialized
+
+[2026-03-06T10:55:26.287480Z] local_errors.log initialized
+
+[2026-03-06T11:02:27.477086Z] local_errors.log initialized
+
+[2026-03-06T11:02:58.005428Z] local_errors.log initialized
+
+[2026-03-06T11:05:49.055595Z] local_errors.log initialized
+
+[2026-03-06T11:09:51.754074Z] local_errors.log initialized
+
+[2026-03-06T11:10:47.040732Z] local_errors.log initialized
+
+[2026-03-06T11:14:16.408096Z] local_errors.log initialized
+
+[2026-03-06T11:14:47.991647Z] local_errors.log initialized
+
+[2026-03-06T11:15:53.334797Z] local_errors.log initialized
+
+[2026-03-06T11:16:03.455345Z] local_errors.log initialized
+
+[2026-03-06T11:16:23.806325Z] local_errors.log initialized
+
+[2026-03-06T11:17:19.860404Z] local_errors.log initialized
+
+[2026-03-06T11:17:34.631656Z] local_errors.log initialized
+
+[2026-03-06T11:34:31.813653Z] local_errors.log initialized
+
+[2026-03-06T11:35:14.640532Z] local_errors.log initialized
+
+[2026-03-06T11:39:48.838388Z] local_errors.log initialized
+
+[2026-03-06T11:41:43.708598Z] local_errors.log initialized
+
+[2026-03-06T11:44:23.948074Z] local_errors.log initialized
+
+[2026-03-06T11:46:16.278182Z] local_errors.log initialized
+
+[2026-03-07T00:05:06.041302Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:05:12.368840Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:05:35.199460Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:05:36.690082Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:05:57.100334Z] local_errors.log initialized
+
+[2026-03-07T00:06:00.452569Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:06:03.184518Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:06:04.341841Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:06:13.714198Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Track the visit with source attribution (only if not already tracked)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:07:03.480524Z] local_errors.log initialized
+
+[2026-03-07T00:07:03.587138Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2640, in index
+    source_info = analytics.track_visit(request)
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:07:45.635311Z] local_errors.log initialized
+
+[2026-03-07T00:11:19.744584Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:11:50.537148Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:12:04.240422Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:12:06.362031Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:12:07.819116Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:12:18.913674Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:12:19.801355Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:15:08.486960Z] local_errors.log initialized
+
+[2026-03-07T00:15:14.727011Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:15:18.806613Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:15:21.177528Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+[2026-03-07T00:15:50.085054Z] upload GET: pid=13744 build=1772797065
+
+[2026-03-07T00:16:18.580583Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:18:04.108207Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:18:15.534199Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:18:17.046996Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:20:43.935629Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:20:45.317797Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:20:49.110384Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:33:05.818089Z] local_errors.log initialized
+
+[2026-03-07T00:57:40.938488Z] local_errors.log initialized
+
+[2026-03-07T00:57:51.216403Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T00:58:55.786780Z] local_errors.log initialized
+
+[2026-03-07T00:59:13.408487Z] local_errors.log initialized
+
+[2026-03-07T00:59:37.556486Z] unhandled exception
+NameError: name 'analytics' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2638, in index
+    # Remove markdown backticks if present
+NameError: name 'analytics' is not defined
+
+
+[2026-03-07T01:03:48.705246Z] local_errors.log initialized
+
+[2026-03-07T01:06:01.936321Z] local_errors.log initialized
+
+[2026-03-07T01:20:29.779846Z] local_errors.log initialized
+
+[2026-03-07T01:21:25.963760Z] local_errors.log initialized
+
+[2026-03-07T01:21:47.916302Z] local_errors.log initialized
+
+[2026-03-07T01:22:07.103274Z] local_errors.log initialized
+
+[2026-03-07T01:36:40.556937Z] unhandled exception
+BuildError: Could not build url for endpoint 'billing_cancel_page'. Did you mean 'billing_portal' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 7616, in settings_page
+    if (anchor_ts is not None and cpe <= (anchor_ts + 60)) or (cpe <= (now_ts + 300)):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\settings.html", line 133, in top-level template code
+    <a href="{{ url_for('billing_cancel_page') }}"
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'billing_cancel_page'. Did you mean 'billing_portal' instead?
+
+
+[2026-03-07T01:37:32.433072Z] unhandled exception
+BuildError: Could not build url for endpoint 'billing_cancel_page'. Did you mean 'billing_portal' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 7616, in settings_page
+    if (anchor_ts is not None and cpe <= (anchor_ts + 60)) or (cpe <= (now_ts + 300)):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\settings.html", line 133, in top-level template code
+    <a href="{{ url_for('billing_cancel_page') }}"
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'billing_cancel_page'. Did you mean 'billing_portal' instead?
+
+
+[2026-03-07T01:38:55.673709Z] local_errors.log initialized
+
+[2026-03-07T02:46:51.317603Z] local_errors.log initialized
+
+[2026-03-07T21:10:48.755499Z] local_errors.log initialized
+
+[2026-03-07T21:42:45.910039Z] local_errors.log initialized
+
+[2026-03-07T23:47:58.389467Z] local_errors.log initialized
+
+[2026-03-07T23:48:36.679355Z] local_errors.log initialized
+
+[2026-03-07T23:59:14.598424Z] local_errors.log initialized
+
+[2026-03-07T23:59:47.354353Z] local_errors.log initialized
+
+[2026-03-08T00:11:18.529293Z] unhandled exception
+BuildError: Could not build url for endpoint 'billing_apply_retention'. Did you mean 'billing_portal' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 4295, in billing_cancel_page
+    resp = make_response(render_template(
+                         ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\billing_cancel.html", line 51, in top-level template code
+    <a href="{{ url_for('billing_apply_retention') }}"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'billing_apply_retention'. Did you mean 'billing_portal' instead?
+
+
+[2026-03-08T00:11:21.711390Z] unhandled exception
+BuildError: Could not build url for endpoint 'billing_apply_retention'. Did you mean 'billing_portal' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 4295, in billing_cancel_page
+    resp = make_response(render_template(
+                         ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\billing_cancel.html", line 51, in top-level template code
+    <a href="{{ url_for('billing_apply_retention') }}"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'billing_apply_retention'. Did you mean 'billing_portal' instead?
+
+
+[2026-03-08T00:11:53.552695Z] local_errors.log initialized
+
+[2026-03-08T00:14:44.856753Z] local_errors.log initialized
+
+[2026-03-08T00:20:06.798418Z] local_errors.log initialized
+
+[2026-03-08T00:22:52.527450Z] local_errors.log initialized
+
+[2026-03-08T00:37:21.042849Z] local_errors.log initialized
+[2026-03-08T03:23:59.740766Z] upload GET: pid=57016 build=1772930192
+
+[2026-03-08T07:39:06.297817Z] local_errors.log initialized
+[2026-03-08T21:27:20.308719Z] upload GET: pid=58756 build=1772930192
+[2026-03-08T21:28:50.769478Z] results_route POST: start
+[2026-03-08T21:28:50.853979Z] results_route POST: calling revise_resume resume_len=8480 jd_len=0
+[2026-03-08T21:29:25.292052Z] results_route POST: revise_resume ok revised_len=7241
+[2026-03-08T21:29:25.883097Z] results_route POST: redirecting to results_get
+[2026-03-08T21:29:25.895097Z] results_get GET: start
+[2026-03-08T21:29:25.896099Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-03-08T21:45:48.182539Z] local_errors.log initialized
+
+[2026-03-08T21:51:41.369590Z] local_errors.log initialized
+
+[2026-03-08T23:48:22.599473Z] local_errors.log initialized
+
+[2026-03-08T23:49:41.505304Z] local_errors.log initialized
+
+[2026-03-08T23:52:15.011630Z] local_errors.log initialized
+[2026-03-09T00:43:37.687141Z] upload GET: pid=44604 build=1773013908
+[2026-03-09T00:44:44.432283Z] upload GET: pid=44604 build=1773013908
+[2026-03-09T00:44:57.745117Z] results_route POST: start
+[2026-03-09T00:44:57.852946Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-03-09T00:45:13.934267Z] results_route POST: revise_resume ok revised_len=1857
+[2026-03-09T00:45:14.418597Z] results_route POST: redirecting to results_get
+[2026-03-09T00:45:14.428631Z] results_get GET: start
+[2026-03-09T00:45:14.430045Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-03-09T00:49:48.767976Z] upload GET: pid=44604 build=1773013908
+[2026-03-09T00:50:01.505272Z] results_route POST: start
+[2026-03-09T00:50:01.518826Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-03-09T00:50:18.313551Z] results_route POST: revise_resume ok revised_len=2128
+[2026-03-09T00:50:18.775531Z] results_route POST: redirecting to results_get
+
+[2026-03-09T02:12:52.764007Z] local_errors.log initialized
+
+[2026-03-09T02:13:51.791765Z] local_errors.log initialized
+
+[2026-03-09T03:21:47.417068Z] local_errors.log initialized
+
+[2026-03-10T00:39:18.004789Z] local_errors.log initialized
+
+[2026-03-10T00:55:15.743119Z] local_errors.log initialized
+
+[2026-03-10T01:07:10.358768Z] local_errors.log initialized
+
+[2026-03-10T02:40:16.008746Z] local_errors.log initialized
+
+[2026-03-10T03:29:12.484039Z] local_errors.log initialized
+
+[2026-03-10T03:29:29.443793Z] local_errors.log initialized
+
+[2026-03-10T03:30:17.489278Z] local_errors.log initialized
+
+[2026-03-10T03:40:38.584453Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2372, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-03-10T03:40:52.643997Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2372, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-03-10T03:41:14.629107Z] local_errors.log initialized
+[2026-03-10T03:42:01.703119Z] upload GET: pid=92596 build=1773113021
+
+[2026-03-10T03:51:53.931344Z] local_errors.log initialized
+
+[2026-03-10T03:59:41.034954Z] local_errors.log initialized
+
+[2026-03-10T04:03:32.878026Z] local_errors.log initialized
+
+[2026-03-10T04:04:40.482291Z] local_errors.log initialized
+
+[2026-03-10T04:07:20.283620Z] local_errors.log initialized
+
+[2026-03-10T04:08:09.023957Z] local_errors.log initialized
+
+[2026-03-10T04:15:35.822868Z] local_errors.log initialized
+
+[2026-03-10T05:40:42.926950Z] local_errors.log initialized
+
+[2026-03-10T05:41:44.663125Z] local_errors.log initialized
+
+[2026-03-10T05:46:54.017225Z] local_errors.log initialized
+
+[2026-03-10T06:02:37.045570Z] local_errors.log initialized
+
+[2026-03-10T06:03:39.223980Z] local_errors.log initialized
+
+[2026-03-10T06:03:46.054765Z] local_errors.log initialized
+
+[2026-03-10T06:04:44.828746Z] local_errors.log initialized
+
+[2026-03-10T06:07:36.725597Z] local_errors.log initialized
+
+[2026-03-10T23:02:14.425921Z] local_errors.log initialized
