@@ -15,6 +15,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Choose Your Plan</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon2.ico') }}" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -544,6 +545,21 @@
             font-size: 0.95rem;
             border: 1px solid rgba(31, 41, 55, 0.12);
             background: rgba(255, 255, 255, 0.90);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.45;
+        }
+
+        .alert-icon {
+            font-size: 1rem;
+            line-height: 1.25;
+            margin-top: 1px;
+            flex: 0 0 auto;
+        }
+
+        .alert-content {
+            flex: 1 1 auto;
         }
 
         .alert-danger {
@@ -559,6 +575,25 @@
         .alert-info {
             border-color: rgba(13, 202, 240, 0.35);
             background: rgba(13, 202, 240, 0.10);
+        }
+
+        .alert-pdf-warning {
+            border-color: rgba(245, 158, 11, 0.75);
+            border-left: 5px solid #f59e0b;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.10));
+            box-shadow: 0 10px 22px rgba(245, 158, 11, 0.20);
+        }
+
+        .alert-pdf-warning .alert-icon {
+            color: #92400e;
+            font-size: 1.1rem;
+        }
+
+        .alert-title {
+            display: block;
+            font-weight: 800;
+            margin-bottom: 2px;
+            color: #78350f;
         }
     </style>
 </head>
@@ -626,7 +661,27 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% set is_pdf_warning = 'PDF downloads are not available on free accounts.' in message %}
+        <div class="alert alert-{{ category }}{% if is_pdf_warning %} alert-pdf-warning{% endif %}" role="alert"
+            aria-live="polite">
+            <span class="alert-icon" aria-hidden="true">
+                {% if is_pdf_warning %}
+                ⚠️
+                {% elif category == 'danger' %}
+                ⛔
+                {% elif category == 'warning' %}
+                ⚠️
+                {% else %}
+                ℹ️
+                {% endif %}
+            </span>
+            <span class="alert-content">
+                {% if is_pdf_warning %}
+                <span class="alert-title">PDF downloads require a paid plan</span>
+                {% endif %}
+                {{ message }}
+            </span>
+        </div>
         {% endfor %}
         {% endif %}
         {% endwith %}

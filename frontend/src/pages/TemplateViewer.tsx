@@ -232,6 +232,8 @@ export default function TemplateViewer() {
     const [editSaveHubMessage, setEditSaveHubMessage] = useState<string | null>(null);
     const [editingExperienceIndex, setEditingExperienceIndex] = useState<number | null>(null);
     const [showAllWorkHistoryDescriptions, setShowAllWorkHistoryDescriptions] = useState(false);
+    const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
+    const [showAllProjectDescriptions, setShowAllProjectDescriptions] = useState(false);
 
     // AI edit assistance (summary + experience + projects + custom sections)
     const [aiEditError, setAiEditError] = useState<string | null>(null);
@@ -338,7 +340,10 @@ export default function TemplateViewer() {
 
     useEffect(() => {
         if (inlineEditMode) {
-            setShowAllWorkHistoryDescriptions(true);
+            setShowAllWorkHistoryDescriptions(false);
+            setEditingExperienceIndex(null);
+            setShowAllProjectDescriptions(false);
+            setEditingProjectIndex(null);
         }
     }, [inlineEditMode]);
 
@@ -1176,7 +1181,7 @@ export default function TemplateViewer() {
         // Extra visual canvas height (frame only). Does not increase the content viewport.
         // Extra visual canvas height (frame only). Can be negative to reduce frame height
         // while keeping the fixed 1056px content viewport unchanged.
-        const EXTRA_FRAME_PX = -20;
+        const EXTRA_FRAME_PX = 20;
         const PAGE_H = CONTENT_H + PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX;
         const VIEW_H = CONTENT_H;
         const container = pdfPreviewContainerRef.current;
@@ -1669,7 +1674,7 @@ export default function TemplateViewer() {
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                                                                height: var(--pdf-page-h, 1098px);
+                                                                                                                                                                height: var(--pdf-page-h, 1138px);
                     background: #fff;
                     position: relative;
                                         overflow: hidden;
@@ -1690,7 +1695,7 @@ export default function TemplateViewer() {
                     top: 0;
                     left: 0;
                     width: 816px;
-                                                                                height: var(--pdf-page-h, 1098px);
+                                                                                                                                                                height: var(--pdf-page-h, 1138px);
                                         overflow: hidden;
                                         contain: paint;
                                                                                 --pdf-pad-top: 31px;
@@ -1809,7 +1814,7 @@ export default function TemplateViewer() {
                                         <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
                                     </span>
                                     <p>
-                                        Note, pdf download may not match the screen display due to different screen display settings. Download the PDF to determine optimal settings.
+                                        Note, pdf download may not exactly match the screen display due to different screen display settings. Download the PDF to determine optimal settings.
                                     </p>
                                 </div>
 
@@ -1872,7 +1877,7 @@ export default function TemplateViewer() {
                                                 }`}
                                         >
                                             <Edit3 className="w-4 h-4" />
-                                            {inlineEditMode ? 'Exit Edit Mode' : 'Edit Mode'}
+                                            {inlineEditMode ? 'Exit Edit Mode' : 'Switch to Edit Mode'}
                                         </button>
                                         {inlineEditMode && (
                                             <button
@@ -1896,7 +1901,7 @@ export default function TemplateViewer() {
                                             <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-sm flex items-start gap-2">
                                                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
                                                 <span>
-                                                    Exit Edit mode to Normal mode for <span className="text-indigo-600 font-medium">PDF download</span>.
+                                                    Click "Exit Edit mode" for <span className="text-indigo-600 font-medium">PDF download</span>.
                                                 </span>
                                             </div>
                                         ) : (
@@ -1982,7 +1987,7 @@ export default function TemplateViewer() {
                                                     <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
                                                 </span>
                                                 <p>
-                                                    Note, pdf download may not match the screen display. Download the PDF to determine optimal settings.
+                                                    Note, pdf download may not exactly match the screen display. Download the PDF to determine optimal settings.
                                                 </p>
                                             </div>
                                         </div>
@@ -2155,7 +2160,7 @@ export default function TemplateViewer() {
 
                                                 {(linksList.length > 0) && (
                                                     <div>
-                                                        <div className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1">Links</div>
+                                                        <div className="text-sm font-bold text-blue-700 border-b border-gray-200 pb-1">Links</div>
                                                         <div className="mt-2 space-y-2">
                                                             {linksList.map((l: any, idx: number) => {
                                                                 const label = String(l?.label ?? l?.name ?? l?.title ?? '').trim();
@@ -2194,7 +2199,7 @@ export default function TemplateViewer() {
                                                     blocks.summary = (
                                                         <label className="block">
                                                             <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-2">
-                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('summary', 'Professional summary')}</div>
+                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('summary', 'Professional summary')}</div>
                                                                 <button
                                                                     type="button"
                                                                     className={
@@ -2265,7 +2270,7 @@ export default function TemplateViewer() {
                                                     blocks.education = (
                                                         <div>
                                                             <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('education', 'Education')}</div>
+                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('education', 'Education')}</div>
                                                                 <button
                                                                     type="button"
                                                                     className="text-xs text-indigo-700 hover:text-indigo-800"
@@ -2324,98 +2329,159 @@ export default function TemplateViewer() {
                                                     blocks.projects = (
                                                         <div>
                                                             <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('projects', 'Projects')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                    onClick={addProjectItem}
-                                                                >
-                                                                    Add
-                                                                </button>
+                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('projects', 'Projects')}</div>
+                                                                <div className="flex items-center gap-3">
+                                                                    {projectsList.length > 0 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-gray-600 hover:text-gray-800"
+                                                                            onClick={() => {
+                                                                                if (showAllProjectDescriptions) {
+                                                                                    setShowAllProjectDescriptions(false);
+                                                                                    setEditingProjectIndex(null);
+                                                                                    return;
+                                                                                }
+                                                                                if (editingProjectIndex !== null) {
+                                                                                    setEditingProjectIndex(null);
+                                                                                    return;
+                                                                                }
+                                                                                setShowAllProjectDescriptions(true);
+                                                                            }}
+                                                                        >
+                                                                            {showAllProjectDescriptions
+                                                                                ? 'Collapse all'
+                                                                                : (editingProjectIndex !== null ? 'Collapse' : 'Expand all')}
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
+                                                                        onClick={addProjectItem}
+                                                                    >
+                                                                        Add
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             {projectsList.length === 0 ? (
                                                                 <div className="mt-2 text-sm text-gray-500">No projects yet.</div>
                                                             ) : (
                                                                 <div className="mt-2 space-y-2">
                                                                     {projectsList.map((proj: any, idx: number) => (
-                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                            <Field label="Title">
-                                                                                <input
-                                                                                    value={String(proj?.title ?? '')}
-                                                                                    onChange={(e) => updateProjectField(idx, 'title', e.target.value)}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </Field>
-                                                                            <div className="mt-2">
-                                                                                <Field label="Technologies">
-                                                                                    <input
-                                                                                        value={String(proj?.technologies ?? '')}
-                                                                                        onChange={(e) => updateProjectField(idx, 'technologies', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            </div>
-                                                                            <div className="mt-2">
-                                                                                <Field label="Link">
-                                                                                    <input
-                                                                                        value={String(proj?.link ?? '')}
-                                                                                        onChange={(e) => updateProjectField(idx, 'link', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            </div>
-                                                                            <div className="mt-2">
-                                                                                <label className="block">
-                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                        <div className="text-xs font-semibold text-gray-700">Description</div>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className={
-                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                ((aiBusyProjects[idx] ?? false)
-                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                        (() => {
+                                                                            const title = String(proj?.title ?? 'Project');
+                                                                            const technologies = String(proj?.technologies ?? '').trim();
+                                                                            const link = String(proj?.link ?? '').trim();
+                                                                            const isOpen = showAllProjectDescriptions || editingProjectIndex === idx;
+                                                                            return (
+                                                                                <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            if (showAllProjectDescriptions) {
+                                                                                                setShowAllProjectDescriptions(false);
+                                                                                                setEditingProjectIndex(idx);
+                                                                                                return;
                                                                                             }
-                                                                                            disabled={aiBusyProjects[idx] ?? false}
-                                                                                            onClick={async () => {
-                                                                                                try {
-                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                    const nextText = await aiRewriteResumeField({
-                                                                                                        field: 'project_description',
-                                                                                                        text: String(proj?.description ?? ''),
-                                                                                                        meta: {
-                                                                                                            title: String(proj?.title ?? ''),
-                                                                                                            technologies: String(proj?.technologies ?? ''),
-                                                                                                            link: String(proj?.link ?? ''),
-                                                                                                        },
-                                                                                                    });
-                                                                                                    updateProjectField(idx, 'description', nextText);
-                                                                                                } catch (e: any) {
-                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                } finally {
-                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            {(aiBusyProjects[idx] ?? false) ? (
-                                                                                                'Rewriting…'
-                                                                                            ) : (
-                                                                                                <>
-                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                    Assist with AI
-                                                                                                </>
-                                                                                            )}
-                                                                                        </button>
-                                                                                    </div>
-                                                                                    <textarea
-                                                                                        rows={4}
-                                                                                        value={String(proj?.description ?? '')}
-                                                                                        onChange={(e) => updateProjectField(idx, 'description', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </label>
-                                                                            </div>
-                                                                        </div>
+                                                                                            setEditingProjectIndex(isOpen ? null : idx);
+                                                                                        }}
+                                                                                        className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
+                                                                                    >
+                                                                                        <div className="min-w-0">
+                                                                                            <div className="text-sm font-semibold text-gray-900 truncate">
+                                                                                                {title}
+                                                                                            </div>
+                                                                                            <div className="text-xs text-gray-600 truncate">
+                                                                                                {[technologies, link].filter(Boolean).join(' · ') || ' '}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="text-xs text-indigo-700 shrink-0">
+                                                                                            {showAllProjectDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
+                                                                                        </div>
+                                                                                    </button>
+
+                                                                                    {isOpen && (
+                                                                                        <div className="p-3 bg-white">
+                                                                                            <Field label="Title">
+                                                                                                <input
+                                                                                                    value={String(proj?.title ?? '')}
+                                                                                                    onChange={(e) => updateProjectField(idx, 'title', e.target.value)}
+                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                                />
+                                                                                            </Field>
+                                                                                            <div className="mt-2">
+                                                                                                <Field label="Technologies">
+                                                                                                    <input
+                                                                                                        value={String(proj?.technologies ?? '')}
+                                                                                                        onChange={(e) => updateProjectField(idx, 'technologies', e.target.value)}
+                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                                    />
+                                                                                                </Field>
+                                                                                            </div>
+                                                                                            <div className="mt-2">
+                                                                                                <Field label="Link">
+                                                                                                    <input
+                                                                                                        value={String(proj?.link ?? '')}
+                                                                                                        onChange={(e) => updateProjectField(idx, 'link', e.target.value)}
+                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                                    />
+                                                                                                </Field>
+                                                                                            </div>
+                                                                                            <div className="mt-2">
+                                                                                                <label className="block">
+                                                                                                    <div className="flex items-center justify-between mb-1">
+                                                                                                        <div className="text-xs font-semibold text-gray-700">Description</div>
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            className={
+                                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
+                                                                                                                ((aiBusyProjects[idx] ?? false)
+                                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
+                                                                                                            }
+                                                                                                            disabled={aiBusyProjects[idx] ?? false}
+                                                                                                            onClick={async () => {
+                                                                                                                try {
+                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: true }));
+                                                                                                                    const nextText = await aiRewriteResumeField({
+                                                                                                                        field: 'project_description',
+                                                                                                                        text: String(proj?.description ?? ''),
+                                                                                                                        meta: {
+                                                                                                                            title: String(proj?.title ?? ''),
+                                                                                                                            technologies: String(proj?.technologies ?? ''),
+                                                                                                                            link: String(proj?.link ?? ''),
+                                                                                                                        },
+                                                                                                                    });
+                                                                                                                    updateProjectField(idx, 'description', nextText);
+                                                                                                                } catch (e: any) {
+                                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
+                                                                                                                } finally {
+                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: false }));
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            {(aiBusyProjects[idx] ?? false) ? (
+                                                                                                                'Rewriting…'
+                                                                                                            ) : (
+                                                                                                                <>
+                                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
+                                                                                                                    Assist with AI
+                                                                                                                </>
+                                                                                                            )}
+                                                                                                        </button>
+                                                                                                    </div>
+                                                                                                    <textarea
+                                                                                                        rows={4}
+                                                                                                        value={String(proj?.description ?? '')}
+                                                                                                        onChange={(e) => updateProjectField(idx, 'description', e.target.value)}
+                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                                                                                    />
+                                                                                                </label>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()
                                                                     ))}
                                                                 </div>
                                                             )}
@@ -2425,7 +2491,7 @@ export default function TemplateViewer() {
                                                     blocks.certifications = (
                                                         <div>
                                                             <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-gray-900">{getSectionLabel('certifications', 'Certifications')}</div>
+                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('certifications', 'Certifications')}</div>
                                                                 <button
                                                                     type="button"
                                                                     className="text-xs text-indigo-700 hover:text-indigo-800"
@@ -2489,7 +2555,7 @@ export default function TemplateViewer() {
                                                             const body = sec?.content ?? sec?.text ?? sec?.body ?? '';
                                                             blocks[`custom_${sIdx}`] = (
                                                                 <div>
-                                                                    <div className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1">{heading || 'Custom section'}</div>
+                                                                    <div className="text-sm font-bold text-blue-700 border-b border-gray-200 pb-1">{heading || 'Custom section'}</div>
                                                                     <div className="mt-2 rounded-xl border border-gray-200 p-3 bg-white">
                                                                         <Field label="Section name">
                                                                             <input
@@ -2641,7 +2707,7 @@ export default function TemplateViewer() {
                                                         blocks.custom_sections = (
                                                             <div>
                                                                 <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-gray-900">Custom sections</div>
+                                                                    <div className="text-sm font-bold text-blue-700">Custom sections</div>
                                                                     <button
                                                                         type="button"
                                                                         className="text-xs text-indigo-700 hover:text-indigo-800"
@@ -2659,7 +2725,7 @@ export default function TemplateViewer() {
                                                         blocks.experience = (
                                                             <div className="pt-1">
                                                                 <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-gray-900">{getSectionLabel('experience', 'Work history')} descriptions</div>
+                                                                    <div className="text-sm font-bold text-blue-700">{getSectionLabel('experience', 'Work history')} descriptions</div>
                                                                     <button
                                                                         type="button"
                                                                         className="text-xs text-gray-600 hover:text-gray-800"
@@ -3008,7 +3074,7 @@ export default function TemplateViewer() {
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1098}px`,
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1138}px`,
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
@@ -3237,7 +3303,7 @@ function ListField({
         <div>
             <div className="flex items-center justify-between border-b border-gray-200 pb-1">
                 <div className="flex items-baseline gap-2 min-w-0">
-                    <div className="text-sm font-bold text-gray-900 truncate">{label}</div>
+                    <div className="text-sm font-bold text-blue-700 truncate">{label}</div>
                     {hint ? <div className="text-xs font-normal text-gray-500 whitespace-nowrap">{hint}</div> : null}
                 </div>
                 <button

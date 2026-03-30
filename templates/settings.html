@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings - Resumatic</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon2.ico') }}" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
@@ -92,17 +93,12 @@
                         </dd>
                     </div>
                     <div class="flex items-center justify-between gap-4">
-                        <dt class="text-gray-500">Next billing</dt>
+                        <dt class="text-gray-500">Statement End Date</dt>
                         <dd class="font-semibold text-gray-900">
                             {{ next_billing_display or ('—' if is_paid else '—') }}
                         </dd>
                     </div>
-                    <div class="flex items-center justify-between gap-4">
-                        <dt class="text-gray-500">Paid through</dt>
-                        <dd class="font-semibold text-gray-900">
-                            {{ paid_through_display or ('—' if is_paid else '—') }}
-                        </dd>
-                    </div>
+
                 </dl>
 
                 <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">

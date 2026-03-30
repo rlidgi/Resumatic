@@ -249,6 +249,14 @@
             modalConfirm.addEventListener('click', async function () {
                 const checked = document.querySelector('input[name="cancelReason"]:checked');
                 const reason = checked ? checked.value : '';
+                let reasonLabel = '';
+                try {
+                    const wrap = checked ? checked.closest('label') : null;
+                    const span = wrap ? wrap.querySelector('span') : null;
+                    reasonLabel = span ? (span.textContent || '').trim() : '';
+                } catch (e) {
+                    reasonLabel = '';
+                }
                 const reasonOther = (reason === 'other' && reasonOtherInput) ? reasonOtherInput.value.trim() : '';
                 modalConfirm.disabled = true;
                 modalConfirm.textContent = 'Canceling...';
@@ -259,7 +267,8 @@
                         body: JSON.stringify({
                             cancel_at_period_end: true,
                             cancel_reason: reason,
-                            cancel_reason_other: reasonOther
+                            cancel_reason_other: reasonOther,
+                            cancel_reason_label: reasonLabel
                         })
                     });
                     const data = await res.json();

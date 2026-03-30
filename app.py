@@ -1055,7 +1055,7 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
             <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
                 <p>Hi there,</p>
-                <p>Welcome to ResumaticAI — We're really glad you’re here.</p>
+                <p>Welcome to ResumaticAI. We're really glad you’re here.</p>
                 
                 <p>We built ResumaticAI because we saw two things:</p>
                 <ul>
@@ -2038,14 +2038,14 @@ def login():
         
         elif action == 'register':
             # Handle email/password registration
-            name = request.form.get('name', '').strip()
+            name = (request.form.get('name', '') or '').strip()
             email = _normalize_email(request.form.get('email', ''))
             password = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
             
             # Validation
-            if not name or not email or not password:
-                flash('Please fill in all fields.', 'danger')
+            if not email or not password:
+                flash('Please enter an email and password.', 'danger')
                 return _render_login(active_tab='register')
             
             if len(password) < 8:
@@ -2100,7 +2100,7 @@ def login():
             add_user(user)  # persist sent timestamp + verified flag
 
             if sent_ok:
-                flash('Account created! Please check your email to verify your address before logging in.', 'success')
+                flash('Account created! Please click verification link sent to your email address to activate account.', 'success')
             else:
                 flash('Account created, but we could not send a verification email. Please try resending below or contact support.', 'danger')
 
@@ -3271,8 +3271,34 @@ def resume_new():
             pass
         return s
 
+    def _parse_month_start(raw_value: str):
+        s = str(raw_value or '').strip()
+        if not s:
+            return None
+        try:
+            dt = datetime.strptime(s, '%Y-%m')
+            return datetime(dt.year, dt.month, 1)
+        except Exception:
+            pass
+        try:
+            dt = datetime.strptime(s, '%Y-%m-%d')
+            return datetime(dt.year, dt.month, 1)
+        except Exception:
+            return None
+
+    def _is_future_month(raw_value: str) -> bool:
+        dt = _parse_month_start(raw_value)
+        if not dt:
+            return False
+        now = datetime.now()
+        now_month = datetime(now.year, now.month, 1)
+        return dt > now_month
+
     def _format_range(from_raw: str, to_raw: str, is_current: bool = False) -> str:
         start = _format_month_year(from_raw)
+        if (not is_current) and _is_future_month(to_raw):
+            end_fmt = _format_month_year(to_raw)
+            return f"Expected {end_fmt or str(to_raw or '').strip()}".strip()
         end = 'Present' if is_current else _format_month_year(to_raw)
         if start and end:
             return f"{start} – {end}"
@@ -3432,6 +3458,108 @@ def resume_new():
 
     compiled_text = _build_compiled_resume_text(structured)
 
+    # Persist immediately so the resume appears in /my_revisions without requiring
+    # a subsequent "Save Changes" click in React edit mode.
+    source_revision_id = None
+    try:
+        import hashlib
+        import uuid
+        structured_hash = None
+        try:
+            structured_hash = hashlib.sha256(
+                (
+                    json.dumps(structured, sort_keys=True, ensure_ascii=False)
+                    + "\n\n" + str(job_description or '')
+                ).encode('utf-8')
+            ).hexdigest()
+        except Exception:
+            structured_hash = None
+
+        if structured_hash:
+            prior_hash = str(session.get('last_resume_new_hash') or '').strip()
+            prior_revision_id = str(session.get('last_resume_new_revision_id') or '').strip()
+            if prior_hash and prior_revision_id and prior_hash == structured_hash:
+                # Best-effort reuse: avoids duplicate revisions from accidental double-submit.
+                try:
+                    table_client = get_table_client()
+                    table_client.get_entity(partition_key=str(current_user.id), row_key=str(prior_revision_id))
+                    source_revision_id = prior_revision_id
+                except Exception:
+                    source_revision_id = None
+
+        if not source_revision_id:
+            source_revision_id = str(uuid.uuid4())
+            save_resume_revision(
+                user_id=current_user.id,
+                revision_id=source_revision_id,
+                resume_content=compiled_text,
+                feedback={},
+                original_resume='',
+                job_description=job_description,
+            )
+
+        # Remember this submission for idempotency within the current session.
+        if structured_hash and source_revision_id:
+            session['last_resume_new_hash'] = structured_hash
+            session['last_resume_new_revision_id'] = source_revision_id
+    except FreeTierLimitReached:
+        # Still let the user proceed to the template viewer, but do not persist a new revision.
+        flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+        source_revision_id = None
+        try:
+            session.pop('last_resume_new_hash', None)
+            session.pop('last_resume_new_revision_id', None)
+        except Exception:
+            pass
+    except Exception as e:
+        # Best-effort: if storage fails, keep the flow working.
+        try:
+            logger.error("resume_new: failed to persist revision: %s", str(e))
+        except Exception:
+            pass
+        source_revision_id = None
+
+    # Best-effort: persist an initial structured snapshot for the chosen template so the
+    # created resume also has a template version in /my_revisions without needing edit-mode.
+    if source_revision_id:
+        try:
+            template_id = _canonical_template_id(template_choice) if template_choice else 'professional'
+            snapshot = json.dumps(structured, ensure_ascii=False)
+            snapshot_bytes = snapshot.encode('utf-8')
+
+            table_client = get_table_client()
+            entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(source_revision_id))
+            entity['template_id'] = template_id
+            entity['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+
+            try:
+                entity['template_saved_templates'] = json.dumps([template_id], ensure_ascii=False)
+            except Exception:
+                entity['template_saved_templates'] = ''
+
+            per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
+            entity[per_at_prop] = entity['template_saved_at']
+
+            if len(snapshot_bytes) <= 60_000:
+                entity['template_structured_resume'] = snapshot
+                entity['template_structured_resume_gz_b64'] = ''
+                entity[per_plain_prop] = snapshot
+                entity[per_gz_prop] = ''
+            else:
+                import base64
+                import gzip
+                gz = gzip.compress(snapshot_bytes, compresslevel=9)
+                b64 = base64.b64encode(gz).decode('ascii')
+                if len(b64.encode('ascii')) <= 60_000:
+                    entity['template_structured_resume'] = ''
+                    entity['template_structured_resume_gz_b64'] = b64
+                    entity[per_plain_prop] = ''
+                    entity[per_gz_prop] = b64
+            table_client.update_entity(entity, mode=UpdateMode.MERGE)
+        except Exception:
+            # Do not block the user if template snapshot persistence fails.
+            pass
+
     # Seed the normal template-selection pipeline.
     session['results_data'] = {
         'original_resume': '',
@@ -3441,6 +3569,8 @@ def resume_new():
         # Let /api/parse-resume-for-template reuse this (avoids an extra OpenAI parsing call).
         'structured_resume': structured,
     }
+    if source_revision_id:
+        session['results_data']['source_revision_id'] = source_revision_id
     session.pop('template_data', None)
     session.modified = True
     # Auto-continue into the chosen template so users don't have to pick twice.
@@ -3495,7 +3625,7 @@ def plans():
         trial_unavailable = False
     offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
     if str(request.args.get('reason') or '').strip().lower() == 'pdf':
-        flash('PDF downloads are not available on free accounts.', 'info')
+        flash('PDF downloads are not available on free accounts.', 'warning')
     return render_template(
         "plans.html",
         year=current_year,
@@ -4354,8 +4484,20 @@ def stripe_webhook():
         return ("Invalid signature", 400)
 
     try:
-        etype = event.get("type")
-        data = (event.get("data") or {}).get("object") or {}
+        # Stripe python SDK versions vary in whether webhook events are dicts or StripeObjects.
+        # Normalize here so the rest of the handler can safely use .get(...) on plain dicts.
+        etype = _stripe_obj_get(event, "type", "")
+        data = _stripe_obj_get(_stripe_obj_get(event, "data", {}), "object", {}) or {}
+        if not isinstance(data, dict):
+            try:
+                if hasattr(data, "to_dict_recursive"):
+                    data = data.to_dict_recursive()
+                elif hasattr(data, "to_dict"):
+                    data = data.to_dict()
+                else:
+                    data = dict(data)
+            except Exception:
+                data = {}
 
         # We primarily rely on checkout.session.completed to map the customer to our user_id.
         if etype == "checkout.session.completed":
@@ -4644,6 +4786,85 @@ def _append_cancellation_feedback(user_id: str, subscription_id: str, reason: st
         pass
 
 
+def _stripe_cancellation_details_from_reason(cancel_reason: str, cancel_reason_other: str, cancel_reason_label: str = "") -> Optional[dict]:
+    """Return Stripe-native cancellation_details payload.
+
+    Stripe expects:
+      - feedback: a limited enum
+      - comment: free text
+
+    We map internal UI values to the closest Stripe enum and fall back to 'other'.
+    """
+    reason = str(cancel_reason or "").strip().lower()
+    other = str(cancel_reason_other or "").strip()
+    label = str(cancel_reason_label or "").strip()
+
+    if not reason and not other and not label:
+        return None
+
+    # Stripe allowed values include (among others): too_expensive, missing_features,
+    # switched_service, unused, other.
+    feedback_map = {
+        "too_expensive": "too_expensive",
+        "missing_features": "missing_features",
+        "different_service": "switched_service",
+        "not_using": "unused",
+    }
+    feedback = feedback_map.get(reason, "other")
+
+    comment_parts: list[str] = []
+
+    # Preserve the exact UI label text (if provided) so Stripe shows the precise wording.
+    # For the "other" option, the label itself isn't very informative if free-text exists.
+    if label and (reason != "other" or not other):
+        comment_parts.append(label)
+
+    # If our internal reason doesn't match Stripe's enum, preserve it in the comment.
+    if reason and reason not in feedback_map and reason != "other":
+        comment_parts.append(f"reason={reason}")
+    if other:
+        comment_parts.append(other)
+
+    comment = " | ".join([p for p in comment_parts if p]).strip()
+    if len(comment) > 500:
+        comment = comment[:497] + "..."
+
+    out: dict = {"feedback": feedback}
+    if comment:
+        out["comment"] = comment
+    return out
+
+
+def _stripe_cancellation_metadata_from_reason(cancel_reason: str, cancel_reason_other: str, cancel_reason_label: str = "") -> Optional[dict]:
+    """Return subscription metadata fields to make cancellation reason visible in Stripe.
+
+    Stripe Dashboard shows Subscription metadata prominently, while `cancellation_details.comment`
+    is not always surfaced in the compact UI.
+    """
+    reason = str(cancel_reason or "").strip().lower()
+    other = str(cancel_reason_other or "").strip()
+    label = str(cancel_reason_label or "").strip()
+    if not reason and not other and not label:
+        return None
+
+    # Keep keys short + stable.
+    meta: dict[str, str] = {}
+    if reason:
+        meta["cancellation_reason"] = reason
+    if label:
+        meta["cancellation_reason_label"] = label
+    if other:
+        meta["cancellation_reason_other"] = other
+
+    # Stripe metadata value limits are finite; keep within a safe bound.
+    for k, v in list(meta.items()):
+        s = str(v or "")
+        if len(s) > 500:
+            meta[k] = s[:497] + "..."
+
+    return meta or None
+
+
 @app.route("/billing/cancel")
 @login_required
 def billing_cancel_page():
@@ -4822,11 +5043,35 @@ def api_billing_cancel():
     cancel_at_period_end = data.get("cancel_at_period_end", True)
     cancel_reason = str(data.get("cancel_reason") or "").strip()
     cancel_reason_other = str(data.get("cancel_reason_other") or "").strip()
+    cancel_reason_label = str(data.get("cancel_reason_label") or "").strip()
+    cancellation_details = _stripe_cancellation_details_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
+    cancellation_metadata = _stripe_cancellation_metadata_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
 
     stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
     try:
         if cancel_at_period_end:
-            stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+            # Best-effort: include cancellation reason so it shows in Stripe.
+            try:
+                modify_params: dict = {"cancel_at_period_end": True}
+                if cancellation_details:
+                    modify_params["cancellation_details"] = cancellation_details
+                if cancellation_metadata:
+                    modify_params["metadata"] = cancellation_metadata
+                stripe.Subscription.modify(subscription_id, **modify_params)
+            except stripe.error.InvalidRequestError as e:
+                # If Stripe rejects cancellation_details for any reason, retry without it so
+                # the cancellation still succeeds.
+                if cancellation_details:
+                    logger.warning(
+                        "billing_cancel: cancellation_details rejected by Stripe; retrying without. err=%s",
+                        str(e),
+                    )
+                    retry_params: dict = {"cancel_at_period_end": True}
+                    if cancellation_metadata:
+                        retry_params["metadata"] = cancellation_metadata
+                    stripe.Subscription.modify(subscription_id, **retry_params)
+                else:
+                    raise
             if cancel_reason or cancel_reason_other:
                 try:
                     email = str(getattr(current_user, "email", "") or "")
@@ -4843,7 +5088,34 @@ def api_billing_cancel():
                 "message": "Your subscription will cancel at the end of your billing period. You'll keep access until then.",
             })
         else:
+            # Immediate cancel. To keep the reason/explanation visible in Stripe Dashboard, first attach
+            # it to the subscription (metadata + cancellation_details) then delete.
+            if cancellation_details or cancellation_metadata:
+                try:
+                    modify_params: dict = {}
+                    if cancellation_details:
+                        modify_params["cancellation_details"] = cancellation_details
+                    if cancellation_metadata:
+                        modify_params["metadata"] = cancellation_metadata
+                    if modify_params:
+                        stripe.Subscription.modify(subscription_id, **modify_params)
+                except Exception as e:
+                    logger.warning(
+                        "billing_cancel: unable to attach cancellation reason before delete: %s",
+                        str(e),
+                    )
             stripe.Subscription.delete(subscription_id)
+
+            if cancel_reason or cancel_reason_other:
+                try:
+                    email = str(getattr(current_user, "email", "") or "")
+                    logger.info(
+                        "billing_cancel(immediate) reason user_id=%s subscription_id=%s reason=%s other=%s",
+                        user_id, subscription_id, cancel_reason, cancel_reason_other,
+                    )
+                    _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
+                except Exception as e:
+                    logger.warning("billing_cancel(immediate) feedback save failed: %s", str(e))
             return jsonify({
                 "success": True,
                 "cancel_at_period_end": False,
@@ -5594,6 +5866,7 @@ def api_template_pdf(template_id):
     Client-side html2canvas/html2pdf fails on modern Tailwind color functions like oklab/oklch.
     This endpoint renders the existing React template route in Chromium and returns a PDF attachment.
     """
+    step = "start"
     try:
         t0 = time.time()
         def _t() -> int:
@@ -5603,10 +5876,11 @@ def api_template_pdf(template_id):
                 return 0
 
         logger.info("template_pdf start template=%s t=%sms", str(template_id or ''), _t())
+        step = "paid_check"
         paid_flag = bool(is_paid_user(current_user))
-        if (not paid_flag) and _stripe_enabled():
+        if _stripe_enabled():
             try:
-                paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid_flag
+                paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user))
             except Exception:
                 paid_flag = paid_flag
         if not paid_flag:
@@ -5658,9 +5932,11 @@ def api_template_pdf(template_id):
                 pass
 
 
+        step = "canonicalize"
         canonical = _canonical_template_id(template_id or 'professional')
 
         # Use public URL. 127.0.0.1 caused deadlock with 1 worker (worker busy can't serve Chromium's request).
+        step = "build_target_url"
         base_url = request.host_url.rstrip('/')
         target_url = base_url + url_for('react_app', subpath=f"template-download/{canonical}")
         logger.info("template_pdf navigate url=%s t=%sms", target_url, _t())
@@ -5699,6 +5975,7 @@ def api_template_pdf(template_id):
             except Exception:
                 pass
 
+        step = "playwright_launch"
         pw = None
         pdf_bytes = b""
         browser = None
@@ -5809,10 +6086,12 @@ def api_template_pdf(template_id):
                 page.route("**/*", _handle_route)
             except Exception:
                 pass
+            step = "page_goto"
             page.goto(target_url, wait_until="domcontentloaded", timeout=90000)
             logger.info("template_pdf domcontentloaded t=%sms", _t())
 
             # Prefer the dedicated export root, but be resilient to cached/older frontend builds.
+            step = "wait_export_root"
             try:
                 page.wait_for_selector("#templatePrintContent", timeout=8000)
             except Exception:
@@ -5825,6 +6104,7 @@ def api_template_pdf(template_id):
                 page.wait_for_load_state("networkidle", timeout=1500)
             except Exception:
                 pass
+            step = "wait_fonts_images"
             try:
                 page.evaluate(
                     """() => {
@@ -5848,6 +6128,7 @@ def api_template_pdf(template_id):
             # Important: clearing <body> removes TemplateViewer's inline <style> rules that implement
             # the slider-based spacing/font overrides. Instead we render the export node into a
             # dedicated body child (#__pdfMount) and hide everything else at print-time.
+            step = "mount_and_css"
             page.evaluate(
                 """(a) => {
                       const root = document.getElementById('templatePrintContent') || document.getElementById('templatePrintRoot') || document.querySelector('.tv-style-root');
@@ -5876,9 +6157,7 @@ def api_template_pdf(template_id):
                       mount.innerHTML = '';
                       mount.appendChild(rootClone);
                       try {
-                        mount.style.display = 'block';
-                        mount.style.width = '816px';
-                        mount.style.margin = '0';
+                                                mount.style.margin = '0';
                                                 mount.style.padding = '0';
                         mount.style.background = '#fff';
                         mount.style.position = 'relative';
@@ -5948,12 +6227,12 @@ def api_template_pdf(template_id):
                         #__pdfMount .tv-style-root .text-3xl { font-size: calc(1.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.25rem * var(--tv-font-scale, 1)) !important; }
                         #__pdfMount .tv-style-root .text-4xl { font-size: calc(2.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.5rem * var(--tv-font-scale, 1)) !important; }
                         #__pdfMount .tv-style-root .text-5xl { font-size: calc(3rem * var(--tv-font-scale, 1)) !important; line-height: 1 !important; }
-                        #__pdfMount .tv-style-root .text-\\[10px\\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
-                        #__pdfMount .tv-style-root .text-\\[11px\\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
-                        #__pdfMount .tv-style-root .text-\\[12px\\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
-                        #__pdfMount .tv-style-root .text-\\[13px\\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
-                        #__pdfMount .tv-style-root .text-\\[34px\\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
-                        #__pdfMount .tv-style-root .text-\\[38px\\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[10px\\\\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[11px\\\\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[12px\\\\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[13px\\\\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[34px\\\\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\\\\[38px\\\\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
                         #__pdfMount .tv-style-root .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
                         #__pdfMount .tv-style-root .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
                         #__pdfMount .tv-style-root .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
@@ -6293,6 +6572,7 @@ def api_template_pdf(template_id):
                 except Exception:
                     pass
 
+            step = "page_pdf"
             _pdf_margin_top = "0.32in"
             _pdf_margin_bottom = "0.32in"
             _pdf_margin_left = "0in"
@@ -6381,8 +6661,8 @@ def api_template_pdf(template_id):
             pass
         return resp
     except Exception as e:
-        logger.exception("template_pdf failed template=%s", str(template_id or ''))
-        msg = f"{type(e).__name__}: {str(e) or 'PDF generation failed.'}"
+        logger.exception("template_pdf failed template=%s step=%s", str(template_id or ''), str(step or ''))
+        msg = f"{type(e).__name__}: {str(e) or 'PDF generation failed.'} (step={step})"
         # Missing libs or Chromium launch failure: return 503 so user can retry after startup finishes.
         if any(x in msg for x in (".so", "libglib", "libnss", "libgtk", "libX11", "shared library", "Executable doesn't exist")):
             return (
@@ -6563,6 +6843,16 @@ def terms_privacy():
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html")
+
+
+@app.route("/discounts")
+def discounts():
+    current_year = datetime.now().year
+    return render_template(
+        "discounts.html",
+        year=current_year,
+        user=current_user if current_user.is_authenticated else None,
+    )
 
 
 
@@ -7307,8 +7597,12 @@ def sitemap():
         'index': {'priority': '1.0', 'changefreq': 'daily'},
         'about': {'priority': '0.8', 'changefreq': 'monthly'},
         'blog': {'priority': '0.9', 'changefreq': 'weekly'},
+        'resume_templates': {'priority': '0.9', 'changefreq': 'weekly'},
+        'resume_builder': {'priority': '0.9', 'changefreq': 'weekly'},
+        'plans': {'priority': '0.8', 'changefreq': 'monthly'},
+        'discounts': {'priority': '0.7', 'changefreq': 'monthly'},
+        'get_started': {'priority': '0.7', 'changefreq': 'monthly'},
         'contact': {'priority': '0.7', 'changefreq': 'monthly'},
-        'feedback': {'priority': '0.6', 'changefreq': 'monthly'},
         'privacy': {'priority': '0.3', 'changefreq': 'yearly'},
         'terms_privacy': {'priority': '0.3', 'changefreq': 'yearly'},
     }
@@ -7553,6 +7847,27 @@ def _format_paid_until(paid_until_str: str) -> str:
     except Exception:
         return s
 
+
+def _profile_indicates_paid(prof: Optional[dict]) -> bool:
+    """Evaluate paid access from a persisted profile entity."""
+    try:
+        if not prof:
+            return False
+        if bool(prof.get('is_paid', False)):
+            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
+            if paid_until is None:
+                return True
+            return paid_until >= datetime.now(timezone.utc)
+        plan_status = str(prof.get('plan_status') or '').strip().lower()
+        if plan_status in ('paid', 'active', 'trial', 'monthly', 'annual'):
+            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
+            if paid_until is None:
+                return True
+            return paid_until >= datetime.now(timezone.utc)
+        return False
+    except Exception:
+        return False
+
 def is_paid_user(user_obj: Optional['User']) -> bool:
     try:
         if not user_obj or not getattr(user_obj, 'is_authenticated', False):
@@ -7565,19 +7880,7 @@ def is_paid_user(user_obj: Optional['User']) -> bool:
         prof = get_user_profile_azure(getattr(user_obj, 'id', ''))
         if not prof:
             return False
-        # Supported fields (manual or future Stripe webhook):
-        # - is_paid: boolean
-        # - plan_status: free|trial|paid|active|canceled
-        # - paid_until: ISO timestamp (optional)
-        if bool(prof.get('is_paid', False)):
-            return True
-        plan_status = str(prof.get('plan_status') or '').strip().lower()
-        if plan_status in ('paid', 'active', 'trial', 'monthly', 'annual'):
-            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
-            if paid_until is None:
-                return True
-            return paid_until >= datetime.now(timezone.utc)
-        return False
+        return _profile_indicates_paid(prof)
     except Exception:
         return False
 
@@ -7600,6 +7903,7 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
             return False
 
         prof = get_user_profile_azure(user_id) or {}
+        local_paid_fallback = _profile_indicates_paid(prof)
         customer_id = str(prof.get('stripe_customer_id') or '').strip()
         subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
 
@@ -7655,24 +7959,35 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
                         paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
         except Exception:
             # If Stripe is unreachable/misconfigured, don't crash gating.
-            return False
+            return bool(local_paid_fallback)
 
         paid_flag = best_status in ('active', 'trialing')
 
         # Fallback for Payment Links / one-time checkout sessions:
-        # If the Payment Link is configured in Stripe as a one-time payment (no subscription),
-        # we can still grant access for the plan duration based on the most recent paid checkout session.
-        if (not paid_flag) and customer_id:
+        # If there is no subscription at all, we can grant temporary access based on a recent paid
+        # checkout session while waiting for profile/webhook sync. Do not do this when Stripe
+        # already reports a subscription state (e.g., canceled), or we can incorrectly re-grant access.
+        has_subscription_state = bool((best_sub_id or '').strip() or (best_status or '').strip())
+        if (not paid_flag) and customer_id and (not has_subscription_state):
             try:
                 stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
                 sessions = stripe.checkout.Session.list(customer=customer_id, limit=10)
                 sdata = list(getattr(sessions, 'data', []) or [])
                 # Prefer the most recent *paid* session.
                 sdata = sorted(sdata, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True)
+                now_ts = int(time.time())
+                recovery_window_secs = int(os.getenv('STRIPE_CHECKOUT_RECOVERY_WINDOW_SECS', '21600') or '21600')
+                if recovery_window_secs < 300:
+                    recovery_window_secs = 300
                 for s in sdata:
                     status = str(getattr(s, 'status', '') or '').strip().lower()
                     pay_status = str(getattr(s, 'payment_status', '') or '').strip().lower()
                     mode = str(getattr(s, 'mode', '') or '').strip().lower()
+                    created_ts = int(getattr(s, 'created', 0) or 0)
+                    # One-time Checkout fallback is only for webhook lag shortly after purchase.
+                    # Old paid sessions should not grant ongoing access after cancellation.
+                    if created_ts <= 0 or (now_ts - created_ts) > recovery_window_secs:
+                        continue
                     if status == 'complete' and pay_status in ('paid', 'no_payment_required'):
                         meta = getattr(s, 'metadata', None) or {}
                         plan_id = str(meta.get('plan_id') or '').strip()
@@ -7700,11 +8015,15 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
                 entity["stripe_customer_id"] = str(customer_id)
             if best_sub_id:
                 entity["stripe_subscription_id"] = str(best_sub_id)
-            if paid_until:
+            entity["is_paid"] = bool(paid_flag)
+            if paid_flag and paid_until:
                 entity["paid_until"] = paid_until
+            elif not paid_flag:
+                entity["paid_until"] = ""
             if paid_flag:
-                entity["is_paid"] = True
-                entity["plan_status"] = plan_status_guess or "active"
+                entity["plan_status"] = plan_status_guess or best_status or "active"
+            else:
+                entity["plan_status"] = best_status or "free"
             table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         except Exception:
             # Ignore Azure persistence errors; still return the computed paid flag.
@@ -7722,14 +8041,8 @@ def is_paid_user_id(user_id: str) -> bool:
         prof = get_user_profile_azure(str(user_id))
         if not prof:
             return False
-        if bool(prof.get('is_paid', False)):
+        if _profile_indicates_paid(prof):
             return True
-        plan_status = str(prof.get('plan_status') or '').strip().lower()
-        if plan_status in ('paid', 'active', 'trial', 'monthly', 'annual'):
-            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
-            if paid_until is None:
-                return True
-            return paid_until >= datetime.now(timezone.utc)
         email = str(prof.get('email') or '').strip().lower()
         return bool(email and email in PAID_EMAILS)
     except Exception:
@@ -8007,16 +8320,15 @@ def settings_page():
 
     paid_flag = bool(is_paid_user(current_user))
     cancel_scheduled = False
-    # Self-heal paid status even if webhooks are delayed/missing (Payment Links in local dev).
-    if (not paid_flag) and _stripe_enabled():
+    # Sync with Stripe on settings loads so cancellations are reflected quickly even if webhooks lag.
+    if _stripe_enabled():
         try:
-            if _refresh_paid_status_from_stripe_for_user(current_user):
-                paid_flag = True
-                prof = get_user_profile_azure(getattr(current_user, 'id', '')) or prof
-                plan_status_raw = str(prof.get('plan_status') or plan_status_raw).strip()
-                paid_until_raw = str(prof.get('paid_until') or paid_until_raw).strip()
-                customer_id = str(prof.get('stripe_customer_id') or customer_id).strip()
-                subscription_id = str(prof.get('stripe_subscription_id') or subscription_id).strip()
+            paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user))
+            prof = get_user_profile_azure(getattr(current_user, 'id', '')) or prof
+            plan_status_raw = str(prof.get('plan_status') or plan_status_raw).strip()
+            paid_until_raw = str(prof.get('paid_until') or paid_until_raw).strip()
+            customer_id = str(prof.get('stripe_customer_id') or customer_id).strip()
+            subscription_id = str(prof.get('stripe_subscription_id') or subscription_id).strip()
         except Exception:
             pass
 
@@ -8184,6 +8496,27 @@ def settings_page():
                 except Exception as e:
                     latest_inv_err = f"{type(e).__name__}: {str(e)}"
 
+            # If Stripe has already collected payment for the *next* period, the subscription's
+            # current_period_end can remain at the end of the current period until the period rolls.
+            # For UX, treat a PAID renewal invoice line period.end as the effective paid-through date.
+            latest_inv_paid = None
+            latest_inv_status = ""
+            latest_inv_line_period_end = None
+            latest_inv_line_period_start = None
+            try:
+                if "latest_inv" in locals() and latest_inv is not None:
+                    latest_inv_paid = _stripe_obj_get(latest_inv, "paid", None)
+                    latest_inv_status = str(_stripe_obj_get(latest_inv, "status", "") or "").strip().lower()
+                    lines_obj = _stripe_obj_get(latest_inv, "lines", None)
+                    ldata = _stripe_obj_get(lines_obj, "data", []) if lines_obj else []
+                    if ldata:
+                        period_obj = _stripe_obj_get(ldata[0], "period", None)
+                        if period_obj:
+                            latest_inv_line_period_start = _stripe_obj_get(period_obj, "start", None)
+                            latest_inv_line_period_end = _stripe_obj_get(period_obj, "end", None)
+            except Exception:
+                pass
+
             # Final fallback: approximate from billing_cycle_anchor/current_period_start + interval.
             if not current_period_end:
                 try:
@@ -8238,12 +8571,26 @@ def settings_page():
             except Exception:
                 pass
 
+            # Apply invoice-paid extension AFTER sanity checks so we don't regress the period.
+            effective_period_end = current_period_end
+            try:
+                if status == "active" and effective_period_end and latest_inv_line_period_end:
+                    # Consider invoice "paid" only when Stripe says so.
+                    inv_paid_bool = bool(latest_inv_paid is True or latest_inv_status == "paid")
+                    if inv_paid_bool:
+                        inv_line_end_int = int(latest_inv_line_period_end)
+                        eff_int = int(effective_period_end)
+                        if inv_line_end_int > eff_int:
+                            effective_period_end = inv_line_end_int
+            except Exception:
+                pass
+
             # Compute next_billing / paid_through from subscription directly.
             next_ts = None
             if status == "trialing" and trial_end:
                 next_ts = int(trial_end)
-            elif current_period_end:
-                next_ts = int(current_period_end)
+            elif effective_period_end:
+                next_ts = int(effective_period_end)
 
             if next_ts:
                 next_billing_iso = datetime.fromtimestamp(int(next_ts), tz=timezone.utc).isoformat()
@@ -8252,8 +8599,8 @@ def settings_page():
                 base = datetime.fromtimestamp(int(trial_end), tz=timezone.utc)
                 # During trial, access is valid through trial_end.
                 paid_through_est_iso = base.isoformat()
-            elif current_period_end:
-                paid_through_est_iso = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc).isoformat()
+            elif effective_period_end:
+                paid_through_est_iso = datetime.fromtimestamp(int(effective_period_end), tz=timezone.utc).isoformat()
 
             if interval == 'year':
                 interval_label = interval_label or 'Annual'
@@ -8269,6 +8616,33 @@ def settings_page():
                     sub_items_len = len(list(getattr(getattr(sub_obj, "items", None), "data", []) or []))
                 except Exception:
                     sub_items_len = 0
+
+                def _ts_to_iso_str(ts_val) -> str:
+                    try:
+                        if not ts_val:
+                            return ""
+                        return datetime.fromtimestamp(int(ts_val), tz=timezone.utc).isoformat()
+                    except Exception:
+                        return ""
+
+                latest_inv_id = ""
+                latest_inv_line_period_start = None
+                latest_inv_line_period_end = None
+                try:
+                    # Prefer already-fetched latest invoice if available; otherwise fetch best-effort.
+                    if "latest_inv" not in locals() or latest_inv is None:
+                        latest_inv = _stripe_latest_invoice_for_subscription(subscription_id)
+                    latest_inv_id = str(_stripe_obj_get(latest_inv, "id", "") or "").strip()
+                    lines_obj = _stripe_obj_get(latest_inv, "lines", None)
+                    ldata = _stripe_obj_get(lines_obj, "data", []) if lines_obj else []
+                    if ldata:
+                        period_obj = _stripe_obj_get(ldata[0], "period", None)
+                        if period_obj:
+                            latest_inv_line_period_start = _stripe_obj_get(period_obj, "start", None)
+                            latest_inv_line_period_end = _stripe_obj_get(period_obj, "end", None)
+                except Exception:
+                    pass
+
                 debug_info = {
                     "settings_debug_version": "sanitycheck_v3",
                     "runtime_app_file": __file__,
@@ -8295,6 +8669,15 @@ def settings_page():
                     "stripe_raw_subscription_start_date": str(raw_sub_start_date or ""),
                     "stripe_raw_subscription_error": raw_sub_err,
                     "stripe_latest_invoice_period_end": str(latest_inv_period_end or ""),
+                    "stripe_latest_invoice_id": latest_inv_id,
+                    "stripe_latest_invoice_line_period_start": str(latest_inv_line_period_start or ""),
+                    "stripe_latest_invoice_line_period_end": str(latest_inv_line_period_end or ""),
+                    "stripe_latest_invoice_line_period_start_iso": _ts_to_iso_str(latest_inv_line_period_start),
+                    "stripe_latest_invoice_line_period_end_iso": _ts_to_iso_str(latest_inv_line_period_end),
+                    "stripe_latest_invoice_status": str(latest_inv_status or ""),
+                    "stripe_latest_invoice_paid": str(latest_inv_paid if latest_inv_paid is not None else ""),
+                    "stripe_effective_period_end": str(effective_period_end or ""),
+                    "stripe_effective_period_end_iso": _ts_to_iso_str(effective_period_end),
                     "stripe_latest_invoice_error": latest_inv_err,
                     "stripe_sanity_applied": str(sanity_applied),
                     "stripe_sanity_prev_cpe": str(sanity_prev_cpe or ""),
@@ -8323,6 +8706,11 @@ def settings_page():
             # Older fallback: if we only have subscription_id stored, try it.
             sub_id = _get_stripe_subscription_id_from_azure(getattr(current_user, 'id', ''))
             paid_until_raw = _get_paid_until_from_stripe(sub_id) or paid_until_raw
+    else:
+        # Free users should not show stale billing dates from previously canceled subscriptions.
+        paid_until_raw = ''
+        next_billing_iso = ''
+        interval_label = ''
     return render_template(
         'settings.html',
         user=current_user,

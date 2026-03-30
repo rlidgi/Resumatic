@@ -2500,3 +2500,268 @@ KeyError: 'state'
 [2026-03-10T06:07:36.725597Z] local_errors.log initialized
 
 [2026-03-10T23:02:14.425921Z] local_errors.log initialized
+
+[2026-03-12T01:43:25.862980Z] local_errors.log initialized
+
+[2026-03-12T01:43:44.010181Z] local_errors.log initialized
+
+[2026-03-12T01:47:28.912847Z] local_errors.log initialized
+
+[2026-03-12T21:15:38.693374Z] local_errors.log initialized
+
+[2026-03-12T21:23:12.429077Z] local_errors.log initialized
+[2026-03-15T20:04:42.301452Z] upload GET: pid=25484 build=1773202293
+[2026-03-15T22:25:39.206158Z] upload GET: pid=25484 build=1773202293
+
+[2026-03-17T22:09:01.170530Z] local_errors.log initialized
+
+[2026-03-18T20:19:27.629347Z] local_errors.log initialized
+
+[2026-03-18T20:26:39.127010Z] local_errors.log initialized
+
+[2026-03-20T01:24:33.573310Z] local_errors.log initialized
+
+[2026-03-20T01:29:05.015772Z] local_errors.log initialized
+
+[2026-03-20T01:47:58.360879Z] local_errors.log initialized
+
+[2026-03-20T01:57:31.862839Z] local_errors.log initialized
+
+[2026-03-20T02:21:55.331419Z] local_errors.log initialized
+
+[2026-03-20T02:43:26.830811Z] local_errors.log initialized
+[2026-03-20T05:41:00.050480Z] upload GET: pid=22036 build=1773865917
+[2026-03-20T05:41:22.030242Z] results_route POST: start
+[2026-03-20T05:41:22.084117Z] results_route POST: received upload filename=adqas.pdf
+[2026-03-20T05:41:33.674342Z] results_route POST: extracted_text_len=0
+[2026-03-20T05:41:33.675340Z] results_route POST: extracted text empty
+[2026-03-20T05:41:52.017622Z] results_route POST: start
+[2026-03-20T05:41:52.020607Z] results_route POST: calling revise_resume resume_len=3370 jd_len=0
+[2026-03-20T05:42:17.687683Z] results_route POST: revise_resume ok revised_len=3675
+[2026-03-20T05:42:18.259605Z] results_route POST: redirecting to results_get
+[2026-03-20T05:42:19.435063Z] results_get GET: start
+[2026-03-20T05:42:19.437112Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-03-20T05:51:34.387565Z] local_errors.log initialized
+
+[2026-03-20T05:57:11.082536Z] local_errors.log initialized
+
+[2026-03-20T08:46:01.463939Z] local_errors.log initialized
+
+[2026-03-20T08:48:46.290686Z] local_errors.log initialized
+[2026-03-20T20:59:51.737912Z] upload GET: pid=36164 build=1773996504
+[2026-03-20T21:00:10.537290Z] results_route POST: start
+[2026-03-20T21:00:11.603296Z] results_route POST: calling revise_resume resume_len=1068 jd_len=0
+[2026-03-20T21:00:31.614943Z] results_route POST: revise_resume ok revised_len=2588
+[2026-03-20T21:00:33.110688Z] results_route POST: redirecting to results_get
+[2026-03-20T21:00:33.143800Z] results_get GET: start
+[2026-03-20T21:00:33.144782Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-03-20T21:26:58.582535Z] local_errors.log initialized
+
+[2026-03-20T21:29:02.240125Z] local_errors.log initialized
+
+[2026-03-21T02:51:51.264178Z] local_errors.log initialized
+
+[2026-03-21T03:21:10.128759Z] local_errors.log initialized
+
+[2026-03-21T03:22:52.760984Z] local_errors.log initialized
+
+[2026-03-22T05:48:03.127539Z] local_errors.log initialized
+
+[2026-03-22T07:43:30.097855Z] local_errors.log initialized
+
+[2026-03-23T01:41:06.360877Z] local_errors.log initialized
+[2026-03-25T22:24:41.866044Z] upload GET: pid=44880 build=1774229677
+
+[2026-03-25T22:28:06.922377Z] local_errors.log initialized
+
+[2026-03-25T23:13:25.330160Z] local_errors.log initialized
+
+[2026-03-25T23:21:42.359540Z] local_errors.log initialized
+
+[2026-03-28T01:44:43.403104Z] local_errors.log initialized
+[2026-03-28T02:26:43.610591Z] results_route POST: start
+[2026-03-28T02:26:43.624287Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-03-28T02:27:00.669261Z] results_route POST: revise_resume ok revised_len=2200
+[2026-03-28T02:27:01.195353Z] results_route POST: redirecting to results_get
+[2026-03-28T02:27:04.295253Z] upload GET: pid=50804 build=1774661989
+[2026-03-28T02:27:30.046515Z] results_route POST: start
+[2026-03-28T02:27:30.052317Z] results_route POST: calling revise_resume resume_len=18 jd_len=0
+[2026-03-28T02:27:47.400219Z] results_route POST: revise_resume ok revised_len=2220
+[2026-03-28T02:27:47.920685Z] results_route POST: redirecting to results_get
+
+[2026-03-28T05:09:50.887636Z] local_errors.log initialized
+
+[2026-03-28T05:21:31.624288Z] local_errors.log initialized
+
+[2026-03-28T05:51:19.469491Z] local_errors.log initialized
+
+[2026-03-28T06:03:33.960415Z] local_errors.log initialized
+
+[2026-03-28T06:38:24.054151Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'else'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6717, in blog
+    return render_template("blog.html", year=current_year, user=current_user if current_user.is_authenticated else None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\blog.html", line 147, in template
+    {% else %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'else'.
+
+
+[2026-03-28T06:41:18.570646Z] unhandled exception
+TemplateNotFound: partials/_navbar.html
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8646, in view_revision
+    return render_template(
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\result.html", line 220, in top-level template code
+    {% include "partials/_navbar.html" %}
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 64, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 98, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: partials/_navbar.html
+
+
+[2026-03-28T06:41:25.624472Z] unhandled exception
+TemplateNotFound: partials/_navbar.html
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 8646, in view_revision
+    return render_template(
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "c:\Users\rliog\Desktop\Resumatic_website2\templates\result.html", line 220, in top-level template code
+    {% include "partials/_navbar.html" %}
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 64, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 98, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: partials/_navbar.html
+
+
+[2026-03-28T06:47:33.128741Z] local_errors.log initialized
+
+[2026-03-28T06:55:41.575350Z] local_errors.log initialized
+
+[2026-03-28T08:51:06.501240Z] local_errors.log initialized
+
+[2026-03-28T08:58:39.176142Z] local_errors.log initialized
+[2026-03-28T08:59:31.493644Z] results_get GET: start
+[2026-03-28T08:59:31.494644Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+[2026-03-28T09:29:52.059416Z] upload GET: pid=38388 build=1774674188
+[2026-03-29T02:25:07.405954Z] upload GET: pid=38388 build=1774674188
+[2026-03-29T02:25:36.636308Z] results_route POST: start
+[2026-03-29T02:25:36.693910Z] results_route POST: received upload filename=resume-professional_5.pdf
+[2026-03-29T02:25:38.111305Z] results_route POST: extracted_text_len=2207
+[2026-03-29T02:25:38.116309Z] results_route POST: calling revise_resume resume_len=2207 jd_len=0
+[2026-03-29T02:26:01.618995Z] results_route POST: revise_resume ok revised_len=3641
+[2026-03-29T02:26:02.187514Z] results_route POST: redirecting to results_get
+[2026-03-29T02:26:02.231475Z] results_get GET: start
+[2026-03-29T02:26:02.233472Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-03-29T02:26:06.025799Z] upload GET: pid=38388 build=1774674188
+[2026-03-29T02:27:21.065516Z] results_route POST: start
+[2026-03-29T02:27:21.075576Z] results_route POST: received upload filename=cscasx.pdf
+[2026-03-29T02:27:21.094801Z] results_route POST: extracted_text_len=0
+[2026-03-29T02:27:21.097963Z] results_route POST: extracted text empty
+
+[2026-03-29T03:56:59.575023Z] local_errors.log initialized
+
+[2026-03-29T21:53:39.594402Z] local_errors.log initialized
+
+[2026-03-29T22:05:43.056812Z] local_errors.log initialized
+
+[2026-03-30T00:24:00.119319Z] local_errors.log initialized
+
+[2026-03-30T00:25:12.817798Z] local_errors.log initialized
+
+[2026-03-30T00:28:18.735183Z] local_errors.log initialized
+
+[2026-03-30T00:28:51.788913Z] local_errors.log initialized
+
+[2026-03-30T00:31:23.628492Z] local_errors.log initialized
+
+[2026-03-30T00:31:45.123008Z] local_errors.log initialized
+
+[2026-03-30T00:35:17.890180Z] local_errors.log initialized
+
+[2026-03-30T00:36:38.352296Z] local_errors.log initialized
+
+[2026-03-30T00:36:56.642889Z] local_errors.log initialized
+
+[2026-03-30T00:37:25.427167Z] local_errors.log initialized
+
+[2026-03-30T00:39:26.753495Z] local_errors.log initialized
+
+[2026-03-30T00:39:40.228962Z] local_errors.log initialized
+
+[2026-03-30T00:40:18.475991Z] local_errors.log initialized
+
+[2026-03-30T00:43:46.949576Z] local_errors.log initialized

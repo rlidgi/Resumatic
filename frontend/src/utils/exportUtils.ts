@@ -26,11 +26,11 @@ export function exportToCSV(resume: ResumeData) {
     csv += `Phone,${resume.phone || ''}\n`;
     csv += `Location,${resume.location || ''}\n`;
     csv += `Summary,${(resume.summary || '').replace(/,/g, ';')}\n`;
-    
+
     if (resume.skills && resume.skills.length > 0) {
         csv += `Skills,${resume.skills.join(';')}\n`;
     }
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
