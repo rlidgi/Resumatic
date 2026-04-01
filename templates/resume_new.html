@@ -38,6 +38,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"
         media="print" onload="this.media='all'" />
     <style>
+        html,
+        body {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -79,7 +84,7 @@
     </style>
 </head>
 
-<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen">
+<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen overflow-x-hidden">
     <div id="aiToast"
         class="hidden fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl border border-gray-200 bg-white shadow-lg p-4">
         <div class="flex items-start gap-3">
@@ -120,7 +125,7 @@
             </div>
 
             <form method="POST" action="/resume/new" class="space-y-6" id="resumeWizardForm">
-                <div class="lg:grid lg:grid-cols-[minmax(0,1fr),420px] lg:gap-6">
+                <div id="resumeWizardLayout" class="lg:grid lg:grid-cols-[minmax(0,1fr),420px] lg:gap-6">
                     <div class="relative">
                         <aside class="self-start md:fixed md:left-0 md:top-6 md:z-40 md:w-24">
                             <div
@@ -277,6 +282,24 @@
                                 </style>
 
                                 <div class="relative">
+                                    <!-- Mobile scroll hints (non-interactive; do not block swipe) -->
+                                    <div aria-hidden="true"
+                                        class="pointer-events-none sm:hidden absolute left-0 top-0 bottom-0 w-10 z-10 flex items-center justify-start pl-1 bg-gradient-to-r from-white to-transparent text-gray-400">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div aria-hidden="true"
+                                        class="pointer-events-none sm:hidden absolute right-0 top-0 bottom-0 w-10 z-10 flex items-center justify-end pr-1 bg-gradient-to-l from-white to-transparent text-gray-400">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
                                     <button type="button" id="newResumeTemplateCarouselPrev"
                                         class="hidden sm:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         aria-label="Previous templates">
@@ -297,7 +320,7 @@
                                     </button>
 
                                     <div id="newResumeTemplateCarousel"
-                                        class="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory py-1 -mx-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none]"
+                                        class="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory py-1 mx-0 px-1 [-ms-overflow-style:none] [scrollbar-width:none]"
                                         role="list" aria-label="Resume templates">
                                         <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
                                             role="listitem">
@@ -1593,6 +1616,31 @@
                 clearAiError();
 
                 if (introEl) introEl.classList.toggle('hidden', current !== 0);
+
+                // Hide the preview panel on step 0 (Template) to avoid overlaying the template chooser.
+                // Also switch to a single-column layout so the template options fill the space.
+                try {
+                    const previewPanel = document.getElementById('resumePreviewPanel');
+                    const layoutEl = document.getElementById('resumeWizardLayout');
+                    const TWO_COL = 'lg:grid-cols-[minmax(0,1fr),420px]';
+                    if (previewPanel) {
+                        const hide = current === 0;
+                        previewPanel.classList.toggle('hidden', hide);
+                        previewPanel.setAttribute('aria-hidden', String(hide));
+
+                        if (layoutEl) {
+                            layoutEl.classList.toggle('lg:grid-cols-1', hide);
+                            if (hide) {
+                                layoutEl.classList.remove(TWO_COL);
+                            } else {
+                                layoutEl.classList.add(TWO_COL);
+                                layoutEl.classList.remove('lg:grid-cols-1');
+                            }
+                        }
+                    }
+                } catch (_) {
+                    // no-op
+                }
 
                 stepEls.forEach((el, idx) => {
                     if (idx === current) {
