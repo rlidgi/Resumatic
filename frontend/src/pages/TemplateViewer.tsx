@@ -218,7 +218,7 @@ export default function TemplateViewer() {
     const [pdfPreviewPageScale, setPdfPreviewPageScale] = useState(1);
     const [pdfPreviewContentScale, setPdfPreviewContentScale] = useState(1);
     const [pdfPreviewPages, setPdfPreviewPages] = useState(1);
-    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1056);
+    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1076);
     const [pdfPreviewSnapshotHtml, setPdfPreviewSnapshotHtml] = useState<string>('');
     const embedRootRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -455,7 +455,7 @@ export default function TemplateViewer() {
             --tv-paragraph-gap: ${pg};
             --tv-space-scale: ${ss};
           }
-                    @page { size: letter; margin: 8mm 0mm !important; }
+                    @page { size: letter; margin: 0.32in 0in !important; }
           html, body {
             width: ${pageWidthPx}px;
             margin: 0 !important;
@@ -1171,16 +1171,13 @@ export default function TemplateViewer() {
     // - "Content scale" matches the Save-as-PDF fit logic (width-fit)
     useEffect(() => {
         const PAGE_W = 816;
-        // Keep the content viewport at true Letter height (11in * 96dpi).
-        // Then grow the *page frame* to include the visual top/bottom padding.
-        const CONTENT_H = 1056;
-        // Match server-side Playwright PDF margins: 0.32in top/bottom, 0in left/right.
-        // (0.32in * 96dpi = 30.72px)
+        // Match the actual Playwright PDF content area per page.
+        // Playwright: format=Letter (11in=1056px @96dpi), margin 0.32in top+bottom.
+        // Content area = 1056 - (0.32*96)*2 = 1056 - 61.44 ≈ 994px.
+        // Use 994 (floor) so preview never promises "fits on 1 page" when PDF overflows.
+        const CONTENT_H = 994;
         const PAD_TOP = 31;
         const PAD_BOTTOM = 31;
-        // Extra visual canvas height (frame only). Does not increase the content viewport.
-        // Extra visual canvas height (frame only). Can be negative to reduce frame height
-        // while keeping the fixed 1056px content viewport unchanged.
         const EXTRA_FRAME_PX = 20;
         const PAGE_H = CONTENT_H + PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX;
         const VIEW_H = CONTENT_H;
@@ -1603,6 +1600,20 @@ export default function TemplateViewer() {
                   #templatePrintRoot .md\\:text-base { font-size: 1rem !important; line-height: 1.5rem !important; }
                   #templatePrintRoot .md\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 
+                  /* Strip first-child top padding on the offscreen print root (matches PDF export) */
+                  #templatePrintRoot .tv-style-root > *:first-child {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+
                   /* Resume customization: apply only inside the resume root */
                   /* Paragraph gap: apply even when a template only renders single <p> blocks */
                   #templatePrintRoot .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
@@ -1674,7 +1685,7 @@ export default function TemplateViewer() {
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1138px);
+                                                                                                                                                                height: var(--pdf-page-h, 1076px);
                     background: #fff;
                     position: relative;
                                         overflow: hidden;
@@ -1695,7 +1706,7 @@ export default function TemplateViewer() {
                     top: 0;
                     left: 0;
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1138px);
+                                                                                                                                                                height: var(--pdf-page-h, 1076px);
                                         overflow: hidden;
                                         contain: paint;
                                                                                 --pdf-pad-top: 31px;
@@ -1710,7 +1721,7 @@ export default function TemplateViewer() {
                                                                                 left: 0;
                                                                                 right: 0;
                                                                                 top: var(--pdf-pad-top);
-                                                                                height: 1056px;
+                                                                                height: 994px;
                                                                                 overflow: hidden;
                                                                         }
                                     .pdfPreviewTargetContinuous {
@@ -1734,6 +1745,26 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .md\\:flex-row { flex-direction: row !important; }
                   .pdfPreviewTarget .md\\:w-\\[300px\\] { width: 300px !important; }
                   .pdfPreviewTarget .md\\:flex-shrink-0 { flex-shrink: 0 !important; }
+
+                  /* Strip first-child top padding/margin to match PDF export behavior.
+                     Both Playwright and browser-print exports strip this so content starts
+                     at the same vertical position as the PDF page margin provides. */
+                  .pdfPreviewViewport .tv-style-root > *:first-child {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type > :first-of-type > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
 
                   /* Apply Customize variables in the preview too */
                   .pdfPreviewTarget .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
@@ -1807,15 +1838,6 @@ export default function TemplateViewer() {
                                     {downloadOnlyStatus === 'starting' && 'Preparing your PDF. Your download should start shortly…'}
                                     {downloadOnlyStatus === 'done' && 'Download started. You can return to Job Search Hub.'}
                                     {downloadOnlyStatus === 'failed' && 'Auto-download did not start.'}
-                                </div>
-
-                                <div className="mt-3 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
-                                    <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
-                                        <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                                    </span>
-                                    <p>
-                                        Note, pdf download may not exactly match the screen display due to different screen display settings. Download the PDF to determine optimal settings.
-                                    </p>
                                 </div>
 
                                 {downloadOnlyStatus === 'failed' && downloadOnlyError && (
@@ -1982,14 +2004,6 @@ export default function TemplateViewer() {
                                                 </p>
                                             </div>
 
-                                            <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
-                                                <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
-                                                    <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                                                </span>
-                                                <p>
-                                                    Note, pdf download may not exactly match the screen display. Download the PDF to determine optimal settings.
-                                                </p>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3074,15 +3088,14 @@ export default function TemplateViewer() {
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1138}px`,
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1076}px`,
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
                                                                                 <div className="pdfPreviewViewport">
                                                                                     {(() => {
-                                                                                        // Keep stride equal to the viewport height.
-                                                                                        // (The viewport is fixed at Letter height; padding is outside it.)
-                                                                                        const VIEW_H = 1056;
+                                                                                        // Stride = PDF content area height (Letter minus margins).
+                                                                                        const VIEW_H = 994;
                                                                                         // Avoid 1px overlap at page boundaries (can duplicate the last line on the next page)
                                                                                         // due to rounding/subpixel rasterization.
                                                                                         const y = (idx * VIEW_H) + (idx > 0 ? 1 : 0);
