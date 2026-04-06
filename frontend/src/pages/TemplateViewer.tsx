@@ -218,7 +218,7 @@ export default function TemplateViewer() {
     const [pdfPreviewPageScale, setPdfPreviewPageScale] = useState(1);
     const [pdfPreviewContentScale, setPdfPreviewContentScale] = useState(1);
     const [pdfPreviewPages, setPdfPreviewPages] = useState(1);
-    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1076);
+    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1066);
     const [pdfPreviewSnapshotHtml, setPdfPreviewSnapshotHtml] = useState<string>('');
     const embedRootRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -498,6 +498,23 @@ export default function TemplateViewer() {
                         margin-top: 0 !important;
                         padding-top: 0 !important;
                     }
+          /* Prevent individual resume entries from being split across pages */
+          #printTarget section,
+          #printTarget .space-y-4 > div,
+          #printTarget .space-y-5 > div,
+          #printTarget .space-y-3 > div,
+          #printTarget .space-y-2 > div,
+          #printTarget .creative2-item {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          /* Two-column templates: convert grid to block flow for proper pagination */
+          #printTarget .grid.grid-cols-12 { display: block !important; }
+          #printTarget .grid.grid-cols-12::after { content: ""; display: block; clear: both; }
+          #printTarget .grid.grid-cols-12 > .col-span-7 { float: left !important; width: 58% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-5 { float: right !important; width: 40% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-4 { float: left !important; width: 33% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-8 { float: right !important; width: 65% !important; }
           /* Fill the printable canvas edge-to-edge (strip outer "card" gutters like mx-auto/max-w-*) */
           #printTarget > * {
             width: ${availW}px !important;
@@ -1171,11 +1188,12 @@ export default function TemplateViewer() {
     // - "Content scale" matches the Save-as-PDF fit logic (width-fit)
     useEffect(() => {
         const PAGE_W = 816;
-        // Match the actual Playwright PDF content area per page.
-        // Playwright: format=Letter (11in=1056px @96dpi), margin 0.32in top+bottom.
-        // Content area = 1056 - (0.32*96)*2 = 1056 - 61.44 ≈ 994px.
-        // Use 994 (floor) so preview never promises "fits on 1 page" when PDF overflows.
-        const CONTENT_H = 994;
+        // Match the Playwright PDF content area with a safety margin.
+        // Playwright: Letter (1056px @96dpi), margin 0.32in top+bottom → content area ≈ 994.56px.
+        // Use 984px (≈10px safety buffer) to absorb font rendering differences between
+        // the user's browser and Playwright's bundled Chromium. This ensures content that
+        // fits on page N in the preview will ALWAYS fit on page N in the PDF.
+        const CONTENT_H = 984;
         const PAD_TOP = 31;
         const PAD_BOTTOM = 31;
         const EXTRA_FRAME_PX = 20;
@@ -1195,65 +1213,99 @@ export default function TemplateViewer() {
             const s = Math.min(1, scaleW);
             setPdfPreviewContentScale(s);
 
-            // Build a snapshot with explicit per-section "push to next page" spacers.
-            // This keeps section blocks from being split by the preview's page windowing,
-            // so the on-screen preview matches the generated PDF's page breaks more closely.
+            // Build a snapshot with explicit "push to next page" spacers.
+            // This prevents resume blocks from being visually cut at page boundaries in the
+            // preview, simulating Chromium's break-inside:avoid behavior in the PDF.
+            //
+            // Strategy:
+            //  1. Find all block-level resume elements (sections, individual entries)
+            //  2. Skip elements inside CSS grid containers (two-column layouts) — spacers
+            //     in one column would desync the other column
+            //  3. For each eligible element, if it would be split by a page boundary AND fits
+            //     on a single page, insert a spacer to push it to the next page
             let extraSpacerPx = 0;
             if (!inlineEditMode) {
                 try {
                     const innerRect = inner.getBoundingClientRect();
-                    const liveSections = Array.from(inner.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
 
-                    // Decide which sections need a spacer before them.
-                    // Use scaled coordinates because the preview windowing operates in scaled px.
-                    const spacerByKey = new Map<string, number>();
+                    // Select breakable blocks: <section> elements, individual resume item
+                    // containers (.mb-4, .mb-3 children in space-y-* wrappers), and
+                    // Creative2 items. These are the elements that break-inside:avoid
+                    // protects in the actual PDF.
+                    const BREAKABLE_SELECTOR = [
+                        'section',                                    // ModernTemplate sections
+                        '.space-y-4 > div', '.space-y-5 > div',     // Individual entries (experience, education, projects)
+                        '.space-y-3 > div', '.space-y-2 > div',
+                        '.creative2-item',                           // Creative2 individual items
+                        '.mb-4.last\\:mb-0', '.mb-3.last\\:mb-0',   // Direct item containers
+                    ].join(', ');
+
+                    const allCandidates = Array.from(inner.querySelectorAll(BREAKABLE_SELECTOR)) as HTMLElement[];
+
+                    // Filter out elements inside CSS grid containers — spacers in one grid
+                    // column would push content down without affecting the other column.
+                    const isInsideGrid = (el: HTMLElement): boolean => {
+                        let p = el.parentElement;
+                        while (p && p !== inner) {
+                            const d = window.getComputedStyle(p).display;
+                            if (d === 'grid' || d === 'inline-grid') return true;
+                            p = p.parentElement;
+                        }
+                        return false;
+                    };
+                    const breakables = allCandidates.filter((el) => !isInsideGrid(el));
+
+                    // Tag each live element with a unique index so we can match it to the
+                    // cloned snapshot DOM later.
+                    breakables.forEach((el, i) => el.setAttribute('data-tv-brk-idx', String(i)));
+
+                    const spacerByIdx = new Map<number, number>();
                     let shift = 0;
-                    for (const sec of liveSections) {
-                        const key = String(sec.getAttribute('data-tv-section-key') || '').trim();
-                        if (!key) continue;
-
-                        const r = sec.getBoundingClientRect();
+                    for (let i = 0; i < breakables.length; i++) {
+                        const el = breakables[i];
+                        const r = el.getBoundingClientRect();
                         const topUnscaled = Math.max(0, r.top - innerRect.top);
                         const hUnscaled = Math.max(1, r.height);
 
                         const top = (topUnscaled * s) + shift;
                         const h = hUnscaled * s;
-                        if (h >= (VIEW_H - 1)) {
-                            // Too tall to keep together; allow it to span pages.
-                            continue;
-                        }
+                        // Too tall to keep together — allow it to span pages
+                        if (h >= (VIEW_H - 1)) continue;
+
                         const pageIdx = Math.floor(top / VIEW_H);
                         const within = top - (pageIdx * VIEW_H);
                         const remaining = VIEW_H - within;
-                        // If this section would be split, push it to the next page.
+                        // Element would be split across pages — push it to the next page
                         if (remaining > 0.5 && remaining < (h - 0.5)) {
                             const spacer = Math.max(1, Math.ceil(remaining));
-                            spacerByKey.set(key, spacer);
+                            spacerByIdx.set(i, spacer);
                             shift += spacer;
                         }
                     }
                     extraSpacerPx = shift;
+
+                    // Clean up temporary attributes
+                    breakables.forEach((el) => el.removeAttribute('data-tv-brk-idx'));
 
                     const rawHtml = inner.outerHTML || '';
                     if (rawHtml) {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(rawHtml, 'text/html');
                         const root = doc.body.firstElementChild as HTMLElement | null;
-                        if (root && spacerByKey.size > 0) {
-                            const nodes = Array.from(root.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
+                        if (root && spacerByIdx.size > 0) {
                             const denom = Math.max(0.0001, s);
-                            for (const node of nodes) {
-                                const key = String(node.getAttribute('data-tv-section-key') || '').trim();
-                                const spacerH = spacerByKey.get(key);
+                            // Re-select the same elements in the snapshot DOM using the temp index
+                            const snapshotEls = Array.from(root.querySelectorAll('[data-tv-brk-idx]')) as HTMLElement[];
+                            for (const node of snapshotEls) {
+                                const idx = parseInt(node.getAttribute('data-tv-brk-idx') || '', 10);
+                                node.removeAttribute('data-tv-brk-idx');
+                                const spacerH = spacerByIdx.get(idx);
                                 if (!spacerH) continue;
                                 const spacer = doc.createElement('div');
                                 spacer.setAttribute('data-tv-preview-spacer', 'true');
                                 spacer.style.display = 'block';
                                 spacer.style.width = '100%';
-                                // IMPORTANT:
-                                // - `spacerH` is in *scaled* preview pixels (because VIEW_H is in the same units as our translateY stride).
-                                // - The snapshot HTML is later scaled by `pdfPreviewContentScale`.
-                                // Convert back to *unscaled* px so the visual spacer height becomes `spacerH` after scaling.
+                                // Convert scaled px back to unscaled px for the snapshot
                                 spacer.style.height = `${Math.max(1, Math.ceil(spacerH / denom))}px`;
                                 node.parentNode?.insertBefore(spacer, node);
                             }
@@ -1685,7 +1737,7 @@ export default function TemplateViewer() {
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1076px);
+                                                                                                                                                                height: var(--pdf-page-h, 1066px);
                     background: #fff;
                     position: relative;
                                         overflow: hidden;
@@ -1706,7 +1758,7 @@ export default function TemplateViewer() {
                     top: 0;
                     left: 0;
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1076px);
+                                                                                                                                                                height: var(--pdf-page-h, 1066px);
                                         overflow: hidden;
                                         contain: paint;
                                                                                 --pdf-pad-top: 31px;
@@ -1721,7 +1773,7 @@ export default function TemplateViewer() {
                                                                                 left: 0;
                                                                                 right: 0;
                                                                                 top: var(--pdf-pad-top);
-                                                                                height: 994px;
+                                                                                height: 984px;
                                                                                 overflow: hidden;
                                                                         }
                                     .pdfPreviewTargetContinuous {
@@ -3088,14 +3140,14 @@ export default function TemplateViewer() {
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1076}px`,
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1066}px`,
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
                                                                                 <div className="pdfPreviewViewport">
                                                                                     {(() => {
-                                                                                        // Stride = PDF content area height (Letter minus margins).
-                                                                                        const VIEW_H = 994;
+                                                                                        // Stride = PDF content area height (with safety margin).
+                                                                                        const VIEW_H = 984;
                                                                                         // Avoid 1px overlap at page boundaries (can duplicate the last line on the next page)
                                                                                         // due to rounding/subpixel rasterization.
                                                                                         const y = (idx * VIEW_H) + (idx > 0 ? 1 : 0);
