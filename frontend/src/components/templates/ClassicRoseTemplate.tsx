@@ -68,6 +68,30 @@ export default function ClassicRoseTemplate({
         });
     }, [emit]);
 
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...(prev || {}), languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const nextArr = [...current];
+            nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
+            const cleaned = nextArr.filter((c) => String((c as any)?.name || (c as any)?.title || '').trim());
+            const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateSectionHeading = useCallback((key: string, heading: string) => {
         setEditedData((prev: any) => {
             const prevHeadings = (prev?.section_headings && typeof prev.section_headings === 'object') ? prev.section_headings : {};
@@ -137,6 +161,7 @@ export default function ClassicRoseTemplate({
     const education = Array.isArray(data.education) ? data.education : [];
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const certifications = normalizeCertifications(data.certifications);
+    const languages = normalizeList(data.languages);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
     const website =
@@ -245,13 +270,67 @@ export default function ClassicRoseTemplate({
 
                                             return (
                                                 <div key={idx}>
-                                                    <div className="font-semibold text-sm text-slate-800">{name || 'Certification'}</div>
-                                                    {(issuer || year) ? <div className="text-xs text-slate-500">{[issuer, year].filter(Boolean).join(' • ')}</div> : null}
+                                                    <div className="font-semibold text-sm text-slate-800">
+                                                        {editMode ? (
+                                                            <EditableText
+                                                                value={name}
+                                                                placeholder="Certification"
+                                                                onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                                editMode={editMode}
+                                                                liveUpdate
+                                                                layoutSafe
+                                                                as="span"
+                                                                className="inline"
+                                                            />
+                                                        ) : (
+                                                            name || 'Certification'
+                                                        )}
+                                                    </div>
+                                                    {(issuer || year || editMode) ? (
+                                                        <div className="text-xs text-slate-500">
+                                                            {editMode ? (
+                                                                <>
+                                                                    <EditableText value={issuer} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                                    {(issuer && year) ? <span> • </span> : null}
+                                                                    <EditableText value={year} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                                </>
+                                                            ) : (
+                                                                [issuer, year].filter(Boolean).join(' • ')
+                                                            )}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             );
                                         })}
                                         {certifications.length === 0 ? (
                                             <div className="text-xs text-slate-500">Add certifications</div>
+                                        ) : null}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {(languages.length > 0 || showEmpty) && (
+                                <Section title={getHeading('languages', 'Languages')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('languages', v)} accentColor={ROSE_ACCENT}>
+                                    <div className="space-y-1.5">
+                                        {languages.map((l, idx) => (
+                                            <div key={idx} className="text-sm text-slate-700">
+                                                {editMode ? (
+                                                    <EditableText
+                                                        value={String(l)}
+                                                        onChange={(v) => updateLanguageItem(idx, v)}
+                                                        editMode={editMode}
+                                                        liveUpdate
+                                                        layoutSafe
+                                                        as="span"
+                                                        className="inline"
+                                                    />
+                                                ) : (
+                                                    String(l)
+                                                )}
+                                            </div>
+                                        ))}
+                                        {languages.length === 0 ? (
+                                            <div className="text-xs text-slate-500">Add languages</div>
                                         ) : null}
                                     </div>
                                 </Section>

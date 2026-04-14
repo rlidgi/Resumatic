@@ -97,6 +97,18 @@ export default function ModernTemplate({
         });
     }, [emit]);
 
+    const updateCertification = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const nextArr = [...current];
+            nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
+            const cleaned = nextArr.filter((c) => String(c?.name || '').trim());
+            const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateCustomHeading = useCallback((sectionIndex: number, value: string) => {
         setEditedData((prev: any) => {
             const sectionsArr = Array.isArray(prev?.custom_sections) ? [...prev.custom_sections] : [];
@@ -175,6 +187,7 @@ export default function ModernTemplate({
     const links = Array.isArray(data.links) ? data.links : [];
     const skills = normalizeList(data.skills);
     const languages = normalizeLanguages(data.languages);
+    const certifications = normalizeCertifications(data.certifications);
     const strengths = extractStrengths(data);
     const education = Array.isArray(data.education) ? data.education : [];
     const experience = Array.isArray(data.experience) ? data.experience : [];
@@ -584,7 +597,77 @@ export default function ModernTemplate({
                             </div>
                         </SideSection>
                     )}
+
+                    {(certifications.length > 0 || showEmpty) && (
+                        <SideSection
+                            title={getHeading('certifications', 'Certifications')}
+                            editMode={editMode}
+                            onTitleChange={(v) => updateSectionHeading('certifications', v)}
+                        >
+                            <div className="space-y-3">
+                                {certifications.slice(0, 5).map((c, idx) => (
+                                    <CertificationRow
+                                        key={idx}
+                                        cert={c}
+                                        editMode={editMode}
+                                        idx={idx}
+                                        onUpdate={updateCertification}
+                                    />
+                                ))}
+                                {certifications.length === 0 ? (
+                                    <div className="text-[11px] text-slate-500">Add certifications to populate this section.</div>
+                                ) : null}
+                            </div>
+                        </SideSection>
+                    )}
                 </aside>
+            </div>
+        </div>
+    );
+}
+
+function CertificationRow({
+    cert,
+    editMode,
+    idx,
+    onUpdate,
+}: {
+    cert: { name: string; issuer: string; year: string };
+    editMode: boolean;
+    idx: number;
+    onUpdate: (index: number, field: 'name' | 'issuer' | 'year', value: string) => void;
+}) {
+    const name = String(cert?.name || '').trim();
+    const issuer = String(cert?.issuer || '').trim();
+    const year = String(cert?.year || '').trim();
+    return (
+        <div>
+            <div className="text-[12px] font-semibold text-slate-900">
+                {editMode ? (
+                    <EditableText
+                        value={name}
+                        placeholder="Certification"
+                        onChange={(v) => onUpdate(idx, 'name', v)}
+                        editMode={editMode}
+                        liveUpdate
+                        layoutSafe
+                        as="div"
+                        className="text-[12px] font-semibold text-slate-900"
+                    />
+                ) : (
+                    name
+                )}
+            </div>
+            <div className="mt-0.5 text-[11px] text-slate-600">
+                {editMode ? (
+                    <>
+                        <EditableText value={issuer} placeholder="Issuer" onChange={(v) => onUpdate(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                        {(issuer && year) ? <span> • </span> : null}
+                        <EditableText value={year} placeholder="Year" onChange={(v) => onUpdate(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                    </>
+                ) : (
+                    [issuer, year].filter(Boolean).join(' • ')
+                )}
             </div>
         </div>
     );
@@ -792,6 +875,30 @@ function normalizeLanguages(value: any): Array<{ name: string; level: string }> 
     }
     if (typeof value === "string") {
         return normalizeList(value).map((n) => ({ name: n, level: "Proficient" }));
+    }
+    return [];
+}
+
+function normalizeCertifications(value: any): Array<{ name: string; issuer: string; year: string }> {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+        return value
+            .map((c) => {
+                if (typeof c === 'string') return { name: c, issuer: '', year: '' };
+                const name = (c as any)?.name || (c as any)?.title || (c as any)?.label || '';
+                const issuer = (c as any)?.issuer || (c as any)?.organization || (c as any)?.provider || '';
+                const year = (c as any)?.year || (c as any)?.date || (c as any)?.issued || '';
+                return { name: String(name), issuer: String(issuer), year: String(year) };
+            })
+            .map((x) => ({
+                name: String(x.name || '').trim(),
+                issuer: String(x.issuer || '').trim(),
+                year: String(x.year || '').trim(),
+            }))
+            .filter((x) => x.name);
+    }
+    if (typeof value === 'string') {
+        return normalizeList(value).map((n) => ({ name: n, issuer: '', year: '' }));
     }
     return [];
 }

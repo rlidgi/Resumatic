@@ -2767,3 +2767,383 @@ jinja2.exceptions.TemplateNotFound: partials/_navbar.html
 [2026-03-30T00:43:46.949576Z] local_errors.log initialized
 
 [2026-03-31T05:04:15.755335Z] local_errors.log initialized
+[2026-04-01T08:09:13.420442Z] upload GET: pid=14132 build=1774831151
+[2026-04-01T08:09:24.892963Z] results_route POST: start
+[2026-04-01T08:09:24.912225Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-04-01T08:09:41.285563Z] results_route POST: revise_resume ok revised_len=2025
+[2026-04-01T08:09:41.798076Z] results_route POST: redirecting to results_get
+[2026-04-01T08:09:41.817653Z] results_get GET: start
+[2026-04-01T08:09:41.818769Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:27:00.987178Z] local_errors.log initialized
+
+[2026-04-01T08:27:34.373055Z] local_errors.log initialized
+[2026-04-01T08:29:24.188297Z] upload GET: pid=14132 build=1774831151
+[2026-04-01T08:29:32.698968Z] results_route POST: start
+[2026-04-01T08:29:32.702968Z] results_route POST: calling revise_resume resume_len=16 jd_len=0
+[2026-04-01T08:29:48.783370Z] results_route POST: revise_resume ok revised_len=1813
+[2026-04-01T08:29:49.260725Z] results_route POST: redirecting to results_get
+[2026-04-01T08:29:49.279177Z] results_get GET: start
+[2026-04-01T08:29:49.280182Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:34:52.945020Z] local_errors.log initialized
+[2026-04-01T08:35:56.615072Z] results_route POST: start
+[2026-04-01T08:35:56.625102Z] results_route POST: calling revise_resume resume_len=22 jd_len=0
+[2026-04-01T08:36:12.281005Z] results_route POST: revise_resume ok revised_len=1826
+[2026-04-01T08:36:12.823576Z] results_route POST: redirecting to results_get
+[2026-04-01T08:36:12.858481Z] results_get GET: start
+[2026-04-01T08:36:12.861276Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:42:21.690685Z] local_errors.log initialized
+[2026-04-01T08:43:22.196261Z] results_route POST: start
+[2026-04-01T08:43:22.204296Z] results_route POST: calling revise_resume resume_len=32 jd_len=0
+[2026-04-01T08:43:38.583548Z] results_route POST: revise_resume ok revised_len=2011
+[2026-04-01T08:43:39.060031Z] results_route POST: redirecting to results_get
+[2026-04-01T08:43:39.078592Z] results_get GET: start
+[2026-04-01T08:43:39.080029Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:47:15.495813Z] local_errors.log initialized
+[2026-04-01T08:48:29.532970Z] results_route POST: start
+[2026-04-01T08:48:29.537101Z] results_route POST: calling revise_resume resume_len=9 jd_len=0
+[2026-04-01T08:48:47.656778Z] results_route POST: revise_resume ok revised_len=2269
+[2026-04-01T08:48:48.077554Z] results_route POST: redirecting to results_get
+[2026-04-01T08:48:48.104456Z] results_get GET: start
+[2026-04-01T08:48:48.106454Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:50:36.453166Z] local_errors.log initialized
+[2026-04-01T08:51:03.085737Z] results_route POST: start
+[2026-04-01T08:51:03.110744Z] results_route POST: calling revise_resume resume_len=18 jd_len=0
+
+[2026-04-01T08:51:15.945481Z] local_errors.log initialized
+[2026-04-01T08:51:20.250124Z] results_route POST: revise_resume ok revised_len=2166
+[2026-04-01T08:51:20.726801Z] results_route POST: redirecting to results_get
+[2026-04-01T08:51:20.764007Z] results_get GET: start
+[2026-04-01T08:51:20.766538Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:53:19.370505Z] local_errors.log initialized
+
+[2026-04-01T08:53:47.534148Z] local_errors.log initialized
+
+[2026-04-01T08:55:39.709612Z] local_errors.log initialized
+
+[2026-04-01T08:56:10.001980Z] local_errors.log initialized
+
+[2026-04-01T08:58:57.072873Z] local_errors.log initialized
+
+[2026-04-01T08:59:14.235616Z] local_errors.log initialized
+
+[2026-04-01T09:01:08.619963Z] local_errors.log initialized
+
+[2026-04-01T09:01:29.708104Z] local_errors.log initialized
+[2026-04-01T09:02:55.340697Z] results_route POST: start
+[2026-04-01T09:02:55.375547Z] results_route POST: calling revise_resume resume_len=27 jd_len=0
+[2026-04-01T09:03:11.566646Z] results_route POST: revise_resume ok revised_len=2052
+[2026-04-01T09:03:12.418381Z] results_route POST: redirecting to results_get
+[2026-04-01T09:03:12.455998Z] results_get GET: start
+[2026-04-01T09:03:12.457004Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-01T09:04:36.541963Z] results_route POST: start
+[2026-04-01T09:04:36.555345Z] results_route POST: calling revise_resume resume_len=1405 jd_len=0
+[2026-04-01T09:05:01.547209Z] results_route POST: revise_resume ok revised_len=4182
+[2026-04-01T09:05:02.421676Z] results_route POST: redirecting to results_get
+[2026-04-01T09:05:02.438100Z] results_get GET: start
+[2026-04-01T09:05:02.439100Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T22:31:05.966384Z] local_errors.log initialized
+
+[2026-04-01T22:34:00.397859Z] local_errors.log initialized
+
+[2026-04-01T22:38:36.861208Z] local_errors.log initialized
+
+[2026-04-01T22:39:14.459684Z] local_errors.log initialized
+
+[2026-04-01T22:39:28.820479Z] local_errors.log initialized
+
+[2026-04-02T23:09:08.527380Z] local_errors.log initialized
+[2026-04-03T21:42:16.870670Z] results_get GET: start
+[2026-04-03T21:42:16.875948Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-04T23:14:06.671984Z] local_errors.log initialized
+
+[2026-04-04T23:19:46.776064Z] local_errors.log initialized
+
+[2026-04-04T23:29:04.733596Z] local_errors.log initialized
+
+[2026-04-05T00:11:38.478086Z] local_errors.log initialized
+
+[2026-04-05T00:35:53.771799Z] local_errors.log initialized
+
+[2026-04-05T00:38:40.881759Z] local_errors.log initialized
+
+[2026-04-05T00:42:40.008625Z] local_errors.log initialized
+
+[2026-04-05T00:43:13.365396Z] local_errors.log initialized
+
+[2026-04-05T00:57:58.405108Z] local_errors.log initialized
+
+[2026-04-05T01:10:41.598378Z] local_errors.log initialized
+
+[2026-04-05T01:11:20.546361Z] local_errors.log initialized
+
+[2026-04-05T01:11:36.829785Z] local_errors.log initialized
+
+[2026-04-05T01:14:35.555829Z] local_errors.log initialized
+
+[2026-04-05T01:15:03.195436Z] local_errors.log initialized
+
+[2026-04-05T01:15:49.865953Z] local_errors.log initialized
+
+[2026-04-05T01:16:17.934173Z] local_errors.log initialized
+
+[2026-04-05T01:16:53.685746Z] local_errors.log initialized
+[2026-04-05T01:16:56.068890Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:17:35.966454Z] local_errors.log initialized
+[2026-04-05T01:17:38.181917Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:18:15.421990Z] local_errors.log initialized
+[2026-04-05T01:18:21.454221Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:32:13.169926Z] local_errors.log initialized
+
+[2026-04-05T01:32:38.900749Z] local_errors.log initialized
+[2026-04-05T01:32:48.874834Z] upload GET: pid=36524 build=1775349737
+
+[2026-04-05T01:34:31.902395Z] local_errors.log initialized
+
+[2026-04-05T01:34:41.240861Z] local_errors.log initialized
+[2026-04-05T01:34:50.171266Z] upload GET: pid=32636 build=1775349737
+
+[2026-04-05T02:21:41.376037Z] local_errors.log initialized
+
+[2026-04-05T02:21:44.591555Z] local_errors.log initialized
+
+[2026-04-05T02:22:00.486847Z] local_errors.log initialized
+
+[2026-04-05T02:22:58.838358Z] local_errors.log initialized
+
+[2026-04-05T02:23:26.184399Z] local_errors.log initialized
+
+[2026-04-05T02:26:15.583178Z] local_errors.log initialized
+
+[2026-04-05T02:26:29.100904Z] local_errors.log initialized
+
+[2026-04-05T02:29:47.544681Z] local_errors.log initialized
+
+[2026-04-05T02:30:17.327057Z] local_errors.log initialized
+
+[2026-04-05T02:30:19.262182Z] local_errors.log initialized
+
+[2026-04-05T02:36:21.581291Z] local_errors.log initialized
+
+[2026-04-05T02:38:28.079629Z] local_errors.log initialized
+
+[2026-04-05T02:38:38.054513Z] local_errors.log initialized
+
+[2026-04-05T02:38:56.670843Z] local_errors.log initialized
+
+[2026-04-05T02:39:06.156122Z] local_errors.log initialized
+
+[2026-04-05T02:44:45.218272Z] local_errors.log initialized
+
+[2026-04-05T02:44:52.757981Z] local_errors.log initialized
+
+[2026-04-05T02:45:31.382510Z] local_errors.log initialized
+
+[2026-04-05T02:45:42.097481Z] local_errors.log initialized
+
+[2026-04-05T02:46:07.571417Z] local_errors.log initialized
+
+[2026-04-05T02:46:22.235181Z] local_errors.log initialized
+
+[2026-04-05T02:49:28.866863Z] local_errors.log initialized
+
+[2026-04-05T02:51:24.460295Z] local_errors.log initialized
+
+[2026-04-05T03:12:14.103670Z] local_errors.log initialized
+
+[2026-04-05T03:13:12.751939Z] local_errors.log initialized
+
+[2026-04-05T03:13:30.215216Z] local_errors.log initialized
+
+[2026-04-06T01:52:10.661757Z] local_errors.log initialized
+
+[2026-04-08T01:51:37.790533Z] local_errors.log initialized
+
+[2026-04-08T04:36:01.946667Z] local_errors.log initialized
+
+[2026-04-08T04:57:42.004011Z] local_errors.log initialized
+
+[2026-04-08T05:20:28.671389Z] local_errors.log initialized
+
+[2026-04-09T08:00:00.151578Z] local_errors.log initialized
+
+[2026-04-09T19:32:14.986808Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-04-09T19:32:25.088514Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+[2026-04-09T19:33:20.142950Z] upload GET: pid=44796 build=1775634928
+
+[2026-04-12T03:20:43.316816Z] local_errors.log initialized
+[2026-04-12T03:21:12.337718Z] upload GET: pid=30324 build=1775634928
+[2026-04-12T03:21:20.653226Z] results_route POST: start
+[2026-04-12T03:21:20.685099Z] results_route POST: calling revise_resume resume_len=9 jd_len=0
+[2026-04-12T03:21:38.941016Z] results_route POST: revise_resume ok revised_len=2250
+[2026-04-12T03:21:39.445725Z] results_route POST: redirecting to results_get
+[2026-04-12T03:21:39.468488Z] results_get GET: start
+[2026-04-12T03:21:39.469489Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T03:21:53.445984Z] results_get GET: start
+[2026-04-12T03:21:53.450378Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:43:11.325202Z] upload GET: pid=30324 build=1775634928
+[2026-04-12T05:43:32.625888Z] results_route POST: start
+[2026-04-12T05:43:32.636578Z] results_route POST: received upload filename=updated_actuarial_resume_4-internship.docx
+[2026-04-12T05:43:32.798280Z] results_route POST: extracted_text_len=2057
+[2026-04-12T05:43:32.799281Z] results_route POST: calling revise_resume resume_len=2057 jd_len=0
+[2026-04-12T05:43:57.214422Z] results_route POST: revise_resume ok revised_len=3586
+[2026-04-12T05:43:57.738521Z] results_route POST: redirecting to results_get
+[2026-04-12T05:43:57.767752Z] results_get GET: start
+[2026-04-12T05:43:57.768776Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:44:27.654593Z] results_get GET: start
+[2026-04-12T05:44:27.655604Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:45:23.772126Z] results_get GET: start
+[2026-04-12T05:45:23.774118Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:50:11.951210Z] results_get GET: start
+[2026-04-12T05:50:11.953204Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T05:51:20.938877Z] local_errors.log initialized
+[2026-04-12T05:52:01.699902Z] upload GET: pid=23980 build=1775634928
+[2026-04-12T05:52:13.836046Z] results_route POST: start
+[2026-04-12T05:52:13.839521Z] results_route POST: received upload filename=updated_actuarial_resume_4.docx
+[2026-04-12T05:52:13.872550Z] results_route POST: extracted_text_len=2065
+[2026-04-12T05:52:13.873542Z] results_route POST: calling revise_resume resume_len=2065 jd_len=0
+[2026-04-12T05:52:40.134082Z] results_route POST: revise_resume ok revised_len=3354
+[2026-04-12T05:52:40.602209Z] results_route POST: redirecting to results_get
+[2026-04-12T05:52:41.681361Z] results_get GET: start
+[2026-04-12T05:52:41.682362Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:58:56.385266Z] results_get GET: start
+[2026-04-12T05:58:56.385584Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T05:59:22.472740Z] local_errors.log initialized
+[2026-04-12T05:59:26.585410Z] results_get GET: start
+[2026-04-12T05:59:26.586409Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T06:09:08.929407Z] local_errors.log initialized
+
+[2026-04-12T06:09:27.242241Z] local_errors.log initialized
+[2026-04-12T06:36:52.569599Z] upload GET: pid=25908 build=1775634928
+
+[2026-04-13T00:49:20.729158Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+[2026-04-13T00:49:54.659173Z] results_route POST: start
+[2026-04-13T00:49:54.680085Z] results_route POST: calling revise_resume resume_len=19 jd_len=0
+[2026-04-13T00:50:06.183614Z] results_route POST: revise_resume ok revised_len=2085
+[2026-04-13T00:50:06.688092Z] results_route POST: redirecting to results_get
+[2026-04-13T00:50:06.706596Z] results_get GET: start
+[2026-04-13T00:50:06.707592Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-13T01:07:04.372678Z] results_route POST: start
+[2026-04-13T01:07:04.377516Z] results_route POST: calling revise_resume resume_len=17 jd_len=0
+[2026-04-13T01:07:18.871043Z] results_route POST: revise_resume ok revised_len=2203
+[2026-04-13T01:07:19.343452Z] results_route POST: redirecting to results_get
+[2026-04-13T01:07:19.360279Z] results_get GET: start
+[2026-04-13T01:07:19.360279Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-13T01:08:13.853637Z] local_errors.log initialized
+[2026-04-13T01:08:27.312633Z] results_route POST: start
+[2026-04-13T01:08:27.318409Z] results_route POST: calling revise_resume resume_len=16 jd_len=0
+[2026-04-13T01:08:41.748764Z] results_route POST: revise_resume ok revised_len=2147
+[2026-04-13T01:08:42.248153Z] results_route POST: redirecting to results_get
+[2026-04-13T01:08:42.286121Z] results_get GET: start
+[2026-04-13T01:08:42.290124Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:37:22.602071Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:37:30.777571Z] results_route POST: start
+[2026-04-14T04:37:30.798189Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-04-14T04:37:44.999273Z] results_route POST: revise_resume ok revised_len=2107
+[2026-04-14T04:37:45.477079Z] results_route POST: redirecting to results_get
+[2026-04-14T04:37:50.428136Z] results_route POST: start
+[2026-04-14T04:37:50.430135Z] results_route POST: calling revise_resume resume_len=12 jd_len=0
+[2026-04-14T04:38:03.757912Z] results_route POST: revise_resume ok revised_len=1911
+[2026-04-14T04:38:04.278562Z] results_route POST: redirecting to results_get
+[2026-04-14T04:38:04.315061Z] results_get GET: start
+[2026-04-14T04:38:04.317053Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:51:39.080433Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:52:06.382872Z] results_route POST: start
+[2026-04-14T04:52:06.424666Z] results_route POST: received upload filename=actuarial_resume.docx
+[2026-04-14T04:52:08.199171Z] results_route POST: extracted_text_len=1318
+[2026-04-14T04:52:08.201162Z] results_route POST: calling revise_resume resume_len=1318 jd_len=0
+[2026-04-14T04:52:30.071480Z] results_route POST: revise_resume ok revised_len=2799
+[2026-04-14T04:52:30.625141Z] results_route POST: redirecting to results_get
+[2026-04-14T04:52:30.658998Z] results_get GET: start
+[2026-04-14T04:52:30.658998Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:52:47.400225Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:56:25.680080Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:56:27.995269Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:59:03.400175Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:59:35.423421Z] results_route POST: start
+[2026-04-14T04:59:35.430639Z] results_route POST: received upload filename=actuarial_resume_12-25_.docx
+[2026-04-14T04:59:35.481547Z] results_route POST: extracted_text_len=2035
+[2026-04-14T04:59:35.484547Z] results_route POST: calling revise_resume resume_len=2035 jd_len=0
+[2026-04-14T04:59:59.772505Z] results_route POST: revise_resume ok revised_len=3596
+[2026-04-14T05:00:00.319791Z] results_route POST: redirecting to results_get

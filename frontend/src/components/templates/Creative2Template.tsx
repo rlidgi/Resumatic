@@ -66,6 +66,30 @@ export default function Creative2Template({
         });
     }, [emit]);
 
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...(prev || {}), languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const nextArr = [...current];
+            nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
+            const cleaned = nextArr.filter((c) => String((c as any)?.name || '').trim());
+            const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateSectionHeading = useCallback((key: string, heading: string) => {
         setEditedData((prev: any) => {
             const prevHeadings = (prev?.section_headings && typeof prev.section_headings === 'object') ? prev.section_headings : {};
@@ -135,6 +159,7 @@ export default function Creative2Template({
     const education = Array.isArray(data.education) ? data.education : [];
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const certifications = normalizeCertifications(data.certifications);
+    const languages = normalizeList(data.languages);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
     const website =
@@ -388,10 +413,33 @@ export default function Creative2Template({
                                                     <div key={idx} className="flex gap-3 creative2-item">
                                                         <span className="w-2 h-2 rounded-full border border-[#f25a4b] mt-1.5 flex-shrink-0" />
                                                         <div className="flex-1">
-                                                            <div className="font-semibold text-sm">{name || 'Certification'}</div>
-                                                            {(issuer || year) ? (
+                                                            <div className="font-semibold text-sm">
+                                                                {editMode ? (
+                                                                    <EditableText
+                                                                        value={name}
+                                                                        placeholder="Certification"
+                                                                        onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                                        editMode={editMode}
+                                                                        liveUpdate
+                                                                        layoutSafe
+                                                                        as="span"
+                                                                        className="inline"
+                                                                    />
+                                                                ) : (
+                                                                    name || 'Certification'
+                                                                )}
+                                                            </div>
+                                                            {(issuer || year || editMode) ? (
                                                                 <div className="text-xs text-black/60">
-                                                                    {[issuer, year].filter(Boolean).join(' • ')}
+                                                                    {editMode ? (
+                                                                        <>
+                                                                            <EditableText value={issuer} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                                            {(issuer && year) ? <span> • </span> : null}
+                                                                            <EditableText value={year} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                                        </>
+                                                                    ) : (
+                                                                        [issuer, year].filter(Boolean).join(' • ')
+                                                                    )}
                                                                 </div>
                                                             ) : null}
                                                         </div>
@@ -400,6 +448,36 @@ export default function Creative2Template({
                                             })}
                                             {certifications.length === 0 ? (
                                                 <div className="text-sm text-black/60">Add certifications</div>
+                                            ) : null}
+                                        </div>
+                                    </Section>
+                                )}
+
+                                {(languages.length > 0 || showEmpty) && (
+                                    <Section title={getHeading('languages', 'Languages')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('languages', v)}>
+                                        <div className="space-y-2">
+                                            {languages.map((l: any, idx: number) => (
+                                                <div key={idx} className="flex gap-3 creative2-item">
+                                                    <span className="w-2 h-2 rounded-full border border-[#f25a4b] mt-1.5 flex-shrink-0" />
+                                                    <div className="text-sm leading-relaxed text-black/80">
+                                                        {editMode ? (
+                                                            <EditableText
+                                                                value={String(l)}
+                                                                onChange={(v) => updateLanguageItem(idx, v)}
+                                                                editMode={editMode}
+                                                                liveUpdate
+                                                                layoutSafe
+                                                                as="span"
+                                                                className="inline"
+                                                            />
+                                                        ) : (
+                                                            String(l)
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {languages.length === 0 ? (
+                                                <div className="text-sm text-black/60">Add languages</div>
                                             ) : null}
                                         </div>
                                     </Section>
@@ -486,3 +564,4 @@ function normalizeCertifications(value: any): any[] {
     }
     return [];
 }
+

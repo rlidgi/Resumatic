@@ -2329,25 +2329,7 @@ export default function TemplateViewer() {
                                                         <ListField
                                                             label={getSectionLabel('languages', 'Languages')}
                                                             values={languageVals}
-                                                            onChange={(vals: string[]) => {
-                                                                const nextVals = Array.isArray(vals) ? vals : [];
-                                                                const hasAny = nextVals.some((v) => String(v || '').trim().length > 0);
-
-                                                                if (hasAny) {
-                                                                    // If the user previously hid (deleted) the Languages section via the template UI,
-                                                                    // adding languages should make it visible again.
-                                                                    const nextHidden = (Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).filter(
-                                                                        (k) => String(k) !== 'languages'
-                                                                    );
-                                                                    setHiddenSectionKeys(nextHidden);
-
-                                                                    if (Array.isArray(sectionOrder) && sectionOrder.length > 0 && !sectionOrder.includes('languages')) {
-                                                                        setSectionOrder([...sectionOrder, 'languages']);
-                                                                    }
-                                                                }
-
-                                                                setField('languages', nextVals);
-                                                            }}
+                                                            onChange={(vals: string[]) => setField('languages', vals)}
                                                         />
                                                     );
 

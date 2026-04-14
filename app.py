@@ -3635,6 +3635,16 @@ def plans():
     )
 
 
+_TRIAL_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/cNi8wJ4ko0cTewq1cD7Vm09"
+
+
+@app.route("/go/trial")
+@app.route("/go/trial/")
+@login_required
+def go_trial():
+    return redirect(_TRIAL_STRIPE_PAYMENT_LINK)
+
+
 def _get_plan_config(plan_id: str) -> Optional[dict]:
     pid = (plan_id or '').strip()
     if not pid:
@@ -4299,7 +4309,7 @@ def checkout():
 
     # Enforce: 2-week trial is a one-time offer.
     if plan_id == 'trial_14d' and _trial_already_used_for_user(current_user):
-        flash("The 2-week trial is a one-time offer and has already been used on this account. Please choose Monthly or Annual.", "warning")
+        flash("The trial subscription is a one-time offer and has already been used on this account. Please choose Monthly or Annual.", "warning")
         return redirect(url_for("plans"))
 
     # Upgrade during trial:
@@ -5608,6 +5618,80 @@ def parse_resume_for_template():
             'source_revision_id': str(results_data.get('source_revision_id') or '').strip(),
         }
         session.modified = True
+
+        # Best-effort: persist an initial structured snapshot for the chosen template so the
+        # revision card in /my_revisions shows the template version immediately, without
+        # requiring edit-mode + "Save Changes".
+        try:
+            source_revision_id = str(session.get('template_data', {}).get('source_revision_id') or '').strip()
+            if (
+                source_revision_id
+                and getattr(current_user, 'is_authenticated', False)
+                and isinstance(structured_resume, dict)
+                and structured_resume
+            ):
+                template_id = _canonical_template_id(template_name or 'professional')
+                snapshot = json.dumps(structured_resume, ensure_ascii=False)
+                snapshot_bytes = snapshot.encode('utf-8')
+
+                table_client = get_table_client()
+                try:
+                    existing = table_client.get_entity(
+                        partition_key=str(current_user.id),
+                        row_key=str(source_revision_id),
+                    )
+                except Exception:
+                    existing = None
+
+                if existing is not None:
+                    existing['template_id'] = template_id
+                    existing['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+
+                    # Track all saved templates for this revision (small JSON list)
+                    try:
+                        current_list_raw = str(existing.get('template_saved_templates') or '').strip()
+                        current_list = json.loads(current_list_raw) if current_list_raw else []
+                        if not isinstance(current_list, list):
+                            current_list = []
+                    except Exception:
+                        current_list = []
+                    saved_set = set([
+                        _canonical_template_id(t)
+                        for t in current_list
+                        if str(t or '').strip()
+                    ])
+                    saved_set.add(template_id)
+                    try:
+                        existing['template_saved_templates'] = json.dumps(sorted(saved_set), ensure_ascii=False)
+                    except Exception:
+                        pass
+
+                    # Store per-template snapshot (allows multiple template versions per revision)
+                    per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
+                    existing[per_at_prop] = existing['template_saved_at']
+
+                    # Azure Table Storage string properties have tight size limits.
+                    # Prefer plain JSON when small; otherwise fall back to gzipped base64.
+                    if len(snapshot_bytes) <= 60_000:
+                        existing['template_structured_resume'] = snapshot
+                        existing['template_structured_resume_gz_b64'] = ''
+                        existing[per_plain_prop] = snapshot
+                        existing[per_gz_prop] = ''
+                        table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                    else:
+                        import base64
+                        import gzip
+                        gz = gzip.compress(snapshot_bytes, compresslevel=9)
+                        b64 = base64.b64encode(gz).decode('ascii')
+                        if len(b64.encode('ascii')) <= 60_000:
+                            existing['template_structured_resume'] = ''
+                            existing['template_structured_resume_gz_b64'] = b64
+                            existing[per_plain_prop] = ''
+                            existing[per_gz_prop] = b64
+                            table_client.update_entity(existing, mode=UpdateMode.MERGE)
+        except Exception:
+            # Do not block the user if template snapshot persistence fails.
+            pass
         
         return jsonify({
             "success": True,
@@ -10773,4 +10857,3 @@ if __name__ == "__main__":
 
     logger.info('Dev server starting (build=%s pid=%s host=%s port=%s reloader=%s)', _BUILD_ID, os.getpid(), host, port, use_reloader)
     app.run(debug=True, host=host, port=port, use_reloader=use_reloader)
-

@@ -281,7 +281,10 @@
             box-shadow: var(--shadow);
             position: relative;
             overflow: hidden;
-            min-height: 390px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .card::before {
@@ -431,6 +434,17 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+
+        .card .btn {
+            margin-top: auto;
+        }
+
+        /* Keep feature rows consistent at 4-card desktop layout so buttons line up */
+        @media (min-width: 981px) {
+            .features li {
+                white-space: nowrap;
+            }
         }
 
         .features li {
@@ -650,7 +664,7 @@
                 <div class="pill">🔒 Secure checkout • Cancel anytime</div>
                 <h1>Get on the path to Job search success!</h1>
                 <p class="sub">
-                    Start with a low-cost 2-week trial or save more with annual billing.
+                    Start with a 1-week trial or save more with annual billing.
                     All plans include unlimited edits and ATS-friendly formatting.
                 </p>
             </div>
@@ -692,36 +706,35 @@
                 <p class="plan">Free</p>
                 <div class="price"><strong>$0</strong></div>
                 <p class="note">Try Resumatic with a couple of revisions.</p>
-                <a class="btn lilac" href="/upload">Continue free</a>
-
                 <p class="micro"><b>No credit card required.</b></p>
+                <a class="btn lilac" href="/upload">Continue free</a>
 
                 <ul class="features">
                     <li><span class="check"></span>2 resume revisions</li>
-                    <li><span class="check"></span>All templates + sections</li>
+
                     <li><span class="check"></span><b>No PDF downloads</b></li>
                 </ul>
             </article>
 
             <!-- Trial -->
             <article class="card">
-                <p class="plan">2-Week Trial</p>
-                <div class="price"><strong>$1.85</strong><span>for 14 days</span></div>
+                <p class="plan">1 Week Free Trial</p>
+                <div class="price"><strong>
+                    </strong><span></span></div>
                 {% if trial_unavailable %}
                 <p class="note">This one-time trial has already been used on this account.</p>
+                <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b>.</p>
                 <button class="btn disabled" type="button" disabled aria-disabled="true">Trial already used</button>
-                <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b> below.</p>
                 {% else %}
                 <p class="note">Try everything and download your resume today.</p>
+                <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
                 <a class="btn lilac"
                     href="/checkout?plan=trial_14d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
-
-                <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
                 {% endif %}
 
                 <ul class="features">
                     <li><span class="check"></span>Unlimited resume revisions</li>
-                    <li><span class="check"></span>All templates + sections</li>
+
                     <li><span class="check"></span>PDF downloads</li>
                 </ul>
             </article>
@@ -732,13 +745,12 @@
                 <p class="plan">Annual</p>
                 <div class="price"><strong>$6.95</strong><span>/ month</span></div>
                 <p class="note">Lowest monthly cost. Great if you want ongoing access.</p>
+                <p class="micro"><b>Billed annually.</b> Equivalent to $6.95/month.</p>
                 <a class="btn primary" href="/checkout?plan=annual_6_95">Go annual</a>
 
-                <p class="micro"><b>Billed annually.</b> Equivalent to $6.95/month.</p>
-
                 <ul class="features">
-                    <li><span class="check"></span>Everything in Trial</li>
-                    <li><span class="check"></span>Ongoing updates + new templates</li>
+
+                    <li><span class="check"></span>Ongoing updates</li>
                     <li><span class="check"></span>Priority support</li>
                 </ul>
             </article>
@@ -748,14 +760,13 @@
                 <p class="plan">Monthly</p>
                 <div class="price"><strong>$10.95</strong><span>/ month</span></div>
                 <p class="note">Flexible month-to-month access.</p>
+                <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
                 <a class="btn lilac"
                     href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go
                     monthly</a>
 
-                <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
-
                 <ul class="features">
-                    <li><span class="check"></span>Everything in Trial</li>
+
                     <li><span class="check"></span>Unlimited resume revisions</li>
                     <li><span class="check"></span>PDF downloads</li>
                 </ul>
@@ -766,16 +777,16 @@
             <h2>FAQ</h2>
             <div class="faq">
                 <details>
-                    <summary>What happens after the 2-week trial?</summary>
+                    <summary>What happens after the 1-week trial?</summary>
                     <p>
-                        If you don’t cancel before the end of the 14 days, your subscription renews based on your
+                        If you don’t cancel before the end of the 7 days, your subscription renews based on your
                         default renewal plan
                         (commonly monthly). You can change or cancel anytime in your account settings.
                     </p>
                 </details>
                 <details>
                     <summary>Can I switch plans later?</summary>
-                    <p>Yes — you can upgrade or switch billing options anytime.</p>
+                    <p>Yes, you can upgrade or switch billing options anytime.</p>
                 </details>
                 <details>
                     <summary>Is payment secure?</summary>

@@ -162,6 +162,8 @@ export default function ExecutiveTemplate({
 
     const summary = String(editedData.summary || "").trim();
     const skills: string[] = Array.isArray(editedData.skills) ? editedData.skills : [];
+    const languages = normalizeList((editedData as any)?.languages);
+    const certifications = normalizeCertifications((editedData as any)?.certifications);
     const experience = Array.isArray(editedData.experience) ? editedData.experience : [];
     const projects = Array.isArray(editedData.projects) ? editedData.projects : [];
     const education = Array.isArray(editedData.education) ? editedData.education : [];
@@ -187,6 +189,30 @@ export default function ExecutiveTemplate({
             const nextSkills = [...(prev.skills || [])];
             nextSkills[index] = value;
             const next = { ...prev, skills: nextSkills };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev) => {
+            const list = normalizeList((prev as any)?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...prev, languages: cleaned };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
+    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev) => {
+            const current = normalizeCertifications((prev as any)?.certifications);
+            const nextArr = [...current];
+            nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
+            const cleaned = nextArr.filter((c) => String((c as any)?.name || '').trim());
+            const next = { ...prev, certifications: cleaned };
             onContentChange?.(next);
             return next;
         });
@@ -344,6 +370,87 @@ export default function ExecutiveTemplate({
                             ))
                         ) : (
                             <span className="text-slate-400">Skills go here.</span>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
+        if (languages.length > 0 || showEmpty) {
+            baseRows.push({
+                key: 'languages',
+                headingFallback: 'Languages',
+                label: formatLabel(getHeading('languages', 'Languages')),
+                content: (
+                    <div className="text-[11px] text-slate-700">
+                        {languages.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                {languages.map((l, idx) => (
+                                    editMode ? (
+                                        <EditableText
+                                            key={idx}
+                                            value={String(l)}
+                                            onChange={(v) => updateLanguageItem(idx, v)}
+                                            editMode={editMode}
+                                            className="inline text-[11px] text-slate-700"
+                                            as="span"
+                                            liveUpdate
+                                            layoutSafe
+                                        />
+                                    ) : (
+                                        <span key={idx}>{String(l)}</span>
+                                    )
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-slate-400">Languages go here.</span>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
+        if (certifications.length > 0 || showEmpty) {
+            baseRows.push({
+                key: 'certifications',
+                headingFallback: 'Certifications',
+                label: formatLabel(getHeading('certifications', 'Certifications')),
+                content: (
+                    <div className="space-y-2 text-[11px] text-slate-700">
+                        {certifications.length > 0 ? (
+                            certifications.map((c, idx) => (
+                                <div key={idx}>
+                                    <div className="font-semibold text-slate-800">
+                                        {editMode ? (
+                                            <EditableText
+                                                value={String((c as any)?.name || '')}
+                                                placeholder="Certification"
+                                                onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                editMode={editMode}
+                                                className="inline text-[11px] font-semibold text-slate-800"
+                                                as="span"
+                                                liveUpdate
+                                                layoutSafe
+                                            />
+                                        ) : (
+                                            (c as any)?.name
+                                        )}
+                                    </div>
+                                    <div className="text-slate-500">
+                                        {editMode ? (
+                                            <>
+                                                <EditableText value={String((c as any)?.issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} className="inline text-[11px] text-slate-500" as="span" liveUpdate layoutSafe />
+                                                {(String((c as any)?.issuer || '').trim() && String((c as any)?.year || '').trim()) ? <span> • </span> : null}
+                                                <EditableText value={String((c as any)?.year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} className="inline text-[11px] text-slate-500" as="span" liveUpdate layoutSafe />
+                                            </>
+                                        ) : (
+                                            [String((c as any)?.issuer || '').trim(), String((c as any)?.year || '').trim()].filter(Boolean).join(' • ')
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <span className="text-slate-400">Certifications go here.</span>
                         )}
                     </div>
                 ),
@@ -605,7 +712,7 @@ export default function ExecutiveTemplate({
             return next;
         }
         return [...baseRows, ...customRows];
-    }, [summary, showEmpty, skills, experience, projects, education, customSections, editMode, updateField, updateExperience, updateEducation, updateProject, updateSkill, getHeading, updateCustomHeading, updateCustomItem, updateCustomBody]);
+    }, [summary, showEmpty, skills, languages, certifications, experience, projects, education, customSections, editMode, updateField, updateExperience, updateEducation, updateProject, updateSkill, getHeading, updateCustomHeading, updateCustomItem, updateCustomBody]);
 
     // Initialize section order if empty
     useEffect(() => {
@@ -977,6 +1084,60 @@ function getInitials(fullName: string): string {
     const first = parts[0]?.[0] || "J";
     const last = (parts.length > 1 ? parts[parts.length - 1]?.[0] : parts[0]?.[1]) || "D";
     return `${String(first).toUpperCase()}${String(last).toUpperCase()}`;
+}
+
+function normalizeList(value: any): string[] {
+    if (Array.isArray(value)) return value.map((v) => String(v)).map((s) => s.trim()).filter(Boolean);
+    if (typeof value === 'string') {
+        return value
+            .split(/[,•]|\\n/g)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    return [];
+}
+
+function normalizeLanguages(value: any): Array<{ name: string; level: string }> {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+        return value
+            .map((l) => {
+                if (typeof l === 'string') return { name: l, level: 'Proficient' };
+                const name = (l as any)?.name || (l as any)?.language || (l as any)?.label || '';
+                const level = (l as any)?.level || (l as any)?.proficiency || (l as any)?.rating || '';
+                return { name: String(name), level: String(level || 'Proficient') };
+            })
+            .map((x) => ({ name: String(x.name || '').trim(), level: String(x.level || '').trim() }))
+            .filter((x) => x.name);
+    }
+    if (typeof value === 'string') {
+        return normalizeList(value).map((n) => ({ name: n, level: 'Proficient' }));
+    }
+    return [];
+}
+
+function normalizeCertifications(value: any): Array<{ name: string; issuer: string; year: string }> {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+        return value
+            .map((c) => {
+                if (typeof c === 'string') return { name: c, issuer: '', year: '' };
+                const name = (c as any)?.name || (c as any)?.title || (c as any)?.label || '';
+                const issuer = (c as any)?.issuer || (c as any)?.organization || (c as any)?.provider || '';
+                const year = (c as any)?.year || (c as any)?.date || (c as any)?.issued || '';
+                return { name: String(name), issuer: String(issuer), year: String(year) };
+            })
+            .map((x) => ({
+                name: String(x.name || '').trim(),
+                issuer: String(x.issuer || '').trim(),
+                year: String(x.year || '').trim(),
+            }))
+            .filter((x) => x.name);
+    }
+    if (typeof value === 'string') {
+        return normalizeList(value).map((n) => ({ name: n, issuer: '', year: '' }));
+    }
+    return [];
 }
 
 

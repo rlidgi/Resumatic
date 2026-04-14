@@ -85,6 +85,18 @@ export default function BoldProfessionalTemplate({
         });
     }, [emit]);
 
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...(prev || {}), languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateCustomHeading = useCallback((sectionIndex: number, value: string) => {
         setEditedData((prev: any) => {
             const sectionsArr = Array.isArray(prev?.custom_sections) ? [...prev.custom_sections] : [];
@@ -186,6 +198,7 @@ export default function BoldProfessionalTemplate({
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const education = Array.isArray(data.education) ? data.education : [];
     const certifications = Array.isArray(data.certifications) ? data.certifications : normalizeCerts(data.certifications);
+    const languages = normalizeList(data.languages);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
     const bodyRows: SortableSectionRow[] = useMemo(() => {
@@ -377,6 +390,43 @@ export default function BoldProfessionalTemplate({
             });
         }
 
+        if (languages.length > 0 || showEmpty) {
+            rows.push({
+                key: 'languages',
+                title: getHeading('languages', 'Languages'),
+                content: (
+                    <Section
+                        title={getHeading('languages', 'Languages')}
+                        editMode={editMode}
+                        onTitleChange={(v) => updateSectionHeading('languages', v)}
+                    >
+                        {languages.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-black/80">
+                                {languages.map((l, idx) => (
+                                    editMode ? (
+                                        <EditableText
+                                            key={idx}
+                                            value={String(l)}
+                                            onChange={(v) => updateLanguageItem(idx, v)}
+                                            editMode={editMode}
+                                            liveUpdate
+                                            layoutSafe
+                                            as="span"
+                                            className="inline"
+                                        />
+                                    ) : (
+                                        <span key={idx}>{String(l)}</span>
+                                    )
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-black/60">Add languages to populate this section.</div>
+                        )}
+                    </Section>
+                ),
+            });
+        }
+
         if (education.length > 0) {
             rows.push({
                 key: 'education',
@@ -434,6 +484,7 @@ export default function BoldProfessionalTemplate({
         emit,
         experience,
         getHeading,
+        languages,
         localRatings,
         projects,
         showEmpty,
@@ -727,5 +778,6 @@ function normalizeCerts(value: any): any[] {
     }
     return [];
 }
+
 
 

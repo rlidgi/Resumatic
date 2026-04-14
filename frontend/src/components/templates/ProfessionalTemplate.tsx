@@ -151,6 +151,31 @@ export default function ProfessionalTemplate({
         });
     }, [emit]);
 
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...prev, languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.certifications) ? prev.certifications : [];
+            const nextArr = [...current];
+            const base = (typeof nextArr[index] === 'object' && nextArr[index]) ? nextArr[index] : { name: '', issuer: '', year: '' };
+            nextArr[index] = { ...(base as any), [field]: value };
+            const cleaned = nextArr.filter((c: any) => String(c?.name || c?.title || '').trim());
+            const next = { ...prev, certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const sections = editedData || {};
 
     const getHeading = useCallback((key: string, fallback: string) => {
@@ -536,7 +561,28 @@ export default function ProfessionalTemplate({
                             if (typeof cert === 'string') {
                                 return (
                                     <div key={idx} className="text-slate-700 text-sm">
-                                        • {cert}
+                                        • {editMode ? (
+                                            <EditableText
+                                                value={String(cert)}
+                                                onChange={(v) => {
+                                                    // keep string certifications editable without forcing object shape
+                                                    setEditedData((prev: any) => {
+                                                        const cur = Array.isArray(prev?.certifications) ? [...prev.certifications] : [];
+                                                        cur[idx] = v;
+                                                        const next = { ...prev, certifications: cur };
+                                                        emit(next);
+                                                        return next;
+                                                    });
+                                                }}
+                                                editMode={editMode}
+                                                liveUpdate
+                                                layoutSafe
+                                                as="span"
+                                                className="inline"
+                                            />
+                                        ) : (
+                                            cert
+                                        )}
                                     </div>
                                 );
                             }
@@ -548,16 +594,83 @@ export default function ProfessionalTemplate({
                             return (
                                 <div key={idx} className="flex items-baseline justify-between gap-4">
                                     <div className="min-w-0">
-                                        <div className="font-bold text-slate-900 text-sm">{name}</div>
+                                        <div className="font-bold text-slate-900 text-sm">
+                                            {editMode ? (
+                                                <EditableText
+                                                    value={String(name || '')}
+                                                    placeholder="Certification"
+                                                    onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                    editMode={editMode}
+                                                    liveUpdate
+                                                    layoutSafe
+                                                    as="div"
+                                                    className="font-bold text-slate-900 text-sm"
+                                                />
+                                            ) : (
+                                                name
+                                            )}
+                                        </div>
                                         {(issuer || year) && (
                                             <div className="text-xs text-slate-600">
-                                                {[issuer, year].filter(Boolean).join(' • ')}
+                                                {editMode ? (
+                                                    <>
+                                                        <EditableText value={String(issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                        {(String(issuer || '').trim() && String(year || '').trim()) ? <span> • </span> : null}
+                                                        <EditableText value={String(year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                    </>
+                                                ) : (
+                                                    [issuer, year].filter(Boolean).join(' • ')
+                                                )}
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             );
                         })}
+                    </div>
+                </Section>
+            ),
+        });
+    }
+
+    const languages = normalizeList((sections as any)?.languages);
+    if (languages.length > 0) {
+        rows.push({
+            key: 'languages',
+            title: getHeading('languages', 'Languages'),
+            content: (
+                <Section
+                    title={getHeading('languages', 'Languages')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('languages', 'Languages')}
+                            onChange={(v) => updateSectionHeading('languages', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700 text-sm">
+                        {languages.map((l, idx) => (
+                            editMode ? (
+                                <EditableText
+                                    key={idx}
+                                    value={String(l)}
+                                    onChange={(v) => updateLanguageItem(idx, v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    as="span"
+                                    className="inline"
+                                />
+                            ) : (
+                                <span key={idx}>{String(l)}</span>
+                            )
+                        ))}
                     </div>
                 </Section>
             ),
@@ -728,4 +841,15 @@ function Section({
             {children}
         </div>
     );
+}
+
+function normalizeList(value: any): string[] {
+    if (Array.isArray(value)) return value.map((v) => String(v)).map((s) => s.trim()).filter(Boolean);
+    if (typeof value === 'string') {
+        return value
+            .split(/[,•]|\n/g)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    return [];
 }

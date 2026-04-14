@@ -1583,8 +1583,9 @@ body {
   background: rgba(255, 255, 255, 0.10);
 }
 
-/* Footer badge: don't force into 40x40 social icon circle */
-.footer__social-icon ul li.startupfame-badge a {
+/* Footer badges: don't force into 40x40 social icon circle */
+.footer__social-icon ul li.startupfame-badge a,
+.footer__social-icon ul li.launchigniter-badge a {
   width: auto;
   height: auto;
   margin-right: 0;
@@ -1592,10 +1593,18 @@ body {
   background: transparent;
 }
 
-.footer__social-icon ul li.startupfame-badge a img {
+.footer__social-icon ul li.startupfame-badge a img,
+.footer__social-icon ul li.launchigniter-badge a img {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* Match LaunchIgniter badge size to Startup Fame badge */
+.footer__social-icon ul li.launchigniter-badge a img {
+  width: 100px;
+  height: 30px;
+  object-fit: contain;
 }
 
 .footer__social-icon ul li a i {
