@@ -1,264 +1,127 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { parseResumeContent } from "../../utils/resumeUtils";
-import { RenderMaybeBullets } from "./RenderMaybeBullets";
-import CustomSectionsRenderer from "./CustomSectionsRenderer";
-import {
-    DndContext,
-    closestCenter,
-    pointerWithin,
-    rectIntersection,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
-    DragStartEvent,
-    DragCancelEvent,
-    useDroppable,
-    MeasuringStrategy,
-} from '@dnd-kit/core';
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { EditableSection, EditableText } from './EditableSection';
-import AddSectionButton from "./AddSectionButton";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { parseResumeContent } from '../../utils/resumeUtils';
+import { RenderMaybeBullets } from './RenderMaybeBullets';
+import { EditableText } from './EditableSection';
+import CustomSectionsRenderer from './CustomSectionsRenderer';
+import AddSectionButton from './AddSectionButton';
+import SortableSectionList, { type SortableSectionRow } from './SortableSectionList';
 
-type ExecutiveSectionHeadings = Record<string, string>;
-
-type ExecutiveData = {
-    name?: string;
-    phone?: string;
-    email?: string;
-    location?: string;
-    summary?: string;
-    skills?: string[];
-    experience?: Array<Record<string, any>>;
-    projects?: Array<Record<string, any>>;
-    education?: Array<Record<string, any>>;
-    custom_sections?: Array<Record<string, any>>;
-    section_headings?: ExecutiveSectionHeadings;
-    [key: string]: any;
-};
-
-interface ExecutiveTemplateProps {
-    content: string;
-    editMode?: boolean;
-    sectionOrder?: string[];
-    onSectionOrderChange?: (order: string[]) => void;
-    onContentChange?: (changes: ExecutiveData) => void;
-    hiddenSectionKeys?: string[];
-    onHiddenSectionKeysChange?: (keys: string[]) => void;
-}
-
-const TRASH_DROP_ID = '__trash_drop_zone__';
-
-/**
- * ExecutiveTemplate
- * Timeline-style executive layout:
- * - Header row: initials badge + name + contact line
- * - Left column: section labels
- * - Middle: vertical timeline line with dots
- * - Right: section contents
- */
-export default function ExecutiveTemplate({
+export default function ProfessionalTemplate({
     content,
     editMode = false,
-    sectionOrder = [],
-    onSectionOrderChange,
     onContentChange,
-    hiddenSectionKeys = [],
+    sectionOrder,
+    onSectionOrderChange,
+    hiddenSectionKeys,
     onHiddenSectionKeysChange,
-}: ExecutiveTemplateProps) {
-    const sections = (parseResumeContent(content) || {}) as ExecutiveData;
-
-    const safeHidden = Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : [];
-    const hiddenSet = useMemo(() => new Set(safeHidden.map(String)), [safeHidden]);
-
-    // Local state for inline editing - store entire sections object
-    const [editedData, setEditedData] = useState<ExecutiveData>(sections);
+}: {
+    content: string;
+    editMode?: boolean;
+    onContentChange?: (changes: any) => void;
+    sectionOrder?: string[];
+    onSectionOrderChange?: (order: string[]) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
+}) {
+    const parsed = useMemo(() => parseResumeContent(content), [content]);
+    const [editedData, setEditedData] = useState<any>(parsed);
 
     useEffect(() => {
-        if (sections) {
-            setEditedData(sections);
-        }
-    }, [content]);
+        setEditedData(parsed);
+    }, [parsed]);
 
-    // Generic update function
+    const emit = useCallback((next: any) => {
+        if (onContentChange) onContentChange(next);
+    }, [onContentChange]);
+
     const updateField = useCallback((field: string, value: string) => {
-        setEditedData((prev) => {
-            const updated = { ...prev, [field]: value };
-            if (onContentChange) {
-                onContentChange(updated);
-            }
-            return updated;
+        setEditedData((prev: any) => {
+            const next = { ...prev, [field]: value };
+            emit(next);
+            return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
 
-    // Update experience field
     const updateExperience = useCallback((index: number, field: string, value: string) => {
-        setEditedData((prev) => {
-            const updatedExp = [...(prev.experience || [])];
-            updatedExp[index] = { ...updatedExp[index], [field]: value };
-            const updated = { ...prev, experience: updatedExp };
-            if (onContentChange) {
-                onContentChange(updated);
-            }
-            return updated;
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev.experience) ? [...prev.experience] : [];
+            updated[index] = { ...(updated[index] || {}), [field]: value };
+            const next = { ...prev, experience: updated };
+            emit(next);
+            return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
 
-    // Update education field
     const updateEducation = useCallback((index: number, field: string, value: string) => {
-        setEditedData((prev) => {
-            const updatedEdu = [...(prev.education || [])];
-            updatedEdu[index] = { ...updatedEdu[index], [field]: value };
-            const updated = { ...prev, education: updatedEdu };
-            if (onContentChange) {
-                onContentChange(updated);
-            }
-            return updated;
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev.education) ? [...prev.education] : [];
+            updated[index] = { ...(updated[index] || {}), [field]: value };
+            const next = { ...prev, education: updated };
+            emit(next);
+            return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
+
+    const updateProject = useCallback((index: number, field: string, value: string) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev.projects) ? [...prev.projects] : [];
+            updated[index] = { ...(updated[index] || {}), [field]: value };
+            const next = { ...prev, projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
 
     const updateSectionHeading = useCallback((key: string, heading: string) => {
-        setEditedData((prev) => {
-            const next = {
-                ...prev,
-                section_headings: {
-                    ...(prev.section_headings || {}),
-                    [key]: heading,
-                },
-            };
-            onContentChange?.(next);
+        setEditedData((prev: any) => {
+            const prevHeadings = (prev && typeof prev.section_headings === 'object' && prev.section_headings) ? prev.section_headings : {};
+            const nextHeadings = { ...prevHeadings, [key]: heading };
+            const next = { ...prev, section_headings: nextHeadings };
+            emit(next);
             return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
 
-    const getHeading = useCallback((key: string, fallback: string) => {
-        const map = editedData?.section_headings || {};
-        const value = map?.[key];
-        return typeof value === 'string' && value.trim() ? value : fallback;
-    }, [editedData]);
-
-    const updateCustomHeading = useCallback((index: number, heading: string) => {
-        setEditedData((prev) => {
-            const nextCustom = [...(prev.custom_sections || [])];
-            nextCustom[index] = { ...(nextCustom[index] || {}), heading };
-            const next = { ...prev, custom_sections: nextCustom };
-            onContentChange?.(next);
+    const updateCustomSectionHeading = useCallback((sectionIndex: number, heading: string) => {
+        setEditedData((prev: any) => {
+            const sectionsArr = Array.isArray(prev.custom_sections) ? [...prev.custom_sections] : [];
+            const current = sectionsArr[sectionIndex] || {};
+            sectionsArr[sectionIndex] = { ...(current || {}), heading };
+            const next = { ...prev, custom_sections: sectionsArr };
+            emit(next);
             return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
 
-    const name = String(editedData.name || "Your Name");
-    const initials = getInitials(name);
-    const phone = String(editedData.phone || "").trim();
-    const email = String(editedData.email || "").trim();
-    const location = String(editedData.location || "").trim();
-
-    const summary = String(editedData.summary || "").trim();
-    const skills: string[] = Array.isArray(editedData.skills) ? editedData.skills : [];
-    const languages = normalizeList((editedData as any)?.languages);
-    const certifications = normalizeCertifications((editedData as any)?.certifications);
-    const experience = Array.isArray(editedData.experience) ? editedData.experience : [];
-    const projects = Array.isArray(editedData.projects) ? editedData.projects : [];
-    const education = Array.isArray(editedData.education) ? editedData.education : [];
-    const customSections = Array.isArray(editedData.custom_sections) ? editedData.custom_sections : [];
-
-    const showEmpty = !!(editMode && (editedData as any)?._show_empty_sections);
-
-    // Update projects field
-    const updateProject = useCallback((index: number, field: string, value: string) => {
-        setEditedData((prev) => {
-            const updatedProjects = [...(prev.projects || [])];
-            updatedProjects[index] = { ...updatedProjects[index], [field]: value };
-            const updated = { ...prev, projects: updatedProjects };
-            if (onContentChange) {
-                onContentChange(updated);
-            }
-            return updated;
-        });
-    }, [onContentChange]);
-
-    const updateSkill = useCallback((index: number, value: string) => {
-        setEditedData((prev) => {
-            const nextSkills = [...(prev.skills || [])];
-            nextSkills[index] = value;
-            const next = { ...prev, skills: nextSkills };
-            onContentChange?.(next);
+    const updateCustomSectionItem = useCallback((sectionIndex: number, itemIndex: number, field: string, value: string) => {
+        setEditedData((prev: any) => {
+            const sectionsArr = Array.isArray(prev.custom_sections) ? [...prev.custom_sections] : [];
+            const currentSection = sectionsArr[sectionIndex] || {};
+            const items = Array.isArray(currentSection.items) ? [...currentSection.items] : [];
+            const currentItem = (items[itemIndex] && typeof items[itemIndex] === 'object') ? items[itemIndex] : {};
+            items[itemIndex] = { ...(currentItem || {}), [field]: value };
+            sectionsArr[sectionIndex] = { ...(currentSection || {}), items };
+            const next = { ...prev, custom_sections: sectionsArr };
+            emit(next);
             return next;
         });
-    }, [onContentChange]);
+    }, [emit]);
 
-    const updateLanguageItem = useCallback((index: number, value: string) => {
-        setEditedData((prev) => {
-            const list = normalizeList((prev as any)?.languages);
-            const nextList = [...list];
-            nextList[index] = value;
-            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
-            const next = { ...prev, languages: cleaned };
-            onContentChange?.(next);
+    const updateCustomSectionBody = useCallback((sectionIndex: number, value: string) => {
+        setEditedData((prev: any) => {
+            const sectionsArr = Array.isArray(prev.custom_sections) ? [...prev.custom_sections] : [];
+            const currentSection = sectionsArr[sectionIndex] || {};
+            sectionsArr[sectionIndex] = { ...(currentSection || {}), content: value };
+            const next = { ...prev, custom_sections: sectionsArr };
+            emit(next);
             return next;
         });
-    }, [onContentChange]);
-
-    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
-        setEditedData((prev) => {
-            const current = normalizeCertifications((prev as any)?.certifications);
-            const nextArr = [...current];
-            nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
-            const cleaned = nextArr.filter((c) => String((c as any)?.name || '').trim());
-            const next = { ...prev, certifications: cleaned };
-            onContentChange?.(next);
-            return next;
-        });
-    }, [onContentChange]);
-
-    const updateCustomItem = useCallback((sectionIndex: number, itemIndex: number, field: string, value: string) => {
-        setEditedData((prev) => {
-            const nextCustom = [...(prev.custom_sections || [])];
-            const section = { ...(nextCustom[sectionIndex] || {}) };
-            const items = Array.isArray(section.items) ? [...section.items] : [];
-            const item = { ...(items[itemIndex] || {}) };
-            (item as any)[field] = value;
-            items[itemIndex] = item;
-            section.items = items;
-            nextCustom[sectionIndex] = section;
-            const next = { ...prev, custom_sections: nextCustom };
-            onContentChange?.(next);
-            return next;
-        });
-    }, [onContentChange]);
-
-    const updateCustomBody = useCallback((sectionIndex: number, value: string) => {
-        setEditedData((prev) => {
-            const nextCustom = [...(prev.custom_sections || [])];
-            const section = { ...(nextCustom[sectionIndex] || {}) };
-            section.body = value;
-            nextCustom[sectionIndex] = section;
-            const next = { ...prev, custom_sections: nextCustom };
-            onContentChange?.(next);
-            return next;
-        });
-    }, [onContentChange]);
+    }, [emit]);
 
     const addSection = useCallback(() => {
-        const insertCustomInOrder = (order: string[], key: string) => {
-            if (order.includes(key)) return order;
-            const eduAt = order.indexOf('education');
-            if (eduAt >= 0) return [...order.slice(0, eduAt), key, ...order.slice(eduAt)];
-            return [...order, key];
-        };
-
-        setEditedData((prev) => {
-            const next: ExecutiveData = { ...(prev || {}) };
-            const cur = Array.isArray(next.custom_sections) ? next.custom_sections : [];
-            const customKey = `custom_${cur.length}`;
-
+        setEditedData((prev: any) => {
+            const next = { ...(prev || {}) };
+            const cur = Array.isArray(next.custom_sections) ? [...next.custom_sections] : [];
             next.custom_sections = [
                 ...cur,
                 {
@@ -266,878 +129,798 @@ export default function ExecutiveTemplate({
                     items: [
                         {
                             title: 'Header',
-                            content: '- First bullet point\n- Second bullet point',
+                            content: '• Bullet 1\n• Bullet 2',
                         },
                     ],
                 },
             ];
-
-            if (editMode && onSectionOrderChange) {
-                const nextOrder = insertCustomInOrder(sectionOrder || [], customKey);
-                onSectionOrderChange(nextOrder);
-            }
-
-            onContentChange?.(next);
+            emit(next);
             return next;
         });
-    }, [editMode, onContentChange, onSectionOrderChange, sectionOrder]);
+    }, [emit]);
 
-    // Drag and drop sensors
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
+    const updateSkillsFromText = useCallback((value: string) => {
+        const skills = String(value || '')
+            .split(/\n|,|•/g)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        setEditedData((prev: any) => {
+            const next = { ...prev, skills };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
 
-    const [activeKey, setActiveKey] = useState<string | null>(null);
-    const [manualTrashHover, setManualTrashHover] = useState(false);
-    const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
-    const trashElRef = useRef<HTMLDivElement | null>(null);
-    const undoTimerRef = useRef<number | null>(null);
-    const [canUseDom, setCanUseDom] = useState(false);
-    const [undoState, setUndoState] = useState<null | { prevOrder: string[]; prevHidden: string[] }>(null);
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...prev, languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
 
-    useEffect(() => {
-        setCanUseDom(true);
-        return () => {
-            if (undoTimerRef.current) {
-                window.clearTimeout(undoTimerRef.current);
-                undoTimerRef.current = null;
-            }
-        };
-    }, []);
+    const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.certifications) ? prev.certifications : [];
+            const nextArr = [...current];
+            const base = (typeof nextArr[index] === 'object' && nextArr[index]) ? nextArr[index] : { name: '', issuer: '', year: '' };
+            nextArr[index] = { ...(base as any), [field]: value };
+            const cleaned = nextArr.filter((c: any) => String(c?.name || c?.title || '').trim());
+            const next = { ...prev, certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
 
-    const allRows = useMemo(() => {
-        const formatLabel = (heading: string) => {
-            const words = String(heading || "").trim().toUpperCase().split(/\s+/).filter(Boolean);
-            if (words.length <= 1) return words.join("");
-            return `${words[0]}\n${words.slice(1).join(" ")}`;
-        };
+    const sections = editedData || {};
 
-        const baseRows: any[] = [];
+    const fullName = String(sections.name || 'YOUR NAME').trim();
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ');
 
-        if (summary || showEmpty) {
-            baseRows.push({
-                key: "summary",
-                headingFallback: "Professional Summary",
-                label: formatLabel(getHeading('summary', 'Professional Summary')),
-                content: (
-                    <div className="text-[11px] text-slate-600 leading-relaxed">
-                        {editMode ? (
-                            <EditableText
-                                value={summary}
-                                placeholder="Summary goes here."
-                                onChange={(v) => updateField('summary', v)}
-                                editMode={editMode}
-                                className="text-[11px] leading-relaxed text-slate-600"
-                                as="div"
-                                multiline={true}
-                            />
-                        ) : (
-                            <RenderMaybeBullets text={summary} className="text-[11px] leading-relaxed text-slate-600" />
-                        )}
-                    </div>
-                ),
-            });
-        }
+    const getHeading = useCallback((key: string, fallback: string) => {
+        const h = sections?.section_headings?.[key];
+        return String((typeof h === 'string' && h.trim() !== '') ? h : fallback);
+    }, [sections]);
 
-        if (skills.length > 0 || showEmpty) {
-            baseRows.push({
-                key: "skills",
-                headingFallback: "Skills",
-                label: formatLabel(getHeading('skills', 'Skills')),
-                content: (
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-[11px] text-slate-700">
-                        {skills.length > 0 ? (
-                            skills.slice(0, 12).map((s, idx) => (
-                                <div key={idx} className="flex items-start gap-2">
-                                    <span className="mt-[5px] w-1.5 h-1.5 rounded-full bg-slate-400" />
+    const sectionHeadingClass = useCallback((compact: boolean) => (
+        compact
+            ? 'text-xs font-bold text-slate-900 tracking-wider uppercase border-b-2 border-slate-300 pb-1 mb-2'
+            : 'text-xs font-bold text-slate-900 tracking-wider uppercase border-b-2 border-slate-300 pb-1.5 mb-3'
+    ), []);
+
+    const customSections = Array.isArray(sections.custom_sections) ? sections.custom_sections : [];
+
+    const rows: SortableSectionRow[] = [];
+
+    if (String(sections.summary || '').trim()) {
+        rows.push({
+            key: 'summary',
+            title: getHeading('summary', 'Professional Summary'),
+            content: (
+                <Section
+                    title={getHeading('summary', 'Professional Summary')}
+                    panelTone="secondary"
+                    panelIncludesHeader
+                    panelFullBleed
+                    compact={editMode}
+                    titleNode={
+                        <div className="flex items-center gap-4 mb-2">
+                            <h3 className="text-xs font-bold tracking-wider uppercase whitespace-nowrap" style={{ color: 'var(--tv-primary)' }}>
+                                {editMode ? (
+                                    <EditableText
+                                        value={getHeading('summary', 'Professional Summary')}
+                                        onChange={(v) => updateSectionHeading('summary', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-xs font-bold tracking-wider uppercase whitespace-nowrap"
+                                        as="div"
+                                    />
+                                ) : (
+                                    getHeading('summary', 'Professional Summary')
+                                )}
+                            </h3>
+                            <div className="h-px flex-1" style={{ backgroundColor: 'var(--tv-primary-dark)' }} />
+                        </div>
+                    }
+                >
+                    {editMode ? (
+                        <EditableText
+                            value={String(sections.summary || '')}
+                            onChange={(v) => updateField('summary', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className="text-slate-700 leading-snug text-sm"
+                            as="div"
+                            multiline
+                        />
+                    ) : (
+                        <p className="text-slate-700 leading-snug text-sm">{sections.summary}</p>
+                    )}
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.experience) && sections.experience.length > 0) {
+        rows.push({
+            key: 'experience',
+            title: getHeading('experience', 'Professional Experience'),
+            content: (
+                <Section
+                    title={getHeading('experience', 'Professional Experience')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('experience', 'Professional Experience')}
+                            onChange={(v) => updateSectionHeading('experience', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {sections.experience.map((exp: any, idx: number) => (
+                        <div key={idx} className="mb-4 last:mb-0">
+                            <div className="flex justify-between items-start mb-1.5 gap-3">
+                                <div>
                                     {editMode ? (
-                                        <EditableText
-                                            value={String(s ?? '')}
-                                            onChange={(v) => updateSkill(idx, v)}
-                                            editMode={editMode}
-                                            className="inline text-[11px] text-slate-700"
-                                            as="span"
-                                            liveUpdate
-                                            layoutSafe
-                                        />
-                                    ) : (
-                                        <span>{s}</span>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <span className="text-slate-400">Skills go here.</span>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        if (languages.length > 0 || showEmpty) {
-            baseRows.push({
-                key: 'languages',
-                headingFallback: 'Languages',
-                label: formatLabel(getHeading('languages', 'Languages')),
-                content: (
-                    <div className="text-[11px] text-slate-700">
-                        {languages.length > 0 ? (
-                            <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                {languages.map((l, idx) => (
-                                    editMode ? (
-                                        <EditableText
-                                            key={idx}
-                                            value={String(l)}
-                                            onChange={(v) => updateLanguageItem(idx, v)}
-                                            editMode={editMode}
-                                            className="inline text-[11px] text-slate-700"
-                                            as="span"
-                                            liveUpdate
-                                            layoutSafe
-                                        />
-                                    ) : (
-                                        <span key={idx}>{String(l)}</span>
-                                    )
-                                ))}
-                            </div>
-                        ) : (
-                            <span className="text-slate-400">Languages go here.</span>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        if (certifications.length > 0 || showEmpty) {
-            baseRows.push({
-                key: 'certifications',
-                headingFallback: 'Certifications',
-                label: formatLabel(getHeading('certifications', 'Certifications')),
-                content: (
-                    <div className="space-y-2 text-[11px] text-slate-700">
-                        {certifications.length > 0 ? (
-                            certifications.map((c, idx) => (
-                                <div key={idx}>
-                                    <div className="font-semibold text-slate-800">
-                                        {editMode ? (
+                                        <>
                                             <EditableText
-                                                value={String((c as any)?.name || '')}
-                                                placeholder="Certification"
-                                                onChange={(v) => updateCertificationField(idx, 'name', v)}
-                                                editMode={editMode}
-                                                className="inline text-[11px] font-semibold text-slate-800"
-                                                as="span"
-                                                liveUpdate
-                                                layoutSafe
-                                            />
-                                        ) : (
-                                            (c as any)?.name
-                                        )}
-                                    </div>
-                                    <div className="text-slate-500">
-                                        {editMode ? (
-                                            <>
-                                                <EditableText value={String((c as any)?.issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} className="inline text-[11px] text-slate-500" as="span" liveUpdate layoutSafe />
-                                                {(String((c as any)?.issuer || '').trim() && String((c as any)?.year || '').trim()) ? <span> • </span> : null}
-                                                <EditableText value={String((c as any)?.year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} className="inline text-[11px] text-slate-500" as="span" liveUpdate layoutSafe />
-                                            </>
-                                        ) : (
-                                            [String((c as any)?.issuer || '').trim(), String((c as any)?.year || '').trim()].filter(Boolean).join(' • ')
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <span className="text-slate-400">Certifications go here.</span>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        if (experience.length > 0) {
-            baseRows.push({
-                key: "work",
-                headingFallback: "Work History",
-                label: formatLabel(getHeading('work', 'Work History')),
-                content: (
-                    <div className="space-y-6">
-                        {experience.length > 0 ? (
-                            experience.slice(0, 4).map((exp: any, idx: number) => {
-                                const title = exp.title || exp.position || "Role";
-                                const company = exp.company || exp.organization || "";
-                                const dates = exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ");
-                                const city = exp.location || exp.city || "";
-                                return (
-                                    <div key={idx}>
-                                        <div className="flex items-baseline justify-between gap-3">
-                                            <EditableText
-                                                value={String(title)}
+                                                value={String(exp.title || '')}
                                                 onChange={(v) => updateExperience(idx, 'title', v)}
                                                 editMode={editMode}
-                                                className="text-[11px] font-bold text-slate-800 uppercase tracking-[0.14em]"
+                                                liveUpdate
+                                                layoutSafe
+                                                className="font-bold text-slate-900 text-base"
                                                 as="div"
                                             />
                                             <EditableText
-                                                value={dates ? String(dates) : ""}
-                                                placeholder="Dates"
-                                                onChange={(v) => updateExperience(idx, 'duration', v)}
-                                                editMode={editMode}
-                                                className="text-[11px] text-slate-500"
-                                                as="div"
-                                            />
-                                        </div>
-                                        <div className="mt-1 text-[11px] text-slate-600">
-                                            <EditableText
-                                                value={company ? String(company) : ""}
-                                                placeholder="Company"
+                                                value={String(exp.company || '')}
                                                 onChange={(v) => updateExperience(idx, 'company', v)}
                                                 editMode={editMode}
-                                                className="inline text-[11px] text-slate-600"
-                                                as="span"
-                                            />
-                                            {editMode ? ", " : ((company && city) ? ", " : "")}
-                                            <EditableText
-                                                value={city ? String(city) : ""}
-                                                placeholder="Location"
-                                                onChange={(v) => updateExperience(idx, 'location', v)}
-                                                editMode={editMode}
-                                                className="inline text-[11px] text-slate-600"
-                                                as="span"
-                                            />
-                                        </div>
-                                        {exp.description ? (
-                                            <div className="mt-2">
-                                                {editMode ? (
-                                                    <EditableText
-                                                        value={String(exp.description)}
-                                                        placeholder="Add bullets or a short description"
-                                                        onChange={(v) => updateExperience(idx, 'description', v)}
-                                                        editMode={editMode}
-                                                        className="text-[11px] leading-relaxed text-slate-600"
-                                                        as="div"
-                                                        multiline={true}
-                                                    />
-                                                ) : (
-                                                    <RenderMaybeBullets
-                                                        text={String(exp.description)}
-                                                        forceBullets
-                                                        className="text-[11px] leading-relaxed text-slate-600"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <span className="text-slate-400 text-[11px]">Work history goes here.</span>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        // Key Projects: render only when there are projects (even in edit mode)
-        if (projects.length > 0) {
-            baseRows.push({
-                key: "projects",
-                headingFallback: "Key Projects",
-                label: formatLabel(getHeading('projects', 'Key Projects')),
-                content: (
-                    <div className="space-y-4">
-                        {projects.length > 0 ? (
-                            projects.slice(0, 4).map((proj: any, idx: number) => {
-                                const title = String((proj as any)?.title || (proj as any)?.name || "Project");
-                                const link = String((proj as any)?.link || (proj as any)?.url || "").trim();
-                                const technologies = String((proj as any)?.technologies || (proj as any)?.tech || "").trim();
-                                const description = String((proj as any)?.description || "");
-
-                                return (
-                                    <div key={idx}>
-                                        <div className="flex items-baseline justify-between gap-3">
-                                            <EditableText
-                                                value={title}
-                                                onChange={(v) => updateProject(idx, 'title', v)}
-                                                editMode={editMode}
-                                                className="text-[11px] font-bold text-slate-800 uppercase tracking-[0.14em]"
+                                                liveUpdate
+                                                layoutSafe
+                                                className="text-slate-700 font-medium text-sm"
                                                 as="div"
                                             />
-                                            {link ? (
-                                                <a
-                                                    href={link}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-[11px] text-slate-500 hover:text-slate-700 underline underline-offset-2"
-                                                >
-                                                    Link
-                                                </a>
-                                            ) : null}
-                                        </div>
-                                        {technologies ? (
-                                            <EditableText
-                                                value={technologies}
-                                                onChange={(v) => updateProject(idx, 'technologies', v)}
-                                                editMode={editMode}
-                                                className="mt-1 text-[11px] text-slate-500"
-                                                as="div"
-                                            />
-                                        ) : null}
-                                        {description ? (
-                                            <div className="mt-2">
-                                                {editMode ? (
-                                                    <EditableText
-                                                        value={description}
-                                                        onChange={(v) => updateProject(idx, 'description', v)}
-                                                        editMode={editMode}
-                                                        className="text-[11px] leading-relaxed text-slate-600"
-                                                        as="div"
-                                                        multiline={true}
-                                                    />
-                                                ) : (
-                                                    <RenderMaybeBullets
-                                                        text={description}
-                                                        forceBullets
-                                                        className="text-[11px] leading-relaxed text-slate-600"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <span className="text-slate-400 text-[11px]">Projects go here.</span>
-                        )}
-                    </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h4 className="font-bold text-slate-900 text-base">{exp.title}</h4>
+                                            <p className="text-slate-700 font-medium text-sm">{exp.company}</p>
+                                        </>
+                                    )}
+                                </div>
+                                {editMode ? (
+                                    <EditableText
+                                        value={String(exp.duration || '')}
+                                        onChange={(v) => updateExperience(idx, 'duration', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-xs text-slate-600 font-medium whitespace-nowrap"
+                                        as="div"
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{exp.duration}</span>
+                                )}
+                            </div>
+                            {editMode ? (
+                                <EditableText
+                                    value={String(exp.description || '')}
+                                    onChange={(v) => updateExperience(idx, 'description', v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    className="text-slate-700 leading-snug text-sm"
+                                    as="div"
+                                    multiline
+                                />
+                            ) : (
+                                <RenderMaybeBullets
+                                    text={exp.description}
+                                    forceBullets
+                                    className="text-slate-700 leading-snug text-sm"
+                                />
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
+
+    if (customSections.length > 0) {
+        customSections.forEach((sec: any, idx: number) => {
+            const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
+            rows.push({
+                key: `custom_${idx}`,
+                title: heading,
+                content: (
+                    <Section
+                        title={heading}
+                        compact={editMode}
+                        titleNode={editMode ? (
+                            <EditableText
+                                value={String(sec?.heading || '')}
+                                onChange={(v) => updateCustomSectionHeading(idx, v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className={sectionHeadingClass(true)}
+                                as="h3"
+                            />
+                        ) : null}
+                    >
+                        <CustomSectionsRenderer
+                            customSections={[sec]}
+                            editMode={editMode}
+                            showSectionHeadings={false}
+                            headingClassName={sectionHeadingClass(Boolean(editMode))}
+                            itemTitleClassName="text-sm font-semibold text-slate-900"
+                            itemMetaClassName="text-xs text-slate-500"
+                            itemBodyClassName="text-slate-700 leading-snug text-sm"
+                            onHeadingChange={(sIdx, value) => updateCustomSectionHeading(idx + sIdx, value)}
+                            onItemChange={(sIdx, itemIndex, field, value) => updateCustomSectionItem(idx + sIdx, itemIndex, String(field), value)}
+                            onBodyChange={(sIdx, value) => updateCustomSectionBody(idx + sIdx, value)}
+                        />
+                    </Section>
                 ),
             });
-        }
+        });
+    }
 
-        if (education.length > 0) {
-            baseRows.push({
-                key: "education",
-                headingFallback: "Education",
-                label: formatLabel(getHeading('education', 'Education')),
-                content: (
-                    <div className="space-y-3">
-                        {education.length > 0 ? (
-                            education.slice(0, 3).map((edu: any, idx: number) => (
-                                <div key={idx} className="flex items-baseline justify-between gap-3">
-                                    <div>
+    if (Array.isArray(sections.education) && sections.education.length > 0) {
+        rows.push({
+            key: 'education',
+            title: getHeading('education', 'Education'),
+            content: (
+                <Section
+                    title={getHeading('education', 'Education')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('education', 'Education')}
+                            onChange={(v) => updateSectionHeading('education', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {sections.education.map((edu: any, idx: number) => (
+                        <div key={idx} className="mb-2.5 last:mb-0 flex justify-between items-start gap-3">
+                            <div>
+                                {editMode ? (
+                                    <>
                                         <EditableText
-                                            value={String(edu.degree || edu.title || "Degree")}
+                                            value={String(edu.degree || '')}
                                             onChange={(v) => updateEducation(idx, 'degree', v)}
                                             editMode={editMode}
-                                            className="text-[11px] font-bold text-slate-800"
+                                            liveUpdate
+                                            layoutSafe
+                                            className="font-bold text-slate-900 text-sm"
                                             as="div"
                                         />
                                         <EditableText
-                                            value={String(edu.institution || edu.school || "")}
+                                            value={String(edu.institution || '')}
                                             onChange={(v) => updateEducation(idx, 'institution', v)}
                                             editMode={editMode}
-                                            className="text-[11px] text-slate-600"
+                                            liveUpdate
+                                            layoutSafe
+                                            className="text-slate-700 text-sm"
                                             as="div"
                                         />
                                         {String(edu?.gpa ?? '').trim() ? (
-                                            <div className="text-[11px] text-slate-500">
+                                            <div className="text-xs text-slate-600">
                                                 GPA: <EditableText
                                                     value={String(edu?.gpa ?? '')}
                                                     onChange={(v) => updateEducation(idx, 'gpa', v)}
                                                     editMode={editMode}
-                                                    className="inline"
+                                                    liveUpdate
+                                                    layoutSafe
                                                     as="span"
+                                                    className="inline"
                                                 />
                                             </div>
                                         ) : null}
-                                    </div>
-                                    <EditableText
-                                        value={String(edu.year || edu.dates || edu.graduationDate || "")}
-                                        onChange={(v) => updateEducation(idx, 'year', v)}
-                                        editMode={editMode}
-                                        className="text-[11px] text-slate-500"
-                                        as="div"
-                                    />
-                                </div>
-                            ))
-                        ) : (
-                            <span className="text-slate-400 text-[11px]">Education goes here.</span>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        const customRows = (customSections || [])
-            .map((sec: any, idx: number) => {
-                const heading = String(sec?.heading || sec?.title || sec?.label || "Additional").trim();
-                const items = Array.isArray(sec?.items) ? sec.items : [];
-                const rawBody = sec?.content ?? sec?.text ?? sec?.body ?? "";
-                const hasBody = String(rawBody ?? '').trim().length > 0;
-                const hasItems = items.length > 0;
-                const hasContent = hasItems || hasBody;
-                if (!hasContent) return null;
-
-                return {
-                    key: `custom_${idx}`,
-                    customIndex: idx,
-                    headingRaw: heading,
-                    label: formatLabel(heading),
-                    content: (
-                        <div className="text-[11px] text-slate-600">
-                            <CustomSectionsRenderer
-                                customSections={[sec]}
-                                editMode={editMode}
-                                showSectionHeadings={false}
-                                itemTitleClassName="text-[11px] font-semibold text-slate-800"
-                                itemMetaClassName="text-[11px] text-slate-500"
-                                itemBodyClassName="text-[11px] leading-relaxed text-slate-600"
-                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
-                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field as any, v)}
-                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
-                            />
-                        </div>
-                    ),
-                };
-            })
-            .filter(Boolean) as any[];
-
-        // Insert custom rows before education for better flow.
-        const eduIndex = baseRows.findIndex((r) => r.key === "education");
-        if (eduIndex >= 0 && customRows.length > 0) {
-            const next = [...baseRows];
-            next.splice(eduIndex, 0, ...customRows);
-            return next;
-        }
-        return [...baseRows, ...customRows];
-    }, [summary, showEmpty, skills, languages, certifications, experience, projects, education, customSections, editMode, updateField, updateExperience, updateEducation, updateProject, updateSkill, getHeading, updateCustomHeading, updateCustomItem, updateCustomBody]);
-
-    // Initialize section order if empty
-    useEffect(() => {
-        if (editMode && sectionOrder.length === 0 && allRows.length > 0 && onSectionOrderChange) {
-            onSectionOrderChange(allRows.filter((r) => !hiddenSet.has(r.key)).map(r => r.key));
-        }
-    }, [editMode, sectionOrder, allRows, onSectionOrderChange, hiddenSet]);
-
-    // Keep order in sync with visible rows (but never re-add hidden rows)
-    useEffect(() => {
-        if (!editMode) return;
-        if (!onSectionOrderChange) return;
-        if (sectionOrder.length === 0) return;
-
-        const visibleKeys = allRows.filter((r) => !hiddenSet.has(r.key)).map((r) => r.key);
-        const missing = visibleKeys.filter((k) => !sectionOrder.includes(k));
-        if (missing.length === 0) return;
-        onSectionOrderChange([...sectionOrder, ...missing]);
-    }, [editMode, onSectionOrderChange, sectionOrder, allRows, hiddenSet]);
-
-    // Ordered rows for rendering
-    const rows = useMemo(() => {
-        const visibleAll = allRows.filter((r: any) => !hiddenSet.has(String(r.key)));
-        if (!editMode || sectionOrder.length === 0) {
-            return visibleAll;
-        }
-        const ordered = sectionOrder
-            .map(key => visibleAll.find((r: any) => r.key === key))
-            .filter(Boolean) as Array<{ key: string; label: string; content: React.ReactNode; }>;
-
-        // Add any new rows that aren't in the order yet
-        visibleAll.forEach((row: any) => {
-            if (!sectionOrder.includes(row.key)) {
-                ordered.push(row);
-            }
-        });
-
-        return ordered;
-    }, [editMode, sectionOrder, allRows, hiddenSet]);
-
-    const showUndo = useCallback((prevOrder: string[], prevHidden: string[]) => {
-        setUndoState({ prevOrder, prevHidden });
-        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-        undoTimerRef.current = window.setTimeout(() => {
-            setUndoState(null);
-            undoTimerRef.current = null;
-        }, 6000);
-    }, []);
-
-    const isPointerInTrash = useCallback(() => {
-        const p = lastPointerRef.current;
-        const el = trashElRef.current;
-        if (!p || !el) return false;
-        const rect = el.getBoundingClientRect();
-        return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom;
-    }, []);
-
-    const onPointerMove = useCallback((e: PointerEvent) => {
-        lastPointerRef.current = { x: e.clientX, y: e.clientY };
-        setManualTrashHover(isPointerInTrash());
-    }, [isPointerInTrash]);
-
-    const attachPointerTracking = useCallback(() => {
-        window.addEventListener('pointermove', onPointerMove, { passive: true });
-    }, [onPointerMove]);
-
-    const detachPointerTracking = useCallback(() => {
-        window.removeEventListener('pointermove', onPointerMove);
-        setManualTrashHover(false);
-        lastPointerRef.current = null;
-    }, [onPointerMove]);
-
-    const removeSectionKey = useCallback((key: string) => {
-        if (!onSectionOrderChange) return;
-
-        const prevOrder = [...sectionOrder];
-        const prevHidden = [...safeHidden];
-
-        const nextOrder = sectionOrder.filter((k) => k !== key);
-        const nextHidden = Array.from(new Set([...safeHidden, String(key)]));
-
-        onSectionOrderChange(nextOrder);
-        onHiddenSectionKeysChange?.(nextHidden);
-        showUndo(prevOrder, prevHidden);
-    }, [onHiddenSectionKeysChange, onSectionOrderChange, safeHidden, sectionOrder, showUndo]);
-
-    const handleDragStart = useCallback((event: DragStartEvent) => {
-        setActiveKey(String(event.active.id));
-        attachPointerTracking();
-    }, [attachPointerTracking]);
-
-    const handleDragCancel = useCallback((_event: DragCancelEvent) => {
-        setActiveKey(null);
-        detachPointerTracking();
-    }, [detachPointerTracking]);
-
-    const handleDragEnd = useCallback((event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveKey(null);
-        const activeId = String(active.id);
-
-        const overId = over ? String(over.id) : '';
-        const hitTrash =
-            overId === TRASH_DROP_ID ||
-            (Array.isArray((event as any).collisions) && (event as any).collisions.some((c: any) => String(c?.id) === TRASH_DROP_ID));
-
-        const manualHit = isPointerInTrash();
-        detachPointerTracking();
-
-        if (hitTrash || manualHit) {
-            removeSectionKey(activeId);
-            return;
-        }
-        if (!over) return;
-        if (activeId === overId) return;
-        if (!onSectionOrderChange) return;
-
-        const visibleKeys = rows.map((r: any) => String(r.key));
-        const oldIndex = visibleKeys.indexOf(activeId);
-        const newIndex = visibleKeys.indexOf(overId);
-        if (oldIndex < 0 || newIndex < 0) return;
-
-        onSectionOrderChange(arrayMove(visibleKeys, oldIndex, newIndex));
-    }, [detachPointerTracking, isPointerInTrash, onSectionOrderChange, removeSectionKey, rows]);
-
-    const handleUndo = useCallback(() => {
-        if (!undoState) return;
-        onSectionOrderChange?.(undoState.prevOrder);
-        onHiddenSectionKeysChange?.(undoState.prevHidden);
-        setUndoState(null);
-        if (undoTimerRef.current) {
-            window.clearTimeout(undoTimerRef.current);
-            undoTimerRef.current = null;
-        }
-    }, [onHiddenSectionKeysChange, onSectionOrderChange, undoState]);
-
-    const { isOver, setNodeRef } = useDroppable({ id: TRASH_DROP_ID });
-    const setTrashNodeRef = useCallback(
-        (node: HTMLDivElement | null) => {
-            trashElRef.current = node;
-            setNodeRef(node);
-        },
-        [setNodeRef]
-    );
-
-    const collisionDetectionStrategy = useCallback(
-        (args: any) => {
-            const trashContainers = args.droppableContainers?.filter((c: any) => String(c?.id) === TRASH_DROP_ID) || [];
-            if (trashContainers.length > 0) {
-                const trashHits = pointerWithin({ ...args, droppableContainers: trashContainers });
-                if (trashHits && trashHits.length > 0) return trashHits;
-
-                const trashIntersect = rectIntersection({ ...args, droppableContainers: trashContainers });
-                if (trashIntersect && trashIntersect.length > 0) return trashIntersect;
-            }
-            return closestCenter(args);
-        },
-        []
-    );
-
-    return (
-        <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
-            <div className={`px-10 py-8 ${editMode ? 'pl-16' : ''}`}>
-                {editMode ? (
-                    <div
-                        className="mb-4 flex flex-wrap items-center gap-2 print:hidden"
-                        data-html2canvas-ignore="true"
-                    >
-                        <AddSectionButton onClick={addSection} />
-                    </div>
-                ) : null}
-                {/* Header */}
-                <div className="grid grid-cols-[135px_22px_1fr] gap-x-1 items-start">
-                    <div />
-                    <div />
-                    <div className="flex items-start gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-full border-2 border-sky-500/60 text-slate-700 flex items-center justify-center font-semibold text-sm">
-                            {initials}
-                        </div>
-                        <div className="min-w-0">
-                            <EditableText
-                                value={name}
-                                onChange={(v) => updateField('name', v)}
-                                editMode={editMode}
-                                className="text-3xl font-light text-sky-600 leading-tight"
-                                as="div"
-                            />
-                            <div className="mt-1 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                {editMode ? (
-                                    <>
-                                        <EditableText
-                                            value={phone}
-                                            onChange={(v) => updateField('phone', v)}
-                                            editMode={editMode}
-                                            className="inline-block min-w-[8ch]"
-                                            as="span"
-                                            liveUpdate
-                                            layoutSafe
-                                        />
-                                        <span className="text-slate-300">|</span>
-                                        <span className="inline">E:&nbsp;</span>
-                                        <EditableText
-                                            value={email}
-                                            onChange={(v) => updateField('email', v)}
-                                            editMode={editMode}
-                                            className="inline-block min-w-[12ch]"
-                                            as="span"
-                                            liveUpdate
-                                            layoutSafe
-                                        />
-                                        <span className="text-slate-300">|</span>
-                                        <EditableText
-                                            value={location}
-                                            onChange={(v) => updateField('location', v)}
-                                            editMode={editMode}
-                                            className="inline-block min-w-[10ch]"
-                                            as="span"
-                                            liveUpdate
-                                            layoutSafe
-                                        />
                                     </>
                                 ) : (
                                     <>
-                                        {phone && <span>{phone}</span>}
-                                        {phone && email && <span className="text-slate-300">|</span>}
-                                        {email && <span>E: {email}</span>}
-                                        {(phone || email) && location && <span className="text-slate-300">|</span>}
-                                        {location && <span>{location}</span>}
+                                        <h4 className="font-bold text-slate-900 text-sm">{edu.degree}</h4>
+                                        <p className="text-slate-700 text-sm">{edu.institution}</p>
+                                        {String(edu?.gpa ?? '').trim() ? (
+                                            <div className="text-xs text-slate-600">GPA: {String(edu?.gpa ?? '').trim()}</div>
+                                        ) : null}
                                     </>
                                 )}
                             </div>
+                            {editMode ? (
+                                <EditableText
+                                    value={String(edu.year || '')}
+                                    onChange={(v) => updateEducation(idx, 'year', v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    className="text-xs text-slate-600 font-medium whitespace-nowrap"
+                                    as="div"
+                                />
+                            ) : (
+                                <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{edu.year}</span>
+                            )}
                         </div>
-                    </div>
-                </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
 
-                {/* Body */}
-                <div className="mt-8">
-                    <div className="relative">
-                        {/* Continuous timeline line (centered in the 22px middle column) */}
-                        <div
-                            className="absolute top-0 bottom-0 w-px bg-slate-200 z-0 pointer-events-none"
-                            style={{ left: "calc(135px + 4px + 11px)" }}
+    if (Array.isArray(sections.projects) && sections.projects.length > 0) {
+        rows.push({
+            key: 'projects',
+            title: getHeading('projects', 'Projects'),
+            content: (
+                <Section
+                    title={getHeading('projects', 'Projects')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('projects', 'Projects')}
+                            onChange={(v) => updateSectionHeading('projects', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
                         />
-
-                        {editMode ? (
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={collisionDetectionStrategy}
-                                measuring={{
-                                    droppable: {
-                                        strategy: MeasuringStrategy.Always,
-                                    },
-                                }}
-                                onDragStart={handleDragStart}
-                                onDragCancel={handleDragCancel}
-                                onDragEnd={handleDragEnd}
-                            >
-                                <SortableContext
-                                    items={rows.map(r => r.key)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    <div className="space-y-10">
-                                        {rows.map((row) => (
-                                            <EditableSection key={row.key} id={row.key} editMode={editMode} sectionTitle={row.label.replace('\n', ' ')}>
-                                                <div className="grid grid-cols-[135px_22px_1fr] gap-x-1">
-                                                    <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-sky-700 whitespace-pre-line">
-                                                        {typeof (row as any).customIndex === 'number' ? (
-                                                            <EditableText
-                                                                value={String((row as any).headingRaw || '')}
-                                                                onChange={(v) => updateCustomHeading((row as any).customIndex, v)}
-                                                                editMode={editMode}
-                                                                className="text-[11px] font-bold tracking-[0.18em] text-sky-700 uppercase"
-                                                                as="div"
-                                                            />
-                                                        ) : (
-                                                            <EditableText
-                                                                value={getHeading(String(row.key), String((row as any).headingFallback || row.label.replace('\n', ' ')))}
-                                                                onChange={(v) => updateSectionHeading(String(row.key), v)}
-                                                                editMode={editMode}
-                                                                className="text-[11px] font-bold tracking-[0.18em] text-sky-700 uppercase"
-                                                                as="div"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    <div className="pt-2 flex justify-center">
-                                                        <span className="relative z-10 w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-300" />
-                                                    </div>
-                                                    <div>{row.content}</div>
-                                                </div>
-                                            </EditableSection>
-                                        ))}
-                                    </div>
-                                </SortableContext>
-
-                                {/* Trash drop-zone rail (portal to body; only interactive while dragging) */}
-                                {canUseDom ? createPortal(
-                                    <div
-                                        ref={setTrashNodeRef}
-                                        style={{
-                                            opacity: activeKey ? 1 : 0,
-                                            pointerEvents: activeKey ? 'auto' : 'none',
-                                        }}
-                                        className={
-                                            'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] md:w-[160px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity border-red-400 bg-red-50 text-red-700 ' +
-                                            ((isOver || manualTrashHover)
-                                                ? 'border-red-600 bg-red-100 text-red-800'
-                                                : '')
-                                        }
-                                        aria-label="Drop here to remove section"
+                    ) : undefined}
+                >
+                    {sections.projects.map((proj: any, idx: number) => (
+                        <div key={idx} className="mb-4 last:mb-0">
+                            <div className="flex justify-between items-start mb-1 gap-3">
+                                {editMode ? (
+                                    <EditableText
+                                        value={String(proj.title || '')}
+                                        onChange={(v) => updateProject(idx, 'title', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="font-bold text-slate-900 text-base"
+                                        as="div"
+                                    />
+                                ) : (
+                                    <h4 className="font-bold text-slate-900 text-base">{proj.title}</h4>
+                                )}
+                                {proj.link && (
+                                    <a
+                                        href={proj.link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-slate-700 underline underline-offset-2 hover:text-slate-900 whitespace-nowrap"
                                     >
-                                        <div className="w-full h-full flex flex-col items-center justify-between">
-                                            <RailLabel text="Drop to delete" />
-                                            <RailLabel text="Drop to delete" />
-                                        </div>
-                                    </div>,
-                                    document.body
-                                ) : null}
-                            </DndContext>
-                        ) : (
-                            <div className="space-y-10">
-                                {rows.map((row) => (
-                                    <div key={row.key} className="grid grid-cols-[135px_22px_1fr] gap-x-1">
-                                        <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-sky-700 whitespace-pre-line">
-                                            {row.label}
-                                        </div>
-                                        <div className="pt-2 flex justify-center">
-                                            <span className="relative z-10 w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-300" />
-                                        </div>
-                                        <div>{row.content}</div>
-                                    </div>
-                                ))}
+                                        Link
+                                    </a>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </div>
+                            {editMode ? (
+                                <>
+                                    <EditableText
+                                        value={String(proj.technologies || '')}
+                                        onChange={(v) => updateProject(idx, 'technologies', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-xs text-slate-600 mb-1.5"
+                                        as="div"
+                                    />
+                                    <EditableText
+                                        value={String(proj.description || '')}
+                                        onChange={(v) => updateProject(idx, 'description', v)}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-slate-700 leading-snug text-sm"
+                                        as="div"
+                                        multiline
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    {proj.technologies && (
+                                        <p className="text-xs text-slate-600 mb-1.5">{proj.technologies}</p>
+                                    )}
+                                    {proj.description && (
+                                        <p className="text-slate-700 leading-snug text-sm">{proj.description}</p>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            ),
+        });
+    }
 
-                {undoState ? (
-                    <div className="fixed bottom-4 left-4 z-[9999] rounded-xl border border-gray-200 bg-white shadow-lg px-4 py-3 flex items-center gap-3">
-                        <div className="text-sm text-gray-800">Section removed.</div>
-                        <button
-                            type="button"
-                            onClick={handleUndo}
-                            className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
-                        >
-                            Undo
-                        </button>
+    if (Array.isArray(sections.certifications) && sections.certifications.length > 0) {
+        rows.push({
+            key: 'certifications',
+            title: getHeading('certifications', 'Certifications'),
+            content: (
+                <Section
+                    title={getHeading('certifications', 'Certifications')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('certifications', 'Certifications')}
+                            onChange={(v) => updateSectionHeading('certifications', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    <div className="space-y-3">
+                        {sections.certifications.map((cert: any, idx: number) => {
+                            if (typeof cert === 'string') {
+                                return (
+                                    <div key={idx} className="text-slate-700 text-sm">
+                                        • {editMode ? (
+                                            <EditableText
+                                                value={String(cert)}
+                                                onChange={(v) => {
+                                                    // keep string certifications editable without forcing object shape
+                                                    setEditedData((prev: any) => {
+                                                        const cur = Array.isArray(prev?.certifications) ? [...prev.certifications] : [];
+                                                        cur[idx] = v;
+                                                        const next = { ...prev, certifications: cur };
+                                                        emit(next);
+                                                        return next;
+                                                    });
+                                                }}
+                                                editMode={editMode}
+                                                liveUpdate
+                                                layoutSafe
+                                                as="span"
+                                                className="inline"
+                                            />
+                                        ) : (
+                                            cert
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            const name = cert?.name || '';
+                            const issuer = cert?.issuer || '';
+                            const year = cert?.year || '';
+
+                            return (
+                                <div key={idx} className="flex items-baseline justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-slate-900 text-sm">
+                                            {editMode ? (
+                                                <EditableText
+                                                    value={String(name || '')}
+                                                    placeholder="Certification"
+                                                    onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                    editMode={editMode}
+                                                    liveUpdate
+                                                    layoutSafe
+                                                    as="div"
+                                                    className="font-bold text-slate-900 text-sm"
+                                                />
+                                            ) : (
+                                                name
+                                            )}
+                                        </div>
+                                        {(issuer || year) && (
+                                            <div className="text-xs text-slate-600">
+                                                {editMode ? (
+                                                    <>
+                                                        <EditableText value={String(issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                        {(String(issuer || '').trim() && String(year || '').trim()) ? <span> • </span> : null}
+                                                        <EditableText value={String(year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                    </>
+                                                ) : (
+                                                    [issuer, year].filter(Boolean).join(' • ')
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
+                </Section>
+            ),
+        });
+    }
+
+    const languages = normalizeList((sections as any)?.languages);
+    if (languages.length > 0) {
+        rows.push({
+            key: 'languages',
+            title: getHeading('languages', 'Languages'),
+            content: (
+                <Section
+                    title={getHeading('languages', 'Languages')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('languages', 'Languages')}
+                            onChange={(v) => updateSectionHeading('languages', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700 text-sm">
+                        {languages.map((l, idx) => (
+                            editMode ? (
+                                <EditableText
+                                    key={idx}
+                                    value={String(l)}
+                                    onChange={(v) => updateLanguageItem(idx, v)}
+                                    editMode={editMode}
+                                    liveUpdate
+                                    layoutSafe
+                                    as="span"
+                                    className="inline"
+                                />
+                            ) : (
+                                <span key={idx}>{String(l)}</span>
+                            )
+                        ))}
+                    </div>
+                </Section>
+            ),
+        });
+    }
+
+    if (Array.isArray(sections.skills) && sections.skills.length > 0) {
+        rows.push({
+            key: 'skills',
+            title: getHeading('skills', 'Core Competencies'),
+            content: (
+                <Section
+                    title={getHeading('skills', 'Core Competencies')}
+                    compact={editMode}
+                    titleNode={editMode ? (
+                        <EditableText
+                            value={getHeading('skills', 'Core Competencies')}
+                            onChange={(v) => updateSectionHeading('skills', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className={sectionHeadingClass(true)}
+                            as="h3"
+                        />
+                    ) : undefined}
+                >
+                    {editMode ? (
+                        <EditableText
+                            value={Array.isArray(sections.skills) ? sections.skills.join('\n') : ''}
+                            onChange={(v) => updateSkillsFromText(v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className="text-slate-700 font-medium text-sm"
+                            as="div"
+                            multiline
+                        />
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {sections.skills.map((skill: string, idx: number) => (
+                                <div key={idx} className="text-slate-700 font-medium text-sm">
+                                    • {skill}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+            ),
+        });
+    }
+
+    return (
+        <div className="bg-white rounded-lg shadow-xl overflow-hidden max-w-4xl mx-auto border-t-4" style={{ borderTopColor: 'var(--tv-primary-dark)' }}>
+            {/* Header */}
+            <div className="border-b-2 p-6 text-center" style={{ borderColor: 'var(--tv-primary-dark)', backgroundColor: 'var(--tv-secondary-dark)' }}>
+                {editMode ? (
+                    <>
+                        <h1 className="text-3xl font-bold mb-1.5">
+                            <EditableText
+                                value={firstName}
+                                placeholder="First"
+                                onChange={(v) => updateField('name', [v, lastName].filter(Boolean).join(' '))}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-slate-900"
+                                as="span"
+                            />
+                            {lastName ? <span> </span> : null}
+                            <EditableText
+                                value={lastName}
+                                placeholder="Last"
+                                onChange={(v) => updateField('name', [firstName, v].filter(Boolean).join(' '))}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-slate-600"
+                                as="span"
+                            />
+                        </h1>
+                        <EditableText
+                            value={String(sections.title || 'Professional Title')}
+                            onChange={(v) => updateField('title', v)}
+                            editMode={editMode}
+                            liveUpdate
+                            layoutSafe
+                            className="text-base text-slate-700 font-medium mb-2"
+                            as="p"
+                        />
+                    </>
+                ) : (
+                    <>
+                        <h1 className="text-3xl font-bold mb-1.5">
+                            <span className="text-slate-900">{firstName || 'YOUR'}</span>
+                            {lastName ? <span className="text-slate-600"> {lastName}</span> : null}
+                        </h1>
+                        <p className="text-base text-slate-700 font-medium mb-2">{sections.title || 'Professional Title'}</p>
+                    </>
+                )}
+                <div className="flex justify-center flex-wrap gap-3 text-xs text-slate-600">
+                    {editMode ? (
+                        <>
+                            <EditableText
+                                value={String(sections.email || '')}
+                                onChange={(v) => updateField('email', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className=""
+                                as="span"
+                            />
+                            {(String(sections.email || '').trim() && String(sections.phone || '').trim()) ? <span>•</span> : null}
+                            <EditableText
+                                value={String(sections.phone || '')}
+                                onChange={(v) => updateField('phone', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className=""
+                                as="span"
+                            />
+                            {(String(sections.phone || '').trim() && String(sections.location || '').trim()) ? <span>•</span> : null}
+                            <EditableText
+                                value={String(sections.location || '')}
+                                onChange={(v) => updateField('location', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className=""
+                                as="span"
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {sections.email && <span>{sections.email}</span>}
+                            {sections.phone && <span>•</span>}
+                            {sections.phone && <span>{sections.phone}</span>}
+                            {sections.location && <span>•</span>}
+                            {sections.location && <span>{sections.location}</span>}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Body */}
+            <div className={editMode ? 'pt-0 pb-6 pr-6 pl-16 space-y-4' : 'pt-0 pb-6 px-6 space-y-6'}>
+                {editMode ? (
+                    <AddSectionButton onClick={addSection} className="mb-3" />
                 ) : null}
+                <SortableSectionList
+                    rows={rows}
+                    editMode={!!editMode}
+                    sectionOrder={sectionOrder}
+                    onSectionOrderChange={onSectionOrderChange}
+                    hiddenSectionKeys={hiddenSectionKeys}
+                    onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                />
             </div>
         </div>
     );
 }
 
-function RailLabel({ text }: { text: string }) {
-    return (
-        <div
-            className="font-black uppercase tracking-[0.45em] text-sm leading-none select-none opacity-95"
-            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+function Section({
+    title,
+    children,
+    panelTone = 'none',
+    panelIncludesHeader = false,
+    panelFullBleed = false,
+    compact = false,
+    titleNode,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    panelIncludesHeader?: boolean;
+    panelFullBleed?: boolean;
+    compact?: boolean;
+    titleNode?: React.ReactNode;
+}) {
+    const panelColor = panelTone === 'secondary-dark'
+        ? 'var(--tv-secondary-dark)'
+        : panelTone === 'secondary'
+            ? 'var(--tv-secondary)'
+            : 'transparent';
+
+    const headerNode = titleNode ? (
+        titleNode
+    ) : (
+        <h3
+            className={compact
+                ? 'text-xs font-bold tracking-wider uppercase border-b-2 pb-1 mb-2'
+                : 'text-xs font-bold tracking-wider uppercase border-b-2 pb-1.5 mb-3'
+            }
+            style={{ color: 'var(--tv-primary)', borderColor: 'var(--tv-primary-dark)' }}
         >
-            {text}
+            {title}
+        </h3>
+    );
+
+    const panelClassName = panelFullBleed
+        ? (compact ? '-ml-16 -mr-6 pl-16 pr-6 py-3 rounded-none' : '-mx-6 px-6 py-3 rounded-none')
+        : 'rounded-md px-4 py-3';
+
+    return (
+        <div>
+            {panelTone !== 'none' && panelIncludesHeader ? (
+                <div className={panelClassName} style={{ backgroundColor: panelColor }}>
+                    {headerNode}
+                    {children}
+                </div>
+            ) : (
+                <>
+                    {headerNode}
+                    {panelTone === 'none' ? (
+                        children
+                    ) : (
+                        <div className={panelClassName} style={{ backgroundColor: panelColor }}>
+                            {children}
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
-}
-
-function getInitials(fullName: string): string {
-    const cleaned = String(fullName || "").trim().replace(/\s+/g, " ");
-    if (!cleaned) return "JD";
-    const parts = cleaned.split(" ").filter(Boolean);
-    const first = parts[0]?.[0] || "J";
-    const last = (parts.length > 1 ? parts[parts.length - 1]?.[0] : parts[0]?.[1]) || "D";
-    return `${String(first).toUpperCase()}${String(last).toUpperCase()}`;
 }
 
 function normalizeList(value: any): string[] {
     if (Array.isArray(value)) return value.map((v) => String(v)).map((s) => s.trim()).filter(Boolean);
     if (typeof value === 'string') {
         return value
-            .split(/[,•]|\\n/g)
+            .split(/[,•]|\n/g)
             .map((s) => s.trim())
             .filter(Boolean);
     }
     return [];
 }
-
-function normalizeLanguages(value: any): Array<{ name: string; level: string }> {
-    if (!value) return [];
-    if (Array.isArray(value)) {
-        return value
-            .map((l) => {
-                if (typeof l === 'string') return { name: l, level: 'Proficient' };
-                const name = (l as any)?.name || (l as any)?.language || (l as any)?.label || '';
-                const level = (l as any)?.level || (l as any)?.proficiency || (l as any)?.rating || '';
-                return { name: String(name), level: String(level || 'Proficient') };
-            })
-            .map((x) => ({ name: String(x.name || '').trim(), level: String(x.level || '').trim() }))
-            .filter((x) => x.name);
-    }
-    if (typeof value === 'string') {
-        return normalizeList(value).map((n) => ({ name: n, level: 'Proficient' }));
-    }
-    return [];
-}
-
-function normalizeCertifications(value: any): Array<{ name: string; issuer: string; year: string }> {
-    if (!value) return [];
-    if (Array.isArray(value)) {
-        return value
-            .map((c) => {
-                if (typeof c === 'string') return { name: c, issuer: '', year: '' };
-                const name = (c as any)?.name || (c as any)?.title || (c as any)?.label || '';
-                const issuer = (c as any)?.issuer || (c as any)?.organization || (c as any)?.provider || '';
-                const year = (c as any)?.year || (c as any)?.date || (c as any)?.issued || '';
-                return { name: String(name), issuer: String(issuer), year: String(year) };
-            })
-            .map((x) => ({
-                name: String(x.name || '').trim(),
-                issuer: String(x.issuer || '').trim(),
-                year: String(x.year || '').trim(),
-            }))
-            .filter((x) => x.name);
-    }
-    if (typeof value === 'string') {
-        return normalizeList(value).map((n) => ({ name: n, issuer: '', year: '' }));
-    }
-    return [];
-}
-
-

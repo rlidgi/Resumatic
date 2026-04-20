@@ -607,7 +607,7 @@ export default function TimelineBlueTemplate({
                     <div />
                     <div />
                     <div className="flex items-start gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-full border-2 border-sky-500/60 text-slate-700 flex items-center justify-center font-semibold text-sm">
+                        <div className="w-10 h-10 rounded-full border-2 text-slate-700 flex items-center justify-center font-semibold text-sm" style={{ borderColor: 'var(--tv-primary-dark)' }}>
                             {initials}
                         </div>
                         <div className="min-w-0">
@@ -615,7 +615,7 @@ export default function TimelineBlueTemplate({
                                 value={name}
                                 onChange={(v) => updateField('name', v)}
                                 editMode={editMode}
-                                className="text-3xl font-light text-sky-600 leading-tight"
+                                className="text-3xl font-light leading-tight text-[color:var(--tv-primary)]"
                                 as="div"
                             />
                             <div className="mt-1 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -689,13 +689,13 @@ export default function TimelineBlueTemplate({
                                         {rows.map((row) => (
                                             <EditableSection key={row.key} id={row.key} editMode={editMode} sectionTitle={row.label.replace('\n', ' ')}>
                                                 <div className="grid grid-cols-[135px_22px_1fr] gap-x-1">
-                                                    <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-sky-700 whitespace-pre-line">
+                                                    <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-[color:var(--tv-primary-dark)] whitespace-pre-line">
                                                         {typeof (row as any).customIndex === 'number' ? (
                                                             <EditableText
                                                                 value={String((row as any).headingRaw || '')}
                                                                 onChange={(v) => updateCustomHeading((row as any).customIndex, v)}
                                                                 editMode={editMode}
-                                                                className="text-[11px] font-bold tracking-[0.18em] text-sky-700 uppercase"
+                                                                className="text-[11px] font-bold tracking-[0.18em] uppercase text-[color:var(--tv-primary-dark)]"
                                                                 as="div"
                                                             />
                                                         ) : (
@@ -703,7 +703,7 @@ export default function TimelineBlueTemplate({
                                                                 value={getHeading(String(row.key), String((row as any).headingFallback || row.label.replace('\n', ' ')))}
                                                                 onChange={(v) => updateSectionHeading(String(row.key), v)}
                                                                 editMode={editMode}
-                                                                className="text-[11px] font-bold tracking-[0.18em] text-sky-700 uppercase"
+                                                                className="text-[11px] font-bold tracking-[0.18em] uppercase text-[color:var(--tv-primary-dark)]"
                                                                 as="div"
                                                             />
                                                         )}
@@ -722,7 +722,7 @@ export default function TimelineBlueTemplate({
                             <div className="space-y-10">
                                 {rows.map((row) => (
                                     <div key={row.key} className="grid grid-cols-[135px_22px_1fr] gap-x-1">
-                                        <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-sky-700 whitespace-pre-line">
+                                        <div className="pt-1 text-[11px] font-bold tracking-[0.18em] text-[color:var(--tv-primary-dark)] whitespace-pre-line">
                                             {row.label}
                                         </div>
                                         <div className="pt-2 flex justify-center">

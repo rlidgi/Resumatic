@@ -501,9 +501,12 @@ export default function BoldProfessionalTemplate({
     ]);
 
     return (
-        <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
+        <div data-template="boldprofessional" className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
             {editMode ? (<AddSectionButton onClick={addSection} className="p-4 pb-0" />) : null}
-            <div className="px-10 pt-9 pb-6">
+            <div
+                className="px-10 pt-9 pb-6 border-b"
+                style={{ borderColor: 'var(--tv-primary-dark)' }}
+            >
                 <div className="flex items-center gap-5">
                     <div className="w-14 h-14 border-2 border-black grid place-items-center font-extrabold tracking-wide text-xl leading-none">
                         {initials}
@@ -524,7 +527,7 @@ export default function BoldProfessionalTemplate({
                                 first
                             )}
                         </div>
-                        <div className="text-4xl font-extrabold tracking-tight uppercase text-[#f36b1c]">
+                        <div className="text-4xl font-extrabold tracking-tight uppercase" style={{ color: 'var(--tv-primary)' }}>
                             {editMode ? (
                                 <EditableText
                                     value={last}
@@ -543,7 +546,9 @@ export default function BoldProfessionalTemplate({
                 </div>
 
                 {(editMode || contactParts.length > 0) && (
-                    <div className="mt-6 bg-black text-white text-sm px-4 py-2 font-semibold">
+                    <div
+                        className="mt-6 text-black text-sm px-4 py-2 font-semibold"
+                    >
                         {editMode ? (
                             <>
                                 <EditableText value={String(data.location || '')} onChange={(v) => updateField('location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
@@ -559,7 +564,7 @@ export default function BoldProfessionalTemplate({
                 )}
             </div>
 
-            <div className={`px-10 pb-10 ${editMode ? 'pl-16' : ''}`}>
+            <div className={`px-10 pt-6 pb-10 ${editMode ? 'pl-16' : ''}`}>
                 <SortableSectionList
                     rows={bodyRows}
                     editMode={!!editMode}
@@ -573,7 +578,25 @@ export default function BoldProfessionalTemplate({
     );
 }
 
-function Section({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (value: string) => void }) {
+function Section({
+    title,
+    children,
+    panelTone = 'none',
+    editMode,
+    onTitleChange,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    editMode?: boolean;
+    onTitleChange?: (value: string) => void;
+}) {
+    const panelColor = panelTone === 'secondary-dark'
+        ? 'var(--tv-secondary-dark)'
+        : panelTone === 'secondary'
+            ? 'var(--tv-secondary)'
+            : 'transparent';
+
     return (
         <section className="mb-7 last:mb-0">
             <div className="flex items-end justify-between gap-4">
@@ -593,8 +616,14 @@ function Section({ title, children, editMode, onTitleChange }: { title: string; 
                     )}
                 </h2>
             </div>
-            <div className="h-px bg-[#f36b1c] mt-2 mb-3" />
-            {children}
+            <div className="h-1.5 mt-2 mb-3" style={{ backgroundColor: 'var(--tv-accent)' }} />
+            {panelTone === 'none' ? (
+                children
+            ) : (
+                <div className="rounded-md px-4 py-3" style={{ backgroundColor: panelColor }}>
+                    {children}
+                </div>
+            )}
         </section>
     );
 }
@@ -683,7 +712,8 @@ function SkillRow({
                                 : undefined
                         }
                         title={editable ? `Set ${name} level to ${idx + 1}/8` : undefined}
-                        className={`w-2.5 h-2.5 ${idx < count ? "bg-[#f36b1c]" : "bg-[#f2b38b]"} ${editable ? "cursor-pointer ring-1 ring-black/10 hover:ring-black/40" : ""}`}
+                        className={`w-2.5 h-2.5 ${editable ? "cursor-pointer ring-1 ring-black/10 hover:ring-black/40" : ""}`}
+                        style={{ backgroundColor: idx < count ? 'var(--tv-accent)' : 'var(--tv-secondary-dark)' }}
                     />
                 ))}
             </div>

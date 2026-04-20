@@ -5,16 +5,16 @@ import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
 import Creative2Template from '../components/templates/Creative2Template';
 import ClassicRoseTemplate from '../components/templates/ClassicRoseTemplate';
 import BoldProfessionalTemplate from '../components/templates/BoldProfessionalTemplate';
-import TraditionalTemplate from '../components/templates/TraditionalTemplate';
+import ContemporaryTemplate from '../components/templates/ContemporaryTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
-import CleanTemplate from '../components/templates/CleanTemplate';
+import StylishTemplate from '../components/templates/StylishTemplate';
 import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
 
 const TEMPLATE_DISPLAY_NAMES: Record<string, string> = {
     classicrose: 'Classic',
     classic_rose: 'Classic',
-    minimalsidebar: 'Clean',
-    minimal_sidebar: 'Clean',
+    minimalsidebar: 'Stylish',
+    minimal_sidebar: 'Stylish',
     creative2: 'Creative',
     creative_2: 'Creative',
 };
@@ -1561,7 +1561,7 @@ export default function TemplateViewer() {
         case 'blueLineClassic':
         case 'blue-line-classic':
         case 'blue_line_classic':
-            TemplateComponent = TraditionalTemplate;
+            TemplateComponent = ContemporaryTemplate;
             break;
         case 'modern':
         case 'cleansidebar':
@@ -1574,7 +1574,7 @@ export default function TemplateViewer() {
         case 'minimalsidebar':
         case 'minimal-sidebar':
         case 'minimal_sidebar':
-            TemplateComponent = CleanTemplate;
+            TemplateComponent = StylishTemplate;
             break;
         default:
             return (

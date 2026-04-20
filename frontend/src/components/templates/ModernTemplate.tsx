@@ -194,6 +194,11 @@ export default function ModernTemplate({
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
+    const fullName = String(data.name || 'Your Name').trim();
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ');
+
     const mainRows: SortableSectionRow[] = useMemo(() => {
         const rows: SortableSectionRow[] = [];
 
@@ -345,7 +350,12 @@ export default function ModernTemplate({
                     key: `custom_${idx}`,
                     title: heading,
                     content: (
-                        <MainSection key={idx} title={heading} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
+                        <MainSection
+                            key={idx}
+                            title={heading}
+                            editMode={editMode}
+                            onTitleChange={(v) => updateCustomHeading(idx, v)}
+                        >
                             <CustomSectionsRenderer
                                 customSections={[sec]}
                                 editMode={editMode}
@@ -383,21 +393,41 @@ export default function ModernTemplate({
     ]);
 
     return (
-        <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-5xl mx-auto font-sans">
-            <div className="px-10 pt-10 pb-6">
-                <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+        <div data-template="modern" className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-5xl mx-auto font-sans">
+            <div
+                className="px-10 pt-10 pb-6 border-b"
+                style={{ backgroundColor: 'var(--tv-secondary-dark)', borderColor: 'var(--tv-primary-dark)' }}
+            >
+                <div className="text-3xl font-extrabold tracking-tight">
                     {editMode ? (
-                        <EditableText
-                            value={String(data.name || "Your Name")}
-                            onChange={(v) => updateField('name', v)}
-                            editMode={editMode}
-                            liveUpdate
-                            layoutSafe
-                            className="text-3xl font-extrabold text-slate-900 tracking-tight"
-                            as="div"
-                        />
+                        <div className="text-3xl font-extrabold tracking-tight">
+                            <EditableText
+                                value={firstName}
+                                placeholder="First"
+                                onChange={(v) => updateField('name', [v, lastName].filter(Boolean).join(' '))}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-slate-900"
+                                as="span"
+                            />
+                            {lastName ? <span> </span> : null}
+                            <EditableText
+                                value={lastName}
+                                placeholder="Last"
+                                onChange={(v) => updateField('name', [firstName, v].filter(Boolean).join(' '))}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-slate-600"
+                                as="span"
+                            />
+                        </div>
                     ) : (
-                        data.name || "Your Name"
+                        <>
+                            <span className="text-slate-900">{firstName || 'Your'}</span>
+                            {lastName ? <span className="text-slate-600"> {lastName}</span> : null}
+                        </>
                     )}
                 </div>
                 <div className="mt-1 text-sm text-slate-700 font-medium">
@@ -420,7 +450,7 @@ export default function ModernTemplate({
                     {(editMode || data.location) && (
                         editMode ? (
                             <div className="inline-flex items-center gap-2">
-                                <span className="text-slate-500"><MapPin className="w-4 h-4" /></span>
+                                <span style={{ color: 'var(--tv-accent)' }}><MapPin className="w-4 h-4" /></span>
                                 <EditableText value={String(data.location)} onChange={(v) => updateField('location', v)} editMode={editMode} liveUpdate layoutSafe as="span" />
                             </div>
                         ) : (
@@ -430,7 +460,7 @@ export default function ModernTemplate({
                     {(editMode || data.phone) && (
                         editMode ? (
                             <div className="inline-flex items-center gap-2">
-                                <span className="text-slate-500"><Phone className="w-4 h-4" /></span>
+                                <span style={{ color: 'var(--tv-accent)' }}><Phone className="w-4 h-4" /></span>
                                 <EditableText value={String(data.phone)} onChange={(v) => updateField('phone', v)} editMode={editMode} liveUpdate layoutSafe as="span" />
                             </div>
                         ) : (
@@ -440,7 +470,7 @@ export default function ModernTemplate({
                     {(editMode || data.email) && (
                         editMode ? (
                             <div className="inline-flex items-center gap-2">
-                                <span className="text-slate-500"><Mail className="w-4 h-4" /></span>
+                                <span style={{ color: 'var(--tv-accent)' }}><Mail className="w-4 h-4" /></span>
                                 <EditableText value={String(data.email)} onChange={(v) => updateField('email', v)} editMode={editMode} liveUpdate layoutSafe as="span" />
                             </div>
                         ) : (
@@ -463,7 +493,7 @@ export default function ModernTemplate({
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-10 px-10 pb-10">
+            <div className="grid grid-cols-12 gap-10 px-10 pt-6 pb-10">
                 {/* MAIN */}
                 <main className={`col-span-7 ${editMode ? 'pl-16' : ''}`}>
                     {editMode ? (<AddSectionButton onClick={addSection} className="mb-4" />) : null}
@@ -478,7 +508,10 @@ export default function ModernTemplate({
                 </main>
 
                 {/* SIDEBAR */}
-                <aside className="col-span-5">
+                <aside
+                    className="col-span-5 -mr-10 p-6 pr-10"
+                    style={{ backgroundColor: 'var(--tv-secondary)' }}
+                >
                     {(education.length > 0 || showEmpty) && (
                         <SideSection
                             title={getHeading('education', 'Education')}
@@ -673,10 +706,22 @@ function CertificationRow({
     );
 }
 
-function MainSection({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (value: string) => void }) {
+function MainSection({
+    title,
+    children,
+    panelTone = 'none',
+    editMode,
+    onTitleChange,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    editMode?: boolean;
+    onTitleChange?: (value: string) => void;
+}) {
     return (
         <section className="mb-7 last:mb-0">
-            <h2 className="text-sm font-bold tracking-wide text-slate-900 uppercase">
+            <h2 className="text-sm font-bold tracking-wide uppercase" style={{ color: 'var(--tv-primary)' }}>
                 {editMode ? (
                     <EditableText
                         value={String(title || '')}
@@ -684,23 +729,44 @@ function MainSection({ title, children, editMode, onTitleChange }: { title: stri
                         editMode={!!editMode}
                         liveUpdate
                         layoutSafe
-                        className="text-sm font-bold tracking-wide text-slate-900 uppercase"
+                        className="text-sm font-bold tracking-wide uppercase"
                         as="div"
                     />
                 ) : (
                     title
                 )}
             </h2>
-            <div className="h-px bg-slate-900 mt-2 mb-4" />
-            {children}
+            <div className="h-px mt-2 mb-4" style={{ backgroundColor: 'var(--tv-primary-dark)' }} />
+            {panelTone === 'none' ? (
+                children
+            ) : (
+                <div
+                    className="rounded-md p-3"
+                    style={{ backgroundColor: panelTone === 'secondary-dark' ? 'var(--tv-secondary-dark)' : 'var(--tv-secondary)' }}
+                >
+                    {children}
+                </div>
+            )}
         </section>
     );
 }
 
-function SideSection({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (value: string) => void }) {
+function SideSection({
+    title,
+    children,
+    panelTone = 'none',
+    editMode,
+    onTitleChange,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    editMode?: boolean;
+    onTitleChange?: (value: string) => void;
+}) {
     return (
         <section className="mb-7 last:mb-0">
-            <h2 className="text-sm font-bold tracking-wide text-slate-900 uppercase">
+            <h2 className="text-sm font-bold tracking-wide uppercase" style={{ color: 'var(--tv-primary)' }}>
                 {editMode ? (
                     <EditableText
                         value={String(title || '')}
@@ -708,15 +774,24 @@ function SideSection({ title, children, editMode, onTitleChange }: { title: stri
                         editMode={!!editMode}
                         liveUpdate
                         layoutSafe
-                        className="text-sm font-bold tracking-wide text-slate-900 uppercase"
+                        className="text-sm font-bold tracking-wide uppercase"
                         as="div"
                     />
                 ) : (
                     title
                 )}
             </h2>
-            <div className="h-px bg-slate-900 mt-2 mb-4" />
-            {children}
+            <div className="h-px mt-2 mb-4" style={{ backgroundColor: 'var(--tv-primary-dark)' }} />
+            {panelTone === 'none' ? (
+                children
+            ) : (
+                <div
+                    className="rounded-md p-3"
+                    style={{ backgroundColor: panelTone === 'secondary-dark' ? 'var(--tv-secondary-dark)' : 'var(--tv-secondary)' }}
+                >
+                    {children}
+                </div>
+            )}
         </section>
     );
 }

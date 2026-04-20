@@ -4,15 +4,24 @@ import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import { EditableText } from "./EditableSection";
+import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function CleanTemplate({
     content,
     editMode = false,
     onContentChange,
+    sectionOrder,
+    onSectionOrderChange,
+    hiddenSectionKeys,
+    onHiddenSectionKeysChange,
 }: {
     content: string;
     editMode?: boolean;
     onContentChange?: (changes: any) => void;
+    sectionOrder?: string[];
+    onSectionOrderChange?: (order: string[]) => void;
+    hiddenSectionKeys?: string[];
+    onHiddenSectionKeysChange?: (keys: string[]) => void;
 }) {
     const sections: any = useMemo(() => parseResumeContent(content), [content]);
     const [editedData, setEditedData] = useState<any>(sections);
@@ -149,25 +158,217 @@ export default function CleanTemplate({
     const certifications = normalizeCertifications(data.certifications);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
+    const mainRows: SortableSectionRow[] = useMemo(() => {
+        const rows: SortableSectionRow[] = [];
+
+        if (data.summary || showEmpty) {
+            rows.push({
+                key: 'summary',
+                content: (
+                    <SectionBlock title={getHeading('summary', 'PROFILE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('summary', v)}>
+                        {editMode ? (
+                            <EditableText
+                                value={String(data.summary || '')}
+                                onChange={(v) => updateField('summary', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-xs leading-relaxed text-black text-justify"
+                                as="div"
+                                multiline
+                            />
+                        ) : (
+                            <p className="text-xs leading-relaxed text-black text-justify">
+                                {String(data.summary || '')}
+                            </p>
+                        )}
+                    </SectionBlock>
+                ),
+            });
+        }
+
+        if (experience.length > 0 || showEmpty) {
+            rows.push({
+                key: 'experience',
+                content: (
+                    <SectionBlock title={getHeading('experience', 'EMPLOYMENT HISTORY')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
+                        <div className="space-y-5">
+                            {experience.map((exp: any, idx: number) => (
+                                <ExperienceEntry key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                            ))}
+                            {experience.length === 0 && (
+                                <div className="text-xs text-slate-500">Add experience to populate this section.</div>
+                            )}
+                        </div>
+                    </SectionBlock>
+                ),
+            });
+        }
+
+        if (education.length > 0 || showEmpty) {
+            rows.push({
+                key: 'education',
+                content: (
+                    <SectionBlock title={getHeading('education', 'EDUCATION')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
+                        <div className="space-y-4">
+                            {education.map((edu: any, idx: number) => (
+                                <EducationEntry key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                            ))}
+                            {education.length === 0 && (
+                                <div className="text-xs text-slate-500">Add education to populate this section.</div>
+                            )}
+                        </div>
+                    </SectionBlock>
+                ),
+            });
+        }
+
+        if (projects.length > 0 || showEmpty) {
+            rows.push({
+                key: 'projects',
+                content: (
+                    <SectionBlock title={getHeading('projects', 'PROJECTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
+                        <div className="space-y-5">
+                            {projects.map((proj: any, idx: number) => (
+                                <ProjectEntry key={idx} proj={proj} editMode={editMode} idx={idx} onUpdate={updateProject} />
+                            ))}
+                            {projects.length === 0 && (
+                                <div className="text-xs text-slate-500">Add projects to populate this section.</div>
+                            )}
+                        </div>
+                    </SectionBlock>
+                ),
+            });
+        }
+
+        if (certifications.length > 0 || showEmpty) {
+            rows.push({
+                key: 'certifications',
+                content: (
+                    <SectionBlock title={getHeading('certifications', 'CERTIFICATIONS')} panelTone="secondary" editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
+                        <div className="space-y-2">
+                            {certifications.map((c: any, idx: number) => {
+                                if (typeof c === 'string') {
+                                    return <div key={idx} className="text-xs text-black">• {c}</div>;
+                                }
+
+                                const name = String(c?.name || c?.title || c?.certification || '').trim();
+                                const issuer = String(c?.issuer || c?.authority || c?.organization || '').trim();
+                                const year = String(c?.year || c?.date || '').trim();
+
+                                return (
+                                    <div key={idx} className="text-xs text-black">
+                                        <span className="font-bold">{name || 'Certification'}</span>
+                                        {issuer ? <span className="text-slate-600"> — {issuer}</span> : null}
+                                        {year ? <span className="text-slate-500"> ({year})</span> : null}
+                                    </div>
+                                );
+                            })}
+                            {certifications.length === 0 && (
+                                <div className="text-xs text-slate-500">Add certifications to populate this section.</div>
+                            )}
+                        </div>
+                    </SectionBlock>
+                ),
+            });
+        }
+
+        if (customSections.length > 0) {
+            for (let idx = 0; idx < customSections.length; idx++) {
+                const sec: any = customSections[idx];
+                const heading = String(sec?.heading || sec?.title || sec?.label || 'Additional').trim();
+                rows.push({
+                    key: `custom_${idx}`,
+                    content: (
+                        <SectionBlock
+                            key={idx}
+                            title={heading}
+                            editMode={editMode}
+                            onTitleChange={(v) => updateCustomHeading(idx, v)}
+                        >
+                            <CustomSectionsRenderer
+                                customSections={[sec]}
+                                editMode={editMode}
+                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
+                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
+                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
+                                showSectionHeadings={false}
+                                headingClassName="text-xs font-bold text-black"
+                                itemTitleClassName="text-xs font-bold text-black"
+                                itemMetaClassName="text-xs text-slate-500"
+                                itemBodyClassName="text-xs leading-relaxed text-black"
+                            />
+                        </SectionBlock>
+                    ),
+                });
+            }
+        }
+
+        return rows;
+    }, [
+        certifications,
+        customSections,
+        data.summary,
+        editMode,
+        education,
+        experience,
+        getHeading,
+        projects,
+        showEmpty,
+        updateCustomBody,
+        updateCustomHeading,
+        updateCustomItem,
+        updateEducation,
+        updateExperience,
+        updateField,
+        updateProject,
+        updateSectionHeading,
+    ]);
+
+    const fullName = String(data.name || 'Your Name').trim();
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ');
+
     return (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-5xl mx-auto font-sans text-black">
+        <div data-template="clean" className="bg-white rounded-lg shadow-lg overflow-hidden max-w-5xl mx-auto font-sans text-black">
             <div className="grid grid-cols-12 min-h-[600px]">
                 {/* LEFT COLUMN - ~1/3 */}
-                <aside className="col-span-4 bg-white p-6 border-r border-slate-200">
-                    <div className="mb-6">
+                <aside className="col-span-4 p-6 border-r" style={{ backgroundColor: 'var(--tv-secondary)', borderColor: 'var(--tv-primary-dark)' }}>
+                    <div
+                        className="-mx-6 -mt-6 mb-6 px-6 pt-6 pb-5 border-b"
+                        style={{ backgroundColor: 'var(--tv-secondary-dark)', borderColor: 'var(--tv-primary-dark)' }}
+                    >
                         <h1 className="text-xl font-bold uppercase tracking-tight text-black leading-tight">
                             {editMode ? (
-                                <EditableText
-                                    value={String(data.name || "Your Name")}
-                                    onChange={(v) => updateField('name', v)}
-                                    editMode={editMode}
-                                    liveUpdate
-                                    layoutSafe
-                                    className="text-xl font-bold uppercase tracking-tight text-black"
-                                    as="div"
-                                />
+                                <>
+                                    <EditableText
+                                        value={firstName}
+                                        placeholder="First"
+                                        onChange={(v) => updateField('name', [v, lastName].filter(Boolean).join(' '))}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-black"
+                                        as="span"
+                                    />
+                                    {lastName ? <span> </span> : null}
+                                    <EditableText
+                                        value={lastName}
+                                        placeholder="Last"
+                                        onChange={(v) => updateField('name', [firstName, v].filter(Boolean).join(' '))}
+                                        editMode={editMode}
+                                        liveUpdate
+                                        layoutSafe
+                                        className="text-black/50"
+                                        as="span"
+                                    />
+                                </>
                             ) : (
-                                (data.name || "Your Name").toUpperCase()
+                                <>
+                                    <span className="text-black">{(firstName || 'Your').toUpperCase()}</span>
+                                    {lastName ? <span className="text-black/50"> {(lastName || '').toUpperCase()}</span> : null}
+                                </>
                             )}
                         </h1>
                         <div className="mt-1 text-sm font-normal text-black">
@@ -208,7 +409,7 @@ export default function CleanTemplate({
                     )}
 
                     {(skills.length > 0 || showEmpty) && (
-                        <SectionBlock title={getHeading('skills', 'SKILLS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('skills', v)}>
+                        <SectionBlock title={getHeading('skills', 'SKILLS')} panelTone="secondary-dark" editMode={editMode} onTitleChange={(v) => updateSectionHeading('skills', v)}>
                             <div className="space-y-3">
                                 {skills.slice(0, 10).map((skill, idx) => (
                                     <SkillBarRow key={idx} skill={skill} editMode={editMode} idx={idx} onUpdate={updateSkill} />
@@ -233,130 +434,59 @@ export default function CleanTemplate({
                         </SectionBlock>
                     )}
                 </aside>
-                {editMode ? <AddSectionButton onClick={() => { }} className="mb-4" /> : null}
 
                 {/* RIGHT COLUMN - ~2/3 */}
-                <main className="col-span-8 p-6">
-
-                    {(data.summary || showEmpty) && (
-                        <SectionBlock title={getHeading('summary', 'PROFILE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('summary', v)}>
-                            {editMode ? (
-                                <EditableText
-                                    value={String(data.summary || '')}
-                                    onChange={(v) => updateField('summary', v)}
-                                    editMode={editMode}
-                                    liveUpdate
-                                    layoutSafe
-                                    className="text-xs leading-relaxed text-black text-justify"
-                                    as="div"
-                                    multiline
-                                />
-                            ) : (
-                                <p className="text-xs leading-relaxed text-black text-justify">{String(data.summary || '')}</p>
-                            )}
-                        </SectionBlock>
-                    )}
-
-                    {(experience.length > 0 || showEmpty) && (
-                        <SectionBlock title={getHeading('experience', 'EMPLOYMENT HISTORY')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
-                            <div className="space-y-5">
-                                {experience.map((exp: any, idx: number) => (
-                                    <ExperienceEntry key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
-                                ))}
-                                {experience.length === 0 && (
-                                    <div className="text-xs text-slate-500">Add experience to populate this section.</div>
-                                )}
-                            </div>
-                        </SectionBlock>
-                    )}
-
-                    {(education.length > 0 || showEmpty) && (
-                        <SectionBlock title={getHeading('education', 'EDUCATION')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
-                            <div className="space-y-4">
-                                {education.map((edu: any, idx: number) => (
-                                    <EducationEntry key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
-                                ))}
-                                {education.length === 0 && (
-                                    <div className="text-xs text-slate-500">Add education to populate this section.</div>
-                                )}
-                            </div>
-                        </SectionBlock>
-                    )}
-
-                    {(projects.length > 0 || showEmpty) && (
-                        <SectionBlock title={getHeading('projects', 'PROJECTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
-                            <div className="space-y-5">
-                                {projects.map((proj: any, idx: number) => (
-                                    <ProjectEntry key={idx} proj={proj} editMode={editMode} idx={idx} onUpdate={updateProject} />
-                                ))}
-                                {projects.length === 0 && (
-                                    <div className="text-xs text-slate-500">Add projects to populate this section.</div>
-                                )}
-                            </div>
-                        </SectionBlock>
-                    )}
-
-                    {(certifications.length > 0 || showEmpty) && (
-                        <SectionBlock title={getHeading('certifications', 'CERTIFICATIONS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
-                            <div className="space-y-2">
-                                {certifications.map((c: any, idx: number) => {
-                                    if (typeof c === 'string') {
-                                        return <div key={idx} className="text-xs text-black">• {c}</div>;
-                                    }
-
-                                    const name = String(c?.name || c?.title || c?.certification || '').trim();
-                                    const issuer = String(c?.issuer || c?.authority || c?.organization || '').trim();
-                                    const year = String(c?.year || c?.date || '').trim();
-
-                                    return (
-                                        <div key={idx} className="text-xs text-black">
-                                            <span className="font-bold">{name || 'Certification'}</span>
-                                            {issuer ? <span className="text-slate-600"> — {issuer}</span> : null}
-                                            {year ? <span className="text-slate-500"> ({year})</span> : null}
-                                        </div>
-                                    );
-                                })}
-                                {certifications.length === 0 && (
-                                    <div className="text-xs text-slate-500">Add certifications to populate this section.</div>
-                                )}
-                            </div>
-                        </SectionBlock>
-                    )}
-
-                    {customSections.length > 0 && customSections.map((sec: any, idx: number) => (
-                        <SectionBlock key={idx} title={String(sec?.heading || sec?.title || sec?.label || 'Additional')} editMode={editMode} onTitleChange={(v) => updateCustomHeading(idx, v)}>
-                            <CustomSectionsRenderer
-                                customSections={[sec]}
-                                editMode={editMode}
-                                onHeadingChange={(sIdx, v) => updateCustomHeading(idx + sIdx, v)}
-                                onItemChange={(sIdx, iIdx, field, v) => updateCustomItem(idx + sIdx, iIdx, field, v)}
-                                onBodyChange={(sIdx, v) => updateCustomBody(idx + sIdx, v)}
-                                showSectionHeadings={false}
-                                headingClassName="text-xs font-bold text-black"
-                                itemTitleClassName="text-xs font-bold text-black"
-                                itemMetaClassName="text-xs text-slate-500"
-                                itemBodyClassName="text-xs leading-relaxed text-black"
-                            />
-                        </SectionBlock>
-                    ))}
+                <main className={`col-span-8 p-6 ${editMode ? 'pl-10' : ''}`}>
+                    {editMode ? <AddSectionButton onClick={() => { }} className="mb-4" /> : null}
+                    <SortableSectionList
+                        rows={mainRows}
+                        editMode={!!editMode}
+                        sectionOrder={sectionOrder}
+                        onSectionOrderChange={onSectionOrderChange}
+                        hiddenSectionKeys={hiddenSectionKeys}
+                        onHiddenSectionKeysChange={onHiddenSectionKeysChange}
+                    />
                 </main>
             </div>
         </div>
     );
 }
 
-function SectionBlock({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (v: string) => void }) {
+function SectionBlock({
+    title,
+    children,
+    panelTone = 'none',
+    editMode,
+    onTitleChange,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    editMode?: boolean;
+    onTitleChange?: (v: string) => void;
+}) {
     return (
         <section className="mb-6 last:mb-0">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-black">
+            <h2 className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--tv-primary)' }}>
                 {editMode ? (
-                    <EditableText value={title} onChange={(v) => onTitleChange?.(v)} editMode={editMode} liveUpdate layoutSafe className="text-xs font-bold uppercase text-black" as="div" />
+                    <EditableText value={title} onChange={(v) => onTitleChange?.(v)} editMode={editMode} liveUpdate layoutSafe className="text-xs font-bold uppercase" style={{ color: 'var(--tv-primary)' }} as="div" />
                 ) : (
                     title
                 )}
             </h2>
-            <div className="h-px bg-black mt-1 mb-3 w-12" />
-            {children}
+            <div className="h-px mt-1 mb-3 w-12" style={{ backgroundColor: 'var(--tv-primary-dark)' }} />
+            {panelTone === 'none' ? (
+                children
+            ) : (
+                <div
+                    className="rounded-md p-3"
+                    style={{
+                        backgroundColor: panelTone === 'secondary-dark' ? 'var(--tv-secondary-dark)' : 'var(--tv-secondary)',
+                    }}
+                >
+                    {children}
+                </div>
+            )}
         </section>
     );
 }
@@ -393,8 +523,8 @@ function SkillBarRow({ skill, editMode, idx, onUpdate }: { skill: { name: string
                 ) : (
                     <span className="text-xs text-black flex-1">{skill.name}</span>
                 )}
-                <div className="flex-1 min-w-[60px] h-1.5 bg-slate-200 rounded overflow-hidden">
-                    <div className="h-full bg-black rounded" style={{ width: `${pct}%` }} />
+                <div className="flex-1 min-w-[60px] h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--tv-secondary)' }}>
+                    <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
                 </div>
             </div>
         </div>
@@ -411,8 +541,8 @@ function LanguageBarRow({ lang, editMode, idx, onUpdate }: { lang: { name: strin
                 ) : (
                     <span className="text-xs text-black flex-1">{lang.name}</span>
                 )}
-                <div className="flex-1 min-w-[60px] h-1.5 bg-slate-200 rounded overflow-hidden">
-                    <div className="h-full bg-black rounded" style={{ width: `${pct}%` }} />
+                <div className="flex-1 min-w-[60px] h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--tv-secondary)' }}>
+                    <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
                 </div>
             </div>
         </div>

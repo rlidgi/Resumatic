@@ -587,6 +587,18 @@
                                     loading="lazy" decoding="async">
                             </div>
                         </button>
+                        <button data-template="classicRose" onclick="selectTemplate('classicRose', this)"
+                            role="listitem"
+                            class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.4] focus:scale-[1.4] hover:z-10 focus:z-10 snap-start">
+                            <div class="p-3 pb-2">
+                                <h4 class="font-semibold text-gray-800 text-sm">Classic</h4>
+                            </div>
+                            <div class="w-full aspect-[3/4] bg-gray-50 p-2">
+                                <img src="{{ url_for('static', filename='images/classic.jpg') }}"
+                                    alt="Classic template preview" class="h-full w-full object-contain rounded-md"
+                                    loading="lazy" decoding="async">
+                            </div>
+                        </button>
                         <button data-template="boldProfessional" onclick="selectTemplate('boldProfessional', this)"
                             role="listitem"
                             class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.4] focus:scale-[1.4] hover:z-10 focus:z-10 snap-start">
@@ -594,7 +606,7 @@
                                 <h4 class="font-semibold text-gray-800 text-sm">Bold Professional</h4>
                             </div>
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/Boldprofessional.jpg') }}"
+                                <img src="{{ url_for('static', filename='images/BoldProfessional.jpg') }}"
                                     alt="Bold Professional template preview"
                                     class="h-full w-full object-contain rounded-md" loading="lazy" decoding="async">
                             </div>
@@ -603,11 +615,11 @@
                             role="listitem"
                             class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.4] focus:scale-[1.4] hover:z-10 focus:z-10 snap-start">
                             <div class="p-3 pb-2">
-                                <h4 class="font-semibold text-gray-800 text-sm">Traditional</h4>
+                                <h4 class="font-semibold text-gray-800 text-sm">Contemporary</h4>
                             </div>
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
                                 <img src="{{ url_for('static', filename='images/traditional.jpg') }}"
-                                    alt="Traditional template preview" class="h-full w-full object-contain rounded-md"
+                                    alt="Contemporary template preview" class="h-full w-full object-contain rounded-md"
                                     loading="lazy" decoding="async">
                             </div>
                         </button>
@@ -633,15 +645,14 @@
                                     loading="lazy" decoding="async">
                             </div>
                         </button>
-                        <button data-template="classicRose" onclick="selectTemplate('classicRose', this)"
-                            role="listitem"
+                        <button data-template="executive" onclick="selectTemplate('executive', this)" role="listitem"
                             class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.4] focus:scale-[1.4] hover:z-10 focus:z-10 snap-start">
                             <div class="p-3 pb-2">
-                                <h4 class="font-semibold text-gray-800 text-sm">Classic</h4>
+                                <h4 class="font-semibold text-gray-800 text-sm">Executive</h4>
                             </div>
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/classic.jpg') }}"
-                                    alt="Classic template preview" class="h-full w-full object-contain rounded-md"
+                                <img src="{{ url_for('static', filename='images/executive.jpg') }}"
+                                    alt="Executive template preview" class="h-full w-full object-contain rounded-md"
                                     loading="lazy" decoding="async">
                             </div>
                         </button>
@@ -649,11 +660,11 @@
                             role="listitem"
                             class="template-card group flex-none w-44 sm:w-48 md:w-52 relative bg-white rounded-lg shadow hover:shadow-xl transition-all border border-transparent hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-hidden text-left transform-gpu origin-center hover:scale-[1.4] focus:scale-[1.4] hover:z-10 focus:z-10 snap-start">
                             <div class="p-3 pb-2">
-                                <h4 class="font-semibold text-gray-800 text-sm">Clean</h4>
+                                <h4 class="font-semibold text-gray-800 text-sm">Stylish</h4>
                             </div>
                             <div class="w-full aspect-[3/4] bg-gray-50 p-2">
-                                <img src="{{ url_for('static', filename='images/clean.jpg') }}"
-                                    alt="Clean template preview" class="h-full w-full object-contain rounded-md"
+                                <img src="{{ url_for('static', filename='images/stylish.jpg') }}"
+                                    alt="Stylish template preview" class="h-full w-full object-contain rounded-md"
                                     loading="lazy" decoding="async">
                             </div>
                         </button>

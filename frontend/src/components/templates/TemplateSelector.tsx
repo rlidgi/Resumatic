@@ -157,7 +157,7 @@ export default function TemplateSelector({ selectedTemplate, onSelect }: Templat
         },
         {
             id: 'traditional',
-            name: 'Traditional',
+            name: 'Contemporary',
             description: 'Classic serif with clean section rules and spacing',
             preview: (
                 <div className="bg-white p-4 rounded-lg border border-slate-200 h-32 overflow-hidden">

@@ -34,6 +34,9 @@ export interface ResumeData {
         issueDate?: string;
         expiryDate?: string;
     }>;
+    style?: {
+        accentColor?: string;
+    };
     template?: string;
 }
 

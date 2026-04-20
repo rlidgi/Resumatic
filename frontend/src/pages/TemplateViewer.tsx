@@ -5,18 +5,21 @@ import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
 import Creative2Template from '../components/templates/Creative2Template';
 import ClassicRoseTemplate from '../components/templates/ClassicRoseTemplate';
 import BoldProfessionalTemplate from '../components/templates/BoldProfessionalTemplate';
-import TraditionalTemplate from '../components/templates/TraditionalTemplate';
+import ContemporaryTemplate from '../components/templates/ContemporaryTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
-import CleanTemplate from '../components/templates/CleanTemplate';
+import StylishTemplate from '../components/templates/StylishTemplate';
 import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
+import { mixWithBlack, mixWithWhite, normalizeHexColor } from '../utils/accentColor';
 
 const TEMPLATE_DISPLAY_NAMES: Record<string, string> = {
     classicrose: 'Classic',
     classic_rose: 'Classic',
-    minimalsidebar: 'Clean',
-    minimal_sidebar: 'Clean',
+    minimalsidebar: 'Stylish',
+    minimal_sidebar: 'Stylish',
     creative2: 'Creative',
     creative_2: 'Creative',
+    traditional: 'Contemporary',
+    bluelineclassic: 'Contemporary',
 };
 
 function formatTemplateDisplayName(raw?: string): string {
@@ -85,6 +88,19 @@ export default function TemplateViewer() {
     const location = useLocation();
     const isDownloadOnly = location.pathname.includes('/template-download/');
 
+    const templateKey = String(templateName || '').trim().toLowerCase();
+
+    // Debug helper: when enabled, make PDF outputs draw a visible top-edge marker so we can
+    // distinguish real layout whitespace from the PDF viewer's page border.
+    const pdfDebugEnabled = (() => {
+        try {
+            const params = new URLSearchParams(location.search || '');
+            return params.get('pdfdebug') === '1';
+        } catch {
+            return false;
+        }
+    })();
+
     const templateDisplayName = formatTemplateDisplayName(templateName);
 
     const qs = new URLSearchParams(location.search || '');
@@ -134,9 +150,10 @@ export default function TemplateViewer() {
             // Ignore tiny overflows caused by subpixel rounding / transforms.
             const scrollable = delta > 8;
 
-            // Only allow vertical scrolling when needed.
-            // This prevents "always-on" scrollbars for short content.
-            root.style.overflowY = scrollable ? 'auto' : 'hidden';
+            // Always allow vertical scrolling in embed mode.
+            // Some layouts (notably scaled PDF previews) can temporarily confuse scrollHeight measurements;
+            // forcing overflowY=auto prevents accidental clipping where only the top of the page is visible.
+            root.style.overflowY = 'auto';
             root.style.overscrollBehaviorY = 'contain';
 
             root.classList.toggle(HIDE_CLASS, !scrollable);
@@ -215,10 +232,17 @@ export default function TemplateViewer() {
         paragraphGapPx: 0,
         spacingScale: 1,
     });
+    const [accentColor, setAccentColor] = useState<string>('');
+    const [primaryColor, setPrimaryColor] = useState<string>('');
+    const [secondaryColor, setSecondaryColor] = useState<string>('');
+    const accentInitRef = useRef(false);
+    const primaryInitRef = useRef(false);
+    const secondaryInitRef = useRef(false);
+    const accentSaveTimerRef = useRef<number | null>(null);
     const [pdfPreviewPageScale, setPdfPreviewPageScale] = useState(1);
     const [pdfPreviewContentScale, setPdfPreviewContentScale] = useState(1);
     const [pdfPreviewPages, setPdfPreviewPages] = useState(1);
-    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1066);
+    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1064);
     const [pdfPreviewSnapshotHtml, setPdfPreviewSnapshotHtml] = useState<string>('');
     const embedRootRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -275,6 +299,122 @@ export default function TemplateViewer() {
         }));
     }, [templateName]);
     const [inlineEditChanges, setInlineEditChanges] = useState<any>({});
+
+    const defaultAccent = React.useMemo(() => normalizeHexColor(getTemplateDefaultAccent(templateName)) || '#243c6b', [templateName]);
+    // Keep a derived default text tone around for templates that want it.
+    const defaultText = React.useMemo(() => mixWithBlack(defaultAccent, 0.45), [defaultAccent]);
+
+    const backgroundColorControlSupported = ![
+        // Background setting has no effect for these templates, so hide it.
+        'boldprofessional',
+        'orangeheader',
+        'traditional',
+        'bluelineclassic',
+        'creative2',
+        'popart',
+    ].includes(templateKey);
+
+    // Only 1 user-facing color control exists (Background) when supported by the template.
+    // Keep the primary/accent tone pinned to the template default accent (not the dark text tone).
+    // Bold Professional relies on --tv-primary being orange for the accent text/borders.
+    const safePrimary = React.useMemo(() => defaultAccent, [defaultAccent]);
+
+    const safeAccent = safePrimary;
+    const safeAccent40 = React.useMemo(() => `${safeAccent}40`, [safeAccent]);
+    const safeAccent60 = React.useMemo(() => `${safeAccent}60`, [safeAccent]);
+    const safeAccentLight = React.useMemo(() => mixWithWhite(safeAccent, 0.65), [safeAccent]);
+    const safeAccentDark = React.useMemo(() => mixWithBlack(safeAccent, 0.45), [safeAccent]);
+
+    const derivedSecondaryFromAccent = React.useMemo(() => mixWithWhite(safeAccent, 0.85), [safeAccent]);
+    const safeSecondary = React.useMemo(() => (
+        normalizeHexColor(secondaryColor) ||
+        normalizeHexColor(resumeData?.style?.secondaryColor) ||
+        derivedSecondaryFromAccent
+    ), [secondaryColor, resumeData, derivedSecondaryFromAccent]);
+
+    const safePrimaryLight = React.useMemo(() => mixWithWhite(safePrimary, 0.65), [safePrimary]);
+    const safePrimaryDark = React.useMemo(() => mixWithBlack(safePrimary, 0.35), [safePrimary]);
+    const safeSecondaryLight = React.useMemo(() => mixWithWhite(safeSecondary, 0.6), [safeSecondary]);
+    const safeSecondaryDark = React.useMemo(() => mixWithBlack(safeSecondary, 0.24), [safeSecondary]);
+
+    const persistTemplateStylePatch = React.useCallback((stylePatch: Record<string, any>) => {
+        if (!stylePatch || typeof stylePatch !== 'object') return;
+
+        // In inline edit mode, avoid mutating resumeData (it would update `content` and
+        // can reset template internal state / wipe unsaved edits).
+        if (inlineEditMode) {
+            setInlineEditChanges((prev: any) => {
+                const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                return {
+                    ...(prev || {}),
+                    style: {
+                        ...baseStyle,
+                        ...prevStyle,
+                        ...stylePatch,
+                    },
+                };
+            });
+            return;
+        }
+
+        if (!resumeData) return;
+        const nextResume = {
+            ...(resumeData || {}),
+            style: {
+                ...((resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {}),
+                ...stylePatch,
+            },
+        };
+        setResumeData(nextResume);
+
+        if (accentSaveTimerRef.current) window.clearTimeout(accentSaveTimerRef.current);
+        accentSaveTimerRef.current = window.setTimeout(() => {
+            (async () => {
+                try {
+                    const res = await fetch('/api/template-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ resume: nextResume, source_revision_id: sourceRevisionId }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data?.success) {
+                        console.warn('Style save failed:', data?.error || `HTTP ${res.status}`);
+                    }
+                } catch (e) {
+                    console.warn('Style save failed:', e);
+                }
+            })();
+        }, 600);
+    }, [inlineEditMode, resumeData, sourceRevisionId]);
+
+    const handleAccentColorChange = React.useCallback((next: string) => {
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+
+        setAccentColor(normalized);
+
+        persistTemplateStylePatch({ accentColor: normalized });
+    }, [persistTemplateStylePatch]);
+
+    const handlePrimaryColorChange = React.useCallback((next: string) => {
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+        // Primary is the user-facing "Text color".
+        setPrimaryColor(normalized);
+        // Keep legacy state in sync (even though we don't expose or persist it as independent).
+        setAccentColor(normalized);
+        persistTemplateStylePatch({ primaryColor: normalized });
+    }, [persistTemplateStylePatch]);
+
+    const handleSecondaryColorChange = React.useCallback((next: string) => {
+        if (!backgroundColorControlSupported) return;
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+        setSecondaryColor(normalized);
+        persistTemplateStylePatch({ secondaryColor: normalized });
+    }, [backgroundColorControlSupported, persistTemplateStylePatch]);
 
     // Top navigation (hamburger on mobile)
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -450,12 +590,26 @@ export default function TemplateViewer() {
             const ss = String(settings.spacingScale);
 
             const printCss = `
-          #printTarget, #printTarget .tv-style-root {
+                    html, body, #printTarget, #printTarget .tv-style-root {
             --tv-font-scale: ${fs};
             --tv-paragraph-gap: ${pg};
             --tv-space-scale: ${ss};
+                        --tv-accent: ${safeAccent};
+                        --tv-accent-40: ${safeAccent40};
+                        --tv-accent-60: ${safeAccent60};
+                        --tv-accent-light: ${safeAccentLight};
+                        --tv-accent-dark: ${safeAccentDark};
+                        --tv-primary: ${safePrimary};
+                        --tv-primary-light: ${safePrimaryLight};
+                        --tv-primary-dark: ${safePrimaryDark};
+                        --tv-secondary: ${safeSecondary};
+                        --tv-secondary-light: ${safeSecondaryLight};
+                        --tv-secondary-dark: ${safeSecondaryDark};
           }
-                    @page { size: letter; margin: 0.32in 0in !important; }
+                                                    /* Bottom margin on ALL pages; top margin only from page 2 onward.
+                                                         Keep left/right at 0 so full-bleed sidebars/headers can still reach the page edge. */
+                                                    @page { size: letter; margin: 0.5in 0in 0.5in 0in !important; }
+                                                    @page:first { margin-top: 0in !important; }
           html, body {
             width: ${pageWidthPx}px;
             margin: 0 !important;
@@ -465,6 +619,75 @@ export default function TemplateViewer() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+
+                    /* Per-page vertical background fills (repeats on every printed page via position:fixed).
+                         This fixes the "vertical color stops at end of content" issue on the last page. */
+                    body { position: relative !important; }
+                    body::after {
+                        content: "";
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        z-index: 0;
+                        pointer-events: none;
+                        background: transparent;
+                    }
+                    #printPage { position: relative; z-index: 1; }
+                    body[data-pdf-template="clean"]::after {
+                        background: linear-gradient(to right,
+                            var(--tv-secondary) 0%,
+                            var(--tv-secondary) 33.333%,
+                            #ffffff 33.333%,
+                            #ffffff 100%
+                        );
+                    }
+                    body[data-pdf-template="classicrose"]::after {
+                        background: linear-gradient(to right,
+                            var(--tv-secondary) 0%,
+                            var(--tv-secondary) 33.333%,
+                            #ffffff 33.333%,
+                            #ffffff 100%
+                        );
+                    }
+                    body[data-pdf-template="modern"]::after {
+                        background: linear-gradient(to right,
+                            #ffffff 0%,
+                            #ffffff 60%,
+                            var(--tv-secondary) 60%,
+                            var(--tv-secondary) 100%
+                        );
+                    }
+                    body[data-pdf-template="creative2"]::after {
+                        background: #ffffff;
+                    }
+
+                    /* Allow the per-page background gradient to show through inside the resume.
+                       Many templates render an opaque white "card" wrapper (bg-white) which would otherwise
+                       hide the page-level background fills. */
+                    #printTarget [data-template="clean"],
+                    #printTarget [data-template="classicrose"],
+                    #printTarget [data-template="modern"] {
+                        background: transparent !important;
+                    }
+                    /* Creative2: keep an opaque card background in PDF/print to avoid edge shading artifacts */
+                    #printTarget [data-template="creative2"].creative2-template {
+                        background: #ffffff !important;
+                    }
+                                        ${pdfDebugEnabled ? `
+                    /* Debug marker: magenta bar at absolute page top */
+                    body::before {
+                        content: "";
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 10px;
+                        background: #ff00ff !important;
+                        z-index: 2147483647;
+                    }
+                    ` : ``}
           #printPage {
             position: relative;
             width: ${pageWidthPx}px;
@@ -478,26 +701,29 @@ export default function TemplateViewer() {
             box-sizing: border-box !important;
             padding: ${printPadPx}px !important;
           }
-                    /* Many templates have an outer wrapper with top padding/margin (e.g., Tailwind p-8 or pt-9).
-                         That spacing only applies at the start of the document, making page 1 look like it
-                         has a larger top margin than page 2+. Strip only the TOP spacing from the first wrapper
-                         and rely on @page margin for consistent per-page top whitespace. */
-                    #printTarget > *:first-child {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    #printTarget > *:first-child > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    #printTarget > *:first-child > :first-of-type > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    #printTarget > *:first-child > :first-of-type > :first-of-type > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
+                                        /* Prevent first-child top-margin collapse (can look like a top strip in PDFs) */
+                                        #printTarget { display: flow-root !important; }
+                                        #printTarget .tv-style-root { display: flow-root !important; }
+                                        /* PDF seam fix: remove wrapper rounding/overflow clipping only in print context */
+                                        #printTarget > * { border-radius: 0 !important; overflow: visible !important; }
+                                        #printTarget .tv-style-root > * { border-radius: 0 !important; overflow: visible !important; }
+
+                                        /* Chromium print seam fix: sometimes a ~1px white line appears at the very top edge
+                                           above a colored header background when printing/saving as PDF. Nudge the header up
+                                           by 1px in the print-only iframe to cover the rasterization seam. */
+                                        /* Apply generally to the top-most resume block so ALL templates are protected. */
+                                        #printTarget .tv-style-root > *:first-child {
+                                            margin-top: -1px !important;
+                                        }
+
+                                        /* Back-compat: keep the older template-specific selector too. */
+                                        #printTarget [data-template="professional"] > div:first-child {
+                                            margin-top: -1px !important;
+                                        }
+                    /* NOTE: Do NOT strip first-page top padding/margins. Requirement: page 1 top must remain unchanged.
+                       Page 2+ top breathing room is handled via @page margin-top. */
+
+
           /* Prevent individual resume entries from being split across pages */
           #printTarget section,
           #printTarget .space-y-4 > div,
@@ -515,6 +741,21 @@ export default function TemplateViewer() {
           #printTarget .grid.grid-cols-12 > .col-span-5 { float: right !important; width: 40% !important; }
           #printTarget .grid.grid-cols-12 > .col-span-4 { float: left !important; width: 33% !important; }
           #printTarget .grid.grid-cols-12 > .col-span-8 { float: right !important; width: 65% !important; }
+
+                    /* Full-height vertical backgrounds:
+                         - The float-based pagination shim above breaks equal-height columns, so templates with
+                             colored sidebars need a grid override in print/PDF.
+                         - Keep this narrowly scoped to avoid re-introducing grid fragmentation issues elsewhere. */
+                    #printTarget [data-template="clean"] .grid.grid-cols-12 {
+                        display: grid !important;
+                        grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+                        min-height: 10.5in !important;
+                    }
+                    #printTarget [data-template="clean"] .grid.grid-cols-12::after { content: none !important; display: none !important; }
+                    #printTarget [data-template="clean"] .grid.grid-cols-12 > * { float: none !important; width: auto !important; }
+
+                    /* Creative2 vertical accent container: extend to page bottom for one-page resumes */
+                    #printTarget [data-template="creative2"].creative2-template > div.relative { min-height: 10.5in !important; }
           /* Fill the printable canvas edge-to-edge (strip outer "card" gutters like mx-auto/max-w-*) */
           #printTarget > * {
             width: ${availW}px !important;
@@ -719,6 +960,13 @@ export default function TemplateViewer() {
                     const target = doc.getElementById('printTarget') as HTMLElement | null;
                     const child = target?.firstElementChild as HTMLElement | null;
                     if (target && child) {
+                        // Detect which template is being printed so we can apply the correct per-page background.
+                        const tmplEl = (child.matches && child.matches('[data-template]'))
+                            ? child
+                            : (child.querySelector ? (child.querySelector('[data-template]') as HTMLElement | null) : null);
+                        const tmpl = String(tmplEl?.getAttribute('data-template') || '').trim();
+                        if (tmpl) doc.body.setAttribute('data-pdf-template', tmpl);
+
                         // Ensure layout is up to date after CSS overrides.
                         const contentW = Math.max(1, child.scrollWidth || child.getBoundingClientRect().width);
                         const contentH = Math.max(1, child.scrollHeight || child.getBoundingClientRect().height);
@@ -768,13 +1016,25 @@ export default function TemplateViewer() {
         if (downloadingPdf) return;
         setDownloadingPdf(true);
         try {
-            const filename = `resume-${String(templateName || 'resume')}.pdf`;
+            const baseName = `resume-${String(templateName || 'resume')}`;
+            let filename = `${baseName}.pdf`;
+            // In local dev, PDF viewers can keep showing an already-open file tab even after you
+            // "re-download" the same filename. Use a unique filename to make changes obvious.
+            try {
+                const host = String(window.location.hostname || '').toLowerCase();
+                const isLocal = host === 'localhost' || host === '127.0.0.1';
+                if (isLocal) filename = `${baseName}-${Date.now()}.pdf`;
+            } catch {
+                // ignore
+            }
             const safeTemplate = String(templateName || 'professional');
             const qs = new URLSearchParams({
                 fontScale: String(styleSettings.fontScale),
                 paragraphGapPx: String(styleSettings.paragraphGapPx),
                 spacingScale: String(styleSettings.spacingScale),
             });
+            // Debug mode is opt-in via ?pdfdebug=1.
+            if (pdfDebugEnabled) qs.set('debug', '1');
             // Cache-bust: browsers/proxies sometimes cache GET PDFs even when content changes.
             qs.set('_ts', String(Date.now()));
             const pdfEndpointUrl = `/api/template-pdf/${encodeURIComponent(safeTemplate)}?${qs.toString()}`;
@@ -868,6 +1128,50 @@ export default function TemplateViewer() {
     useEffect(() => {
         loadTemplateData();
     }, [loadTemplateData]);
+
+    useEffect(() => {
+        if (!resumeData) return;
+
+        const fromAccent = normalizeHexColor(resumeData?.style?.accentColor);
+        const fromPrimary = normalizeHexColor(resumeData?.style?.primaryColor);
+        const fromSecondary = normalizeHexColor(resumeData?.style?.secondaryColor);
+
+        // Legacy migration: if an older resume saved only accentColor, treat it as the new Text color.
+        const effectivePrimary = fromPrimary || fromAccent;
+
+        if (!accentInitRef.current) {
+            // Accent is derived from Text; keep internal state aligned so any dependent code stays consistent.
+            setAccentColor(effectivePrimary || defaultAccent);
+            accentInitRef.current = true;
+        }
+
+        if (!primaryInitRef.current) {
+            setPrimaryColor(effectivePrimary || '');
+            primaryInitRef.current = true;
+        } else {
+            if (effectivePrimary && effectivePrimary !== normalizeHexColor(primaryColor)) {
+                setPrimaryColor(effectivePrimary);
+            }
+        }
+
+        if (!secondaryInitRef.current) {
+            setSecondaryColor(fromSecondary || '');
+            secondaryInitRef.current = true;
+        } else {
+            if (fromSecondary && fromSecondary !== normalizeHexColor(secondaryColor)) {
+                setSecondaryColor(fromSecondary);
+            }
+        }
+    }, [resumeData, defaultAccent, accentColor, primaryColor, secondaryColor]);
+
+    useEffect(() => {
+        return () => {
+            if (accentSaveTimerRef.current != null) {
+                window.clearTimeout(accentSaveTimerRef.current);
+                accentSaveTimerRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (editAutoAppliedRef.current) return;
@@ -1188,17 +1492,21 @@ export default function TemplateViewer() {
     // - "Content scale" matches the Save-as-PDF fit logic (width-fit)
     useEffect(() => {
         const PAGE_W = 816;
-        // Match the Playwright PDF content area with a safety margin.
-        // Playwright: Letter (1056px @96dpi), margin 0.32in top+bottom → content area ≈ 994.56px.
-        // Use 984px (≈10px safety buffer) to absorb font rendering differences between
-        // the user's browser and Playwright's bundled Chromium. This ensures content that
-        // fits on page N in the preview will ALWAYS fit on page N in the PDF.
-        const CONTENT_H = 984;
-        const PAD_TOP = 31;
-        const PAD_BOTTOM = 31;
+        // Match the PDF content area with a safety margin.
+        // Letter = 1056px @96dpi. We add top/bottom margins in the actual PDFs.
+        // Keep a small safety buffer (12px) to absorb font rendering differences.
+        const PAGE_H = 1056;
+        const SAFETY_PX = 12;
+        // Requirement: page 1 top unchanged, but bottom margin applies to all pages.
+        // Simulate that in the preview with different top padding for page 1 vs page 2+.
+        const PAD_TOP_FIRST = 0;
+        const PAD_TOP_REST = 48; // 0.5in
+        const PAD_BOTTOM = 48; // 0.5in
+        const VIEW_H_FIRST = Math.max(1, PAGE_H - PAD_TOP_FIRST - PAD_BOTTOM - SAFETY_PX);
+        const VIEW_H_REST = Math.max(1, PAGE_H - PAD_TOP_REST - PAD_BOTTOM - SAFETY_PX);
         const EXTRA_FRAME_PX = 20;
-        const PAGE_H = CONTENT_H + PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX;
-        const VIEW_H = CONTENT_H;
+        const PAGE_FRAME_H_FIRST = VIEW_H_FIRST + PAD_TOP_FIRST + PAD_BOTTOM + EXTRA_FRAME_PX;
+        const PAGE_FRAME_H_REST = VIEW_H_REST + PAD_TOP_REST + PAD_BOTTOM + EXTRA_FRAME_PX;
         const container = pdfPreviewContainerRef.current;
         const inner = pdfPreviewMeasureInnerRef.current;
         if (!container || !inner) return;
@@ -1270,11 +1578,20 @@ export default function TemplateViewer() {
                         const top = (topUnscaled * s) + shift;
                         const h = hUnscaled * s;
                         // Too tall to keep together — allow it to span pages
-                        if (h >= (VIEW_H - 1)) continue;
+                        const maxViewH = Math.max(VIEW_H_FIRST, VIEW_H_REST);
+                        if (h >= (maxViewH - 1)) continue;
 
-                        const pageIdx = Math.floor(top / VIEW_H);
-                        const within = top - (pageIdx * VIEW_H);
-                        const remaining = VIEW_H - within;
+                        // Find which page this element starts on with variable per-page view heights.
+                        const pageStartY = (pageIdx: number): number => (pageIdx <= 0 ? 0 : (VIEW_H_FIRST + (pageIdx - 1) * VIEW_H_REST));
+                        const pageViewH = (pageIdx: number): number => (pageIdx <= 0 ? VIEW_H_FIRST : VIEW_H_REST);
+                        const findPageIdx = (yPos: number): number => {
+                            if (yPos < VIEW_H_FIRST) return 0;
+                            return 1 + Math.floor((yPos - VIEW_H_FIRST) / VIEW_H_REST);
+                        };
+
+                        const pageIdx = findPageIdx(top);
+                        const within = top - pageStartY(pageIdx);
+                        const remaining = pageViewH(pageIdx) - within;
                         // Element would be split across pages — push it to the next page
                         if (remaining > 0.5 && remaining < (h - 0.5)) {
                             const spacer = Math.max(1, Math.ceil(remaining));
@@ -1327,10 +1644,11 @@ export default function TemplateViewer() {
             // - In view mode, tolerate a couple pixels of measurement jitter to avoid phantom extra pages.
             // - In inline edit mode, prefer being conservative (never undercount pages) to avoid clipping/cropping.
             const EPS_PX = inlineEditMode ? 0 : 2;
-            const pages =
-                scaledH <= (VIEW_H + EPS_PX)
-                    ? 1
-                    : Math.max(1, Math.ceil((scaledH - EPS_PX) / VIEW_H));
+            const pages = (() => {
+                if (scaledH <= (VIEW_H_FIRST + EPS_PX)) return 1;
+                const remaining = Math.max(0, scaledH - VIEW_H_FIRST);
+                return 1 + Math.max(1, Math.ceil((remaining - EPS_PX) / VIEW_H_REST));
+            })();
             setPdfPreviewPages(pages);
 
             // Prefer filling available width. If there are exactly 2 pages, scale so both pages can sit side-by-side.
@@ -1345,13 +1663,21 @@ export default function TemplateViewer() {
             // Shrink the last "page frame" to the actual remaining content height to avoid a trailing bottom edge/shadow line.
             // In inline edit mode, content height can change frequently (expand/collapse while typing), so keep full page
             // height to avoid clipping/cropping if measurements lag behind.
-            if (inlineEditMode) {
-                setPdfPreviewLastPageHeightPx(PAGE_H);
+            //
+            // IMPORTANT: If there's only 1 page, keep a full-height frame. Otherwise short/temporarily-undermeasured content
+            // can render as a thin strip ("only the top of the page"), which looks broken in the preview.
+            const keepFullLastPageFrame = ['clean', 'creative2'].includes(String(templateName || '').toLowerCase());
+
+            if (inlineEditMode || pages <= 1) {
+                setPdfPreviewLastPageHeightPx(PAGE_FRAME_H_FIRST);
+            } else if (keepFullLastPageFrame) {
+                setPdfPreviewLastPageHeightPx(PAGE_FRAME_H_REST);
             } else {
                 // Keep full-height pages for intermediate pages.
-                const pagesForHeight = Math.max(1, Math.ceil(scaledH / VIEW_H));
-                const remainderContent = Math.max(1, scaledH - (pagesForHeight - 1) * VIEW_H);
-                const lastFrame = Math.min(PAGE_H, (PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX + Math.ceil(remainderContent)));
+                const remainderAfterFirst = Math.max(0, scaledH - VIEW_H_FIRST);
+                const pagesAfterFirst = Math.max(1, Math.ceil(remainderAfterFirst / VIEW_H_REST));
+                const remainderContent = Math.max(1, remainderAfterFirst - (pagesAfterFirst - 1) * VIEW_H_REST);
+                const lastFrame = Math.min(PAGE_FRAME_H_REST, (PAD_TOP_REST + PAD_BOTTOM + EXTRA_FRAME_PX + Math.ceil(remainderContent)));
                 setPdfPreviewLastPageHeightPx(lastFrame);
             }
         };
@@ -1490,7 +1816,7 @@ export default function TemplateViewer() {
         case 'blueLineClassic':
         case 'blue-line-classic':
         case 'blue_line_classic':
-            TemplateComponent = TraditionalTemplate;
+            TemplateComponent = ContemporaryTemplate;
             break;
         case 'modern':
         case 'cleansidebar':
@@ -1503,7 +1829,7 @@ export default function TemplateViewer() {
         case 'minimalsidebar':
         case 'minimal-sidebar':
         case 'minimal_sidebar':
-            TemplateComponent = CleanTemplate;
+            TemplateComponent = StylishTemplate;
             break;
         default:
             return (
@@ -1544,6 +1870,28 @@ export default function TemplateViewer() {
                             ['--tv-font-scale']: String(styleSettings.fontScale),
                             // @ts-ignore
                             ['--tv-space-scale']: String(styleSettings.spacingScale),
+                            // @ts-ignore
+                            ['--tv-accent']: safeAccent,
+                            // @ts-ignore
+                            ['--tv-accent-40']: safeAccent40,
+                            // @ts-ignore
+                            ['--tv-accent-60']: safeAccent60,
+                            // @ts-ignore
+                            ['--tv-accent-light']: safeAccentLight,
+                            // @ts-ignore
+                            ['--tv-accent-dark']: safeAccentDark,
+                            // @ts-ignore
+                            ['--tv-primary']: safePrimary,
+                            // @ts-ignore
+                            ['--tv-primary-light']: safePrimaryLight,
+                            // @ts-ignore
+                            ['--tv-primary-dark']: safePrimaryDark,
+                            // @ts-ignore
+                            ['--tv-secondary']: safeSecondary,
+                            // @ts-ignore
+                            ['--tv-secondary-light']: safeSecondaryLight,
+                            // @ts-ignore
+                            ['--tv-secondary-dark']: safeSecondaryDark,
                         }}
                     >
                         <TemplateComponent
@@ -1737,12 +2085,28 @@ export default function TemplateViewer() {
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1066px);
-                    background: #fff;
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
+                                        background: var(--pdf-page-bg, #fff);
                     position: relative;
                                         overflow: hidden;
                     box-shadow: 0 12px 30px rgba(0,0,0,0.12);
                   }
+
+                                    /* Full-height vertical backgrounds in preview (last-page aesthetics):
+                                         match the PDF intent where sidebars/vertical accents fill the page even if text ends early. */
+                                    /* IMPORTANT: Do not force min-height on layout containers here.
+                                       It creates a visible blank gap after the last content block.
+                                       Instead, rely on the page-level background gradient (pdfPreviewPage)
+                                       and make the template wrapper transparent so the gradient shows through. */
+                                    .pdfPreviewViewport [data-template="clean"],
+                                    .pdfPreviewViewport [data-template="classicrose"],
+                                    .pdfPreviewViewport [data-template="modern"] {
+                                        background: transparent !important;
+                                    }
+                                    /* Creative2: keep an opaque card background in preview to match the on-screen template */
+                                    .pdfPreviewViewport [data-template="creative2"].creative2-template {
+                                        background: #ffffff !important;
+                                    }
                                     /* Continuous edit-mode preview: no forced page height or clipping */
                                     .pdfPreviewPageContinuous {
                                         height: auto !important;
@@ -1758,11 +2122,14 @@ export default function TemplateViewer() {
                     top: 0;
                     left: 0;
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1066px);
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
                                         overflow: hidden;
                                         contain: paint;
-                                                                                --pdf-pad-top: 31px;
-                                                                                --pdf-pad-bottom: 31px;
+                                                                                                                                                                --pdf-pad-top-first: 0px;
+                                                                                                                                                                --pdf-pad-top-rest: 48px;
+                                                                                                                                                                --pdf-pad-bottom: 48px;
+                                                                                                                                                                --pdf-view-h-first: 996px;
+                                                                                                                                                                --pdf-view-h-rest: 948px;
                   }
                                     /* Remove template outer "card" shadow/ring in preview (clipped shadows can look like an end marker). */
                                     .pdfPreviewTarget .tv-style-root > * {
@@ -1772,8 +2139,8 @@ export default function TemplateViewer() {
                                                                                 position: absolute;
                                                                                 left: 0;
                                                                                 right: 0;
-                                                                                top: var(--pdf-pad-top);
-                                                                                height: 984px;
+                                                                            top: var(--pdf-pad-top);
+                                                                            height: var(--pdf-view-h);
                                                                                 overflow: hidden;
                                                                         }
                                     .pdfPreviewTargetContinuous {
@@ -1798,25 +2165,10 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .md\\:w-\\[300px\\] { width: 300px !important; }
                   .pdfPreviewTarget .md\\:flex-shrink-0 { flex-shrink: 0 !important; }
 
-                  /* Strip first-child top padding/margin to match PDF export behavior.
-                     Both Playwright and browser-print exports strip this so content starts
-                     at the same vertical position as the PDF page margin provides. */
-                  .pdfPreviewViewport .tv-style-root > *:first-child {
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                  }
-                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type {
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                  }
-                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type > :first-of-type {
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                  }
-                  .pdfPreviewViewport .tv-style-root > *:first-child > :first-of-type > :first-of-type > :first-of-type {
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                  }
+                        /* NOTE: Do NOT strip first-page top padding/margins. Requirement: page 1 top must remain unchanged.
+                            Page 2+ top breathing room is handled via the simulated page padding in the viewport. */
+
+
 
                   /* Apply Customize variables in the preview too */
                   .pdfPreviewTarget .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
@@ -2074,6 +2426,25 @@ export default function TemplateViewer() {
                                         </div>
 
                                         <div className="space-y-4">
+                                            {backgroundColorControlSupported && (
+                                                <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
+                                                            <Wand2 className="w-4 h-4 text-sky-600" />
+                                                            Background color
+                                                        </label>
+                                                        <span className="text-xs text-gray-600">{safeSecondary}</span>
+                                                    </div>
+                                                    <input
+                                                        type="color"
+                                                        value={safeSecondary}
+                                                        onChange={(e) => handleSecondaryColorChange(e.target.value)}
+                                                        className="h-10 w-14 rounded-md border border-gray-200 bg-white"
+                                                        disabled={!resumeData}
+                                                    />
+                                                </div>
+                                            )}
+
                                             <div className="rounded-xl border border-gray-200 bg-white p-3">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
@@ -3045,6 +3416,28 @@ export default function TemplateViewer() {
                                                                 ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                 // @ts-ignore
                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                // @ts-ignore
+                                                                ['--tv-accent']: safeAccent,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-40']: safeAccent40,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-60']: safeAccent60,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-light']: safeAccentLight,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-dark']: safeAccentDark,
+                                                                // @ts-ignore
+                                                                ['--tv-primary']: safePrimary,
+                                                                // @ts-ignore
+                                                                ['--tv-primary-light']: safePrimaryLight,
+                                                                // @ts-ignore
+                                                                ['--tv-primary-dark']: safePrimaryDark,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary']: safeSecondary,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary-light']: safeSecondaryLight,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary-dark']: safeSecondaryDark,
                                                             }}
                                                         >
                                                             <TemplateComponent
@@ -3067,6 +3460,22 @@ export default function TemplateViewer() {
                                             const pagesForLayout = inlineEditMode ? 1 : pdfPreviewPages;
                                             const totalW = pagesForLayout === 2 ? ((PAGE_W * 2) + twoUpGapPx) : PAGE_W;
                                             const scaledW = Math.max(1, Math.ceil(totalW * pdfPreviewPageScale));
+                                            const templateKey = String(templateName || '').toLowerCase();
+                                            const pageBg = (() => {
+                                                if (templateKey === 'clean') {
+                                                    return `linear-gradient(to right, ${safeSecondary} 0%, ${safeSecondary} 33.333%, #ffffff 33.333%, #ffffff 100%)`;
+                                                }
+                                                if (templateKey === 'classicrose') {
+                                                    return `linear-gradient(to right, ${safeSecondary} 0%, ${safeSecondary} 33.333%, #ffffff 33.333%, #ffffff 100%)`;
+                                                }
+                                                if (templateKey === 'modern') {
+                                                    return `linear-gradient(to right, #ffffff 0%, #ffffff 60%, ${safeSecondary} 60%, ${safeSecondary} 100%)`;
+                                                }
+                                                if (templateKey === 'creative2') {
+                                                    return '#ffffff';
+                                                }
+                                                return '#ffffff';
+                                            })();
                                             return (
                                                 <div style={{ width: `${scaledW}px`, margin: '0 auto' }}>
                                                     {inlineEditMode ? (
@@ -3115,6 +3524,28 @@ export default function TemplateViewer() {
                                                                                 ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                                 // @ts-ignore
                                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent']: safeAccent,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-40']: safeAccent40,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-60']: safeAccent60,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-light']: safeAccentLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-dark']: safeAccentDark,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary']: safePrimary,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary-light']: safePrimaryLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary-dark']: safePrimaryDark,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary']: safeSecondary,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary-light']: safeSecondaryLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary-dark']: safeSecondaryDark,
                                                                             }}
                                                                         >
                                                                             <TemplateComponent
@@ -3158,17 +3589,27 @@ export default function TemplateViewer() {
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1066}px`,
+                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1064}px`,
+                                                                                // @ts-ignore
+                                                                                ['--pdf-page-bg']: pageBg,
+                                                                                // Page 1: keep top unchanged. Page 2+: add top breathing room.
+                                                                                // @ts-ignore
+                                                                                ['--pdf-pad-top']: idx === 0 ? '0px' : '48px',
+                                                                                // @ts-ignore
+                                                                                ['--pdf-view-h']: idx === 0 ? '996px' : '948px',
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
                                                                                 <div className="pdfPreviewViewport">
                                                                                     {(() => {
                                                                                         // Stride = PDF content area height (with safety margin).
-                                                                                        const VIEW_H = 984;
+                                                                                        const VIEW_H_FIRST = 996;
+                                                                                        const VIEW_H_REST = 948;
                                                                                         // Avoid 1px overlap at page boundaries (can duplicate the last line on the next page)
                                                                                         // due to rounding/subpixel rasterization.
-                                                                                        const y = (idx * VIEW_H) + (idx > 0 ? 1 : 0);
+                                                                                        const y = (idx === 0)
+                                                                                            ? 0
+                                                                                            : (VIEW_H_FIRST + ((idx - 1) * VIEW_H_REST) + 1);
                                                                                         return !pdfPreviewSnapshotHtml ? (
                                                                                             <div
                                                                                                 style={{
@@ -3185,6 +3626,28 @@ export default function TemplateViewer() {
                                                                                                         ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                                                         // @ts-ignore
                                                                                                         ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent']: safeAccent,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-40']: safeAccent40,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-60']: safeAccent60,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-light']: safeAccentLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-dark']: safeAccentDark,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary']: safePrimary,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary-light']: safePrimaryLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary-dark']: safePrimaryDark,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary']: safeSecondary,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary-light']: safeSecondaryLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary-dark']: safeSecondaryDark,
                                                                                                     }}
                                                                                                 >
                                                                                                     <TemplateComponent
@@ -3430,4 +3893,26 @@ function ListField({
             </div>
         </div>
     );
+}
+
+function getTemplateDefaultAccent(rawTemplateName?: string): string {
+    const key = String(rawTemplateName || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]/g, '');
+
+    switch (key) {
+        case 'classicrose':
+        case 'elegant':
+        case 'lavenderclassic':
+            return '#a67c6b';
+
+        case 'boldprofessional':
+        case 'orangeheader':
+            return '#f36b1c';
+
+        // Default (professional-style blue)
+        default:
+            return '#243c6b';
+    }
 }

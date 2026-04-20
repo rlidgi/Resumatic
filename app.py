@@ -296,6 +296,104 @@ _PDF_BROWSER_LOCK = threading.Lock()
 _PDF_PW = None
 _PDF_BROWSER = None
 
+# ---- Playwright browser reuse (per-thread) ----
+# Playwright's sync API is thread-affine; using the same browser object across threads can raise
+# "Cannot switch to a different thread". To keep reuse safe, maintain a browser per *thread*.
+_PDF_THREAD_LOCAL = threading.local()
+_PDF_THREAD_RESOURCES_LOCK = threading.Lock()
+_PDF_THREAD_RESOURCES = []  # best-effort cleanup list: [{'pw': pw, 'browser': browser}]
+
+# ---- Font embedding cache (module-wide) ----
+_PDF_FONT_LOCK = threading.Lock()
+_PDF_INTER_FONT_B64 = None
+_PDF_FONTS_DIR = None
+
+
+def _get_pdf_fonts_dir() -> str:
+    """Return absolute path to static fonts directory (cached)."""
+    global _PDF_FONTS_DIR
+    if _PDF_FONTS_DIR:
+        return _PDF_FONTS_DIR
+    try:
+        _static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        _PDF_FONTS_DIR = os.path.join(_static_dir, "fonts")
+    except Exception:
+        _PDF_FONTS_DIR = ""
+    return _PDF_FONTS_DIR
+
+
+def _get_inter_font_b64_cache() -> dict:
+    """Lazy-load base64 versions of Inter woff2 fonts once per process."""
+    global _PDF_INTER_FONT_B64
+    if isinstance(_PDF_INTER_FONT_B64, dict):
+        return _PDF_INTER_FONT_B64
+    with _PDF_FONT_LOCK:
+        if isinstance(_PDF_INTER_FONT_B64, dict):
+            return _PDF_INTER_FONT_B64
+        try:
+            import base64
+            fonts_dir = _get_pdf_fonts_dir()
+            inter_dir = os.path.join(fonts_dir, "inter") if fonts_dir else ""
+            cache = {}
+            for name in (
+                "inter-latin-400-normal.woff2",
+                "inter-latin-500-normal.woff2",
+                "inter-latin-600-normal.woff2",
+                "inter-latin-700-normal.woff2",
+            ):
+                p = os.path.join(inter_dir, name)
+                if os.path.isfile(p):
+                    with open(p, "rb") as f:
+                        cache[name] = base64.b64encode(f.read()).decode("ascii")
+            _PDF_INTER_FONT_B64 = cache
+        except Exception:
+            _PDF_INTER_FONT_B64 = {}
+        return _PDF_INTER_FONT_B64
+
+
+def _get_pdf_browser_threadlocal(launch_kwargs: dict):
+    """Return a reused Chromium browser instance bound to the current thread."""
+    tl = _PDF_THREAD_LOCAL
+    try:
+        b = getattr(tl, "browser", None)
+        if b is not None:
+            is_connected = getattr(b, "is_connected", None)
+            if callable(is_connected):
+                if is_connected():
+                    return b
+            else:
+                return b
+    except Exception:
+        try:
+            tl.browser = None
+        except Exception:
+            pass
+
+    from playwright.sync_api import sync_playwright
+    try:
+        pw = getattr(tl, "pw", None)
+    except Exception:
+        pw = None
+    if pw is None:
+        pw = sync_playwright().start()
+        try:
+            tl.pw = pw
+        except Exception:
+            pass
+
+    browser = pw.chromium.launch(**launch_kwargs)
+    try:
+        tl.browser = browser
+    except Exception:
+        pass
+    # Track for best-effort cleanup.
+    try:
+        with _PDF_THREAD_RESOURCES_LOCK:
+            _PDF_THREAD_RESOURCES.append({"pw": pw, "browser": browser})
+    except Exception:
+        pass
+    return browser
+
 
 def _get_pdf_browser(launch_kwargs: dict):
     """Return a reused Chromium browser instance for this worker."""
@@ -336,6 +434,27 @@ def _close_pdf_browser():
     except Exception:
         pass
     _PDF_PW = None
+
+    # Best-effort cleanup for thread-local resources.
+    try:
+        with _PDF_THREAD_RESOURCES_LOCK:
+            resources = list(_PDF_THREAD_RESOURCES)
+            _PDF_THREAD_RESOURCES.clear()
+    except Exception:
+        resources = []
+    for r in resources:
+        try:
+            b = r.get("browser")
+            if b is not None:
+                b.close()
+        except Exception:
+            pass
+        try:
+            pw = r.get("pw")
+            if pw is not None:
+                pw.stop()
+        except Exception:
+            pass
 
 # Azure SDK HTTP logging can drown out app logs (especially in Azure Log Stream).
 # Default to quiet; allow overriding via standard logging config if needed.
@@ -5394,10 +5513,11 @@ def _format_template_display_name(raw: str) -> str:
     canonical = _canonical_template_id(str(raw or ''))
     display_overrides = {
         # UI labels
-        'minimalSidebar': 'Clean',
+        'minimalSidebar': 'Stylish',
         'classicRose': 'Classic',
         'creative2': 'Creative',
         'boldProfessional': 'Bold Professional',
+        'traditional': 'Contemporary',
     }
     if canonical in display_overrides:
         return display_overrides[canonical]
@@ -6051,6 +6171,19 @@ def api_template_pdf(template_id):
             _t(),
         )
 
+        _pdf_debug = False
+        try:
+            _pdf_debug = str(request.args.get('debug') or '').strip().lower() in ('1', 'true', 'yes')
+        except Exception:
+            _pdf_debug = False
+        try:
+            _pdf_debug = _pdf_debug or (str(os.getenv('PDF_DEBUG') or '').strip().lower() in ('1', 'true', 'yes'))
+        except Exception:
+            _pdf_debug = _pdf_debug
+
+        _pdf_debug_dir = None
+        _pdf_debug_files = []
+
         cookies = []
         cookie_base = base_url + "/"
         for name, value in (request.cookies or {}).items():
@@ -6105,11 +6238,9 @@ def api_template_pdf(template_id):
             else:
                 logger.info("template_pdf chromium_launch exec=%s t=%sms", "(default)", _t())
 
-            # Launch fresh Chromium per request. Reuse caused "Cannot switch to a different thread"
-            # when Gunicorn's other threads handled subsequent PDF requests.
-            from playwright.sync_api import sync_playwright
-            pw = sync_playwright().start()
-            browser = pw.chromium.launch(**launch_kwargs)
+            # Reuse Chromium safely by keeping a browser per server thread.
+            # This avoids expensive per-request launches while respecting Playwright sync thread affinity.
+            browser = _get_pdf_browser_threadlocal(launch_kwargs)
             context = browser.new_context(
                 viewport={"width": 816, "height": 1056},
                 device_scale_factor=1,
@@ -6119,16 +6250,8 @@ def api_template_pdf(template_id):
 
             page = context.new_page()
             # Embed fonts as base64 in CSS so Chromium never waits for a fetch. Matches localhost exactly.
-            _static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-            _fonts_dir = os.path.join(_static_dir, "fonts")
-            import base64
-            _font_b64_cache = {}
-            for name in ("inter-latin-400-normal.woff2", "inter-latin-500-normal.woff2",
-                         "inter-latin-600-normal.woff2", "inter-latin-700-normal.woff2"):
-                p = os.path.join(_fonts_dir, "inter", name)
-                if os.path.isfile(p):
-                    with open(p, "rb") as f:
-                        _font_b64_cache[name] = base64.b64encode(f.read()).decode("ascii")
+            _fonts_dir = _get_pdf_fonts_dir()
+            _font_b64_cache = _get_inter_font_b64_cache()
 
             def _handle_route(route):
                 req = route.request
@@ -6228,9 +6351,48 @@ def api_template_pdf(template_id):
                         tv.style.setProperty('--tv-paragraph-gap', `${a.paragraphGapPx}px`);
                         tv.style.setProperty('--tv-space-scale', String(a.spacingScale));
                       }
+
+                                            // Detect template id for PDF-specific per-page backgrounds.
+                                            try {
+                                                const tmplEl = (rootClone.matches && rootClone.matches('[data-template]'))
+                                                    ? rootClone
+                                                    : (rootClone.querySelector ? rootClone.querySelector('[data-template]') : null);
+                                                const tmpl = tmplEl && tmplEl.getAttribute ? String(tmplEl.getAttribute('data-template') || '').trim() : '';
+                                                if (tmpl) document.body.setAttribute('data-pdf-template', tmpl);
+                                            } catch (e) {
+                                                // ignore
+                                            }
+
+                                            // Expose theme vars on :root so page-level fixed backgrounds can use them.
+                                            try {
+                                                if (tv) {
+                                                    // NOTE: `tv` is a clone at this point and may not be connected to the DOM yet.
+                                                    // `getComputedStyle()` on disconnected nodes can return empty for custom properties.
+                                                    // Prefer inline style values (set by TemplateViewer on #templatePrintContent).
+                                                    ['--tv-secondary', '--tv-accent'].forEach((k) => {
+                                                        let v = '';
+                                                        try {
+                                                            v = (tv.style && tv.style.getPropertyValue) ? (tv.style.getPropertyValue(k) || '') : '';
+                                                        } catch (e) { v = ''; }
+                                                        v = String(v || '').trim();
+                                                        if (!v) {
+                                                            try {
+                                                                const cs = window.getComputedStyle(tv);
+                                                                v = String((cs && cs.getPropertyValue) ? (cs.getPropertyValue(k) || '') : '').trim();
+                                                            } catch (e) { v = ''; }
+                                                        }
+                                                        if (v) document.documentElement.style.setProperty(k, v);
+                                                    });
+                                                }
+                                            } catch (e) {
+                                                // ignore
+                                            }
                       rootClone.style.position = 'relative';
                       rootClone.style.left = '0';
                       rootClone.style.top = '0';
+                      // Requirement: keep page 1 top unchanged, but add bottom margin on all pages
+                      // and top margin only from page 2 onward.
+                      // Use CSS @page and @page:first to achieve this (avoid JS offsets that can clip text).
 
                       let mount = document.getElementById('__pdfMount');
                       if (!mount) {
@@ -6243,7 +6405,7 @@ def api_template_pdf(template_id):
                       try {
                                                 mount.style.margin = '0';
                                                 mount.style.padding = '0';
-                        mount.style.background = '#fff';
+                                                mount.style.background = 'transparent';
                         mount.style.position = 'relative';
                         mount.style.left = '0';
                         mount.style.top = '0';
@@ -6251,42 +6413,107 @@ def api_template_pdf(template_id):
                         // ignore
                       }
 
+                                            // NOTE: Avoid injecting overlay strips above content.
+                                            // They can accidentally cover header text if the wrong element is selected.
+
+                                            // NOTE: Do NOT strip first-page top padding/margins.
+                                            // Requirement: page 1 top must remain unchanged.
+                                            // Page 2+ breathing room is handled via @page margin-top.
+
                       const existing = document.getElementById('__pdfOnlyCss');
                       if (existing) existing.remove();
                       const style = document.createElement('style');
                       style.id = '__pdfOnlyCss';
                                             style.textContent = `
-                                                /* Page margins are controlled by Playwright page.pdf(...) to ensure consistency in Chromium PDF output. */
-                                                @page { size: letter; }
+                                                /* Use CSS @page margins so we can keep page 1 top unchanged via @page:first. */
+                                                @page { size: letter; margin: 0.5in 0in 0.5in 0in !important; }
+                                                @page:first { margin-top: 0in !important; }
                         html, body { width: 816px; margin: 0 !important; padding: 0 !important; background: #fff !important; min-height: 0 !important; }
                         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                         body > *:not(#__pdfMount) { display: none !important; }
-                                                #__pdfMount { display: block !important; position: relative !important; left: 0 !important; top: 0 !important; }
-                                                /* Many templates have an outer wrapper with top padding/margin (e.g., Tailwind p-8).
-                                                     That padding only applies at the start of the document, making page 1 look like it
-                                                     has a larger top margin than page 2+. Strip only the TOP spacing from the wrapper
-                                                     and rely on the PDF page margin for consistent per-page top whitespace. */
-                                                #__pdfMount > *:first-child {
-                                                    page-break-before: avoid !important;
-                                                    margin-top: 0 !important;
-                                                    padding-top: 0 !important;
+
+                                                /* Per-page vertical background fills (repeat on each page using position:fixed).
+                                                     Fixes last-page short-content sidebars that otherwise stop early. */
+                                                body { position: relative !important; }
+                                                body::after {
+                                                    content: "";
+                                                    position: fixed;
+                                                    top: 0;
+                                                    left: 0;
+                                                    right: 0;
+                                                    bottom: 0;
+                                                    z-index: 0;
+                                                    pointer-events: none;
+                                                    background: transparent;
                                                 }
-                                                /* Some templates apply their outer padding on a nested wrapper instead of the exported root.
-                                                   Strip top spacing on the first nested wrapper(s) as well so page 1 matches page 2+. */
-                                                #__pdfMount > *:first-child > :first-of-type {
-                                                    margin-top: 0 !important;
-                                                    padding-top: 0 !important;
+                                                #__pdfMount { position: relative !important; z-index: 1 !important; }
+                                                #__pdfMount { background: transparent !important; }
+                                                body[data-pdf-template="clean"]::after {
+                                                    background: linear-gradient(to right,
+                                                        var(--tv-secondary) 0%,
+                                                        var(--tv-secondary) 33.333%,
+                                                        #ffffff 33.333%,
+                                                        #ffffff 100%
+                                                    );
                                                 }
-                                                #__pdfMount > *:first-child > :first-of-type > :first-of-type {
-                                                    margin-top: 0 !important;
-                                                    padding-top: 0 !important;
+                                                body[data-pdf-template="classicrose"]::after {
+                                                    background: linear-gradient(to right,
+                                                        var(--tv-secondary) 0%,
+                                                        var(--tv-secondary) 33.333%,
+                                                        #ffffff 33.333%,
+                                                        #ffffff 100%
+                                                    );
                                                 }
-                                                #__pdfMount > *:first-child > :first-of-type > :first-of-type > :first-of-type {
-                                                    margin-top: 0 !important;
-                                                    padding-top: 0 !important;
+                                                body[data-pdf-template="modern"]::after {
+                                                    background: linear-gradient(to right,
+                                                        #ffffff 0%,
+                                                        #ffffff 60%,
+                                                        var(--tv-secondary) 60%,
+                                                        var(--tv-secondary) 100%
+                                                    );
                                                 }
+                                                body[data-pdf-template="creative2"]::after {
+                                                    /* Creative2: match the on-screen template (no full-height left shading) */
+                                                    background: #ffffff;
+                                                }
+
+                                                /* Allow the per-page background gradient to show through inside the resume.
+                                                     Many templates render an opaque white wrapper (bg-white) which would otherwise
+                                                     hide the page-level background fills. */
+                                                #__pdfMount [data-template="clean"],
+                                                #__pdfMount [data-template="classicrose"],
+                                                #__pdfMount [data-template="modern"] {
+                                                    background: transparent !important;
+                                                }
+                                                /* Creative2: keep an opaque white card to avoid PDF-only shading artifacts */
+                                                #__pdfMount [data-template="creative2"].creative2-template {
+                                                    background: #ffffff !important;
+                                                }
+                                                                /* Use flow-root (BFC) to prevent first-child top-margin collapse which can
+                                                                    appear as an unexplained white strip at the top of page 1 in PDFs. */
+                                                                #__pdfMount { display: flow-root !important; position: relative !important; left: 0 !important; top: 0 !important; }
+                                                                #__pdfMount .tv-style-root { display: flow-root !important; }
+
+                                                                /* PDF seam fix: rounded corners + overflow clipping can create a thin white strip
+                                                                    at the top edge when Chromium rasterizes backgrounds into PDF. Disable wrapper
+                                                                    rounding/overflow in the PDF output context only. */
+                                                                #__pdfMount > * { border-radius: 0 !important; overflow: visible !important; }
+                                                                #__pdfMount .tv-style-root > * { border-radius: 0 !important; overflow: visible !important; }
+                                                /* NOTE: Top-padding stripping is handled by a JS heuristic above, to avoid
+                                                   removing intentional header padding in full-bleed templates. */
+
+                                                                    /* IMPORTANT: Avoid negative top nudges in the PDF-only context.
+                                                                      When page 1 is already pulled up to cancel margins, extra negative
+                                                                      offsets can push text into the clipped top edge. */
+
+
                                                                                                                                 /* Creative2: keep the left edge flush so the yellow accent bar touches the page edge. */
                                                                                                                                 #__pdfMount [data-template="creative2"].creative2-template { margin: 0 !important; }
+                                                                                                                                /* Full-height vertical backgrounds (one-page appearance):
+                                                                                                                                     Ensure sidebars/vertical accents reach the page bottom instead of
+                                                                                                                                     stopping at the end of content. */
+                                                                                                                                #__pdfMount [data-template="clean"] .grid.grid-cols-12 { min-height: 10.5in !important; }
+                                                                                                                                #__pdfMount [data-template="creative2"].creative2-template > div.relative { min-height: 10.5in !important; }
                         #__pdfMount, #__pdfMount * {
                           box-shadow: none !important;
                           filter: none !important;
@@ -6495,9 +6722,28 @@ def api_template_pdf(template_id):
                                                 #__pdfMount [data-template="creative2"] .creative2-template .space-y-2 > * + *,
                                                 #__pdfMount .creative2-template .space-y-2 > * + * { margin-top: 0.2rem !important; }
                       `;
+
+                                                                                        // Debug-only visual markers to prove whether any top whitespace is real layout
+                                                                                        // (content pushed down) vs just the PDF viewer's page border.
+                                                                                        if (a && a.debug) {
+                                                                                                style.textContent += `
+                                                                                                    html { background: #fff !important; }
+                                                                                                    body::before {
+                                                                                                        content: "";
+                                                                                                        position: fixed;
+                                                                                                        top: 0;
+                                                                                                        left: 0;
+                                                                                                        right: 0;
+                                                                                                        height: 10px;
+                                                                                                        background: #ff00ff !important;
+                                                                                                        z-index: 2147483647;
+                                                                                                    }
+                                                                                                    #__pdfMount { outline: 2px solid #ff00ff !important; }
+                                                                                                `;
+                                                                                        }
                       document.head.appendChild(style);
                     }""",
-                {"fontScale": font_scale, "paragraphGapPx": paragraph_gap_px, "spacingScale": spacing_scale},
+                                {"fontScale": font_scale, "paragraphGapPx": paragraph_gap_px, "spacingScale": spacing_scale, "debug": _pdf_debug},
             )
             logger.info("template_pdf print_css_ready t=%sms", _t())
 
@@ -6510,15 +6756,38 @@ def api_template_pdf(template_id):
             # Debug (local troubleshooting): log key computed styles/positions for Creative2.
             # Helps identify cases where Chromium treats containers as non-fragmentable and pushes
             # the main content to the next page.
-            _pdf_debug = False
-            try:
-                _pdf_debug = str(request.args.get('debug') or '').strip().lower() in ('1', 'true', 'yes')
-            except Exception:
-                _pdf_debug = False
-            try:
-                _pdf_debug = _pdf_debug or (str(os.getenv('PDF_DEBUG') or '').strip().lower() in ('1', 'true', 'yes'))
-            except Exception:
-                _pdf_debug = _pdf_debug
+            # If debug mode is enabled, save a screenshot + HTML of the rendered export.
+            if _pdf_debug:
+                try:
+                    _pdf_debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_store', 'pdf_debug')
+                    os.makedirs(_pdf_debug_dir, exist_ok=True)
+
+                    safe_id = ''.join([c for c in str(canonical or 'template') if c.isalnum() or c in ('-', '_')])
+                    ts = int(time.time())
+                    shot_path = os.path.join(_pdf_debug_dir, f'{safe_id}-render-{ts}.png')
+                    html_path = os.path.join(_pdf_debug_dir, f'{safe_id}-render-{ts}.html')
+
+                    # Screenshot the whole page; includes the magenta debug bar at y=0.
+                    page.screenshot(path=shot_path, full_page=True)
+                    _pdf_debug_files.append(shot_path)
+
+                    try:
+                        html = page.content() or ''
+                    except Exception:
+                        html = ''
+                    try:
+                        with open(html_path, 'w', encoding='utf-8') as f:
+                            f.write(html)
+                        _pdf_debug_files.append(html_path)
+                    except Exception:
+                        pass
+
+                    logger.info('template_pdf debug_saved dir=%s files=%s t=%sms', _pdf_debug_dir, ';'.join(_pdf_debug_files), _t())
+                except Exception as _e:
+                    try:
+                        logger.info('template_pdf debug_save_failed err=%r t=%sms', _e, _t())
+                    except Exception:
+                        pass
 
             if canonical == 'creative2' and _pdf_debug:
                 try:
@@ -6657,21 +6926,15 @@ def api_template_pdf(template_id):
                     pass
 
             step = "page_pdf"
-            _pdf_margin_top = "0.32in"
-            _pdf_margin_bottom = "0.32in"
-            _pdf_margin_left = "0in"
-            _pdf_margin_right = "0in"
+            # Margins are controlled via CSS @page (supports @page:first).
+            # Keep header/debug info about intended margins.
+            _pdf_margin_top = "css@page(0.5in; first=0in)"
+            _pdf_margin_bottom = "css@page(0.5in)"
+            _pdf_margin_left = "css@page(0in)"
+            _pdf_margin_right = "css@page(0in)"
             pdf_bytes = page.pdf(
                 format="Letter",
                 print_background=True,
-                # Small top/bottom page margins for all templates.
-                # Use inch units for maximum compatibility with Chromium's PDF output.
-                margin={
-                    "top": _pdf_margin_top,
-                    "right": _pdf_margin_right,
-                    "bottom": _pdf_margin_bottom,
-                    "left": _pdf_margin_left,
-                },
             )
             logger.info("template_pdf pdf_ready bytes=%s t=%sms", len(pdf_bytes or b""), _t())
         finally:
@@ -6680,18 +6943,11 @@ def api_template_pdf(template_id):
                     context.close()
             except Exception:
                 pass
-            try:
-                if browser:
-                    browser.close()
-            except Exception:
-                pass
-            try:
-                if pw:
-                    pw.stop()
-            except Exception:
-                pass
+            # IMPORTANT: do not close the thread-local browser here; reuse it for subsequent requests.
+            # The atexit handler will attempt best-effort cleanup when the worker exits.
 
-        filename = f"resume-{canonical}.pdf"
+        # Make filename unique so PDF viewers don't keep showing an already-open old tab.
+        filename = f"resume-{canonical}-{str(_BUILD_ID)}.pdf"
         logger.info("template_pdf done filename=%s t=%sms", filename, _t())
         resp = send_file(
             BytesIO(pdf_bytes),
@@ -6721,6 +6977,12 @@ def api_template_pdf(template_id):
                 logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Build", _e)
             except Exception:
                 pass
+
+        # Surface server-side timing to help diagnose Azure slowness.
+        try:
+            resp.headers["X-Resumatic-PDF-ms"] = str(_t())
+        except Exception:
+            pass
         try:
             resp.headers["X-Resumatic-Template-Requested"] = str(template_id or "")
         except Exception as _e:
@@ -6743,6 +7005,17 @@ def api_template_pdf(template_id):
             )
         except Exception:
             pass
+
+        if _pdf_debug_dir:
+            try:
+                resp.headers["X-Resumatic-PDF-Debug-Dir"] = str(_pdf_debug_dir)
+            except Exception:
+                pass
+        if _pdf_debug_files:
+            try:
+                resp.headers["X-Resumatic-PDF-Debug-Files"] = ';'.join([os.path.basename(p) for p in _pdf_debug_files if p])
+            except Exception:
+                pass
         return resp
     except Exception as e:
         logger.exception("template_pdf failed template=%s step=%s", str(template_id or ''), str(step or ''))
