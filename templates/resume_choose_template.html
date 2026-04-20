@@ -19,30 +19,6 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
-
-        /* Template preview hover zoom (Choose Template page) */
-        @media (hover:hover) {
-            .template-card {
-                position: relative;
-            }
-
-            /* Card uses overflow-hidden in markup; allow preview to expand */
-            .template-card:hover,
-            .template-card:focus-within {
-                z-index: 30;
-                overflow: visible;
-            }
-
-            .template-card img {
-                transition: transform 200ms ease;
-                transform-origin: center;
-            }
-
-            .template-card:hover img,
-            .template-card:focus-within img {
-                transform: scale(1.4);
-            }
-        }
     </style>
 
     {% include "_clarity.html" %}
