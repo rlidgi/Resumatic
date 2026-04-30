@@ -24,8 +24,7 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { EditableSection, EditableText } from './EditableSection';
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableSection, EditableText } from './EditableSection';
 
 type ExecutiveSectionHeadings = Record<string, string>;
 
@@ -180,6 +179,47 @@ export default function ContemporaryTemplate({
         });
     }, [onContentChange]);
 
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev) => {
+            const current = Array.isArray(prev.experience) ? prev.experience : [];
+            const updatedExperience = current.filter((_: any, i: number) => i !== index);
+            const next = { ...prev, experience: updatedExperience };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev) => {
+            const current = Array.isArray(prev.projects) ? prev.projects : [];
+            const updatedProjects = current.filter((_: any, i: number) => i !== index);
+            const next = { ...prev, projects: updatedProjects };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev) => {
+            const current = Array.isArray(prev.education) ? prev.education : [];
+            const updatedEducation = current.filter((_: any, i: number) => i !== index);
+            const next = { ...prev, education: updatedEducation };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev) => {
+            const current = normalizeCertifications((prev as any)?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const cleaned = updated.filter((c) => String((c as any)?.name || '').trim());
+            const next = { ...prev, certifications: cleaned };
+            onContentChange?.(next);
+            return next;
+        });
+    }, [onContentChange]);
+
     const updateSkill = useCallback((index: number, value: string) => {
         setEditedData((prev) => {
             const nextSkills = [...(prev.skills || [])];
@@ -321,12 +361,15 @@ export default function ContemporaryTemplate({
                 content: (
                     <div className="text-[11px] text-slate-600 leading-relaxed">
                         {editMode ? (
-                            <EditableText
+                            <AiAssistEditableText
                                 value={summary}
                                 placeholder="Summary goes here."
                                 onChange={(v) => updateField('summary', v)}
                                 editMode={editMode}
+                                aiField="summary"
+                                aiMeta={{ template: 'contemporary', section: 'summary' }}
                                 className="text-[11px] leading-relaxed text-slate-600"
+                                wrapperClassName="pt-6"
                                 as="div"
                                 multiline={true}
                             />
@@ -415,7 +458,22 @@ export default function ContemporaryTemplate({
                     <div className="space-y-2 text-[11px] text-slate-700">
                         {certifications.length > 0 ? (
                             certifications.map((c, idx) => (
-                                <div key={idx}>
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeCertificationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove certification entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     <div className="font-semibold text-slate-800">
                                         {editMode ? (
                                             <EditableText
@@ -467,7 +525,22 @@ export default function ContemporaryTemplate({
                                 const dates = exp.duration || exp.dates || [exp.start, exp.end].filter(Boolean).join(" - ");
                                 const city = exp.location || exp.city || "";
                                 return (
-                                    <div key={idx}>
+                                    <div key={idx} className="relative group">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeExperienceItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove experience entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <div className="flex items-baseline justify-between gap-3">
                                             <EditableText
                                                 value={String(title)}
@@ -504,15 +577,18 @@ export default function ContemporaryTemplate({
                                                 as="span"
                                             />
                                         </div>
-                                        {exp.description ? (
+                                        {(editMode || exp.description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
-                                                    <EditableText
+                                                    <AiAssistEditableText
                                                         value={String(exp.description)}
                                                         placeholder="Add bullets or a short description"
                                                         onChange={(v) => updateExperience(idx, 'description', v)}
                                                         editMode={editMode}
+                                                        aiField="experience_description"
+                                                        aiMeta={{ template: 'contemporary', index: idx, role: String(title), company: String(company) }}
                                                         className="text-[11px] leading-relaxed text-slate-600"
+                                                        wrapperClassName="pt-6"
                                                         as="div"
                                                         multiline={true}
                                                     />
@@ -552,7 +628,22 @@ export default function ContemporaryTemplate({
                                 const description = String((proj as any)?.description || "");
 
                                 return (
-                                    <div key={idx}>
+                                    <div key={idx} className="relative group">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeProjectItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove project entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <div className="flex items-baseline justify-between gap-3">
                                             <EditableText
                                                 value={title}
@@ -581,14 +672,17 @@ export default function ContemporaryTemplate({
                                                 as="div"
                                             />
                                         ) : null}
-                                        {description ? (
+                                        {(editMode || description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
-                                                    <EditableText
+                                                    <AiAssistEditableText
                                                         value={description}
                                                         onChange={(v) => updateProject(idx, 'description', v)}
                                                         editMode={editMode}
+                                                        aiField="project_description"
+                                                        aiMeta={{ template: 'contemporary', index: idx, title }}
                                                         className="text-[11px] leading-relaxed text-slate-600"
+                                                        wrapperClassName="pt-6"
                                                         as="div"
                                                         multiline={true}
                                                     />
@@ -621,7 +715,22 @@ export default function ContemporaryTemplate({
                     <div className="space-y-3">
                         {education.length > 0 ? (
                             education.slice(0, 3).map((edu: any, idx: number) => (
-                                <div key={idx} className="flex items-baseline justify-between gap-3">
+                                <div key={idx} className="relative group flex items-baseline justify-between gap-3">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeEducationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove education entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     <div>
                                         <EditableText
                                             value={String(edu.degree || edu.title || "Degree")}
@@ -637,7 +746,7 @@ export default function ContemporaryTemplate({
                                             className="text-[11px] text-slate-600"
                                             as="div"
                                         />
-                                        {String(edu?.gpa ?? '').trim() ? (
+                                        {(editMode || String(edu?.gpa ?? '').trim()) ? (
                                             <div className="text-[11px] text-slate-500">
                                                 GPA: <EditableText
                                                     value={String(edu?.gpa ?? '')}
@@ -708,7 +817,7 @@ export default function ContemporaryTemplate({
             return next;
         }
         return [...baseRows, ...customRows];
-    }, [summary, showEmpty, skills, languages, certifications, experience, projects, education, customSections, editMode, updateField, updateExperience, updateEducation, updateProject, updateSkill, getHeading, updateCustomHeading, updateCustomItem, updateCustomBody]);
+    }, [summary, showEmpty, skills, languages, certifications, experience, projects, education, customSections, editMode, updateField, updateExperience, updateEducation, updateProject, updateSkill, getHeading, updateCustomHeading, updateCustomItem, updateCustomBody, removeCertificationItem, removeEducationItem, removeExperienceItem, removeProjectItem]);
 
     // Initialize section order if empty
     useEffect(() => {
@@ -872,14 +981,6 @@ export default function ContemporaryTemplate({
     return (
         <div data-template="traditional" className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
             <div className={`px-10 py-8 ${editMode ? 'pl-16' : ''}`}>
-                {editMode ? (
-                    <div
-                        className="mb-4 flex flex-wrap items-center gap-2 print:hidden"
-                        data-html2canvas-ignore="true"
-                    >
-                        <AddSectionButton onClick={addSection} />
-                    </div>
-                ) : null}
                 {/* Header */}
                 <div className="grid grid-cols-[135px_22px_1fr] gap-x-1 items-start">
                     <div />
@@ -1135,5 +1236,6 @@ function normalizeCertifications(value: any): Array<{ name: string; issuer: stri
     }
     return [];
 }
+
 
 

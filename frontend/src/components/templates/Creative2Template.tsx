@@ -3,8 +3,7 @@ import { Phone, MapPin, Mail, Globe } from "lucide-react";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
-import { EditableText } from "./EditableSection";
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function Creative2Template({
@@ -119,6 +118,50 @@ export default function Creative2Template({
         });
     }, [emit]);
 
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.experience) ? prev.experience : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.education) ? prev.education : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.projects) ? prev.projects : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const cleaned = updated.filter((c) => {
+                if (typeof c === 'string') return String(c || '').trim();
+                return String((c as any)?.name || (c as any)?.title || '').trim();
+            });
+            const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateCustomHeading = useCallback((sectionIndex: number, value: string) => {
         setEditedData((prev: any) => {
             const sectionsArr = Array.isArray(prev?.custom_sections) ? [...prev.custom_sections] : [];
@@ -155,6 +198,41 @@ export default function Creative2Template({
         });
     }, [emit]);
 
+    const addSection = useCallback(() => {
+        const insertCustomInOrder = (order: string[], key: string) => {
+            if (order.includes(key)) return order;
+            const educationIndex = order.indexOf('education');
+            if (educationIndex >= 0) return [...order.slice(0, educationIndex), key, ...order.slice(educationIndex)];
+            return [...order, key];
+        };
+
+        setEditedData((prev: any) => {
+            const next = { ...(prev || {}) };
+            const current = Array.isArray(next.custom_sections) ? [...next.custom_sections] : [];
+            const customKey = `custom_${current.length}`;
+
+            next.custom_sections = [
+                ...current,
+                {
+                    heading: 'New Section',
+                    items: [
+                        {
+                            title: 'Header',
+                            content: '- First bullet point\n- Second bullet point',
+                        },
+                    ],
+                },
+            ];
+
+            if (editMode && onSectionOrderChange) {
+                onSectionOrderChange(insertCustomInOrder(sectionOrder || [], customKey));
+            }
+
+            emit(next);
+            return next;
+        });
+    }, [editMode, emit, onSectionOrderChange, sectionOrder]);
+
     const data = editedData || {};
     const showEmpty = !!(editMode && (data as any)?._show_empty_sections);
 
@@ -182,13 +260,28 @@ export default function Creative2Template({
                         <div className="space-y-4">
                             {(education.length > 0 || showEmpty) ? (
                                 education.slice(0, 5).map((edu: any, idx: number) => (
-                                    <div key={idx} className="flex gap-3 creative2-item">
+                                    <div key={idx} className="relative group flex gap-3 creative2-item">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeEducationItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove education entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <span className="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style={{ borderColor: 'var(--tv-accent-dark)' }} />
                                         <div>
                                             <div className="font-semibold text-sm">{editMode ? <EditableText value={String(edu.degree || edu.title || 'Degree')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.degree || edu.title || 'Degree')}</div>
                                             <div className="text-xs text-black/70">{editMode ? <EditableText value={String(edu.school || edu.institution || '')} onChange={(v) => updateEducation(idx, 'school', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.school || edu.institution || '')}</div>
                                             <div className="text-xs text-black/60">{editMode ? <EditableText value={String(edu.year || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'graduationDate', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.year || edu.graduationDate || '')}</div>
-                                            {String(edu?.gpa ?? '').trim() ? (
+                                            {(editMode || String(edu?.gpa ?? '').trim()) ? (
                                                 <div className="text-xs text-black/60">
                                                     GPA: {editMode ? <EditableText value={String(edu?.gpa ?? '')} onChange={(v) => updateEducation(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : String(edu?.gpa ?? '').trim()}
                                                 </div>
@@ -215,11 +308,26 @@ export default function Creative2Template({
                                 experience.slice(0, 5).map((exp: any, idx: number) => {
                                     const dates = exp.duration || (exp.startDate && exp.endDate ? `${exp.startDate} / ${exp.currentlyWorking ? 'Present' : exp.endDate}` : '') || [exp.start, exp.end].filter(Boolean).join(" / ");
                                     return (
-                                        <div key={idx} className="flex gap-3 creative2-item">
+                                        <div key={idx} className="relative group flex gap-3 creative2-item">
+                                            {editMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        removeExperienceItem(idx);
+                                                    }}
+                                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove experience entry"
+                                                    title="Remove entry"
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
                                             <span className="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style={{ borderColor: 'var(--tv-accent-dark)' }} />
                                             <div className="flex-1">
                                                 <div className="text-xs text-black/60 mb-0.5">
-                                                    {editMode ? <EditableText value={String(dates)} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : dates}
+                                                    {editMode ? <EditableText value={String(dates)} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Dates" /> : dates}
                                                 </div>
                                                 <div className="font-semibold text-sm">
                                                     {editMode ? (
@@ -231,10 +339,10 @@ export default function Creative2Template({
                                                         <> — {editMode ? <EditableText value={String(exp.company || '')} onChange={(v) => updateExperience(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : exp.company}</>
                                                     )}
                                                 </div>
-                                                {exp.description && (
+                                                {(editMode || exp.description) && (
                                                     <div className="mt-1.5 text-sm leading-relaxed text-black/80">
                                                         {editMode ? (
-                                                            <EditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                                            <AiAssistEditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} aiField="experience_description" aiMeta={{ template: 'creative2', index: idx, role: String(exp.title || exp.position || 'Role'), company: String(exp.company || '') }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                                         ) : (
                                                             <RenderMaybeBullets text={exp.description} forceBullets className="text-sm leading-relaxed" />
                                                         )}
@@ -261,7 +369,22 @@ export default function Creative2Template({
                         <div className="space-y-5">
                             {(projects.length > 0 || showEmpty) ? (
                                 projects.slice(0, 5).map((proj: any, idx: number) => (
-                                    <div key={idx} className="flex gap-3 creative2-item">
+                                    <div key={idx} className="relative group flex gap-3 creative2-item">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeProjectItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove project entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <span className="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style={{ borderColor: 'var(--tv-accent-dark)' }} />
                                         <div className="flex-1">
                                             <div className="font-semibold text-sm">
@@ -277,10 +400,10 @@ export default function Creative2Template({
                                             {proj.technologies ? (
                                                 <div className="text-xs text-black/60 mt-0.5">{editMode ? <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : proj.technologies}</div>
                                             ) : null}
-                                            {proj.description && (
+                                            {(editMode || proj.description) && (
                                                 <div className="mt-1.5 text-sm leading-relaxed text-black/80">
                                                     {editMode ? (
-                                                        <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                                        <AiAssistEditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} aiField="project_description" aiMeta={{ template: 'creative2', index: idx, title: String(proj.title || proj.name || 'Project') }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                                     ) : (
                                                         <RenderMaybeBullets text={proj.description} forceBullets className="text-sm leading-relaxed" />
                                                     )}
@@ -307,7 +430,22 @@ export default function Creative2Template({
                             {certifications.map((c: any, idx: number) => {
                                 if (typeof c === 'string') {
                                     return (
-                                        <div key={idx} className="flex gap-3 creative2-item">
+                                        <div key={idx} className="relative group flex gap-3 creative2-item">
+                                            {editMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        removeCertificationItem(idx);
+                                                    }}
+                                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove certification entry"
+                                                    title="Remove entry"
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
                                             <span className="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style={{ borderColor: 'var(--tv-accent-dark)' }} />
                                             <div className="text-sm leading-relaxed text-black/80">• {c}</div>
                                         </div>
@@ -319,7 +457,22 @@ export default function Creative2Template({
                                 const year = String(c?.year || c?.date || '').trim();
 
                                 return (
-                                    <div key={idx} className="flex gap-3 creative2-item">
+                                    <div key={idx} className="relative group flex gap-3 creative2-item">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeCertificationItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove certification entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <span className="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style={{ borderColor: 'var(--tv-accent-dark)' }} />
                                         <div className="flex-1">
                                             <div className="font-semibold text-sm">
@@ -445,6 +598,10 @@ export default function Creative2Template({
         updateLanguageItem,
         updateProject,
         updateSectionHeading,
+        removeCertificationItem,
+        removeEducationItem,
+        removeExperienceItem,
+        removeProjectItem,
     ]);
 
     const website =
@@ -488,7 +645,6 @@ export default function Creative2Template({
             }
         `}</style>
             <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 max-w-5xl mx-auto creative2-template" data-template="creative2">
-                {editMode ? <AddSectionButton onClick={() => { }} className="p-4 pb-0" /> : null}
                 <div className="relative">
                     {/* Left edge accent stripe */}
                     <div
@@ -556,7 +712,7 @@ export default function Creative2Template({
                             </div>
                             <div className="text-base italic text-black/80 mt-0.5">
                                 {editMode ? (
-                                    <EditableText value={String(data.title || "Professional Title")} onChange={(v) => updateField('title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-lg italic" />
+                                    <EditableText value={String(data.title || '')} placeholder="Professional Title" onChange={(v) => updateField('title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-lg italic" />
                                 ) : (
                                     data.title || "Professional Title"
                                 )}
@@ -567,7 +723,7 @@ export default function Creative2Template({
                         {(data.summary || showEmpty) && (
                             <div className="mt-1.5 mb-3 text-xs leading-relaxed text-black/80 max-w-2xl creative2-summary">
                                 {editMode ? (
-                                    <EditableText value={String(data.summary || '')} onChange={(v) => updateField('summary', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                    <AiAssistEditableText value={String(data.summary || '')} onChange={(v) => updateField('summary', v)} editMode={editMode} aiField="summary" aiMeta={{ template: 'creative2', section: 'summary' }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                 ) : (
                                     <p>{String(data.summary || '')}</p>
                                 )}

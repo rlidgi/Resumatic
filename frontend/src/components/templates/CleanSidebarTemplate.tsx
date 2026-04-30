@@ -192,7 +192,8 @@ export default function CleanSidebarTemplate({
                 <div className="mt-1 text-sm text-slate-700 font-medium">
                     {editMode ? (
                         <EditableText
-                            value={String(data.title || "Professional Title")}
+                            value={String(data.title || '')}
+                            placeholder="Professional Title"
                             onChange={(v) => updateField('title', v)}
                             editMode={editMode}
                             liveUpdate
@@ -344,7 +345,7 @@ export default function CleanSidebarTemplate({
                                                 <div className="mt-1 text-[11px] text-slate-600">{String(proj.technologies)}</div>
                                             )
                                         ) : null}
-                                        {proj.description ? (
+                                        {(editMode || proj.description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
                                                     <EditableText
@@ -598,7 +599,7 @@ function ExperienceBlock({ exp, editMode, idx, onUpdate }: { exp: any; editMode:
                     )
                 ) : null}
             </div>
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
                         <EditableText
@@ -713,6 +714,7 @@ function extractStrengths(sections: any): Array<{ title: string; body?: string }
     const skills = normalizeList(sections.skills);
     return skills.slice(0, 3).map((s) => ({ title: s }));
 }
+
 
 
 

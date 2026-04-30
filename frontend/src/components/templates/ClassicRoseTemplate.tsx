@@ -3,8 +3,7 @@ import { Phone, MapPin, Mail, Globe } from "lucide-react";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
-import { EditableText } from "./EditableSection";
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function ClassicRoseTemplate({
@@ -63,6 +62,16 @@ export default function ClassicRoseTemplate({
         });
     }, [emit]);
 
+    const updateEducationYear = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.education) ? [...prev.education] : [];
+            updated[index] = { ...(updated[index] || {}), year: value, graduationDate: value };
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateSkill = useCallback((index: number, value: string) => {
         setEditedData((prev: any) => {
             const list = normalizeList(prev?.skills);
@@ -92,7 +101,12 @@ export default function ClassicRoseTemplate({
             const current = normalizeCertifications(prev?.certifications);
             const nextArr = [...current];
             nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
-            const cleaned = nextArr.filter((c) => String((c as any)?.name || (c as any)?.title || '').trim());
+            const cleaned = nextArr.filter((c) => {
+                const name = String((c as any)?.name || (c as any)?.title || '').trim();
+                const issuer = String((c as any)?.issuer || '').trim();
+                const year = String((c as any)?.year || (c as any)?.date || '').trim();
+                return Boolean(name || issuer || year);
+            });
             const next = { ...(prev || {}), certifications: cleaned };
             emit(next);
             return next;
@@ -114,6 +128,50 @@ export default function ClassicRoseTemplate({
             const updated = Array.isArray(prev?.projects) ? [...prev.projects] : [];
             updated[index] = { ...(updated[index] || {}), [field]: value };
             const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.experience) ? prev.experience : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.education) ? prev.education : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.projects) ? prev.projects : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const cleaned = updated.filter((c) => {
+                if (typeof c === 'string') return String(c || '').trim();
+                return String((c as any)?.name || (c as any)?.title || '').trim();
+            });
+            const next = { ...(prev || {}), certifications: cleaned };
             emit(next);
             return next;
         });
@@ -182,7 +240,7 @@ export default function ClassicRoseTemplate({
                         {(data.summary || showEmpty) && (
                             <div className="text-sm leading-relaxed text-slate-700">
                                 {editMode ? (
-                                    <EditableText value={String(data.summary || '')} onChange={(v) => updateField('summary', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                    <AiAssistEditableText value={String(data.summary || '')} onChange={(v) => updateField('summary', v)} editMode={editMode} aiField="summary" aiMeta={{ template: 'classicRose', section: 'summary' }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                 ) : (
                                     <p>{String(data.summary || '')}</p>
                                 )}
@@ -203,24 +261,39 @@ export default function ClassicRoseTemplate({
                                 experience.slice(0, 5).map((exp: any, idx: number) => {
                                     const dates = exp.duration || (exp.startDate && exp.endDate ? `${exp.startDate} / ${exp.currentlyWorking ? 'Present' : exp.endDate}` : '') || [exp.start, exp.end].filter(Boolean).join(" / ");
                                     return (
-                                        <div key={idx}>
+                                        <div key={idx} className="relative group">
+                                            {editMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        removeExperienceItem(idx);
+                                                    }}
+                                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove experience entry"
+                                                    title="Remove entry"
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
                                             <div className="font-semibold text-sm text-slate-800">
                                                 {editMode ? (
                                                     <>
-                                                        <EditableText value={String(exp.title || exp.position || '')} onChange={(v) => updateExperience(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" />
+                                                        <EditableText value={String(exp.title || exp.position || '')} onChange={(v) => updateExperience(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Role" />
                                                         {(exp.company || editMode) && (
-                                                            <> | <EditableText value={String(exp.company || '')} onChange={(v) => updateExperience(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" /></>
+                                                            <> | <EditableText value={String(exp.company || exp.employer || '')} onChange={(v) => updateExperience(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Company" /></>
                                                         )}
                                                     </>
                                                 ) : (
                                                     `${exp.title || exp.position || ''}${exp.company ? ' | ' + exp.company : ''}`
                                                 )}
                                             </div>
-                                            <div className="text-xs text-slate-500 mb-1.5">{editMode ? <EditableText value={String(dates)} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : dates}</div>
-                                            {exp.description && (
+                                            <div className="text-xs text-slate-500 mb-1.5">{editMode ? <EditableText value={String(dates)} onChange={(v) => updateExperience(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Dates" /> : dates}</div>
+                                            {(editMode || exp.description) && (
                                                 <div className="text-sm leading-relaxed text-slate-700">
                                                     {editMode ? (
-                                                        <EditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                                        <AiAssistEditableText value={String(exp.description)} onChange={(v) => updateExperience(idx, 'description', v)} editMode={editMode} aiField="experience_description" aiMeta={{ template: 'classicRose', index: idx, role: String(exp.title || exp.position || ''), company: String(exp.company || '') }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                                     ) : (
                                                         <RenderMaybeBullets text={exp.description} forceBullets className="text-sm leading-relaxed" />
                                                     )}
@@ -246,24 +319,68 @@ export default function ClassicRoseTemplate({
                         <div className="space-y-5">
                             {(projects.length > 0 || showEmpty) ? (
                                 projects.slice(0, 5).map((proj: any, idx: number) => (
-                                    <div key={idx}>
+                                    <div key={idx} className="relative group">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeProjectItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove project entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <div className="font-semibold text-sm text-slate-800">
                                             {editMode ? (
-                                                <EditableText value={String(proj.title || proj.name || '')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" />
+                                                <>
+                                                    <EditableText value={String(proj.title || proj.name || '')} onChange={(v) => updateProject(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Project Title" />
+                                                    {proj.link ? (
+                                                        <span className="text-xs text-slate-600 ml-2 whitespace-nowrap align-middle inline-flex items-center gap-1">
+                                                            <EditableText
+                                                                value={String(formatLinkLabel(proj.link))}
+                                                                onChange={(v) => updateProject(idx, 'link', v)}
+                                                                editMode={editMode}
+                                                                liveUpdate
+                                                                layoutSafe
+                                                                as="span"
+                                                                className="inline"
+                                                            />
+                                                        </span>
+                                                    ) : null}
+                                                </>
                                             ) : (
-                                                proj.title || proj.name || 'Project'
+                                                `${proj.title || proj.name || 'Project'}${proj.link ? ` ${formatLinkLabel(proj.link)}` : ''}`
                                             )}
-                                            {proj.link ? (
-                                                <a href={proj.link} target="_blank" rel="noreferrer" className="text-xs text-slate-600 underline ml-2">Link</a>
-                                            ) : null}
                                         </div>
+                                        {(editMode || proj.dates || proj.duration) && (
+                                            <div className="text-xs text-slate-500">
+                                                {editMode ? (
+                                                    <EditableText
+                                                        value={String(proj.dates || proj.duration || '')}
+                                                        onChange={(v) => updateProject(idx, 'dates', v)}
+                                                        editMode={editMode}
+                                                        liveUpdate
+                                                        layoutSafe
+                                                        as="span"
+                                                        placeholder="Dates"
+                                                    />
+                                                ) : (
+                                                    String(proj.dates || proj.duration || '')
+                                                )}
+                                            </div>
+                                        )}
                                         {proj.technologies ? (
                                             <div className="text-xs text-slate-600">{editMode ? <EditableText value={String(proj.technologies)} onChange={(v) => updateProject(idx, 'technologies', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : proj.technologies}</div>
                                         ) : null}
-                                        {proj.description && (
+                                        {(editMode || proj.description) && (
                                             <div className="text-sm leading-relaxed text-slate-700 mt-1">
                                                 {editMode ? (
-                                                    <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" multiline />
+                                                    <AiAssistEditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} aiField="project_description" aiMeta={{ template: 'classicRose', index: idx, title: String(proj.title || proj.name || 'Project') }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" multiline />
                                                 ) : (
                                                     <RenderMaybeBullets text={proj.description} forceBullets className="text-sm leading-relaxed" />
                                                 )}
@@ -322,14 +439,12 @@ export default function ClassicRoseTemplate({
         updateField,
         updateProject,
         updateSectionHeading,
+        removeExperienceItem,
+        removeProjectItem,
     ]);
 
-    const website =
-        data.website ||
-        data.portfolio ||
-        (Array.isArray(data.links) && data.links[0]?.url) ||
-        (Array.isArray(data.links) && data.links[0]?.href) ||
-        "";
+    const website = getPrimaryWebsite(data);
+    const hasContactInfo = Boolean(data.location || data.phone || data.email || website || editMode);
 
     const nameParts = String(data.name || "Your Name").trim().split(/\s+/);
     const firstName = nameParts[0] || "Your";
@@ -337,7 +452,6 @@ export default function ClassicRoseTemplate({
 
     return (
         <div data-template="classicrose" className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-5xl mx-auto">
-            {editMode ? <AddSectionButton onClick={() => { }} className="p-4 pb-0" /> : null}
             <div className="bg-white min-h-[900px] flex flex-col">
                 <div className="px-8 flex-1 flex flex-col">
                     <div
@@ -370,11 +484,30 @@ export default function ClassicRoseTemplate({
                             </h1>
                             <div className="text-sm font-normal text-slate-700 uppercase tracking-wide mt-1">
                                 {editMode ? (
-                                    <EditableText value={String(data.title || "Professional Title")} onChange={(v) => updateField('title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm text-slate-700" />
+                                    <EditableText value={String(data.title || '')} placeholder="Professional Title" onChange={(v) => updateField('title', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm text-slate-700" />
                                 ) : (
                                     data.title || "Professional Title"
                                 )}
                             </div>
+
+                            {hasContactInfo ? (
+                                <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--tv-primary-dark)' }}>
+                                    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-slate-700">
+                                        {(data.location || editMode) && (
+                                            <ContactRow icon={<MapPin className="w-3.5 h-3.5" />} value={String(data.location || '')} editMode={editMode} onChange={(v) => updateField('location', v)} compact />
+                                        )}
+                                        {(data.phone || editMode) && (
+                                            <ContactRow icon={<Phone className="w-3.5 h-3.5" />} value={String(data.phone || '')} editMode={editMode} onChange={(v) => updateField('phone', v)} compact />
+                                        )}
+                                        {(data.email || editMode) && (
+                                            <ContactRow icon={<Mail className="w-3.5 h-3.5" />} value={String(data.email || '')} editMode={editMode} onChange={(v) => updateField('email', v)} compact />
+                                        )}
+                                        {(website || editMode) && (
+                                            <ContactRow icon={<Globe className="w-3.5 h-3.5" />} value={String(website || '')} editMode={editMode} onChange={(v) => updateField('website', v)} compact />
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 
@@ -384,36 +517,60 @@ export default function ClassicRoseTemplate({
                             className="col-span-4 border-r px-6 py-6 h-full"
                             style={{ borderColor: 'var(--tv-primary-dark)', backgroundColor: 'var(--tv-secondary)' }}
                         >
-                            <Section title={getHeading('contact', 'Contact')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('contact', v)}>
-                                <div className="space-y-2 text-sm text-slate-700">
-                                    {(data.location || editMode) && (
-                                        <ContactRow icon={<MapPin className="w-3.5 h-3.5" />} value={String(data.location || '')} editMode={editMode} onChange={(v) => updateField('location', v)} />
-                                    )}
-                                    {(data.phone || editMode) && (
-                                        <ContactRow icon={<Phone className="w-3.5 h-3.5" />} value={String(data.phone || '')} editMode={editMode} onChange={(v) => updateField('phone', v)} />
-                                    )}
-                                    {(data.email || editMode) && (
-                                        <ContactRow icon={<Mail className="w-3.5 h-3.5" />} value={String(data.email || '')} editMode={editMode} onChange={(v) => updateField('email', v)} />
-                                    )}
-                                    {(website || editMode) && (
-                                        <ContactRow icon={<Globe className="w-3.5 h-3.5" />} value={String(website || '')} editMode={editMode} onChange={(v) => updateField('website', v)} />
-                                    )}
-                                </div>
-                            </Section>
-
-                            <Section title={getHeading('education', 'Education')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
+                            <Section sectionKey="education" title={getHeading('education', 'Education')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
                                 <div className="space-y-4">
                                     {(education.length > 0 || showEmpty) ? (
                                         education.slice(0, 5).map((edu: any, idx: number) => (
-                                            <div key={idx}>
+                                            <div key={idx} className="relative group">
+                                                {editMode ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            removeEducationItem(idx);
+                                                        }}
+                                                        className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        aria-label="Remove education entry"
+                                                        title="Remove entry"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                ) : null}
                                                 <div className="font-semibold text-sm text-slate-800">
-                                                    {editMode ? <EditableText value={String(edu.degree || edu.title || '')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.degree || edu.title || '')}
+                                                    {editMode ? <EditableText value={String(edu.degree || edu.title || '')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="Degree" /> : (edu.degree || edu.title || '')}
                                                 </div>
-                                                <div className="text-xs text-slate-600">{editMode ? <EditableText value={String(edu.school || edu.institution || '')} onChange={(v) => updateEducation(idx, 'school', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.school || edu.institution || '')}</div>
-                                                <div className="text-xs text-slate-500">{editMode ? <EditableText value={String(edu.year || edu.graduationDate || '')} onChange={(v) => updateEducation(idx, 'graduationDate', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : (edu.year || edu.graduationDate || '')}</div>
-                                                {String(edu?.gpa ?? '').trim() ? (
+                                                <div className="text-xs text-slate-600">{editMode ? <EditableText value={String(edu.school || edu.institution || '')} onChange={(v) => updateEducation(idx, 'school', v)} editMode={editMode} liveUpdate layoutSafe as="span" placeholder="School / Institution" /> : (edu.school || edu.institution || '')}</div>
+                                                <div className="text-xs text-slate-500">
+                                                    {editMode ? (
+                                                        <EditableText
+                                                            value={firstMeaningfulValue(edu.year, edu.graduationDate)}
+                                                            onChange={(v) => updateEducationYear(idx, v)}
+                                                            editMode={editMode}
+                                                            liveUpdate
+                                                            layoutSafe
+                                                            as="span"
+                                                            placeholder="Year"
+                                                        />
+                                                    ) : (
+                                                        firstMeaningfulValue(edu.year, edu.graduationDate)
+                                                    )}
+                                                </div>
+                                                {(editMode || String(edu?.gpa ?? '').trim()) ? (
                                                     <div className="text-xs text-slate-500">
-                                                        GPA: {editMode ? <EditableText value={String(edu?.gpa ?? '')} onChange={(v) => updateEducation(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" /> : String(edu?.gpa ?? '').trim()}
+                                                        {editMode ? (
+                                                            <EditableText
+                                                                value={String(edu?.gpa ?? '')}
+                                                                onChange={(v) => updateEducation(idx, 'gpa', v)}
+                                                                editMode={editMode}
+                                                                liveUpdate
+                                                                layoutSafe
+                                                                as="span"
+                                                                placeholder="GPA"
+                                                            />
+                                                        ) : (
+                                                            `GPA: ${String(edu?.gpa ?? '').trim()}`
+                                                        )}
                                                     </div>
                                                 ) : null}
                                             </div>
@@ -425,19 +582,53 @@ export default function ClassicRoseTemplate({
                             </Section>
 
                             {(certifications.length > 0 || showEmpty) && (
-                                <Section title={getHeading('certifications', 'Certifications')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
+                                <Section sectionKey="certifications" title={getHeading('certifications', 'Certifications')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
                                     <div className="space-y-3">
                                         {certifications.map((c: any, idx: number) => {
                                             if (typeof c === 'string') {
-                                                return <div key={idx} className="text-sm text-slate-700">• {c}</div>;
+                                                return (
+                                                    <div key={idx} className="relative group text-sm text-slate-700">
+                                                        {editMode ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    removeCertificationItem(idx);
+                                                                }}
+                                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                aria-label="Remove certification entry"
+                                                                title="Remove entry"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        ) : null}
+                                                        • {c}
+                                                    </div>
+                                                );
                                             }
 
                                             const name = String(c?.name || c?.title || c?.certification || '').trim();
                                             const issuer = String(c?.issuer || c?.authority || c?.organization || '').trim();
-                                            const year = String(c?.year || c?.date || '').trim();
+                                            const year = firstMeaningfulValue(c?.year, c?.date);
 
                                             return (
-                                                <div key={idx}>
+                                                <div key={idx} className="relative group">
+                                                    {editMode ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                removeCertificationItem(idx);
+                                                            }}
+                                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            aria-label="Remove certification entry"
+                                                            title="Remove entry"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    ) : null}
                                                     <div className="font-semibold text-sm text-slate-800">
                                                         {editMode ? (
                                                             <EditableText
@@ -541,9 +732,13 @@ export default function ClassicRoseTemplate({
     );
 }
 
-function Section({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (v: string) => void }) {
+function Section({ title, children, editMode, onTitleChange, sectionKey }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (v: string) => void; sectionKey?: string }) {
     return (
-        <section className="mb-6 last:mb-0">
+        <section
+            className="mb-6 last:mb-0"
+            data-tv-section-key={sectionKey}
+            tabIndex={sectionKey ? -1 : undefined}
+        >
             <h3 className="text-xs font-semibold uppercase tracking-wide text-center mb-2" style={{ color: 'var(--tv-primary)' }}>
                 {editMode ? (
                     <EditableText value={title} onChange={(v) => onTitleChange?.(v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-center" />
@@ -557,10 +752,10 @@ function Section({ title, children, editMode, onTitleChange }: { title: string; 
     );
 }
 
-function ContactRow({ icon, value, editMode, onChange }: { icon?: React.ReactNode; value: string; editMode?: boolean; onChange?: (v: string) => void }) {
+function ContactRow({ icon, value, editMode, onChange, compact = false }: { icon?: React.ReactNode; value: string; editMode?: boolean; onChange?: (v: string) => void; compact?: boolean }) {
     return (
-        <div className="flex items-start gap-2">
-            {icon ? <span className="text-slate-500 flex-shrink-0 mt-0.5">{icon}</span> : null}
+        <div className={`flex gap-2 ${compact ? 'items-center' : 'items-start'}`}>
+            {icon ? <span className={`text-slate-500 flex-shrink-0 ${compact ? '' : 'mt-0.5'}`}>{icon}</span> : null}
             <div className="text-slate-700 break-words flex-1">
                 {editMode ? (
                     <EditableText value={String(value || '')} onChange={(v) => onChange?.(v)} editMode={!!editMode} liveUpdate layoutSafe as="div" className="text-sm" />
@@ -600,4 +795,80 @@ function normalizeCertifications(value: any): any[] {
             .filter(Boolean);
     }
     return [];
+}
+
+function getPrimaryWebsite(data: any): string {
+    const direct =
+        data?.website ||
+        data?.portfolio ||
+        data?.linkedin ||
+        data?.github ||
+        data?.contact?.website ||
+        data?.contact?.portfolio ||
+        data?.contact?.linkedin ||
+        data?.contact?.github ||
+        data?.personalInfo?.website ||
+        data?.personalInfo?.portfolio ||
+        "";
+    if (String(direct || '').trim()) return String(direct).trim();
+
+    const links = Array.isArray(data?.links)
+        ? data.links
+        : (data?.links && typeof data.links === 'object')
+            ? Object.values(data.links)
+            : [];
+    for (const link of links) {
+        if (!link) continue;
+        if (typeof link === 'string' && link.trim()) return link.trim();
+        if (typeof link === 'object') {
+            const candidate =
+                link.url ||
+                link.href ||
+                link.link ||
+                link.value ||
+                link.website ||
+                link.profile ||
+                link.linkedin ||
+                link.github ||
+                '';
+            if (String(candidate).trim()) return String(candidate).trim();
+
+            // Final fallback: search nested object fields for first URL-like value.
+            for (const v of Object.values(link)) {
+                const s = String(v ?? '').trim();
+                if (!s) continue;
+                if (/^(https?:\/\/|www\.)/i.test(s) || /\.[a-z]{2,}(\/|$)/i.test(s)) {
+                    return s;
+                }
+            }
+        }
+    }
+    return '';
+}
+
+function formatLinkLabel(link: any): string {
+    const raw = String(link || '').trim();
+    if (!raw) return '';
+    try {
+        const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        const host = new URL(normalized).hostname.replace(/^www\./i, '');
+        return host || raw;
+    } catch {
+        return raw.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0] || raw;
+    }
+}
+
+function cleanPlaceholderValue(value: any): string {
+    const v = String(value ?? '').trim();
+    if (!v) return '';
+    if (v.toLowerCase() === 'n/a') return '';
+    return v;
+}
+
+function firstMeaningfulValue(...values: any[]): string {
+    for (const v of values) {
+        const cleaned = cleanPlaceholderValue(v);
+        if (cleaned) return cleaned;
+    }
+    return '';
 }

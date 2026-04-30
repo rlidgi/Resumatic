@@ -20,5 +20,6 @@ body {
 }
 
 [contenteditable].editable-text--placeholder:focus:empty::before {
-	content: '';
+	content: attr(data-placeholder);
+	color: rgba(100, 116, 139, 0.55);
 }

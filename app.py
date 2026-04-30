@@ -1129,6 +1129,7 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         _load_email_config_if_missing()
         import smtplib
         from email.mime.text import MIMEText
+        from email.mime.image import MIMEImage
         from email.mime.multipart import MIMEMultipart
         from urllib.parse import urlencode
 
@@ -1167,68 +1168,127 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         except Exception:
             unsubscribe_url = ''
 
+        site_url = home_url or 'https://resumaticai.com'
+        # Avoid WebP in emails (not widely supported). Prefer PNG.
+        logo_url = f"{site_url.rstrip('/')}/static/images/logo233_small.png"
+
+        logo_cid = 'resumatic_logo'
+        logo_bytes = None
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
+            with open(logo_path, 'rb') as f:
+                logo_bytes = f.read()
+        except Exception:
+            logo_bytes = None
+
+        logo_src = f"cid:{logo_cid}" if logo_bytes else logo_url
+
         subject = 'Welcome to ResumaticAI'
 
         html_body = f"""
-        <html>
-        <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
-            <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
-                <p>Hi there,</p>
-                <p>Welcome to ResumaticAI. We're really glad you’re here.</p>
-                
-                <p>We built ResumaticAI because we saw two things:</p>
-                <ul>
-                    <li>AI has become incredibly powerful.</li>
-                    <li>Most resume tools still feel generic.</li>
-                </ul>
-                <p>Resumes aren’t just documents, they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.</p>
-                <p>Here’s what you can do right now:</p>
-                <ul>
-                    <li>Upload your resume for instant AI-powered feedback</li>
-                    <li>Strengthen your bullet points with measurable impact</li>
-                    <li>Tailor your resume to specific job descriptions</li>
-                    <li>Improve structure, clarity, and ATS compatibility</li>
-                </ul>
-                <p>We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email.</p>
-                <p>Ready to get started?</p>
-                <p>Visit: <a href=\"https://resumaticai.com\" style=\"color: #2563eb;\">https://resumaticai.com</a></p>
-                <p>Let’s build a resume that gets you interviews.</p>
-                <p>Yaron<br>Founder, ResumaticAI</p>
-                <hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">
-                {f'<p style="color: #666; font-size: 12px;">Newsletter unsubscribe: <a href="{unsubscribe_url}" style="color: #2563eb;">{unsubscribe_url}</a></p>' if unsubscribe_url else ''}
-                <p style=\"color: #666; font-size: 12px;\">ResumaticAI Team</p>
+<html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+                <a href="{site_url}" style="text-decoration: none;">
+                    <img src="{logo_src}" alt="ResumaticAI" style="max-width: 180px; width: 180px; height: auto;">
+                </a>
             </div>
-        </body>
-        </html>
+            <p>Hi there,</p>
+
+            <p>Welcome to ResumaticAI. We're really glad you're here.</p>
+
+            <p>We built ResumaticAI because we saw two things:</p>
+
+            <ul>
+                <li>AI has become incredibly powerful.</li>
+                <li>Most resume tools still feel generic.</li>
+            </ul>
+
+            <p>
+                Resumes aren't just documents, they're positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.
+            </p>
+
+            <p>Here's what you can do right now:</p>
+
+            <ul>
+                <li>Upload your resume for instant AI-powered feedback</li>
+                <li>Strengthen your bullet points with measurable impact</li>
+                <li>Tailor your resume to specific job descriptions</li>
+                <li>Improve structure, clarity, and ATS compatibility</li>
+            </ul>
+
+            <p>
+                As we are constantly looking to make improvements to the site, any feedback you can provide at
+                <a href="https://resumaticai.com/feedback" style="color: #2563eb;">ResumaticAI.com/feedback</a>
+                would help.
+            </p>
+
+            <p>
+                If you're satisfied with your experience, we'd be grateful if you would consider sharing your feedback on Trustpilot:
+                <a href="https://www.trustpilot.com/review/resumaticai.com" style="color: #2563eb;">https://www.trustpilot.com/review/resumaticai.com</a>.
+                Your support truly means a lot to us.
+            </p>
+
+            <p>
+                For a limited time we are offering a free one week free trial of the premium plan, which you can find on our plans page:
+                <a href="https://resumaticai.com/plans" style="color: #2563eb;">https://resumaticai.com/plans</a>.
+            </p>
+
+            <p>Let's build a resume that gets you interviews.</p>
+
+            <p>
+                Visit:
+                <a href="https://resumaticai.com" style="color: #2563eb;">https://resumaticai.com</a>
+            </p>
+
+            <p>
+                Yaron<br>
+                Founder, ResumaticAI
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+
+            {f'<p style="color: #666; font-size: 12px;">Newsletter unsubscribe: <a href="{unsubscribe_url}" style="color: #2563eb;">{unsubscribe_url}</a></p>' if unsubscribe_url else ''}
+        </div>
+    </body>
+</html>
         """
 
         text_body = "\n".join(
             [
                 'Hi there,',
                 '',
-                "Welcome to ResumaticAI — We're really glad you’re here.",
+                "Welcome to ResumaticAI. We're really glad you're here.",
                 '',
                 'We built ResumaticAI because we saw two things:',
                 '',
                 '• AI has become incredibly powerful.',
                 '• Most resume tools still feel generic.',
                 '',
-                "Resumes aren’t just documents — they’re positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.",
+                "Resumes aren't just documents — they're positioning tools. The difference between getting ignored and getting interviews often comes down to clarity, impact, and strategy. ResumaticAI was designed to combine advanced AI with practical resume expertise to help you present your experience in the strongest possible way.",
                 '',
-                "Here’s what you can do right now:",
+                "Here's what you can do right now:",
                 '',
                 '• Upload your resume for instant AI-powered feedback',
                 '• Strengthen your bullet points with measurable impact',
                 '• Tailor your resume to specific job descriptions',
                 '• Improve structure, clarity, and ATS compatibility',
                 '',
-                "We’ve recently launched and are actively improving the platform. Your feedback genuinely helps shape what we build next. If you have suggestions, questions, or ideas, just reply to this email — I read every message personally.",
+                'As we are constantly looking to make improvements to the site, any feedback you can provide at',
+                'https://resumaticai.com/feedback',
+                'would help.',
                 '',
-                'Ready to get started?',
+                "If you're satisfied with your experience, we'd be grateful if you would consider sharing your feedback on Trustpilot:",
+                'https://www.trustpilot.com/review/resumaticai.com',
+                'Your support truly means a lot to us.',
+                '',
+                'For a limited time we are offering a free one week free trial of the premium plan, which you can find on our plans page:',
+                'https://resumaticai.com/plans',
+                '',
+                "Let's build a resume that gets you interviews.",
                 '',
                 'Visit: https://resumaticai.com',
-                '',
-                "Let’s build a resume that gets you interviews.",
                 '',
                 'Yaron',
                 'Founder, ResumaticAI',
@@ -1239,17 +1299,26 @@ def send_welcome_email(email: str, user_name: str) -> bool:
             ]
         ).strip()
 
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"ResumaticAI <{auth_email}>"
-        msg['To'] = email
-        msg.attach(MIMEText(text_body, 'plain'))
-        msg.attach(MIMEText(html_body, 'html'))
+        msg_root = MIMEMultipart('related')
+        msg_root['Subject'] = subject
+        msg_root['From'] = f"ResumaticAI <{auth_email}>"
+        msg_root['To'] = email
+
+        msg_alt = MIMEMultipart('alternative')
+        msg_alt.attach(MIMEText(text_body, 'plain'))
+        msg_alt.attach(MIMEText(html_body, 'html'))
+        msg_root.attach(msg_alt)
+
+        if logo_bytes:
+            logo_part = MIMEImage(logo_bytes)
+            logo_part.add_header('Content-ID', f"<{logo_cid}>")
+            logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
+            msg_root.attach(logo_part)
 
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(auth_email, auth_password)
-        server.send_message(msg)
+        server.send_message(msg_root)
         server.quit()
 
         logger.info(f"Welcome email sent to {email}")
@@ -1542,7 +1611,12 @@ def _azure_login_audit_get(pk: str, rk: str) -> dict | None:
 
 
 def _azure_login_audit_list(limit: int = 500) -> list[dict]:
-    """List recent-ish login audit sessions (client-side sorted + limited)."""
+    """List login audit sessions and return the most recent rows up to `limit`.
+
+    Azure Table enumeration order is not guaranteed to match "newest first" for
+    this use case, so we collect available rows, sort by login_at descending,
+    then apply the limit.
+    """
     out: list[dict] = []
     table_client = _get_login_audit_table_client(create_if_missing=False)
     try:
@@ -1554,11 +1628,21 @@ def _azure_login_audit_list(limit: int = 500) -> list[dict]:
                     out.append(dict(e))
                 except Exception:
                     continue
-            if limit and len(out) >= int(limit):
-                break
     except Exception:
         # Surface as empty and let caller fallback.
         return []
+    try:
+        out.sort(
+            key=lambda r: (_parse_iso_datetime((r or {}).get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+            reverse=True,
+        )
+    except Exception:
+        pass
+    if limit:
+        try:
+            out = out[:max(0, int(limit))]
+        except Exception:
+            pass
     return out
 
 
@@ -3729,6 +3813,7 @@ def plans():
     current_year = datetime.now().year
     trial_unavailable = False
     next_url = str(request.args.get('next') or '').strip()
+    safe_next_url = next_url if (next_url and _is_safe_next_url(next_url)) else ''
     try:
         if getattr(current_user, 'is_authenticated', False):
             trial_unavailable = _trial_already_used_for_user(current_user)
@@ -3737,7 +3822,7 @@ def plans():
             try:
                 if not is_paid_user(current_user) and _stripe_enabled():
                     if _refresh_paid_status_from_stripe_for_user(current_user):
-                        return redirect(next_url or url_for('my_revisions'))
+                        return redirect(safe_next_url or url_for('my_revisions'))
             except Exception:
                 pass
     except Exception:
@@ -3751,6 +3836,33 @@ def plans():
         user=current_user,
         trial_unavailable=trial_unavailable,
         offer_retention=offer_retention,
+        next_url=safe_next_url,
+    )
+
+@app.route("/plans/template-pdf")
+def plans_template_pdf():
+    current_year = datetime.now().year
+    trial_unavailable = False
+    next_url = str(request.args.get('next') or '').strip()
+    safe_next_url = next_url if (next_url and _is_safe_next_url(next_url)) else ''
+    try:
+        if getattr(current_user, 'is_authenticated', False):
+            trial_unavailable = _trial_already_used_for_user(current_user)
+            try:
+                if not is_paid_user(current_user) and _stripe_enabled():
+                    if _refresh_paid_status_from_stripe_for_user(current_user):
+                        return redirect(safe_next_url or url_for('my_revisions'))
+            except Exception:
+                pass
+    except Exception:
+        trial_unavailable = False
+
+    return render_template(
+        "plans_template_pdf.html",
+        year=current_year,
+        user=current_user,
+        trial_unavailable=trial_unavailable,
+        next_url=safe_next_url,
     )
 
 
@@ -7645,7 +7757,7 @@ def admin_login_audit():
     # Prefer Azure Table Storage when available.
     if _azure_login_audit_enabled():
         try:
-            rows = _azure_login_audit_list(limit=1000)
+            rows = _azure_login_audit_list(limit=0)
             # Normalize Azure entities into the same shape used by templates.
             for e in rows:
                 if not isinstance(e, dict):

@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
-import { EditableText } from "./EditableSection";
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function TraditionalTemplate({
@@ -103,6 +102,43 @@ export default function TraditionalTemplate({
             nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
             const cleaned = nextArr.filter((c) => String(c?.name || '').trim());
             const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.experience) ? prev.experience.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.education) ? prev.education.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.projects) ? prev.projects.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), certifications: updated };
             emit(next);
             return next;
         });
@@ -215,12 +251,15 @@ export default function TraditionalTemplate({
                     onTitleChange={(v) => updateSectionHeading('summary', v)}
                 >
                     {editMode ? (
-                        <EditableText
+                        <AiAssistEditableText
                             value={String(data.summary)}
                             onChange={(v) => updateField('summary', v)}
                             editMode={editMode}
+                            aiField="summary"
+                            aiMeta={{ template: 'professional', section: 'summary' }}
                             liveUpdate
                             layoutSafe
+                            wrapperClassName="pt-6"
                             className="text-[12px] leading-relaxed text-black/80"
                             as="div"
                             multiline
@@ -245,7 +284,24 @@ export default function TraditionalTemplate({
                 >
                     <div className="space-y-6">
                         {experience.map((exp: any, idx: number) => (
-                            <WorkRow key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                            <div key={idx} className="relative group">
+                                {editMode ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            removeExperienceItem(idx);
+                                        }}
+                                        className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Remove experience entry"
+                                        title="Remove entry"
+                                    >
+                                        Remove
+                                    </button>
+                                ) : null}
+                                <WorkRow exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                            </div>
                         ))}
                     </div>
                 </Section>
@@ -265,7 +321,22 @@ export default function TraditionalTemplate({
                 >
                     <div className="space-y-5">
                         {projects.map((proj: any, idx: number) => (
-                            <div key={idx}>
+                            <div key={idx} className="relative group">
+                                {editMode ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            removeProjectItem(idx);
+                                        }}
+                                        className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Remove project"
+                                        title="Remove project"
+                                    >
+                                        Remove
+                                    </button>
+                                ) : null}
                                 <div className="flex items-baseline justify-between gap-3">
                                     {editMode ? (
                                         <EditableText
@@ -306,15 +377,18 @@ export default function TraditionalTemplate({
                                         <div className="mt-1 text-[12px] text-black/70">{String(proj.technologies)}</div>
                                     )
                                 ) : null}
-                                {proj.description ? (
+                                {(editMode || proj.description) ? (
                                     <div className="mt-2">
                                         {editMode ? (
-                                            <EditableText
+                                            <AiAssistEditableText
                                                 value={String(proj.description)}
                                                 onChange={(v) => updateProject(idx, 'description', v)}
                                                 editMode={editMode}
+                                                aiField="project_description"
+                                                aiMeta={{ template: 'professional', index: idx, title: String(proj.title || proj.name || 'Project') }}
                                                 liveUpdate
                                                 layoutSafe
+                                                wrapperClassName="pt-6"
                                                 className="text-[12px] leading-relaxed text-black/80"
                                                 as="div"
                                                 multiline
@@ -424,7 +498,22 @@ export default function TraditionalTemplate({
                     {certifications.length > 0 ? (
                         <div className="space-y-2 text-[12px] text-black/80">
                             {certifications.map((c, idx) => (
-                                <div key={idx}>
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeCertificationItem(idx);
+                                            }}
+                                            className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove certification"
+                                            title="Remove certification"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     <div className="font-bold text-black">
                                         {editMode ? (
                                             <EditableText
@@ -475,7 +564,24 @@ export default function TraditionalTemplate({
                 >
                     <div className="space-y-4">
                         {education.map((edu: any, idx: number) => (
-                            <EduRow key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                            <div key={idx} className="relative group">
+                                {editMode ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            removeEducationItem(idx);
+                                        }}
+                                        className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        aria-label="Remove education entry"
+                                        title="Remove entry"
+                                    >
+                                        Remove
+                                    </button>
+                                ) : null}
+                                <EduRow edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                            </div>
                         ))}
                     </div>
                 </Section>
@@ -589,7 +695,6 @@ export default function TraditionalTemplate({
             </div>
 
             <div className={`px-10 pb-10 ${editMode ? 'pl-16' : ''}`}>
-                {editMode ? (<AddSectionButton onClick={addSection} className="mb-4" />) : null}
                 <SortableSectionList
                     rows={rows}
                     editMode={!!editMode}
@@ -724,16 +829,19 @@ function WorkRow({ exp, editMode, idx, onUpdate }: { exp: any; editMode: boolean
                 ) : (
                     companyLine ? <div className="text-[12px] font-bold text-black/80">{companyLine}</div> : null
                 )}
-                {exp.description ? (
+                {(editMode || exp.description) ? (
                     <div className="mt-2">
                         {editMode ? (
-                            <EditableText
+                            <AiAssistEditableText
                                 value={String(exp.description)}
                                 placeholder="Add bullets or a short description"
                                 onChange={(v) => onUpdate(idx, 'description', v)}
                                 editMode={editMode}
+                                aiField="experience_description"
+                                aiMeta={{ template: 'professional', index: idx, role: String(role), company: String(company) }}
                                 liveUpdate
                                 layoutSafe
+                                wrapperClassName="pt-6"
                                 className="text-[12px] leading-relaxed text-black/80"
                                 as="div"
                                 multiline
@@ -792,9 +900,9 @@ function EduRow({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean;
                         </>
                     )}
                 </div>
-                {school && degree ? (
+                {(school || editMode) ? (
                     editMode ? (
-                        <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe className="font-bold text-black/75" as="div" />
+                        <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe className="font-bold text-black/75" as="div" placeholder="Institution" />
                     ) : (
                         <div className="font-bold text-black/75">{String(school)}</div>
                     )
@@ -873,6 +981,7 @@ function normalizeCertifications(value: any): Array<{ name: string; issuer: stri
     }
     return [];
 }
+
 
 
 

@@ -3,8 +3,7 @@ import { Mail, Phone, MapPin, Linkedin, Globe } from "lucide-react";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
-import { EditableText } from "./EditableSection";
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function ModernTemplate({
@@ -104,6 +103,43 @@ export default function ModernTemplate({
             nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
             const cleaned = nextArr.filter((c) => String(c?.name || '').trim());
             const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.experience) ? prev.experience.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.education) ? prev.education.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const updated = Array.isArray(prev?.projects) ? prev.projects.filter((_: any, i: number) => i !== index) : [];
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), certifications: updated };
             emit(next);
             return next;
         });
@@ -213,12 +249,15 @@ export default function ModernTemplate({
                         onTitleChange={(v) => updateSectionHeading('summary', v)}
                     >
                         {editMode ? (
-                            <EditableText
+                            <AiAssistEditableText
                                 value={String(data.summary)}
                                 onChange={(v) => updateField('summary', v)}
                                 editMode={editMode}
+                                aiField="summary"
+                                aiMeta={{ template: 'modern', section: 'summary' }}
                                 liveUpdate
                                 layoutSafe
+                                wrapperClassName="pt-6"
                                 className="text-[12px] leading-relaxed text-slate-700"
                                 as="div"
                                 multiline
@@ -243,7 +282,24 @@ export default function ModernTemplate({
                     >
                         <div className="space-y-6">
                             {experience.map((exp: any, idx: number) => (
-                                <ExperienceBlock key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeExperienceItem(idx);
+                                            }}
+                                            className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove experience entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <ExperienceBlock exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                </div>
                             ))}
                             {experience.length === 0 ? (
                                 <div className="text-[12px] text-slate-500">Add experience to populate this section.</div>
@@ -266,7 +322,22 @@ export default function ModernTemplate({
                     >
                         <div className="space-y-5">
                             {projects.map((proj: any, idx: number) => (
-                                <div key={idx}>
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeProjectItem(idx);
+                                            }}
+                                            className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove project"
+                                            title="Remove project"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     <div className="flex items-baseline justify-between gap-3">
                                         <div className="text-[12px] font-semibold text-slate-900">
                                             {editMode ? (
@@ -309,15 +380,18 @@ export default function ModernTemplate({
                                             <div className="mt-1 text-[11px] text-slate-600">{String(proj.technologies)}</div>
                                         )
                                     ) : null}
-                                    {proj.description ? (
+                                    {(editMode || proj.description) ? (
                                         <div className="mt-2">
                                             {editMode ? (
-                                                <EditableText
+                                                <AiAssistEditableText
                                                     value={String(proj.description)}
                                                     onChange={(v) => updateProject(idx, 'description', v)}
                                                     editMode={editMode}
+                                                    aiField="project_description"
+                                                    aiMeta={{ template: 'modern', index: idx, title: String(proj.title || proj.name || 'Project') }}
                                                     liveUpdate
                                                     layoutSafe
+                                                    wrapperClassName="pt-6"
                                                     className="text-[12px] leading-relaxed text-slate-700"
                                                     as="div"
                                                     multiline
@@ -433,7 +507,8 @@ export default function ModernTemplate({
                 <div className="mt-1 text-sm text-slate-700 font-medium">
                     {editMode ? (
                         <EditableText
-                            value={String(data.title || "Professional Title")}
+                            value={String(data.title || '')}
+                            placeholder="Professional Title"
                             onChange={(v) => updateField('title', v)}
                             editMode={editMode}
                             liveUpdate
@@ -496,7 +571,6 @@ export default function ModernTemplate({
             <div className="grid grid-cols-12 gap-10 px-10 pt-6 pb-10">
                 {/* MAIN */}
                 <main className={`col-span-7 ${editMode ? 'pl-16' : ''}`}>
-                    {editMode ? (<AddSectionButton onClick={addSection} className="mb-4" />) : null}
                     <SortableSectionList
                         rows={mainRows}
                         editMode={!!editMode}
@@ -514,6 +588,7 @@ export default function ModernTemplate({
                 >
                     {(education.length > 0 || showEmpty) && (
                         <SideSection
+                            sectionKey="education"
                             title={getHeading('education', 'Education')}
                             editMode={editMode}
                             onTitleChange={(v) => updateSectionHeading('education', v)}
@@ -523,7 +598,22 @@ export default function ModernTemplate({
                                     const gpa = String(edu?.gpa ?? '').trim();
 
                                     return (
-                                        <div key={idx}>
+                                        <div key={idx} className="relative group">
+                                            {editMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        removeEducationItem(idx);
+                                                    }}
+                                                    className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove education entry"
+                                                    title="Remove entry"
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
                                             <div className="text-[12px] font-semibold text-slate-900">
                                                 {editMode ? (
                                                     <EditableText value={String(edu.degree || edu.title || 'Degree')} onChange={(v) => updateEducation(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="div" />
@@ -633,19 +723,31 @@ export default function ModernTemplate({
 
                     {(certifications.length > 0 || showEmpty) && (
                         <SideSection
+                            sectionKey="certifications"
                             title={getHeading('certifications', 'Certifications')}
                             editMode={editMode}
                             onTitleChange={(v) => updateSectionHeading('certifications', v)}
                         >
                             <div className="space-y-3">
                                 {certifications.slice(0, 5).map((c, idx) => (
-                                    <CertificationRow
-                                        key={idx}
-                                        cert={c}
-                                        editMode={editMode}
-                                        idx={idx}
-                                        onUpdate={updateCertification}
-                                    />
+                                    <div key={idx} className="relative group">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeCertificationItem(idx);
+                                                }}
+                                                className="absolute right-0 top-0 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove certification entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
+                                        <CertificationRow cert={c} editMode={editMode} idx={idx} onUpdate={updateCertification} />
+                                    </div>
                                 ))}
                                 {certifications.length === 0 ? (
                                     <div className="text-[11px] text-slate-500">Add certifications to populate this section.</div>
@@ -755,17 +857,23 @@ function SideSection({
     title,
     children,
     panelTone = 'none',
+    sectionKey,
     editMode,
     onTitleChange,
 }: {
     title: string;
     children: React.ReactNode;
     panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    sectionKey?: string;
     editMode?: boolean;
     onTitleChange?: (value: string) => void;
 }) {
     return (
-        <section className="mb-7 last:mb-0">
+        <section
+            className="mb-7 last:mb-0"
+            data-tv-section-key={sectionKey}
+            tabIndex={sectionKey ? -1 : undefined}
+        >
             <h2 className="text-sm font-bold tracking-wide uppercase" style={{ color: 'var(--tv-primary)' }}>
                 {editMode ? (
                     <EditableText
@@ -870,16 +978,19 @@ function ExperienceBlock({ exp, editMode, idx, onUpdate }: { exp: any; editMode:
                     </>
                 )}
             </div>
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
-                        <EditableText
+                        <AiAssistEditableText
                             value={String(exp.description)}
                             placeholder="Add bullets or a short description"
                             onChange={(v) => onUpdate(idx, 'description', v)}
                             editMode={editMode}
+                            aiField="experience_description"
+                            aiMeta={{ template: 'modern', index: idx, role: String(role), company: String(company) }}
                             liveUpdate
                             layoutSafe
+                            wrapperClassName="pt-6"
                             as="div"
                             className="text-[11px] leading-relaxed text-slate-700"
                             multiline
@@ -1010,6 +1121,7 @@ function extractStrengths(sections: any): Array<{ title: string; body?: string }
     const skills = normalizeList(sections.skills);
     return skills.slice(0, 3).map((s) => ({ title: s }));
 }
+
 
 
 

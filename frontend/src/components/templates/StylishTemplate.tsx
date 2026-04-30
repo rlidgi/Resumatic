@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import AddSectionButton from "./AddSectionButton";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
-import { EditableText } from "./EditableSection";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function StylishTemplate({
@@ -106,6 +105,50 @@ export default function StylishTemplate({
         });
     }, [emit]);
 
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.experience) ? prev.experience : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.education) ? prev.education : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.projects) ? prev.projects : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = normalizeCertifications(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const cleaned = updated.filter((c) => {
+                if (typeof c === 'string') return String(c || '').trim();
+                return String((c as any)?.name || (c as any)?.title || '').trim();
+            });
+            const next = { ...(prev || {}), certifications: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
     const updateCustomHeading = useCallback((sectionIndex: number, value: string) => {
         setEditedData((prev: any) => {
             const sectionsArr = Array.isArray(prev?.custom_sections) ? [...prev.custom_sections] : [];
@@ -142,6 +185,41 @@ export default function StylishTemplate({
         });
     }, [emit]);
 
+    const addSection = useCallback(() => {
+        const insertCustomInOrder = (order: string[], key: string) => {
+            if (order.includes(key)) return order;
+            const educationIndex = order.indexOf('education');
+            if (educationIndex >= 0) return [...order.slice(0, educationIndex), key, ...order.slice(educationIndex)];
+            return [...order, key];
+        };
+
+        setEditedData((prev: any) => {
+            const next = { ...(prev || {}) };
+            const current = Array.isArray(next.custom_sections) ? [...next.custom_sections] : [];
+            const customKey = `custom_${current.length}`;
+
+            next.custom_sections = [
+                ...current,
+                {
+                    heading: 'New Section',
+                    items: [
+                        {
+                            title: 'Header',
+                            content: '- First bullet point\n- Second bullet point',
+                        },
+                    ],
+                },
+            ];
+
+            if (editMode && onSectionOrderChange) {
+                onSectionOrderChange(insertCustomInOrder(sectionOrder || [], customKey));
+            }
+
+            emit(next);
+            return next;
+        });
+    }, [editMode, emit, onSectionOrderChange, sectionOrder]);
+
     const data = editedData || {};
     const showEmpty = !!(editMode && (data as any)?._show_empty_sections);
 
@@ -167,12 +245,15 @@ export default function StylishTemplate({
                 content: (
                     <SectionBlock title={getHeading('summary', 'PROFILE')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('summary', v)}>
                         {editMode ? (
-                            <EditableText
+                            <AiAssistEditableText
                                 value={String(data.summary || '')}
                                 onChange={(v) => updateField('summary', v)}
                                 editMode={editMode}
+                                aiField="summary"
+                                aiMeta={{ template: 'stylish', section: 'summary' }}
                                 liveUpdate
                                 layoutSafe
+                                wrapperClassName="pt-6"
                                 className="text-xs leading-relaxed text-black text-justify"
                                 as="div"
                                 multiline
@@ -194,7 +275,24 @@ export default function StylishTemplate({
                     <SectionBlock title={getHeading('experience', 'EMPLOYMENT HISTORY')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('experience', v)}>
                         <div className="space-y-5">
                             {experience.map((exp: any, idx: number) => (
-                                <ExperienceEntry key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeExperienceItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove experience entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <ExperienceEntry exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                </div>
                             ))}
                             {experience.length === 0 && (
                                 <div className="text-xs text-slate-500">Add experience to populate this section.</div>
@@ -212,7 +310,24 @@ export default function StylishTemplate({
                     <SectionBlock title={getHeading('education', 'EDUCATION')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('education', v)}>
                         <div className="space-y-4">
                             {education.map((edu: any, idx: number) => (
-                                <EducationEntry key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeEducationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove education entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <EducationEntry edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                                </div>
                             ))}
                             {education.length === 0 && (
                                 <div className="text-xs text-slate-500">Add education to populate this section.</div>
@@ -230,7 +345,24 @@ export default function StylishTemplate({
                     <SectionBlock title={getHeading('projects', 'PROJECTS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('projects', v)}>
                         <div className="space-y-5">
                             {projects.map((proj: any, idx: number) => (
-                                <ProjectEntry key={idx} proj={proj} editMode={editMode} idx={idx} onUpdate={updateProject} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeProjectItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove project entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <ProjectEntry proj={proj} editMode={editMode} idx={idx} onUpdate={updateProject} />
+                                </div>
                             ))}
                             {projects.length === 0 && (
                                 <div className="text-xs text-slate-500">Add projects to populate this section.</div>
@@ -249,7 +381,26 @@ export default function StylishTemplate({
                         <div className="space-y-2">
                             {certifications.map((c: any, idx: number) => {
                                 if (typeof c === 'string') {
-                                    return <div key={idx} className="text-xs text-black">• {c}</div>;
+                                    return (
+                                        <div key={idx} className="relative group text-xs text-black">
+                                            {editMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        removeCertificationItem(idx);
+                                                    }}
+                                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove certification entry"
+                                                    title="Remove entry"
+                                                >
+                                                    Remove
+                                                </button>
+                                            ) : null}
+                                            • {c}
+                                        </div>
+                                    );
                                 }
 
                                 const name = String(c?.name || c?.title || c?.certification || '').trim();
@@ -257,7 +408,22 @@ export default function StylishTemplate({
                                 const year = String(c?.year || c?.date || '').trim();
 
                                 return (
-                                    <div key={idx} className="text-xs text-black">
+                                    <div key={idx} className="relative group text-xs text-black">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeCertificationItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove certification entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         <span className="font-bold">{name || 'Certification'}</span>
                                         {issuer ? <span className="text-slate-600"> — {issuer}</span> : null}
                                         {year ? <span className="text-slate-500"> ({year})</span> : null}
@@ -323,6 +489,10 @@ export default function StylishTemplate({
         updateField,
         updateProject,
         updateSectionHeading,
+        removeCertificationItem,
+        removeEducationItem,
+        removeExperienceItem,
+        removeProjectItem,
     ]);
 
     const fullName = String(data.name || 'Your Name').trim();
@@ -374,7 +544,8 @@ export default function StylishTemplate({
                         <div className="mt-1 text-sm font-normal text-black">
                             {editMode ? (
                                 <EditableText
-                                    value={String(data.title || "Professional Title")}
+                                    value={String(data.title || '')}
+                                    placeholder="Professional Title"
                                     onChange={(v) => updateField('title', v)}
                                     editMode={editMode}
                                     liveUpdate
@@ -437,7 +608,6 @@ export default function StylishTemplate({
 
                 {/* RIGHT COLUMN - ~2/3 */}
                 <main className={`col-span-8 p-6 ${editMode ? 'pl-10' : ''}`}>
-                    {editMode ? <AddSectionButton onClick={() => { }} className="mb-4" /> : null}
                     <SortableSectionList
                         rows={mainRows}
                         editMode={!!editMode}
@@ -513,8 +683,69 @@ function levelToPercent(level: string): number {
     return 80;
 }
 
+function percentStepToLevel(step: number): string {
+    if (step >= 4) return "Fluent";
+    if (step === 3) return "Proficient";
+    if (step === 2) return "Intermediate";
+    return "Beginner";
+}
+
+function getLevelFromBarClick(event: React.MouseEvent<HTMLButtonElement>): string {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relativeX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const ratio = rect.width > 0 ? (relativeX / rect.width) : 0;
+    const step = Math.max(1, Math.min(4, Math.ceil(ratio * 4)));
+    return percentStepToLevel(step);
+}
+
+function EditableGaugeBar({
+    value,
+    label,
+    editMode,
+    onChange,
+}: {
+    value: string;
+    label: string;
+    editMode: boolean;
+    onChange: (value: string) => void;
+}) {
+    const pct = levelToPercent(value);
+
+    if (!editMode) {
+        return (
+            <div className="flex-1 min-w-[60px] h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--tv-secondary)' }}>
+                <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange(getLevelFromBarClick(e));
+            }}
+            aria-label={`Set ${label} level`}
+            title={`${label}: click bar to change level`}
+            className="relative flex-1 min-w-[60px] h-1.5 rounded overflow-hidden ring-1 ring-black/10 hover:ring-black/40"
+            style={{ backgroundColor: 'var(--tv-secondary)' }}
+        >
+            <span className="absolute inset-y-0 left-0 rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
+        </button>
+    );
+}
+
 function SkillBarRow({ skill, editMode, idx, onUpdate }: { skill: { name: string; level: string }; editMode: boolean; idx: number; onUpdate: (i: number, f: 'name' | 'level', v: string) => void }) {
-    const pct = levelToPercent(skill.level);
     return (
         <div>
             <div className="flex items-center justify-between gap-2 mb-1">
@@ -523,16 +754,13 @@ function SkillBarRow({ skill, editMode, idx, onUpdate }: { skill: { name: string
                 ) : (
                     <span className="text-xs text-black flex-1">{skill.name}</span>
                 )}
-                <div className="flex-1 min-w-[60px] h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--tv-secondary)' }}>
-                    <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
-                </div>
+                <EditableGaugeBar value={skill.level} label={skill.name || 'skill'} editMode={editMode} onChange={(value) => onUpdate(idx, 'level', value)} />
             </div>
         </div>
     );
 }
 
 function LanguageBarRow({ lang, editMode, idx, onUpdate }: { lang: { name: string; level: string }; editMode: boolean; idx: number; onUpdate: (i: number, f: 'name' | 'level', v: string) => void }) {
-    const pct = levelToPercent(lang.level);
     return (
         <div>
             <div className="flex items-center justify-between gap-2 mb-1">
@@ -541,9 +769,7 @@ function LanguageBarRow({ lang, editMode, idx, onUpdate }: { lang: { name: strin
                 ) : (
                     <span className="text-xs text-black flex-1">{lang.name}</span>
                 )}
-                <div className="flex-1 min-w-[60px] h-1.5 rounded overflow-hidden" style={{ backgroundColor: 'var(--tv-secondary)' }}>
-                    <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: 'var(--tv-primary-dark)' }} />
-                </div>
+                <EditableGaugeBar value={lang.level} label={lang.name || 'language'} editMode={editMode} onChange={(value) => onUpdate(idx, 'level', value)} />
             </div>
         </div>
     );
@@ -572,10 +798,10 @@ function ProjectEntry({ proj, editMode, idx, onUpdate }: { proj: any; editMode: 
                     <div className="text-xs text-slate-600 mt-0.5">{proj.technologies}</div>
                 )
             ) : null}
-            {proj.description ? (
+            {(editMode || proj.description) ? (
                 <div className="mt-2">
                     {editMode ? (
-                        <EditableText value={String(proj.description)} onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs leading-relaxed text-black" as="div" multiline />
+                        <AiAssistEditableText value={String(proj.description)} onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} aiField="project_description" aiMeta={{ template: 'stylish', index: idx, title }} liveUpdate layoutSafe wrapperClassName="pt-6" className="text-xs leading-relaxed text-black" as="div" multiline />
                     ) : (
                         <RenderMaybeBullets text={proj.description} forceBullets className="text-xs leading-relaxed text-black" />
                     )}
@@ -625,9 +851,9 @@ function EducationEntry({ edu, editMode, idx, onUpdate }: { edu: any; editMode: 
                 ) : null}
             </div>
 
-            {(school && degree) ? (
+            {(school || editMode) ? (
                 editMode ? (
-                    <EditableText value={school} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-slate-600 mt-0.5" as="div" />
+                    <EditableText value={school} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-slate-600 mt-0.5" as="div" placeholder="Institution" />
                 ) : (
                     <div className="text-xs text-slate-600 mt-0.5">{school}</div>
                 )
@@ -683,19 +909,22 @@ function ExperienceEntry({ exp, editMode, idx, onUpdate }: { exp: any; editMode:
                 ) : null}
             </div>
             {editMode ? (
-                <EditableText value={dates} onChange={(v) => onUpdate(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-black mt-0.5" as="span" />
+                <EditableText value={dates} onChange={(v) => onUpdate(idx, 'duration', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs text-black mt-0.5" as="span" placeholder="Dates" />
             ) : (
                 <div className="text-xs text-black mt-0.5">{dates}</div>
             )}
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
-                        <EditableText
+                        <AiAssistEditableText
                             value={String(exp.description)}
                             onChange={(v) => onUpdate(idx, 'description', v)}
                             editMode={editMode}
+                            aiField="experience_description"
+                            aiMeta={{ template: 'stylish', index: idx, role, company }}
                             liveUpdate
                             layoutSafe
+                            wrapperClassName="pt-6"
                             className="text-xs leading-relaxed text-black"
                             as="div"
                             multiline
@@ -766,3 +995,4 @@ function normalizeCertifications(value: any): any[] {
     }
     return [];
 }
+

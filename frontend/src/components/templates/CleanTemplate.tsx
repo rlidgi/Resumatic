@@ -374,7 +374,8 @@ export default function CleanTemplate({
                         <div className="mt-1 text-sm font-normal text-black">
                             {editMode ? (
                                 <EditableText
-                                    value={String(data.title || "Professional Title")}
+                                    value={String(data.title || '')}
+                                    placeholder="Professional Title"
                                     onChange={(v) => updateField('title', v)}
                                     editMode={editMode}
                                     liveUpdate
@@ -572,7 +573,7 @@ function ProjectEntry({ proj, editMode, idx, onUpdate }: { proj: any; editMode: 
                     <div className="text-xs text-slate-600 mt-0.5">{proj.technologies}</div>
                 )
             ) : null}
-            {proj.description ? (
+            {(editMode || proj.description) ? (
                 <div className="mt-2">
                     {editMode ? (
                         <EditableText value={String(proj.description)} onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe className="text-xs leading-relaxed text-black" as="div" multiline />
@@ -687,7 +688,7 @@ function ExperienceEntry({ exp, editMode, idx, onUpdate }: { exp: any; editMode:
             ) : (
                 <div className="text-xs text-black mt-0.5">{dates}</div>
             )}
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
                         <EditableText
@@ -766,3 +767,4 @@ function normalizeCertifications(value: any): any[] {
     }
     return [];
 }
+

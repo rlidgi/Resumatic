@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseResumeContent } from '../../utils/resumeUtils';
 import { RenderMaybeBullets } from './RenderMaybeBullets';
-import { EditableText } from './EditableSection';
+import { AiAssistEditableText, EditableText } from './EditableSection';
 import CustomSectionsRenderer from './CustomSectionsRenderer';
-import AddSectionButton from './AddSectionButton';
 import SortableSectionList, { type SortableSectionRow } from './SortableSectionList';
 
 export default function ProfessionalTemplate({
@@ -67,6 +66,50 @@ export default function ProfessionalTemplate({
             const updated = Array.isArray(prev.projects) ? [...prev.projects] : [];
             updated[index] = { ...(updated[index] || {}), [field]: value };
             const next = { ...prev, projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.experience) ? prev.experience : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.education) ? prev.education : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.projects) ? prev.projects : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.certifications) ? prev.certifications : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const cleaned = updated.filter((c: any) => {
+                if (typeof c === 'string') return String(c || '').trim();
+                return String(c?.name || c?.title || '').trim();
+            });
+            const next = { ...(prev || {}), certifications: cleaned };
             emit(next);
             return next;
         });
@@ -231,12 +274,15 @@ export default function ProfessionalTemplate({
                     }
                 >
                     {editMode ? (
-                        <EditableText
+                        <AiAssistEditableText
                             value={String(sections.summary || '')}
                             onChange={(v) => updateField('summary', v)}
                             editMode={editMode}
+                            aiField="summary"
+                            aiMeta={{ template: 'executive', section: 'summary' }}
                             liveUpdate
                             layoutSafe
+                            wrapperClassName="pt-6"
                             className="text-slate-700 leading-snug text-sm"
                             as="div"
                             multiline
@@ -270,26 +316,43 @@ export default function ProfessionalTemplate({
                     ) : undefined}
                 >
                     {sections.experience.map((exp: any, idx: number) => (
-                        <div key={idx} className="mb-4 last:mb-0">
+                        <div key={idx} className="relative group mb-4 last:mb-0">
+                            {editMode ? (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeExperienceItem(idx);
+                                    }}
+                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove experience entry"
+                                    title="Remove entry"
+                                >
+                                    Remove
+                                </button>
+                            ) : null}
                             <div className="flex justify-between items-start mb-1.5 gap-3">
                                 <div>
                                     {editMode ? (
                                         <>
                                             <EditableText
-                                                value={String(exp.title || '')}
+                                                value={String(exp.title || exp.position || '')}
                                                 onChange={(v) => updateExperience(idx, 'title', v)}
                                                 editMode={editMode}
                                                 liveUpdate
                                                 layoutSafe
+                                                placeholder="Job title"
                                                 className="font-bold text-slate-900 text-base"
                                                 as="div"
                                             />
                                             <EditableText
-                                                value={String(exp.company || '')}
+                                                value={String(exp.company || exp.employer || '')}
                                                 onChange={(v) => updateExperience(idx, 'company', v)}
                                                 editMode={editMode}
                                                 liveUpdate
                                                 layoutSafe
+                                                placeholder="Company"
                                                 className="text-slate-700 font-medium text-sm"
                                                 as="div"
                                             />
@@ -308,6 +371,7 @@ export default function ProfessionalTemplate({
                                         editMode={editMode}
                                         liveUpdate
                                         layoutSafe
+                                        placeholder="Dates (e.g., Jan 2022 - Present)"
                                         className="text-xs text-slate-600 font-medium whitespace-nowrap"
                                         as="div"
                                     />
@@ -316,12 +380,15 @@ export default function ProfessionalTemplate({
                                 )}
                             </div>
                             {editMode ? (
-                                <EditableText
+                                <AiAssistEditableText
                                     value={String(exp.description || '')}
                                     onChange={(v) => updateExperience(idx, 'description', v)}
                                     editMode={editMode}
+                                    aiField="experience_description"
+                                    aiMeta={{ template: 'executive', index: idx, role: String(exp.title || ''), company: String(exp.company || '') }}
                                     liveUpdate
                                     layoutSafe
+                                    wrapperClassName="pt-6"
                                     className="text-slate-700 leading-snug text-sm"
                                     as="div"
                                     multiline
@@ -401,7 +468,22 @@ export default function ProfessionalTemplate({
                     ) : undefined}
                 >
                     {sections.education.map((edu: any, idx: number) => (
-                        <div key={idx} className="mb-2.5 last:mb-0 flex justify-between items-start gap-3">
+                        <div key={idx} className="relative group mb-2.5 last:mb-0 flex justify-between items-start gap-3">
+                            {editMode ? (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeEducationItem(idx);
+                                    }}
+                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove education entry"
+                                    title="Remove entry"
+                                >
+                                    Remove
+                                </button>
+                            ) : null}
                             <div>
                                 {editMode ? (
                                     <>
@@ -488,20 +570,36 @@ export default function ProfessionalTemplate({
                     ) : undefined}
                 >
                     {sections.projects.map((proj: any, idx: number) => (
-                        <div key={idx} className="mb-4 last:mb-0">
+                        <div key={idx} className="relative group mb-4 last:mb-0">
+                            {editMode ? (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        removeProjectItem(idx);
+                                    }}
+                                    className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove project entry"
+                                    title="Remove entry"
+                                >
+                                    Remove
+                                </button>
+                            ) : null}
                             <div className="flex justify-between items-start mb-1 gap-3">
                                 {editMode ? (
                                     <EditableText
-                                        value={String(proj.title || '')}
+                                        value={String(proj.title || proj.name || '')}
                                         onChange={(v) => updateProject(idx, 'title', v)}
                                         editMode={editMode}
                                         liveUpdate
                                         layoutSafe
+                                        placeholder="Project title"
                                         className="font-bold text-slate-900 text-base"
                                         as="div"
                                     />
                                 ) : (
-                                    <h4 className="font-bold text-slate-900 text-base">{proj.title}</h4>
+                                    <h4 className="font-bold text-slate-900 text-base">{proj.title || proj.name}</h4>
                                 )}
                                 {proj.link && (
                                     <a
@@ -522,15 +620,29 @@ export default function ProfessionalTemplate({
                                         editMode={editMode}
                                         liveUpdate
                                         layoutSafe
+                                        placeholder="Technologies used"
                                         className="text-xs text-slate-600 mb-1.5"
                                         as="div"
                                     />
                                     <EditableText
-                                        value={String(proj.description || '')}
-                                        onChange={(v) => updateProject(idx, 'description', v)}
+                                        value={String(proj.link || proj.url || '')}
+                                        onChange={(v) => updateProject(idx, 'link', v)}
                                         editMode={editMode}
                                         liveUpdate
                                         layoutSafe
+                                        placeholder="Project link (optional)"
+                                        className="text-xs text-slate-600 mb-1.5"
+                                        as="div"
+                                    />
+                                    <AiAssistEditableText
+                                        value={String(proj.description || '')}
+                                        onChange={(v) => updateProject(idx, 'description', v)}
+                                        editMode={editMode}
+                                        aiField="project_description"
+                                        aiMeta={{ template: 'executive', index: idx, title: String(proj.title || proj.name || 'Project') }}
+                                        liveUpdate
+                                        layoutSafe
+                                        wrapperClassName="pt-6"
                                         className="text-slate-700 leading-snug text-sm"
                                         as="div"
                                         multiline
@@ -577,7 +689,22 @@ export default function ProfessionalTemplate({
                         {sections.certifications.map((cert: any, idx: number) => {
                             if (typeof cert === 'string') {
                                 return (
-                                    <div key={idx} className="text-slate-700 text-sm">
+                                    <div key={idx} className="relative group text-slate-700 text-sm">
+                                        {editMode ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeCertificationItem(idx);
+                                                }}
+                                                className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Remove certification entry"
+                                                title="Remove entry"
+                                            >
+                                                Remove
+                                            </button>
+                                        ) : null}
                                         • {editMode ? (
                                             <EditableText
                                                 value={String(cert)}
@@ -609,37 +736,54 @@ export default function ProfessionalTemplate({
                             const year = cert?.year || '';
 
                             return (
-                                <div key={idx} className="flex items-baseline justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <div className="font-bold text-slate-900 text-sm">
-                                            {editMode ? (
-                                                <EditableText
-                                                    value={String(name || '')}
-                                                    placeholder="Certification"
-                                                    onChange={(v) => updateCertificationField(idx, 'name', v)}
-                                                    editMode={editMode}
-                                                    liveUpdate
-                                                    layoutSafe
-                                                    as="div"
-                                                    className="font-bold text-slate-900 text-sm"
-                                                />
-                                            ) : (
-                                                name
-                                            )}
-                                        </div>
-                                        {(issuer || year) && (
-                                            <div className="text-xs text-slate-600">
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeCertificationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove certification entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <div className="flex items-baseline justify-between gap-4">
+                                        <div className="min-w-0">
+                                            <div className="font-bold text-slate-900 text-sm">
                                                 {editMode ? (
-                                                    <>
-                                                        <EditableText value={String(issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                        {(String(issuer || '').trim() && String(year || '').trim()) ? <span> • </span> : null}
-                                                        <EditableText value={String(year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                                    </>
+                                                    <EditableText
+                                                        value={String(name || '')}
+                                                        placeholder="Certification"
+                                                        onChange={(v) => updateCertificationField(idx, 'name', v)}
+                                                        editMode={editMode}
+                                                        liveUpdate
+                                                        layoutSafe
+                                                        as="div"
+                                                        className="font-bold text-slate-900 text-sm"
+                                                    />
                                                 ) : (
-                                                    [issuer, year].filter(Boolean).join(' • ')
+                                                    name
                                                 )}
                                             </div>
-                                        )}
+                                            {(issuer || year) && (
+                                                <div className="text-xs text-slate-600">
+                                                    {editMode ? (
+                                                        <>
+                                                            <EditableText value={String(issuer || '')} placeholder="Issuer" onChange={(v) => updateCertificationField(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                            {(String(issuer || '').trim() && String(year || '').trim()) ? <span> • </span> : null}
+                                                            <EditableText value={String(year || '')} placeholder="Year" onChange={(v) => updateCertificationField(idx, 'year', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                                        </>
+                                                    ) : (
+                                                        [issuer, year].filter(Boolean).join(' • ')
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -769,7 +913,8 @@ export default function ProfessionalTemplate({
                             />
                         </h1>
                         <EditableText
-                            value={String(sections.title || 'Professional Title')}
+                            value={String(sections.title || '')}
+                            placeholder="Professional Title"
                             onChange={(v) => updateField('title', v)}
                             editMode={editMode}
                             liveUpdate
@@ -834,9 +979,6 @@ export default function ProfessionalTemplate({
 
             {/* Body */}
             <div className={editMode ? 'pt-0 pb-6 pr-6 pl-16 space-y-4' : 'pt-0 pb-6 px-6 space-y-6'}>
-                {editMode ? (
-                    <AddSectionButton onClick={addSection} className="mb-3" />
-                ) : null}
                 <SortableSectionList
                     rows={rows}
                     editMode={!!editMode}

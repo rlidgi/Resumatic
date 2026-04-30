@@ -316,7 +316,12 @@ function SortableSectionListDnd({
             <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
                 <div className="space-y-4">
                     {orderedRows.map((row) => (
-                        <EditableSection key={row.key} id={row.key} editMode={editMode} sectionTitle={row.title}>
+                        <EditableSection
+                            key={row.key}
+                            id={row.key}
+                            editMode={editMode}
+                            sectionTitle={row.title}
+                        >
                             {row.content}
                         </EditableSection>
                     ))}

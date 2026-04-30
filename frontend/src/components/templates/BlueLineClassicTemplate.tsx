@@ -297,7 +297,7 @@ export default function BlueLineClassicTemplate({
                                             <div className="mt-1 text-[12px] text-black/70">{String(proj.technologies)}</div>
                                         )
                                     ) : null}
-                                    {proj.description ? (
+                                    {(editMode || proj.description) ? (
                                         <div className="mt-2">
                                             {editMode ? (
                                                 <EditableText
@@ -479,7 +479,7 @@ function WorkRow({ exp, editMode, idx, onUpdate }: { exp: any; editMode: boolean
                 ) : (
                     companyLine ? <div className="text-[12px] font-bold text-black/80">{companyLine}</div> : null
                 )}
-                {exp.description ? (
+                {(editMode || exp.description) ? (
                     <div className="mt-2">
                         {editMode ? (
                             <EditableText
@@ -574,6 +574,7 @@ function normalizeList(value: any): string[] {
     }
     return [];
 }
+
 
 
 

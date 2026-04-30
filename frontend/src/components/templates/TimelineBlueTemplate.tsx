@@ -371,7 +371,7 @@ export default function TimelineBlueTemplate({
                                                 as="span"
                                             />
                                         </div>
-                                        {exp.description ? (
+                                        {(editMode || exp.description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
                                                     <EditableText
@@ -447,7 +447,7 @@ export default function TimelineBlueTemplate({
                                                 as="div"
                                             />
                                         ) : null}
-                                        {description ? (
+                                        {(editMode || description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
                                                     <EditableText
@@ -748,5 +748,6 @@ function getInitials(fullName: string): string {
     const last = (parts.length > 1 ? parts[parts.length - 1]?.[0] : parts[0]?.[1]) || "D";
     return `${String(first).toUpperCase()}${String(last).toUpperCase()}`;
 }
+
 
 

@@ -357,20 +357,48 @@
                     <h2 class="text-base font-bold text-gray-800 mb-2 flex items-center">
                         <i class="fas fa-chart-pie text-blue-500 mr-2 text-sm"></i>Score
                     </h2>
-                    <div class="relative w-32 h-32 mx-auto">
-                        <svg class="w-full h-full" viewBox="0 0 100 100">
-                            <!-- Background circle -->
-                            <circle cx="50" cy="50" r="45" fill="none" stroke="#E5E7EB" stroke-width="8" />
-                            <!-- Progress circle -->
-                            <circle id="scoreProgressCircle" cx="50" cy="50" r="45" fill="none" stroke="#10B981"
-                                stroke-width="8" stroke-dasharray="283" stroke-dashoffset="283"
-                                transform="rotate(-90 50 50)" class="transition-all duration-1000 ease-in-out" />
-                            <!-- Score text -->
-                            <text x="50" y="50" text-anchor="middle" dominant-baseline="middle"
-                                class="text-2xl font-bold fill-gray-800">
-                                {{ feedback.get('overall_score', 50) | int }}
-                            </text>
+                    <div class="max-w-[240px] mx-auto">
+                        <svg class="w-full h-auto" viewBox="0 0 220 150" aria-hidden="true">
+                            <path d="M30 110 A80 80 0 0 1 190 110" fill="none" stroke="#E5E7EB" stroke-width="20"
+                                stroke-linecap="round" />
+                            <path d="M30 110 A80 80 0 0 1 53.43 53.43" fill="none" stroke="#EF4444" stroke-width="18"
+                                stroke-linecap="round" />
+                            <path d="M57.5 49.5 A80 80 0 0 1 110 30" fill="none" stroke="#F97316" stroke-width="18"
+                                stroke-linecap="round" />
+                            <path d="M110 30 A80 80 0 0 1 162.5 49.5" fill="none" stroke="#FBBF24" stroke-width="18"
+                                stroke-linecap="round" />
+                            <path d="M166.57 53.43 A80 80 0 0 1 190 110" fill="none" stroke="#10B981" stroke-width="18"
+                                stroke-linecap="round" />
+
+                            <g id="scoreNeedle">
+                                <line id="scoreNeedleLine" x1="110" y1="110" x2="58" y2="110" stroke="#4B5563"
+                                    stroke-width="5" stroke-linecap="round" />
+                                <polygon id="scoreNeedleTip" points="56,106 56,114 46,110" fill="#4B5563" />
+                            </g>
+                            <circle cx="110" cy="110" r="8" fill="#6B7280" />
                         </svg>
+
+                        <div class="flex justify-between text-[11px] text-gray-400 px-1 -mt-1">
+                            <span>0</span>
+                            <span>100</span>
+                        </div>
+
+                        <div class="text-center mt-1">
+                            <div class="text-3xl font-bold text-gray-800 leading-none">
+                                {{ feedback.get('overall_score', 50) | int }}
+                            </div>
+                            <div class="text-sm text-gray-500 mt-1">
+                                {% if feedback.get('overall_score', 50) | int >= 85 %}
+                                Excellent
+                                {% elif feedback.get('overall_score', 50) | int >= 65 %}
+                                Good
+                                {% elif feedback.get('overall_score', 50) | int >= 40 %}
+                                Fair
+                                {% else %}
+                                Needs Work
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
@@ -413,9 +441,24 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="overflow-hidden h-1.5 mb-2 text-xs flex rounded bg-gray-200">
-                                <div id="progressBarFill"
-                                    class="shadow-none flex flex-col text-center whitespace-nowrap text-black justify-center bg-[#10B981] transition-all duration-500">
+                            <div class="relative pt-6">
+                                <div
+                                    class="h-2 rounded-full bg-gradient-to-r from-red-500 via-amber-400 via-[50%] to-emerald-500 shadow-inner">
+                                </div>
+                                <div id="progressScoreMarker"
+                                    class="absolute top-0 -translate-x-1/2 transition-all duration-700 ease-out">
+                                    <div
+                                        class="inline-flex items-center rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                                        You
+                                    </div>
+                                    <div
+                                        class="mx-auto h-0 w-0 border-x-4 border-x-transparent border-t-4 border-t-emerald-500">
+                                    </div>
+                                </div>
+                                <div class="mt-2 flex justify-between text-[11px] font-medium text-gray-400">
+                                    <span>0%</span>
+                                    <span>50%</span>
+                                    <span>100%</span>
                                 </div>
                             </div>
                         </div>
@@ -438,84 +481,117 @@
                 </div>
             </div>
 
-            <!-- Category Scores with Tabs -->
+            <!-- Category Breakdown (Accordion) -->
             <div class="bg-white rounded-lg shadow p-6 mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                     <i class="fas fa-list-alt text-green-500 mr-3"></i>Category Breakdown
                 </h2>
                 {% set desired_categories = ['Content', 'Format', 'Optimization', 'Best Practices', 'Application
-                Readiness']
-                %}
+                Readiness'] %}
                 {% set subscores = feedback.get('subscores', {}) %}
                 {% set improvement_items = feedback.get('improvement_items', []) %}
-                <!-- Mobile category picker (better than swipe tabs) -->
-                <div class="sm:hidden mb-4">
-                    <label for="categorySelect" class="block text-sm font-semibold text-gray-800 mb-2">Category</label>
-                    <select id="categorySelect"
-                        class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600">
-                        {% for category in desired_categories %}
-                        {% if category in subscores %}
-                        {% set score = subscores[category] | int %}
-                        <option value="{{ category }}">{{ category }} ({{ score }})</option>
-                        {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
+                <p class="text-sm text-gray-600 mb-4">Expand a category to see the specific issues affecting its score.
+                </p>
 
-                <!-- Desktop tabs -->
-                <div class="hidden sm:block mb-6">
-                    <div id="categoryTabs" role="tablist" aria-label="Category Breakdown"
-                        class="no-scrollbar flex w-full max-w-full items-stretch gap-2 overflow-x-auto rounded-full border border-gray-200 bg-gray-50 p-1 sm:w-fit sm:mx-auto">
-                        {% for category in desired_categories %}
-                        {% if category in subscores %}
-                        {% set score = subscores[category] | int %}
-                        {% set count = (improvement_items | selectattr('category', 'equalto', category) | list |
-                        length) %}
-                        <button type="button" role="tab" data-category="{{ category }}" aria-selected="false"
-                            class="category-tab group inline-flex flex-none items-center gap-2 rounded-full px-3 py-2 text-xs sm:px-4 sm:text-sm font-semibold bg-white text-gray-800 ring-1 ring-gray-200 shadow-sm transition-all transform-gpu cursor-pointer hover:-translate-y-0.5 active:translate-y-0 hover:bg-emerald-200 hover:text-emerald-950 hover:ring-emerald-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-600">
-                            <span class="whitespace-nowrap">{{ category }}</span>
-                            <span
-                                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold {% if score >= 85 %}bg-emerald-100 text-emerald-700{% elif score >= 65 %}bg-blue-100 text-blue-700{% else %}bg-amber-100 text-amber-800{% endif %}">
-                                {{ score }}
-                            </span>
-                            {% if count > 0 %}
-                            <span
-                                class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold text-gray-700">
-                                {{ count }} items
-                            </span>
-                            {% endif %}
-                        </button>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
+                {# Auto-open the first category that has any issues; fallback to Content #}
+                {% set ns = namespace(open_category='') %}
+                {% for category in desired_categories %}
+                {% if category in subscores %}
+                {% set _cat_items = (improvement_items | selectattr('category', 'equalto', category) | list) %}
+                {% if ns.open_category == '' and (_cat_items | length) > 0 %}
+                {% set ns.open_category = category %}
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+                {% if ns.open_category == '' %}
+                {% set ns.open_category = 'Content' %}
+                {% endif %}
 
-                <div class="rounded-xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 p-4 sm:p-5">
-                    <div id="categoryEmptyState" class="hidden text-center text-sm text-gray-600">
-                        No feedback items for this category.
-                    </div>
+                <div class="space-y-3">
+                    {% for category in desired_categories %}
+                    {% if category in subscores %}
+                    {% set score = subscores[category] | int %}
+                    {% set cat_items = (improvement_items | selectattr('category', 'equalto', category) | list) %}
+                    {% set count = cat_items | length %}
+                    {% set error_count = (cat_items | selectattr('severity', 'equalto', 'error') | list | length) %}
+                    {% set warning_count = (cat_items | selectattr('severity', 'equalto', 'warning') | list | length) %}
+                    {% set suggestion_count = (cat_items | selectattr('severity', 'equalto', 'suggestion') | list |
+                    length) %}
 
-                    <div id="categoryItems" class="space-y-4">
-                        {% for item in improvement_items %}
-                        <div class="category-item hidden rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all transform-gpu"
-                            data-category="{{ item.category }}">
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <details
+                        class="group rounded-xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 transition-colors hover:border-emerald-300"
+                        {% if category==ns.open_category %}open{% endif %}>
+                        <summary
+                            class="list-none cursor-pointer select-none p-4 sm:p-5 rounded-xl transition-colors hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600">
+                            <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="text-gray-700 break-words">{{ item.message }}</p>
-                                    {% if item.example_lines %}
-                                    <div class="mt-2 text-sm text-gray-500 italic break-words">Example: {{
-                                        item.example_lines }}</div>
-                                    {% endif %}
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span
+                                            class="text-base font-semibold text-gray-900 group-hover:text-emerald-950">{{
+                                            category }}</span>
+                                        <span
+                                            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold {% if score >= 85 %}bg-emerald-100 text-emerald-700{% elif score >= 65 %}bg-blue-100 text-blue-700{% else %}bg-amber-100 text-amber-800{% endif %}">
+                                            {{ score }}
+                                        </span>
+                                        <span
+                                            class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold text-gray-700">
+                                            {{ count }} {% if count == 1 %}issue{% else %}issues{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="mt-1 text-xs text-gray-600">
+                                        {% if count == 0 %}
+                                        No issues found in this category.
+                                        {% else %}
+                                        {% if error_count %}{{ error_count }} error{% if error_count != 1 %}s{% endif
+                                        %}{% endif %}
+                                        {% if error_count and warning_count %}<span> • </span>{% endif %}
+                                        {% if warning_count %}{{ warning_count }} warning{% if warning_count != 1 %}s{%
+                                        endif %}{% endif %}
+                                        {% if (error_count or warning_count) and suggestion_count %}<span> • </span>{%
+                                        endif %}
+                                        {% if suggestion_count %}{{ suggestion_count }} suggestion{% if suggestion_count
+                                        != 1 %}s{% endif %}{% endif %}
+                                        {% endif %}
+                                    </div>
                                 </div>
 
-                                <span
-                                    class="flex-none self-start px-2.5 py-1 rounded-full text-xs font-bold text-white {% if item.severity == 'error' %}bg-red-600{% elif item.severity == 'warning' %}bg-amber-500{% else %}bg-blue-600{% endif %}">
-                                    {{ item.severity|capitalize }}
-                                </span>
+                                <div class="flex-none mt-0.5 text-gray-500 group-hover:text-emerald-900">
+                                    <i
+                                        class="fas fa-chevron-down transition-transform duration-200 group-open:rotate-180"></i>
+                                </div>
                             </div>
+                        </summary>
+
+                        <div class="border-t border-gray-200 p-4 sm:p-5">
+                            {% if count == 0 %}
+                            <div class="text-sm text-gray-600">No feedback items for this category.</div>
+                            {% else %}
+                            <div class="space-y-4">
+                                {% for item in cat_items %}
+                                <div
+                                    class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all transform-gpu">
+                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div class="min-w-0">
+                                            <p class="text-gray-700 break-words">{{ item.message }}</p>
+                                            {% if item.example_lines %}
+                                            <div class="mt-2 text-sm text-gray-500 italic break-words">Example: {{
+                                                item.example_lines }}</div>
+                                            {% endif %}
+                                        </div>
+
+                                        <span
+                                            class="flex-none self-start px-2.5 py-1 rounded-full text-xs font-bold text-white {% if item.severity == 'error' %}bg-red-600{% elif item.severity == 'warning' %}bg-amber-500{% else %}bg-blue-600{% endif %}">
+                                            {{ item.severity|capitalize }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endfor %}
-                    </div>
+                    </details>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
 
@@ -1076,9 +1152,66 @@
                 }
 
                 // Set progress bar width (moved from inline style to JS to avoid linter issues)
-                const progressBarFill = document.getElementById('progressBarFill');
-                if (progressBarFill) {
-                    progressBarFill.style.width = `${overallScore}%`;
+                const progressScoreMarker = document.getElementById('progressScoreMarker');
+                if (progressScoreMarker) {
+                    progressScoreMarker.style.left = `${overallScore}%`;
+                }
+
+                const scoreNeedleLine = document.getElementById('scoreNeedleLine');
+                const scoreNeedleTip = document.getElementById('scoreNeedleTip');
+                if (scoreNeedleLine && scoreNeedleTip) {
+                    const clampedScore = Math.max(0, Math.min(100, overallScore));
+                    const targetAngle = -90 + (clampedScore / 100) * 180;
+                    const startAngle = -90;
+                    const durationMs = 900;
+                    const startTime = performance.now();
+                    const centerX = 110;
+                    const centerY = 110;
+                    const needleLength = 52;
+                    const tipLength = 12;
+                    const tipWidth = 8;
+
+                    function easeInOutCubic(t) {
+                        return t < 0.5
+                            ? 4 * t * t * t
+                            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                    }
+
+                    function setNeedleGeometry(angle) {
+                        const radians = (angle * Math.PI) / 180;
+                        const sin = Math.sin(radians);
+                        const cos = Math.cos(radians);
+                        const tipX = centerX + needleLength * sin;
+                        const tipY = centerY - needleLength * cos;
+                        const baseX = centerX + (needleLength - tipLength) * sin;
+                        const baseY = centerY - (needleLength - tipLength) * cos;
+                        const perpX = (tipWidth / 2) * cos;
+                        const perpY = (tipWidth / 2) * sin;
+
+                        scoreNeedleLine.setAttribute('x1', `${centerX}`);
+                        scoreNeedleLine.setAttribute('y1', `${centerY}`);
+                        scoreNeedleLine.setAttribute('x2', `${baseX}`);
+                        scoreNeedleLine.setAttribute('y2', `${baseY}`);
+                        scoreNeedleTip.setAttribute(
+                            'points',
+                            `${tipX},${tipY} ${baseX - perpX},${baseY - perpY} ${baseX + perpX},${baseY + perpY}`
+                        );
+                    }
+
+                    function animateNeedle(now) {
+                        const elapsed = now - startTime;
+                        const progress = Math.min(elapsed / durationMs, 1);
+                        const eased = easeInOutCubic(progress);
+                        const currentAngle = startAngle + (targetAngle - startAngle) * eased;
+                        setNeedleGeometry(currentAngle);
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animateNeedle);
+                        }
+                    }
+
+                    setNeedleGeometry(startAngle);
+                    requestAnimationFrame(animateNeedle);
                 }
 
                 // Category breakdown tabs (button-based)
