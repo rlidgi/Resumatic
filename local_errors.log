@@ -2765,3 +2765,42 @@ jinja2.exceptions.TemplateNotFound: partials/_navbar.html
 [2026-03-30T00:40:18.475991Z] local_errors.log initialized
 
 [2026-03-30T00:43:46.949576Z] local_errors.log initialized
+
+[2026-05-04T05:13:09.546209Z] local_errors.log initialized
+
+[2026-05-04T05:14:22.948795Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "D:\Projects\Web-App-Resume\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "D:\Projects\Web-App-Resume\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\Projects\Web-App-Resume\app.py", line 2540, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+
+[2026-05-04T05:14:41.685083Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "D:\Projects\Web-App-Resume\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "D:\Projects\Web-App-Resume\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\Projects\Web-App-Resume\app.py", line 2540, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+[2026-05-04T07:36:04.009836Z] upload GET: pid=18748 build=1777799060
+
+[2026-05-04T21:56:36.264546Z] local_errors.log initialized
+
+[2026-05-04T21:58:31.425161Z] local_errors.log initialized
+
+[2026-05-04T22:15:45.040547Z] local_errors.log initialized
+
+[2026-05-04T22:17:11.045333Z] local_errors.log initialized

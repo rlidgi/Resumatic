@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, jsonify, Response, make_response
+from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, send_from_directory, jsonify, Response, make_response, abort
 from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
@@ -158,6 +158,30 @@ def react_app(subpath=None):
         pass
 
     return resp
+
+
+@app.route("/create-resume")
+@app.route("/create-resume/")
+@app.route("/create-resume/<path:subpath>")
+@app.route("/create-resume-builder")
+@app.route("/create-resume-builder/")
+@app.route("/create-resume-builder/<path:subpath>")
+def imported_resume_builder(subpath=None):
+    """Serve the imported standalone resume-builder as the primary /create-resume experience."""
+    builder_root = os.path.join(app.root_path, "static", "resume-builder")
+
+    if not subpath:
+        return send_from_directory(builder_root, "index.html")
+
+    requested = os.path.normpath(str(subpath)).replace("\\", "/").lstrip("/")
+    if requested.startswith(".."):
+        abort(404)
+
+    file_abs = os.path.join(builder_root, requested)
+    if os.path.isfile(file_abs):
+        return send_from_directory(builder_root, requested)
+
+    abort(404)
 
 
 #####################
@@ -3237,8 +3261,8 @@ def _build_compiled_resume_text(structured: dict) -> str:
 
 @app.route('/resume/new', methods=['GET', 'POST'])
 @app.route('/resume/new/', methods=['GET', 'POST'])
-@app.route('/create-resume', methods=['GET', 'POST'])
-@app.route('/create-resume/', methods=['GET', 'POST'])
+@app.route('/create-resume-legacy', methods=['GET', 'POST'])
+@app.route('/create-resume-legacy/', methods=['GET', 'POST'])
 def resume_new():
     """Collect standard resume sections and compile into resume text."""
     current_year = datetime.now().year
@@ -3579,8 +3603,8 @@ def resume_new():
 
 @app.route('/resume/new/start')
 @app.route('/resume/new/start/')
-@app.route('/create-resume/start')
-@app.route('/create-resume/start/')
+@app.route('/create-resume-legacy/start')
+@app.route('/create-resume-legacy/start/')
 def resume_new_start():
     """Start a fresh 'build new resume' attempt.
 

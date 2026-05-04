@@ -706,5 +706,17 @@
     "email_verification_sent_at": "2026-03-28T01:45:03.775362+00:00",
     "welcome_email_sent_at": null,
     "is_admin": false
+  },
+  "email_d872e05d2cb64d8a": {
+    "id": "email_d872e05d2cb64d8a",
+    "name": "",
+    "email": "wqasimg@gmail.com",
+    "password_hash": "scrypt:32768:8:1$cWgMqTQExPiaZ6kk$6b19f296e732f06c24dc661e0b518e543c087507755af6eca0fe7f8d3f773b3bd2d2792429dd2d63de82e66d0d9d3afaaa0c7009b6db6b7634826276a5c1ad1e",
+    "created_at": "2026-05-04T07:33:54.066420+00:00",
+    "email_verified": true,
+    "email_verified_at": "2026-05-04T07:35:37.254591+00:00",
+    "email_verification_sent_at": "2026-05-04T07:33:59.606786+00:00",
+    "welcome_email_sent_at": "2026-05-04T07:35:40.060820+00:00",
+    "is_admin": false
   }
 }
