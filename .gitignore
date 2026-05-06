@@ -1,5 +1,4 @@
 # Environment variables
-.env
 
 # Node / frontend dependencies
 node_modules/
@@ -54,3 +53,4 @@ temp_uploads/
 scripts/temp_uploads/
 scripts/counter.json
 cancellation_feedback.json
+config.bat

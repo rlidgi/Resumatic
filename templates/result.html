@@ -1183,7 +1183,7 @@
                         localStorage.setItem('revisedResumeRaw', revisedNode.innerText);
                     }
                 } catch (e) { }
-                window.location.href = '/react/editor';
+                window.location.href = '/create-resume';
             }
 
             // Processing overlay helpers (for template parsing, etc.)
@@ -1338,9 +1338,9 @@
                             // Prefer templateName (what user clicked) over API response to avoid wrong template display
                             const targetTemplate = (templateName || data.template || '').toString().trim() || 'professional';
                             if (SOURCE_REVISION_ID) {
-                                window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}?rid=${encodeURIComponent(SOURCE_REVISION_ID)}`;
+                                window.location.href = `/create-resume`;
                             } else {
-                                window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}`;
+                                window.location.href = `/create-resume`;
                             }
                         } else {
                             alert('Error: ' + (data.error || 'Failed to parse resume'));

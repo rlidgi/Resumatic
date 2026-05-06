@@ -241,7 +241,7 @@
                     if (data.success) {
                         // Prefer templateName (what user clicked) over API response
                         const targetTemplate = (templateName || data.template || '').toString().trim() || 'professional';
-                        window.location.href = `/react/template-viewer/${encodeURIComponent(targetTemplate)}?edit=1`;
+                        window.location.href = `/create-resume`;
                     } else {
                         alert('Error: ' + (data.error || 'Failed to parse resume'));
                         buttonElement.innerHTML = originalContent;
