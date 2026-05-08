@@ -1,7 +1,7 @@
 {
-  "total_visits": 1179,
+  "total_visits": 1188,
   "facebook_ad_visits": 0,
-  "organic_visits": 542,
+  "organic_visits": 547,
   "total_conversions": 378,
   "facebook_ad_conversions": 0,
   "daily_stats": {
@@ -1401,21 +1401,54 @@
       "other": 0,
       "conversions": 0,
       "facebook_ad_conversions": 0
+    },
+    "2026-05-05": {
+      "total": 4,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 3,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-06": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-07": {
+      "total": 3,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
     }
   },
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 636,
+      "count": 640,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-04-19"
+      "last_seen": "2026-05-07"
     },
     "http://127.0.0.1:5000/": {
-      "count": 251,
+      "count": 254,
       "conversions": 31,
       "conversion_rate": 12.653061224489795,
-      "last_seen": "2026-04-27"
+      "last_seen": "2026-05-07"
     },
     "http://127.0.0.1:5000/my_revisions": {
       "count": 148,
@@ -1656,7 +1689,13 @@
       "conversions": 0,
       "conversion_rate": 0.0,
       "last_seen": "2026-04-29"
+    },
+    "http://127.0.0.1:5000/react/template-viewer/boldprofessional": {
+      "count": 2,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-05-06"
     }
   },
-  "last_updated": "2026-04-29"
+  "last_updated": "2026-05-07"
 }

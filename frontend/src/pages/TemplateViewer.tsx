@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import ProfessionalTemplate from '../components/templates/ProfessionalTemplate';
 import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
@@ -16,6 +16,11 @@ type TemplateViewerStyleSettings = {
     fontScale: number;
     paragraphGapPx: number;
     spacingScale: number;
+};
+
+type TemplateViewerLayoutSettings = {
+    sectionOrderByTemplate: Record<string, string[]>;
+    hiddenSectionKeysByTemplate: Record<string, string[]>;
 };
 
 const DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS: TemplateViewerStyleSettings = {
@@ -49,6 +54,74 @@ function withTemplateViewerStyleSettings(resume: any, settings: TemplateViewerSt
                 fontScale: settings.fontScale,
                 paragraphGapPx: settings.paragraphGapPx,
                 spacingScale: settings.spacingScale,
+            },
+        },
+    };
+}
+
+function normalizeTemplateViewerLayoutSettings(raw: any): TemplateViewerLayoutSettings | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const normalizeMap = (v: any): Record<string, string[]> => {
+        if (!v || typeof v !== 'object') return {};
+        const out: Record<string, string[]> = {};
+        for (const [k, arr] of Object.entries(v)) {
+            const key = String(k || '');
+            if (!key) continue;
+            const list = Array.isArray(arr) ? (arr as any[]).map((x) => String(x)).filter(Boolean) : [];
+            out[key] = list;
+        }
+        return out;
+    };
+
+    return {
+        sectionOrderByTemplate: normalizeMap((raw as any).sectionOrderByTemplate),
+        hiddenSectionKeysByTemplate: normalizeMap((raw as any).hiddenSectionKeysByTemplate),
+    };
+}
+
+function withTemplateViewerLayoutPatch(
+    resume: any,
+    templateKeyRaw: any,
+    patch: { sectionOrder?: string[]; hiddenSectionKeys?: string[] }
+): any {
+    if (!resume || typeof resume !== 'object') return resume;
+
+    const templateKey = String(templateKeyRaw || '');
+    if (!templateKey) return resume;
+
+    const baseStyle = (resume.style && typeof resume.style === 'object') ? resume.style : {};
+    const baseLayout = (baseStyle as any).templateViewerLayout;
+    const normalizedBase = normalizeTemplateViewerLayoutSettings(baseLayout) || {
+        sectionOrderByTemplate: {},
+        hiddenSectionKeysByTemplate: {},
+    };
+
+    const nextSectionOrderByTemplate = {
+        ...(normalizedBase.sectionOrderByTemplate || {}),
+    };
+    const nextHiddenSectionKeysByTemplate = {
+        ...(normalizedBase.hiddenSectionKeysByTemplate || {}),
+    };
+
+    if ('sectionOrder' in patch) {
+        nextSectionOrderByTemplate[templateKey] = Array.isArray(patch.sectionOrder)
+            ? patch.sectionOrder.map((x) => String(x)).filter(Boolean)
+            : [];
+    }
+    if ('hiddenSectionKeys' in patch) {
+        nextHiddenSectionKeysByTemplate[templateKey] = Array.isArray(patch.hiddenSectionKeys)
+            ? patch.hiddenSectionKeys.map((x) => String(x)).filter(Boolean)
+            : [];
+    }
+
+    return {
+        ...(resume || {}),
+        style: {
+            ...(baseStyle || {}),
+            templateViewerLayout: {
+                sectionOrderByTemplate: nextSectionOrderByTemplate,
+                hiddenSectionKeysByTemplate: nextHiddenSectionKeysByTemplate,
             },
         },
     };
@@ -99,6 +172,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
         case 'elegant':
         case 'lavenderclassic':
         case 'classicrose':
+        case 'classic':
             return 12;
 
         case 'creative':
@@ -112,6 +186,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
 
         case 'traditional':
         case 'bluelineclassic':
+        case 'contemporary':
             return 12;
 
         case 'modern':
@@ -119,6 +194,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
             return 18;
 
         case 'minimalsidebar':
+        case 'stylish':
             return 10;
 
         default:
@@ -157,6 +233,15 @@ export default function TemplateViewer() {
     const firstPageOnlyParam = String(qs.get('firstpage') || '').trim().toLowerCase();
     /** Plans-page iframe: show only page 1 and scale as a single page (no multi-page stack). */
     const embedFirstPageOnly = isEmbed && (firstPageOnlyParam === '1' || firstPageOnlyParam === 'true');
+
+    /** Optional zoom for embedded previews (e.g. create-resume pane). Default 1; capped for safety. */
+    const embedZoomRaw = String(qs.get('embedZoom') || '').trim();
+    const embedZoomMultiplier = React.useMemo(() => {
+        if (!isEmbed) return 1;
+        const n = parseFloat(embedZoomRaw);
+        if (!Number.isFinite(n) || n <= 0) return 1;
+        return Math.min(1.85, Math.max(1, n));
+    }, [isEmbed, embedZoomRaw]);
 
     // Embed mode is rendered inside an iframe (create-resume wizard preview).
     // Avoid "phantom" root scrollbars by disabling html/body scrolling and using
@@ -335,8 +420,30 @@ export default function TemplateViewer() {
     const [pendingPreviewAddTick, setPendingPreviewAddTick] = useState(0);
     const setSectionOrder = React.useCallback((order: string[]) => {
         const nextOrder = Array.isArray(order) ? order : [];
+        const templateKey = String(templateName || '');
+
+        // Persist layout into the editable draft so it is included in Save Changes
+        // and so later style auto-saves don't accidentally wipe it.
+        if (templateKey) {
+            if (inlineEditMode) {
+                setInlineEditChanges((prev: any) => {
+                    const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                    const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                    const mergedResume = { ...(resumeData || {}), ...(prev || {}), style: { ...baseStyle, ...prevStyle } };
+                    const patched = withTemplateViewerLayoutPatch(mergedResume, templateKey, { sectionOrder: nextOrder });
+                    return {
+                        ...(prev || {}),
+                        style: {
+                            ...((patched?.style && typeof patched.style === 'object') ? patched.style : {}),
+                        },
+                    };
+                });
+            } else {
+                setResumeData((prev: any) => withTemplateViewerLayoutPatch(prev, templateKey, { sectionOrder: nextOrder }));
+            }
+        }
+
         setSectionOrderByTemplate((prev) => {
-            const templateKey = String(templateName || '');
             const prevOrder = Array.isArray(prev?.[templateKey]) ? prev[templateKey] : [];
             const addedKeys = nextOrder.filter((key) => !prevOrder.includes(key));
             const addedCustomKeys = addedKeys.filter((key) => String(key).startsWith('custom_'));
@@ -348,16 +455,38 @@ export default function TemplateViewer() {
                 [templateKey]: nextOrder,
             };
         });
-    }, [templateName]);
+    }, [inlineEditMode, resumeData, templateName]);
 
     const [hiddenSectionKeysByTemplate, setHiddenSectionKeysByTemplate] = useState<Record<string, string[]>>({});
     const hiddenSectionKeys = hiddenSectionKeysByTemplate[String(templateName || '')] || [];
     const setHiddenSectionKeys = React.useCallback((keys: string[]) => {
+        const nextKeys = Array.isArray(keys) ? keys : [];
+        const templateKey = String(templateName || '');
+
+        if (templateKey) {
+            if (inlineEditMode) {
+                setInlineEditChanges((prev: any) => {
+                    const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                    const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                    const mergedResume = { ...(resumeData || {}), ...(prev || {}), style: { ...baseStyle, ...prevStyle } };
+                    const patched = withTemplateViewerLayoutPatch(mergedResume, templateKey, { hiddenSectionKeys: nextKeys });
+                    return {
+                        ...(prev || {}),
+                        style: {
+                            ...((patched?.style && typeof patched.style === 'object') ? patched.style : {}),
+                        },
+                    };
+                });
+            } else {
+                setResumeData((prev: any) => withTemplateViewerLayoutPatch(prev, templateKey, { hiddenSectionKeys: nextKeys }));
+            }
+        }
+
         setHiddenSectionKeysByTemplate((prev) => ({
             ...(prev || {}),
-            [String(templateName || '')]: Array.isArray(keys) ? keys : [],
+            ...(templateKey ? { [templateKey]: nextKeys } : {}),
         }));
-    }, [templateName]);
+    }, [inlineEditMode, resumeData, templateName]);
     const [inlineEditChanges, setInlineEditChanges] = useState<any>({});
 
     useEffect(() => {
@@ -1355,6 +1484,26 @@ export default function TemplateViewer() {
                 if (!data.resume || Object.keys(data.resume).length === 0) {
                     setError('Resume data is empty. The resume may not have been parsed correctly.');
                 } else {
+                    // Hydrate layout settings immediately so print/PDF paths don't briefly render
+                    // default order before effects run.
+                    const templateKey = String(templateName || '');
+                    const savedLayout = normalizeTemplateViewerLayoutSettings(data.resume?.style?.templateViewerLayout);
+                    if (savedLayout && templateKey) {
+                        const savedOrder = savedLayout.sectionOrderByTemplate?.[templateKey];
+                        const savedHidden = savedLayout.hiddenSectionKeysByTemplate?.[templateKey];
+                        if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+                            setSectionOrderByTemplate((prev) => ({
+                                ...(prev || {}),
+                                [templateKey]: savedOrder,
+                            }));
+                        }
+                        if (Array.isArray(savedHidden) && savedHidden.length > 0) {
+                            setHiddenSectionKeysByTemplate((prev) => ({
+                                ...(prev || {}),
+                                [templateKey]: savedHidden,
+                            }));
+                        }
+                    }
                     setResumeData(data.resume);
                 }
             } else {
@@ -1366,17 +1515,41 @@ export default function TemplateViewer() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [templateName]);
 
     useEffect(() => {
         loadTemplateData();
     }, [loadTemplateData]);
+
+    // Create-resume / embedded preview: parent updates session via POST then asks us to refetch
+    // without reloading the iframe (stable src + postMessage).
+    useLayoutEffect(() => {
+        if (!isEmbed) return;
+        const onMessage = (ev: MessageEvent) => {
+            if (ev.origin !== window.location.origin) return;
+            const d = ev.data as { type?: string } | null;
+            if (!d || typeof d !== 'object') return;
+            if (d.type !== 'RESUMATIC_TEMPLATE_SESSION_REFRESH') return;
+            void loadTemplateData();
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [isEmbed, loadTemplateData]);
 
     const styleSettingsInitRef = useRef(false);
     useEffect(() => {
         // Allow re-hydration on template changes.
         styleSettingsInitRef.current = false;
         setStyleSettings(DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS);
+    }, [templateName]);
+
+    const layoutSettingsInitRef = useRef(false);
+    useEffect(() => {
+        layoutSettingsInitRef.current = false;
+        // Keep per-template state, but clear current template values on change to avoid
+        // leaking a previous template's order into a new one before hydration.
+        setSectionOrderByTemplate({});
+        setHiddenSectionKeysByTemplate({});
     }, [templateName]);
 
     useEffect(() => {
@@ -1388,6 +1561,33 @@ export default function TemplateViewer() {
             setStyleSettings(saved);
         }
         styleSettingsInitRef.current = true;
+    }, [resumeData, templateName]);
+
+    useEffect(() => {
+        if (!resumeData) return;
+        if (layoutSettingsInitRef.current) return;
+
+        const templateKey = String(templateName || '');
+        const saved = normalizeTemplateViewerLayoutSettings(resumeData?.style?.templateViewerLayout);
+        if (saved && templateKey) {
+            const savedOrder = saved.sectionOrderByTemplate?.[templateKey];
+            const savedHidden = saved.hiddenSectionKeysByTemplate?.[templateKey];
+
+            if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+                setSectionOrderByTemplate((prev) => ({
+                    ...(prev || {}),
+                    [templateKey]: savedOrder,
+                }));
+            }
+            if (Array.isArray(savedHidden) && savedHidden.length > 0) {
+                setHiddenSectionKeysByTemplate((prev) => ({
+                    ...(prev || {}),
+                    [templateKey]: savedHidden,
+                }));
+            }
+        }
+
+        layoutSettingsInitRef.current = true;
     }, [resumeData, templateName]);
 
     useEffect(() => {
@@ -1516,7 +1716,12 @@ export default function TemplateViewer() {
     async function saveEditedResume(resumeOverride?: any) {
         const payloadResume = resumeOverride ?? resumeData;
         if (!payloadResume) return;
-        const payloadResumeWithSettings = withTemplateViewerStyleSettings(payloadResume, styleSettings);
+        const templateKey = String(templateName || '');
+        const payloadResumeWithLayout = withTemplateViewerLayoutPatch(payloadResume, templateKey, {
+            sectionOrder,
+            hiddenSectionKeys,
+        });
+        const payloadResumeWithSettings = withTemplateViewerStyleSettings(payloadResumeWithLayout, styleSettings);
         setEditSaving(true);
         setEditSaveError(null);
         setEditSaveSuccess(false);
@@ -2074,7 +2279,11 @@ export default function TemplateViewer() {
                 : (isEmbed
                     ? (isEmbedFlush ? fitScale : Math.min(fitScale, heightFitScale, 1))
                     : fitScale);
-            setPdfPreviewPageScale(pageScale);
+            const pageScaleZoomed =
+                isEmbed && embedZoomMultiplier > 1
+                    ? Math.min(pageScale * embedZoomMultiplier, 1.85)
+                    : pageScale;
+            setPdfPreviewPageScale(pageScaleZoomed);
 
             // In inline edit mode, content height can change frequently; keep a full first-page frame to avoid a thin strip.
             if (inlineEditMode || layoutPages <= 1) {
@@ -2111,7 +2320,7 @@ export default function TemplateViewer() {
             else window.removeEventListener('resize', compute);
             if (winResize) window.removeEventListener('resize', compute);
         };
-    }, [templateName, resumeData, styleSettings, inlineEditMode, isEmbed, isEmbedFlush, embedFirstPageOnly]);
+    }, [templateName, resumeData, styleSettings, inlineEditMode, isEmbed, isEmbedFlush, embedFirstPageOnly, embedZoomMultiplier]);
 
     // Best-effort zoom deterrence: prevent ctrl/meta+wheel zoom while the pointer is over the preview.
     // (Cannot reliably block browser zoom or OS-level capture globally.)
@@ -2208,6 +2417,8 @@ export default function TemplateViewer() {
         case 'lavenderClassic':
         case 'lavender-classic':
         case 'lavender_classic':
+        // Resume builder / UI label "Classic"
+        case 'classic':
             TemplateComponent = ClassicRoseTemplate;
             break;
         case 'creative':
@@ -2243,6 +2454,8 @@ export default function TemplateViewer() {
         case 'blueLineClassic':
         case 'blue-line-classic':
         case 'blue_line_classic':
+        // Resume builder / UI label "Contemporary"
+        case 'contemporary':
             TemplateComponent = ContemporaryTemplate;
             break;
         case 'modern':
@@ -2256,6 +2469,8 @@ export default function TemplateViewer() {
         case 'minimalsidebar':
         case 'minimal-sidebar':
         case 'minimal_sidebar':
+        // Resume builder / UI label "Stylish"
+        case 'stylish':
             TemplateComponent = StylishTemplate;
             break;
         default:
@@ -2281,7 +2496,11 @@ export default function TemplateViewer() {
         <div
             ref={embedRootRef}
             id="templateViewerPage"
-            className={isEmbed ? 'tv-embed bg-transparent overflow-x-hidden overflow-y-hidden h-screen' : 'min-h-screen bg-gray-100'}
+            className={
+                isEmbed
+                    ? `tv-embed bg-gray-100 ${embedZoomMultiplier > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-screen`
+                    : 'min-h-screen bg-gray-100'
+            }
         >
             {/* Offscreen export root (used by server-side Playwright PDF generation)
                NOTE: keep this out of the document's scrollable overflow area to avoid
@@ -2551,6 +2770,10 @@ export default function TemplateViewer() {
                                     .pdfPreviewPageLast {
                                         box-shadow: none !important;
                                     }
+                  /* Embedded wizard iframe: no floating “page card” chrome */
+                  .pdfPreviewPageEmbed {
+                    box-shadow: none !important;
+                  }
                   .pdfPreviewTarget {
                     position: relative;
                     top: 0;
@@ -2830,7 +3053,9 @@ export default function TemplateViewer() {
                         </>
                     )}
 
-                    <div className={`grid ${(isDownloadOnly || isEmbed) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} gap-4 sm:gap-6`}>
+                    <div
+                        className={`grid ${(isDownloadOnly || isEmbed) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} ${isEmbed ? 'gap-0' : 'gap-4 sm:gap-6'}`}
+                    >
                         {/* Left settings panel */}
                         {!isDownloadOnly && !isEmbed && (
                             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
@@ -3936,7 +4161,7 @@ export default function TemplateViewer() {
                                     )}
                                     <div
                                         ref={pdfPreviewContainerRef}
-                                        className={`${isEmbed ? 'bg-transparent p-0 rounded-none overflow-hidden' : 'bg-gray-100 rounded-lg p-4'} ${mobilePreviewOpen ? 'h-full overflow-auto' : (!isEmbed ? 'overflow-x-auto' : '')}`}
+                                        className={`${isEmbed ? 'bg-gray-100 p-0 rounded-none overflow-hidden' : 'bg-gray-100 rounded-lg p-4'} ${mobilePreviewOpen ? 'h-full overflow-auto' : (!isEmbed ? 'overflow-x-auto' : '')}`}
                                     >
                                         {/* Hidden measurement render (used to compute pages + capture HTML snapshot) */}
                                         <div style={{ position: 'fixed', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
@@ -4126,7 +4351,17 @@ export default function TemplateViewer() {
                                                             </div>
                                                         ) : (
                                                             // View mode: paged preview (with optional snapshot windowing).
-                                                            <div className={displayPdfPages === 2 ? 'grid grid-cols-[816px_816px] gap-6 items-start' : 'space-y-6'}>
+                                                            <div
+                                                                className={
+                                                                    displayPdfPages === 2
+                                                                        ? isEmbed
+                                                                            ? 'grid grid-cols-[816px_816px] gap-0 items-start'
+                                                                            : 'grid grid-cols-[816px_816px] gap-6 items-start'
+                                                                        : isEmbed
+                                                                            ? 'space-y-0'
+                                                                            : 'space-y-6'
+                                                                }
+                                                            >
                                                                 {Array.from({ length: displayPdfPages }).map((_, idx) => (
                                                                     <div key={idx} className={isEmbed ? '' : 'space-y-8'}>
                                                                         {!isEmbed && (
@@ -4146,7 +4381,8 @@ export default function TemplateViewer() {
                                                                             className={
                                                                                 `pdfPreviewPage` +
                                                                                 `${displayPdfPages === 2 ? ' pdfPreviewPageTwoUp' : ''}` +
-                                                                                `${idx === displayPdfPages - 1 ? ' pdfPreviewPageLast' : ''}`
+                                                                                `${idx === displayPdfPages - 1 ? ' pdfPreviewPageLast' : ''}` +
+                                                                                `${isEmbed ? ' pdfPreviewPageEmbed' : ''}`
                                                                             }
                                                                             style={{
                                                                                 // Shrink only the last page frame to the remaining content height

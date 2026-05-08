@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template, redirect, url_for, session, flash, send_file, jsonify, Response, make_response
+from flask import (Flask, request, render_template, redirect, url_for, session, flash, send_file, send_from_directory, 
+jsonify, Response, make_response, abort)
 from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
@@ -158,6 +159,30 @@ def react_app(subpath=None):
         pass
 
     return resp
+
+
+@app.route("/create-resume")
+@app.route("/create-resume/")
+@app.route("/create-resume/<path:subpath>")
+@app.route("/create-resume-builder")
+@app.route("/create-resume-builder/")
+@app.route("/create-resume-builder/<path:subpath>")
+def imported_resume_builder(subpath=None):
+    """Serve the imported standalone resume-builder as the primary /create-resume experience."""
+    builder_root = os.path.join(app.root_path, "static", "resume-builder")
+
+    if not subpath:
+        return send_from_directory(builder_root, "index.html")
+
+    requested = os.path.normpath(str(subpath)).replace("\\", "/").lstrip("/")
+    if requested.startswith(".."):
+        abort(404)
+
+    file_abs = os.path.join(builder_root, requested)
+    if os.path.isfile(file_abs):
+        return send_from_directory(builder_root, requested)
+
+    abort(404)
 
 
 #####################
@@ -3782,8 +3807,8 @@ def resume_new():
 
 @app.route('/resume/new/start')
 @app.route('/resume/new/start/')
-@app.route('/create-resume/start')
-@app.route('/create-resume/start/')
+@app.route('/create-resume-legacy/start')
+@app.route('/create-resume-legacy/start/')
 def resume_new_start():
     """Start a fresh 'build new resume' attempt.
 
@@ -3869,6 +3894,15 @@ def plans_template_pdf():
 _TRIAL_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/cNi8wJ4ko0cTewq1cD7Vm09"
 
 
+def _normalize_plan_id(plan_id: str) -> str:
+    """Normalize legacy plan ids to current ones (backward-compatible)."""
+    pid = (plan_id or '').strip()
+    # Legacy: trial used to be named trial_14d; it is now trial_7d.
+    if pid == 'trial_14d':
+        return 'trial_7d'
+    return pid
+
+
 @app.route("/go/trial")
 @app.route("/go/trial/")
 @login_required
@@ -3877,17 +3911,17 @@ def go_trial():
 
 
 def _get_plan_config(plan_id: str) -> Optional[dict]:
-    pid = (plan_id or '').strip()
+    pid = _normalize_plan_id(plan_id)
     if not pid:
         return None
     # Plan IDs must match templates/plans.html
-    if pid == 'trial_14d':
+    if pid == 'trial_7d':
         return {
             'id': pid,
-            'label': '2-Week Trial',
-            'price': '$1.85',
+            'label': '1-Week Trial',
+            'price': '$0',
             'plan_status': 'trial',
-            'duration_days': 14,
+            'duration_days': 7,
         }
     if pid == 'monthly_10_95':
         return {
@@ -4392,7 +4426,8 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
 
 def _get_stripe_price_id(plan_id: str) -> Optional[str]:
     """Map internal plan IDs to Stripe Price IDs via env vars."""
-    if plan_id == 'trial_14d':
+    plan_id = _normalize_plan_id(plan_id)
+    if plan_id == 'trial_7d':
         # Trial should be a subscription (auto-converts to monthly unless canceled).
         # Use a recurring monthly price here (or a dedicated trial recurring price).
         return (
@@ -4417,15 +4452,21 @@ def _get_stripe_trial_upfront_fee_price_id() -> Optional[str]:
 
 def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
     """Optional Stripe Payment Links (non-secret). If set, /checkout can redirect here directly."""
+    plan_id = _normalize_plan_id(plan_id)
     defaults = {
         # Provided by user
-        'trial_14d': 'https://buy.stripe.com/cNi6oBeZ21gXfAu1cD7Vm02',
+        'trial_7d': 'https://buy.stripe.com/cNi6oBeZ21gXfAu1cD7Vm02',
         # Updated to latest Stripe-provided monthly link (promo codes configured here)
         'monthly_10_95': 'https://buy.stripe.com/5kQ6oBcQUaRxcoif3t7Vm05',
         'annual_6_95': 'https://buy.stripe.com/aFa9ANdUYgbR9c6bRh7Vm04',
     }
-    if plan_id == 'trial_14d':
-        return (os.getenv('STRIPE_PAYMENTLINK_TRIAL_14D') or '').strip() or defaults['trial_14d']
+    if plan_id == 'trial_7d':
+        # Prefer new env var name if present; fall back to legacy name.
+        return (
+            (os.getenv('STRIPE_PAYMENTLINK_TRIAL_7D') or '').strip()
+            or (os.getenv('STRIPE_PAYMENTLINK_TRIAL_14D') or '').strip()
+            or defaults['trial_7d']
+        )
     if plan_id == 'monthly_10_95':
         return (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95') or '').strip() or defaults['monthly_10_95']
     if plan_id == 'annual_6_95':
@@ -4488,9 +4529,10 @@ def _compute_retention_credit_cents(subscription) -> int:
 
 def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
-    # Trial must be a subscription with a 14-day trial and auto-convert to monthly unless canceled.
+    # Trial must be a subscription with a 7-day trial and auto-convert to monthly unless canceled.
     # If Trial is a one-time Payment Link, it cannot auto-renew. So do NOT use a Payment Link for trial.
-    if plan_id == 'trial_14d':
+    plan_id = _normalize_plan_id(plan_id)
+    if plan_id == 'trial_7d':
         return None
     link = _get_stripe_payment_link(plan_id)
     if not link:
@@ -4527,7 +4569,7 @@ def checkout():
     If STRIPE_SECRET_KEY is configured, creates a Stripe Checkout Session and redirects to Stripe.
     Otherwise falls back to the placeholder confirmation page.
     """
-    plan_id = request.args.get('plan', '').strip()
+    plan_id = _normalize_plan_id(request.args.get('plan', '').strip())
     offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
     plan = _get_plan_config(plan_id)
     if not plan:
@@ -4538,8 +4580,8 @@ def checkout():
         # Require login so we can unlock paid features for the correct user.
         return redirect(url_for("login", next=request.full_path))
 
-    # Enforce: 2-week trial is a one-time offer.
-    if plan_id == 'trial_14d' and _trial_already_used_for_user(current_user):
+    # Enforce: 1-week trial is a one-time offer.
+    if plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
         flash("The trial subscription is a one-time offer and has already been used on this account. Please choose Monthly or Annual.", "warning")
         return redirect(url_for("plans"))
 
@@ -4623,9 +4665,9 @@ def checkout():
         try:
             subscription_data = None
             line_items = [{"price": price_id, "quantity": 1}]
-            if plan_id == 'trial_14d':
-                # 14-day trial that converts into the recurring monthly subscription unless canceled
-                subscription_data = {"trial_period_days": 14}
+            if plan_id == 'trial_7d':
+                # 7-day trial that converts into the recurring monthly subscription unless canceled
+                subscription_data = {"trial_period_days": 7}
                 # Optional one-time upfront trial fee (e.g. $1.85)
                 fee_price = _get_stripe_trial_upfront_fee_price_id()
                 if fee_price:
@@ -4666,15 +4708,15 @@ def checkout_complete():
 
     This makes plan links functional without integrating a payment processor yet.
     """
-    plan_id = request.form.get('plan', '').strip()
+    plan_id = _normalize_plan_id(request.form.get('plan', '').strip())
     plan = _get_plan_config(plan_id)
     if not plan:
         flash("Invalid plan selection.", "danger")
         return redirect(url_for("plans"))
 
     # Enforce one-time trial offer even when running with the placeholder checkout flow.
-    if plan_id == 'trial_14d' and _trial_already_used_for_user(current_user):
-        flash("The 2-week trial is a one-time offer and has already been used on this account.", "warning")
+    if plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+        flash("The 1-week trial is a one-time offer and has already been used on this account.", "warning")
         return redirect(url_for("plans"))
 
     try:
@@ -4687,7 +4729,7 @@ def checkout_complete():
             'plan_status': plan.get('plan_status') or 'paid',
             'paid_until': paid_until,
         }
-        if plan_id == 'trial_14d':
+        if _normalize_plan_id(plan_id) == 'trial_7d':
             entity['trial_used'] = True
             entity['trial_used_at'] = datetime.now(timezone.utc).isoformat()
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
@@ -4868,7 +4910,7 @@ def stripe_webhook():
                     "is_paid": True,
                     "plan_status": (plan_id or plan_status or "paid"),
                 }
-                if str(plan_id or '').strip() == 'trial_14d':
+                if _normalize_plan_id(str(plan_id or '').strip()) == 'trial_7d':
                     # Persist one-time trial usage flag.
                     entity["trial_used"] = True
                     entity["trial_used_at"] = datetime.now(timezone.utc).isoformat()
@@ -5139,16 +5181,16 @@ def billing_cancel_page():
                 period_end_display = "end of billing period"
 
         interval_label = "Monthly"
-        si_data = list(getattr(getattr(sub, "items", None), "data", []) or [])
-        if si_data:
-            p = getattr(si_data[0], "price", None) or (si_data[0] if isinstance(si_data[0], dict) else {}).get("price")
-            if p:
-                interval = str(_stripe_obj_get(p, "recurring", {}).get("interval", "") or "").lower()
-                interval_count = int(_stripe_obj_get(p, "recurring", {}).get("interval_count", 1) or 1)
-                if interval == "year" or (interval == "month" and interval_count == 12):
-                    interval_label = "Annual"
+        _, interval, interval_count = _get_subscription_price_id_and_recurring(sub)
+        interval = str(interval or "").strip().lower()
+        try:
+            interval_count = int(interval_count or 1)
+        except Exception:
+            interval_count = 1
+        if interval == "year" or (interval == "month" and interval_count == 12):
+            interval_label = "Annual"
     except Exception as e:
-        logger.error(f"billing_cancel_page subscription fetch: {str(e)}")
+        logger.exception("billing_cancel_page subscription fetch failed: %s", str(e))
         flash("Unable to load subscription details. Please try again.", "danger")
         return redirect(url_for("settings_page"))
 
@@ -5555,8 +5597,12 @@ def _canonical_template_id(raw: str) -> str:
         'bold-professional': 'boldProfessional',
         'bold_professional': 'boldProfessional',
         'traditional': 'traditional',
+        # UI label "Contemporary" uses this id in the resume builder carousel.
+        'contemporary': 'traditional',
         'modern': 'modern',
         'executive': 'executive',
+        # UI label "Stylish" uses this id in the resume builder carousel.
+        'stylish': 'minimalSidebar',
 
         # Old IDs (and dash/underscore variants) -> canonical
         'lavenderclassic': 'classicRose',
@@ -6163,8 +6209,15 @@ def update_template_data():
         if persisted_to_hub:
             persist_reason = None
 
+        # Always return canonical template id so clients (e.g. create-resume iframe preview)
+        # can navigate to /template-viewer/<id> even when this isn't the first POST in the session.
+        resolved_template = _canonical_template_id(
+            (template_data.get('template_name') if isinstance(template_data, dict) else None)
+            or 'professional'
+        )
         return jsonify({
             "success": True,
+            "template": resolved_template,
             "persisted_to_hub": bool(persisted_to_hub),
             "persist_reason": persist_reason,
             "persisted_format": persisted_format,
