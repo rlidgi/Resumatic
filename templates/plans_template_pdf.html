@@ -487,7 +487,8 @@
             <article class="panel preview-panel">
                 <div class="preview-body">
                     {% if next_url %}
-                    {% set preview_url = next_url + ('&embed=1&flush=1&firstpage=1' if '?' in next_url else '?embed=1&flush=1&firstpage=1') %}
+                    {% set preview_url = next_url + ('&embed=1&flush=1&firstpage=1' if '?' in next_url else
+                    '?embed=1&flush=1&firstpage=1') %}
                     <iframe src="{{ preview_url }}" title="Resume preview"></iframe>
                     <img class="preview-overlay"
                         src="{{ url_for('static', filename='images/preview-overlay-plant.svg') }}" alt=""
@@ -505,8 +506,8 @@
 
             <aside class="plans">
                 <label class="plan-option {% if not trial_unavailable %}selected{% endif %}" data-plan-option
-                    data-plan="trial_14d">
-                    <input type="radio" name="plan" value="trial_14d" {% if not trial_unavailable %}checked{% else
+                    data-plan="trial_7d">
+                    <input type="radio" name="plan" value="trial_7d" {% if not trial_unavailable %}checked{% else
                         %}disabled{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if not trial_unavailable %}✓{% endif %}</span>
@@ -551,7 +552,7 @@
                 </label>
 
                 <a id="continueButton" class="cta-btn {% if trial_unavailable and not next_url %}disabled{% endif %}"
-                    href="/checkout?plan={% if trial_unavailable %}monthly_10_95{% else %}trial_14d{% endif %}">
+                    href="/checkout?plan={% if trial_unavailable %}monthly_10_95{% else %}trial_7d{% endif %}">
                     Continue
                 </a>
 

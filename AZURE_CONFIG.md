@@ -43,7 +43,8 @@ Set all Stripe values to **live** keys/IDs (not `sk_test` / `price_test` / `buy.
 Optional (used as fallback):
 - `STRIPE_PAYMENTLINK_MONTHLY_10_95` = `https://buy.stripe.com/...` (live)
 - `STRIPE_PAYMENTLINK_ANNUAL_6_95` = `https://buy.stripe.com/...` (live)
-- `STRIPE_PAYMENTLINK_TRIAL_14D` = `https://buy.stripe.com/...` (live)
+- `STRIPE_PAYMENTLINK_TRIAL_7D` = `https://buy.stripe.com/...` (live)
+	- (Legacy supported) `STRIPE_PAYMENTLINK_TRIAL_14D`
 
 Retention offer (cancel-flow incentive):
 - `STRIPE_COUPON_RETENTION` = coupon ID (e.g. `retention_50`) for Checkout Session API (classic billing only)

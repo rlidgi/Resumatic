@@ -156,6 +156,7 @@ export default function CleanSidebarTemplate({
     }, [emit]);
 
     const data = editedData || {};
+    const professionalTitle = String(data.title || '').trim();
 
     const getHeading = useCallback((key: string, fallback: string) => {
         const h = data?.section_headings?.[key];
@@ -189,22 +190,24 @@ export default function CleanSidebarTemplate({
                         data.name || "Your Name"
                     )}
                 </div>
-                <div className="mt-1 text-sm text-slate-700 font-medium">
-                    {editMode ? (
-                        <EditableText
-                            value={String(data.title || '')}
-                            placeholder="Professional Title"
-                            onChange={(v) => updateField('title', v)}
-                            editMode={editMode}
-                            liveUpdate
-                            layoutSafe
-                            className="text-sm text-slate-700 font-medium"
-                            as="div"
-                        />
-                    ) : (
-                        data.title || "Professional Title"
-                    )}
-                </div>
+                {(editMode || professionalTitle) ? (
+                    <div className="mt-1 text-sm text-slate-700 font-medium">
+                        {editMode ? (
+                            <EditableText
+                                value={String(data.title || '')}
+                                placeholder="Professional Title"
+                                onChange={(v) => updateField('title', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-sm text-slate-700 font-medium"
+                                as="div"
+                            />
+                        ) : (
+                            professionalTitle
+                        )}
+                    </div>
+                ) : null}
 
                 <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-slate-600">
                     {(editMode || data.location) && (
