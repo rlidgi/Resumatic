@@ -725,6 +725,12 @@
         {% endif %}
         {% endwith %}
 
+        {% if plan_prices and plan_prices.get('note') %}
+        <div class="alert alert-info" role="status" style="margin: 0 0 18px;">
+            <span class="alert-content">{{ plan_prices.note }}</span>
+        </div>
+        {% endif %}
+
         <div class="grid">
 
             <!-- Free
@@ -772,9 +778,9 @@
             <article class="card popular">
                 <span class="tag">Best value</span>
                 <p class="plan">Annual</p>
-                <div class="price"><strong>$6.95</strong><span>/ month</span></div>
+                <div class="price"><strong>{{ plan_prices.annual_strong }}</strong><span>/ month</span></div>
                 <p class="note">Lowest monthly cost. Great if you want ongoing access.</p>
-                <p class="micro"><b>Billed annually.</b> Equivalent to $6.95/month.</p>
+                <p class="micro"><b>Billed annually.</b> {{ plan_prices.annual_equiv }}</p>
                 <a class="btn primary" href="/checkout?plan=annual_6_95">Go annual</a>
 
                 <ul class="features">
@@ -787,7 +793,7 @@
             <!-- Monthly -->
             <article class="card">
                 <p class="plan">Monthly</p>
-                <div class="price"><strong>$10.95</strong><span>/ month</span></div>
+                <div class="price"><strong>{{ plan_prices.monthly_strong }}</strong><span>/ month</span></div>
                 <p class="note">Flexible month-to-month access.</p>
                 <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
                 <a class="btn lilac"

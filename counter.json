@@ -1,8 +1,8 @@
 {
-  "total_visits": 1188,
+  "total_visits": 1207,
   "facebook_ad_visits": 0,
-  "organic_visits": 547,
-  "total_conversions": 378,
+  "organic_visits": 565,
+  "total_conversions": 386,
   "facebook_ad_conversions": 0,
   "daily_stats": {
     "2025-07-22": {
@@ -1434,27 +1434,93 @@
       "other": 0,
       "conversions": 0,
       "facebook_ad_conversions": 0
+    },
+    "2026-05-09": {
+      "total": 10,
+      "facebook_ad": 0,
+      "organic": 10,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 4,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-10": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-13": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-14": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-15": {
+      "total": 1,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-05-18": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 3,
+      "facebook_ad_conversions": 0
     }
   },
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 640,
+      "count": 641,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-05-07"
+      "last_seen": "2026-05-13"
     },
     "http://127.0.0.1:5000/": {
-      "count": 254,
-      "conversions": 31,
-      "conversion_rate": 12.653061224489795,
-      "last_seen": "2026-05-07"
+      "count": 261,
+      "conversions": 34,
+      "conversion_rate": 13.026819923371647,
+      "last_seen": "2026-05-18"
     },
     "http://127.0.0.1:5000/my_revisions": {
-      "count": 148,
-      "conversions": 34,
-      "conversion_rate": 25.954198473282442,
-      "last_seen": "2026-04-29"
+      "count": 149,
+      "conversions": 35,
+      "conversion_rate": 23.48993288590604,
+      "last_seen": "2026-05-14"
     },
     "http://127.0.0.1:5000/blog/ats-optimization": {
       "count": 4,
@@ -1553,10 +1619,10 @@
       "last_seen": "2026-01-12"
     },
     "http://127.0.0.1:5000/react/template-viewer/modern": {
-      "count": 5,
-      "conversions": 5,
-      "conversion_rate": 125.0,
-      "last_seen": "2026-04-14"
+      "count": 6,
+      "conversions": 6,
+      "conversion_rate": 100.0,
+      "last_seen": "2026-05-18"
     },
     "http://127.0.0.1:5000/react/template-viewer/creative": {
       "count": 1,
@@ -1613,10 +1679,10 @@
       "last_seen": "2026-02-20"
     },
     "http://127.0.0.1:5000/my_revisions/": {
-      "count": 61,
-      "conversions": 20,
-      "conversion_rate": 40.816326530612244,
-      "last_seen": "2026-04-22"
+      "count": 69,
+      "conversions": 23,
+      "conversion_rate": 33.82352941176471,
+      "last_seen": "2026-05-14"
     },
     "http://127.0.0.1:5000/view_revision/e33d3653-7531-4f89-b453-171115725320": {
       "count": 1,
@@ -1679,10 +1745,10 @@
       "last_seen": "2026-04-19"
     },
     "http://127.0.0.1:5000/react/template-viewer/classicrose": {
-      "count": 1,
+      "count": 2,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-04-27"
+      "last_seen": "2026-05-10"
     },
     "http://127.0.0.1:5000/view_revision/19f78144-8414-4572-87ba-a8e800d32c88": {
       "count": 1,
@@ -1697,5 +1763,5 @@
       "last_seen": "2026-05-06"
     }
   },
-  "last_updated": "2026-05-07"
+  "last_updated": "2026-05-18"
 }

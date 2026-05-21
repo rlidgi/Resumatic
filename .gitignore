@@ -8,6 +8,11 @@ frontend/node_modules/
 # OAuth Credentials
 client_secret.json
 
+# Google Cloud service account keys (never commit; prefer storing outside the repo)
+*-service-account*.json
+*serviceaccount*.json
+google-application-credentials*.json
+
 # Python
 __pycache__/
 *.py[cod]

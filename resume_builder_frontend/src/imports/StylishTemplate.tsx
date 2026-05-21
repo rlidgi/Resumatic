@@ -377,7 +377,7 @@ export default function StylishTemplate({
             rows.push({
                 key: 'certifications',
                 content: (
-                    <SectionBlock title={getHeading('certifications', 'CERTIFICATIONS')} panelTone="secondary" editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
+                    <SectionBlock title={getHeading('certifications', 'CERTIFICATIONS')} editMode={editMode} onTitleChange={(v) => updateSectionHeading('certifications', v)}>
                         <div className="space-y-2">
                             {certifications.map((c: any, idx: number) => {
                                 if (typeof c === 'string') {

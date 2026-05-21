@@ -5,14 +5,28 @@
 
     <script defer src="{{ url_for('static', filename='js/script.js') }}"></script>
 
+
+    <!-- Google tag (gtag.js) 
+<script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+<script defer="">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18159645263');
+</script>
+
+-->
+
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
-    <script>
+    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+
+    <script defer="">
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
 
-        gtag('config', 'G-KRPLMCR73G');
+        gtag('config', 'AW-18159645263');
     </script>
 
     <link href="{{ url_for('static', filename='images/favicon2.ico') }}" rel="icon" type="image/x-icon" />
@@ -810,7 +824,7 @@
                         <h3 class="text-lg font-semibold text-gray-800 mb-3">
                             <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
                         </h3>
-                        <div class="bg-green-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <div class="bg-green-50 p-4 rounded-lg max-h-[70vh] overflow-y-auto">
                             <pre id="resumeOutputMobile"
                                 class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
                         </div>
@@ -820,7 +834,7 @@
                         <h3 class="text-lg font-semibold text-gray-800 mb-3">
                             <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
                         </h3>
-                        <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                        <div class="bg-gray-50 p-4 rounded-lg max-h-[70vh] overflow-y-auto">
                             <pre id="originalResumeOutputMobile"
                                 class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
                         </div>
@@ -835,7 +849,7 @@
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
                                     <i class="fas fa-file-alt text-gray-500 mr-2"></i>Original Resume
                                 </h3>
-                                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                <div class="bg-gray-50 p-4 rounded-lg max-h-[85vh] overflow-y-auto">
                                     <pre id="originalResumeOutput"
                                         class="whitespace-pre-wrap text-gray-800 text-sm">{{ original_resume }}</pre>
                                 </div>
@@ -844,7 +858,7 @@
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">
                                     <i class="fas fa-magic text-green-500 mr-2"></i>Revised Resume
                                 </h3>
-                                <div class="bg-green-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                <div class="bg-green-50 p-4 rounded-lg max-h-[85vh] overflow-y-auto">
                                     <pre id="resumeOutput"
                                         class="whitespace-pre-wrap text-gray-800 text-sm">{{ revised_resume|safe }}</pre>
                                 </div>

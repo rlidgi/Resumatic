@@ -9,8 +9,9 @@ import ContemporaryTemplate from '../components/templates/ContemporaryTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
 import StylishTemplate from '../components/templates/StylishTemplate';
 import { TemplateAiAssistProvider } from '../components/templates/EditableSection';
-import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, Sparkles, AlertTriangle } from 'lucide-react';
+import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, Sparkles, AlertTriangle, Languages } from 'lucide-react';
 import { mixWithBlack, mixWithWhite, normalizeHexColor } from '../utils/accentColor';
+import { PREVIEW_TRANSLATE_NONE_VALUE, PREVIEW_TRANSLATE_OPTIONS } from '../constants/previewTranslateLanguages';
 
 type TemplateViewerStyleSettings = {
     fontScale: number;
@@ -228,6 +229,8 @@ export default function TemplateViewer() {
     const ridParam = String(qs.get('rid') || '').trim();
     const embedParam = String(qs.get('embed') || '').trim().toLowerCase();
     const isEmbed = embedParam === '1' || embedParam === 'true';
+    const allowTranslateParam = String(qs.get('allowTranslate') || '').trim().toLowerCase();
+    const allowEmbedTranslate = allowTranslateParam === '1' || allowTranslateParam === 'true';
     const embedFlushParam = String(qs.get('flush') || '').trim().toLowerCase();
     const isEmbedFlush = embedFlushParam === '1' || embedFlushParam === 'true';
     const firstPageOnlyParam = String(qs.get('firstpage') || '').trim().toLowerCase();
@@ -609,6 +612,74 @@ export default function TemplateViewer() {
     }, []);
 
     const draftResume = React.useMemo(() => mergeResumeDraft(resumeData, inlineEditChanges), [inlineEditChanges, mergeResumeDraft, resumeData]);
+
+    const draftResumeJsonStable = React.useMemo(() => JSON.stringify(draftResume ?? {}), [draftResume]);
+
+    const [previewTargetLang, setPreviewTargetLang] = useState(PREVIEW_TRANSLATE_NONE_VALUE);
+    const [translatedResume, setTranslatedResume] = useState<any | null>(null);
+    const [translateLoading, setTranslateLoading] = useState(false);
+    const [translateError, setTranslateError] = useState<string | null>(null);
+
+    const previewLangActive = React.useMemo(
+        () => Boolean(previewTargetLang) && previewTargetLang !== PREVIEW_TRANSLATE_NONE_VALUE,
+        [previewTargetLang],
+    );
+
+    const displayResume = React.useMemo(() => {
+        if (!previewLangActive) return draftResume;
+        return translatedResume ?? draftResume;
+    }, [previewLangActive, translatedResume, draftResume]);
+
+    const previewContentKey = React.useMemo(() => JSON.stringify(displayResume ?? {}), [displayResume]);
+
+    useEffect(() => {
+        if (inlineEditMode) {
+            setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+            setTranslatedResume(null);
+            setTranslateError(null);
+        }
+    }, [inlineEditMode]);
+
+    useEffect(() => {
+        if (!previewLangActive) {
+            setTranslatedResume(null);
+            setTranslateError(null);
+            return;
+        }
+        let cancelled = false;
+        const timer = window.setTimeout(async () => {
+            setTranslateLoading(true);
+            setTranslateError(null);
+            try {
+                const res = await fetch('/api/translate-resume', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        resume: draftResume,
+                        target: previewTargetLang,
+                        template: String(templateName || 'professional'),
+                    }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.success) {
+                    throw new Error(String(data?.error || `Translation failed (${res.status})`));
+                }
+                if (!cancelled) setTranslatedResume(data.resume);
+            } catch (e: any) {
+                if (!cancelled) {
+                    setTranslatedResume(null);
+                    setTranslateError(e?.message || 'Translation failed.');
+                }
+            } finally {
+                if (!cancelled) setTranslateLoading(false);
+            }
+        }, 450);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [previewTargetLang, draftResumeJsonStable]);
 
     const previousDraftCustomCountRef = useRef(0);
     useEffect(() => {
@@ -1356,8 +1427,44 @@ export default function TemplateViewer() {
 
     async function downloadPdfAsFile() {
         if (downloadingPdf) return;
+        if (previewLangActive && translateLoading) {
+            alert('Wait for the preview to finish translating, then download the PDF.');
+            return;
+        }
+        if (previewLangActive && !translatedResume) {
+            alert('Translation is not ready yet. Try again in a moment, or pick the language again.');
+            return;
+        }
         setDownloadingPdf(true);
+
+        const draftMerged = mergeResumeDraft(resumeData, inlineEditChanges);
+        const useTranslatedPdf = Boolean(previewLangActive && translatedResume);
+        const pdfBaseResume = useTranslatedPdf ? translatedResume : draftMerged;
+        const buildSessionResumePayload = (base: any) =>
+            withTemplateViewerStyleSettings(
+                withTemplateViewerLayoutPatch(base, templateKey, { sectionOrder, hiddenSectionKeys }),
+                styleSettings,
+            );
+
         try {
+            let pdfSnapshotToken = '';
+            if (useTranslatedPdf) {
+                const snapRes = await fetch('/api/template-pdf/snapshot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        resume: buildSessionResumePayload(pdfBaseResume),
+                        template: templateName,
+                    }),
+                });
+                const snapData = await snapRes.json().catch(() => ({}));
+                if (!snapRes.ok || !snapData?.success || !snapData?.token) {
+                    throw new Error(String(snapData?.error || `Could not prepare translated PDF (HTTP ${snapRes.status})`));
+                }
+                pdfSnapshotToken = String(snapData.token || '').trim();
+            }
+
             const baseName = `resume-${String(templateName || 'resume')}`;
             let filename = `${baseName}.pdf`;
             // In local dev, PDF viewers can keep showing an already-open file tab even after you
@@ -1379,6 +1486,7 @@ export default function TemplateViewer() {
             if (pdfDebugEnabled) qs.set('debug', '1');
             // Cache-bust: browsers/proxies sometimes cache GET PDFs even when content changes.
             qs.set('_ts', String(Date.now()));
+            if (pdfSnapshotToken) qs.set('pdfSnapshot', pdfSnapshotToken);
             const pdfEndpointUrl = `/api/template-pdf/${encodeURIComponent(safeTemplate)}?${qs.toString()}`;
             const controller = new AbortController();
             const timeoutMs = 120_000;
@@ -1465,7 +1573,8 @@ export default function TemplateViewer() {
     const loadTemplateData = React.useCallback(async () => {
         console.log('TemplateViewer: Fetching template data...');
         try {
-            const res = await fetch('/api/template-data');
+            const qs = location.search || '';
+            const res = await fetch(`/api/template-data${qs}`, { credentials: 'same-origin' });
             console.log('TemplateViewer: Response status:', res.status);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -1515,7 +1624,7 @@ export default function TemplateViewer() {
         } finally {
             setLoading(false);
         }
-    }, [templateName]);
+    }, [templateName, location.search]);
 
     useEffect(() => {
         loadTemplateData();
@@ -1713,70 +1822,119 @@ export default function TemplateViewer() {
         window.setTimeout(attemptDownload, 100);
     }, [resumeData, loading, error, isDownloadOnly]);
 
-    async function saveEditedResume(resumeOverride?: any) {
-        const payloadResume = resumeOverride ?? resumeData;
-        if (!payloadResume) return;
-        const templateKey = String(templateName || '');
-        const payloadResumeWithLayout = withTemplateViewerLayoutPatch(payloadResume, templateKey, {
-            sectionOrder,
-            hiddenSectionKeys,
-        });
-        const payloadResumeWithSettings = withTemplateViewerStyleSettings(payloadResumeWithLayout, styleSettings);
-        setEditSaving(true);
-        setEditSaveError(null);
-        setEditSaveSuccess(false);
-        setEditSaveHubMessage(null);
-        try {
-            const res = await fetch('/api/template-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ resume: payloadResumeWithSettings, source_revision_id: sourceRevisionId }),
+    const saveEditedResume = React.useCallback(
+        async (
+            resumeOverride?: any,
+            afterSuccess?: (payloadResumeWithSettings: any) => void,
+            opts?: { quiet?: boolean },
+        ) => {
+            const payloadResume = resumeOverride ?? resumeData;
+            if (!payloadResume) return;
+            const templateKey = String(templateName || '');
+            const payloadResumeWithLayout = withTemplateViewerLayoutPatch(payloadResume, templateKey, {
+                sectionOrder,
+                hiddenSectionKeys,
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data?.success) {
-                throw new Error(data?.error || `Failed to save (HTTP ${res.status})`);
+            const payloadResumeWithSettings = withTemplateViewerStyleSettings(payloadResumeWithLayout, styleSettings);
+            const quiet = Boolean(opts?.quiet);
+            if (!quiet) {
+                setEditSaving(true);
             }
-            setEditSaveSuccess(true);
-            window.setTimeout(() => setEditSaveSuccess(false), 2000);
+            setEditSaveError(null);
+            if (!quiet) {
+                setEditSaveSuccess(false);
+                setEditSaveHubMessage(null);
+            }
+            try {
+                const res = await fetch('/api/template-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ resume: payloadResumeWithSettings, source_revision_id: sourceRevisionId }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.success) {
+                    throw new Error(data?.error || `Failed to save (HTTP ${res.status})`);
+                }
+                afterSuccess?.(payloadResumeWithSettings);
+                if (!quiet) {
+                    setEditSaveSuccess(true);
+                    window.setTimeout(() => setEditSaveSuccess(false), 2000);
 
-            if (data?.persisted_to_hub) {
-                setEditSaveHubMessage('Saved to Job Search Hub.');
-                window.setTimeout(() => setEditSaveHubMessage(null), 5000);
-            } else if (typeof data?.persist_reason === 'string' && data.persist_reason) {
-                const reason = String(data.persist_reason);
-                if (reason === 'missing_source_revision_id') {
-                    setEditSaveHubMessage('Saved here, but not linked to a Hub revision (open from Job Search Hub / View Analysis first).');
-                } else if (reason === 'revision_not_found') {
-                    setEditSaveHubMessage('Saved here, but the Hub revision could not be found (try refreshing Job Search Hub and saving again).');
-                } else if (reason === 'snapshot_too_large') {
-                    setEditSaveHubMessage('Saved here, but the snapshot is too large to store for Hub editing.');
-                } else if (reason === 'not_authenticated') {
-                    setEditSaveHubMessage('Saved here, but you must be logged in to save to Job Search Hub.');
-                } else {
-                    setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                    if (data?.persisted_to_hub) {
+                        setEditSaveHubMessage('Saved to Job Search Hub.');
+                        window.setTimeout(() => setEditSaveHubMessage(null), 5000);
+                    } else if (typeof data?.persist_reason === 'string' && data.persist_reason) {
+                        const reason = String(data.persist_reason);
+                        if (reason === 'missing_source_revision_id') {
+                            setEditSaveHubMessage(
+                                'Saved here, but not linked to a Hub revision (open from Job Search Hub / View Analysis first).',
+                            );
+                        } else if (reason === 'revision_not_found') {
+                            setEditSaveHubMessage(
+                                'Saved here, but the Hub revision could not be found (try refreshing Job Search Hub and saving again).',
+                            );
+                        } else if (reason === 'snapshot_too_large') {
+                            setEditSaveHubMessage('Saved here, but the snapshot is too large to store for Hub editing.');
+                        } else if (reason === 'not_authenticated') {
+                            setEditSaveHubMessage('Saved here, but you must be logged in to save to Job Search Hub.');
+                        } else {
+                            setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                        }
+                        try {
+                            alert(`Saved locally, but NOT saved to Job Search Hub. Reason: ${reason}`);
+                        } catch (_) {
+                            // ignore
+                        }
+                        window.setTimeout(() => setEditSaveHubMessage(null), 8000);
+                    } else {
+                        setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                        try {
+                            alert('Saved locally, but NOT saved to Job Search Hub.');
+                        } catch (_) {
+                            // ignore
+                        }
+                        window.setTimeout(() => setEditSaveHubMessage(null), 8000);
+                    }
                 }
-                try {
-                    alert(`Saved locally, but NOT saved to Job Search Hub. Reason: ${reason}`);
-                } catch (_) {
-                    // ignore
+            } catch (e: any) {
+                setEditSaveError(e?.message || 'Failed to save changes.');
+            } finally {
+                if (!quiet) {
+                    setEditSaving(false);
                 }
-                window.setTimeout(() => setEditSaveHubMessage(null), 8000);
-            } else {
-                setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
-                try {
-                    alert('Saved locally, but NOT saved to Job Search Hub.');
-                } catch (_) {
-                    // ignore
-                }
-                window.setTimeout(() => setEditSaveHubMessage(null), 8000);
             }
-        } catch (e: any) {
-            setEditSaveError(e?.message || 'Failed to save changes.');
-        } finally {
-            setEditSaving(false);
-        }
-    }
+        },
+        [resumeData, templateName, sectionOrder, hiddenSectionKeys, styleSettings, sourceRevisionId],
+    );
+
+    const saveEditedResumeRef = useRef(saveEditedResume);
+    saveEditedResumeRef.current = saveEditedResume;
+
+    /** After a preview translation succeeds, persist it and reset the language selector (same as the old explicit save). */
+    useEffect(() => {
+        if (!previewLangActive || translateLoading || !translatedResume || inlineEditMode) return;
+        let cancelled = false;
+        void (async () => {
+            await saveEditedResumeRef.current(
+                translatedResume,
+                (payload) => {
+                    if (cancelled) return;
+                    // End preview mode first so the translate effect does not re-run against the new resume
+                    // while the target language is still set (avoids save/translate loops and UI flicker).
+                    setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+                    setTranslatedResume(null);
+                    setTranslateError(null);
+                    setInlineEditChanges({});
+                    setResumeData(payload);
+                },
+                { quiet: true },
+            );
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [previewLangActive, translateLoading, translatedResume, inlineEditMode]);
 
     const setField = (key: string, value: any) => {
         setResumeData((prev: any) => ({ ...(prev || {}), [key]: value }));
@@ -2320,7 +2478,7 @@ export default function TemplateViewer() {
             else window.removeEventListener('resize', compute);
             if (winResize) window.removeEventListener('resize', compute);
         };
-    }, [templateName, resumeData, styleSettings, inlineEditMode, isEmbed, isEmbedFlush, embedFirstPageOnly, embedZoomMultiplier]);
+    }, [templateName, resumeData, previewContentKey, styleSettings, inlineEditMode, isEmbed, isEmbedFlush, embedFirstPageOnly, embedZoomMultiplier]);
 
     // Best-effort zoom deterrence: prevent ctrl/meta+wheel zoom while the pointer is over the preview.
     // (Cannot reliably block browser zoom or OS-level capture globally.)
@@ -2386,10 +2544,9 @@ export default function TemplateViewer() {
         );
     }
 
-    // Convert structured data to JSON string for templates
-    // The templates expect a JSON string that parseResumeContent can parse
-    const content = JSON.stringify(draftResume);
-    console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
+    // Preview uses optional translated copy; offscreen PDF root matches visible preview (including translation).
+    const previewContent = JSON.stringify(displayResume);
+    console.log('TemplateViewer: Content being passed to template:', previewContent.substring(0, 200) + '...');
 
     // Render appropriate template based on templateName
     let TemplateComponent;
@@ -2492,6 +2649,34 @@ export default function TemplateViewer() {
 
     const isTimelineBlue = templateName === 'executive' || templateName === 'timelineblue' || templateName === 'timelineBlue' || templateName === 'timeline-blue' || templateName === 'timeline_blue';
 
+    const previewLanguageToolbar = (
+        <div className="flex flex-col items-stretch gap-1">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-sm">
+                <Languages className="w-4 h-4 text-gray-500 shrink-0" aria-hidden />
+                <select
+                    className="min-w-0 flex-1 text-sm text-gray-800 bg-transparent border-0 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={previewTargetLang}
+                    onChange={(e) => setPreviewTargetLang(e.target.value)}
+                    disabled={inlineEditMode || translateLoading}
+                    aria-label="Translate"
+                    title={inlineEditMode ? 'Exit edit mode to translate the preview' : 'Translate preview text using Google Translate'}
+                >
+                    {PREVIEW_TRANSLATE_OPTIONS.map((o) => (
+                        <option key={o.code ? o.code : 'original'} value={o.code}>
+                            {o.label}
+                        </option>
+                    ))}
+                </select>
+                {translateLoading ? (
+                    <span className="text-xs text-indigo-600 whitespace-nowrap">Translating…</span>
+                ) : null}
+            </div>
+            {translateError ? (
+                <div className="text-xs text-red-600 max-w-xs">{translateError}</div>
+            ) : null}
+        </div>
+    );
+
     return (
         <div
             ref={embedRootRef}
@@ -2542,7 +2727,7 @@ export default function TemplateViewer() {
                         }}
                     >
                         <TemplateComponent
-                            content={content}
+                            content={previewContent}
                             editMode={false}
                             sectionOrder={sectionOrder}
                             onSectionOrderChange={setSectionOrder}
@@ -2638,6 +2823,11 @@ export default function TemplateViewer() {
             )}
 
             <main className={isEmbed ? '' : 'py-8 px-4'}>
+                {isEmbed && !isDownloadOnly && !embedFirstPageOnly && allowEmbedTranslate ? (
+                    <div className="flex justify-end px-2 pt-2 pb-1 border-b border-gray-200 bg-gray-100 shrink-0">
+                        {previewLanguageToolbar}
+                    </div>
+                ) : null}
                 <div className={isEmbed ? '' : 'max-w-7xl mx-auto'}>
                     <style>{`
                   /* Mobile should match desktop: make key md:* utilities behave like desktop even on small viewports. */
@@ -2956,6 +3146,7 @@ export default function TemplateViewer() {
                                 <h1 className="text-2xl font-bold text-gray-800 break-words">{templateDisplayName || templateName} Template</h1>
                                 <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
                                     <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                                        {previewLanguageToolbar}
                                         {/* Edit Mode now available for ALL templates */}
                                         <button
                                             onClick={() => setInlineEditMode(!inlineEditMode)}
@@ -2990,7 +3181,7 @@ export default function TemplateViewer() {
                                             <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-sm flex items-start gap-2">
                                                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
                                                 <span>
-                                                    Click "Exit Edit mode" for <span className="text-indigo-600 font-medium">PDF download</span>.
+                                                    Click "Exit Edit Mode" for <span className="text-indigo-600 font-medium">PDF download</span>.
                                                 </span>
                                             </div>
                                         ) : (
@@ -4203,7 +4394,7 @@ export default function TemplateViewer() {
                                                             }}
                                                         >
                                                             <TemplateComponent
-                                                                content={content}
+                                                                content={previewContent}
                                                                 editMode={false}
                                                                 sectionOrder={sectionOrder}
                                                                 onSectionOrderChange={setSectionOrder}
@@ -4336,7 +4527,7 @@ export default function TemplateViewer() {
                                                                                 value={inlineEditMode ? { rewriteField: aiRewriteResumeField, reportError: setAiEditError } : null}
                                                                             >
                                                                                 <TemplateComponent
-                                                                                    content={content}
+                                                                                    content={previewContent}
                                                                                     editMode={inlineEditMode}
                                                                                     sectionOrder={sectionOrder}
                                                                                     onSectionOrderChange={setSectionOrder}
@@ -4450,7 +4641,7 @@ export default function TemplateViewer() {
                                                                                                     }}
                                                                                                 >
                                                                                                     <TemplateComponent
-                                                                                                        content={content}
+                                                                                                        content={previewContent}
                                                                                                         editMode={false}
                                                                                                         sectionOrder={sectionOrder}
                                                                                                         onSectionOrderChange={setSectionOrder}

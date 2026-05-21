@@ -60,6 +60,14 @@ export function ResumeForm() {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentStep]);
 
+  useEffect(() => {
+    const clarity = (window as any).clarity;
+    if (typeof clarity === 'function') {
+      clarity('set', 'resume_wizard_step', stepMeta.id);
+      clarity('event', `resume_wizard_step_${stepMeta.id}`);
+    }
+  }, [stepMeta.id]);
+
   const goNext = async () => {
     if (isTransitioning) return;
 
