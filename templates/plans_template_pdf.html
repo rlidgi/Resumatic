@@ -505,6 +505,9 @@
             </article>
 
             <aside class="plans">
+                {% if plan_prices and plan_prices.get('note') %}
+                <p class="disclaimer" style="margin: 0 0 10px;">{{ plan_prices.note }}</p>
+                {% endif %}
                 <label class="plan-option {% if not trial_unavailable %}selected{% endif %}" data-plan-option
                     data-plan="trial_7d">
                     <input type="radio" name="plan" value="trial_7d" {% if not trial_unavailable %}checked{% else
@@ -532,7 +535,8 @@
                         <span class="selector" aria-hidden="true">{% if trial_unavailable %}✓{% endif %}</span>
                         <p class="plan-text">Monthly Access</p>
                         <div class="price-wrap">
-                            <span class="plan-title">$10</span><span class="price-decimals">.95 / month</span>
+                            <span class="plan-title">{{ plan_prices.monthly_pdf_main }}</span><span
+                                class="price-decimals">{{ plan_prices.monthly_pdf_decimals }}</span>
                         </div>
                     </div>
                 </label>
@@ -546,7 +550,8 @@
                             <span class="badge">Best Value</span>
                         </div>
                         <div class="price-wrap">
-                            <span class="plan-title">$6</span><span class="price-decimals">.95 / month</span>
+                            <span class="plan-title">{{ plan_prices.annual_pdf_main }}</span><span
+                                class="price-decimals">{{ plan_prices.annual_pdf_decimals }}</span>
                         </div>
                     </div>
                 </label>

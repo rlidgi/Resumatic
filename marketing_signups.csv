@@ -23,3 +23,7 @@ timestamp_iso,signup_method,user_id,email,ref,utm_source,utm_medium,utm_campaign
 2026-04-21T22:03:33.195133+00:00,google_oauth,114906300473310032380,rlidgi@go.pasadena.edu,,,,,,,organic,,http://127.0.0.1:5000/,,,
 2026-04-21T22:08:19.459160+00:00,google_oauth,114906300473310032380,rlidgi@go.pasadena.edu,,,,,,,organic,,http://127.0.0.1:5000/,,,
 2026-04-21T22:12:18.611190+00:00,google_oauth,114906300473310032380,rlidgi@go.pasadena.edu,,,,,,,organic,,http://127.0.0.1:5000/,,,
+2026-05-09T23:10:49.992289+00:00,email_password,email_b603bbd0984d42e7,test@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-05-09T23:34:50.675319+00:00,email_password,email_6ee13654f7e4409a,test2@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-05-09T23:39:20.355472+00:00,email_password,email_4834b0a050d64a89,test3@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/my_revisions/,,,
+2026-05-09T23:47:20.467148+00:00,email_password,email_d9008a5bf2154b30,test4@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/,,,

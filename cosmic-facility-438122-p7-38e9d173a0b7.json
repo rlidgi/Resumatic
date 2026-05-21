@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "cosmic-facility-438122-p7",
+  "private_key_id": "38e9d173a0b77cc2a995bf59d09ead350009c258",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDC1qBiLlEb5ITh\nsWrXPG3k1lyXN87g8NmPAP/IiNh2WWtmP9I+kmSCOeI8JXPEApjFDUyAGYTDLh0W\nYxIAFNJXh7c3IWiipj7isO15sJ38iVcoBNJ0LMOVJ8mk9Nz5iCzmxPZIuuLxF5Ng\nx/a7gBoKwY9M3kJo4Dol+zc29w8sJP+dMsdkGS/rEMUlyh66S3WRYUIDe2iFLKIN\nLfhxXiwE+JDZlIAy9AoRFVbIOtX/2DEirjEMRw1f0w3LO9Xvljd3LLbX74a03UcA\nR2WNqwdoeAzdiiw9SuAsH1/Zj86Zc90nbIoHqsBk0SBagBOiUpToVyuQC70Dncqt\n8TCVJ851AgMBAAECggEACZwM/v//z3C0Pm7CBpRGwJxIpstW2xtQmlAB+EG07hQM\n9axnfInl29JqXm25HvgYfCeNbV1U10zlRwm4hTksWAAr636CAFD+Fa+E7D/ncDbU\njfcRli9Fr4vt0xf3SiC1mOWAAX2jhyE9i0QcNDU7k5TmXMky3KSqhDMMDxxHqvVL\necno040Q4GxbbhwuCDDZcLqB8pMxEVzl62iYrgk0zPdU6Oaqp6J/G1UFulRX8nhA\no3KlydZ823Og8h7ln23HqMOYzfjH2y/7A1U+L14Hi81pxqQMsmZ32ADp2JxbhaRa\nZqYGdhdnzbaMQDyDbHJq0JLB8piA2FkXW1RzP0pbhQKBgQDpzLunHL6We0PuiqNx\n7xaxunP4Ykh5RZvFbsnj8vAcCmVf5tHkXodbFR2iu/6bnpOTc9s7RoeiU/klUSAl\nnMy4iWH5YwoAMGmbTPW1ksTymwjykTN6chiUwYsp5cbbtrxScjPIxidLBCPRvN/w\nGJKkGvvmA794isqiayBxaZ7R1wKBgQDVVs923EIKOzFoPmmj66J1n6ZMKFRAznio\nN4x9x4pSwcc8OqC/E4IkB1XyPpnEd2AW9iJMqz8qRASk/gO86q/NPaGkpgHCtjPE\nXAwOZAGYyfqUmtAiP4cf5fcJnJinHi3xKnTVGXLwwu+gZLMYMHOSQ8tFi+SB3RID\nMEWFS6swkwKBgQCzwpNBgMtU/j+T6AqVLkQfsIE8J60beRa0rWMTHZXZqXCaVOlq\nkfe2YzzfA3ZWho1nIPwdzjO47qGwPHjgEnghJpgq3CgzTwXTv09oJQnCkstFXbjb\n21/k+A6czyufgRe4uE/yfdB2UB+OQo9Xlj0hahHln1oXP3dfe8h9Cr1vDwKBgEQk\nX03i2oE0GPrn/IwsJo8VeGOY+hhdGrL4UzqVsrvuQzocq918WLQzV6NxlWHok1ui\nMKB2jk1svmMI856zA4Y16lyR3bwYwH42vG8YSF5KHWy76kEWM43fwUFjsGqovBns\n6rZqU4lNaoa7w2y1hSSx3MqQ/WLxfuBf2cTSv5JbAoGAZpDmHgxI3P9Gaj9BV1zL\n6k1rr+JgWmInW3+NEKa6HjeKYTpYCTee/D5b+1Dmyl73M3L1W7FXvThwQ2+NwLNO\n2+i2sjULffcxgMYQm25/k8XiMcPUMhOhjusnuUYvR0RYoTYShOGPXQhUonxleDgo\nt0lTVdhHrKJ2sGA70gKvoOg=\n-----END PRIVATE KEY-----\n",
+  "client_email": "translation-service-account@cosmic-facility-438122-p7.iam.gserviceaccount.com",
+  "client_id": "102862659355854399961",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/translation-service-account%40cosmic-facility-438122-p7.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

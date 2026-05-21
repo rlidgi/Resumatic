@@ -124,6 +124,17 @@
         <h1>Registered Users</h1>
         <div class="meta">Total: {{ users|length }} • Azure Table: {{ azure_users_table_name or
             (request.args.get('table') or 'Users') }}</div>
+        {% if conversion_summary %}
+        <div class="meta" style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px 12px;">
+            <strong>Trial Reinstatement CTA Conversion:</strong>
+            Emails Sent: {{ conversion_summary.cta_sent_total }} |
+            Users Emailed: {{ conversion_summary.cta_sent_users }} |
+            Converted Users: {{ conversion_summary.cta_converted_users }} |
+            Reinstatement Events: {{ conversion_summary.cta_conversion_events }} |
+            User Conversion Rate: {{ conversion_summary.cta_user_conversion_rate }}% |
+            Event Conversion Rate: {{ conversion_summary.cta_event_conversion_rate }}%
+        </div>
+        {% endif %}
         <form method="get" action="" style="margin: 12px 0;">
             <label for="table">Table name:</label>
             <input type="text" id="table" name="table" value="{{ request.args.get('table') or '' }}" placeholder="Users"

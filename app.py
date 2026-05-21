@@ -1,5 +1,5 @@
-from flask import (Flask, request, render_template, redirect, url_for, session, flash, send_file, send_from_directory, 
-jsonify, Response, make_response, abort)
+from flask import (Flask, request, render_template, redirect, url_for, session, flash, send_file, send_from_directory,
+jsonify, Response, make_response, abort, has_request_context)
 from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
@@ -11,6 +11,7 @@ import mammoth
 import logging
 import os
 import time
+import ipaddress
 import re
 import threading
 import atexit
@@ -50,15 +51,17 @@ except Exception as _analytics_import_error:
     analytics = _NoopAnalytics()
 
 from google_auth_oauthlib.flow import Flow
+import google.auth
 import google.auth.transport.requests
 import google.oauth2.credentials
 import google.oauth2.id_token
+from google.oauth2 import service_account
 
 from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
 from flask_login import LoginManager, login_required, login_user, logout_user, UserMixin, current_user
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
@@ -68,6 +71,10 @@ import calendar
 import openai
 import os
 import json
+import secrets
+import copy
+import html as html_stdlib
+import requests
 from docx import Document
 import stripe
 import csv
@@ -80,6 +87,102 @@ import re
 
 # Lightweight TTL-backed JSON storage for SPA-like drafts
 from temp_store import save_payload, load_payload, delete_payload, DEFAULT_TTL_SECONDS
+
+# One-shot resume payloads for server-side PDF generation (Playwright loads /template-download with ?pdf_snapshot=…).
+# Stored on disk (next to Flask filesystem sessions) so Gunicorn/uWSGI multi-worker pools can all read the same snapshot.
+_pdf_snapshot_lock = threading.Lock()
+_PDF_SNAPSHOT_TTL_S = 180.0
+
+
+def _pdf_snapshot_dir() -> str:
+    home_dir = (os.getenv("HOME") or "").strip()
+    if home_dir:
+        base = os.path.join(home_dir, "site", "wwwroot", ".flask_session", "pdf_snapshots")
+    else:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_session", "pdf_snapshots")
+    try:
+        os.makedirs(base, exist_ok=True)
+    except Exception:
+        pass
+    return base
+
+
+def _pdf_snapshot_sanitize_tok(tok: str) -> Optional[str]:
+    t = str(tok or "").strip()
+    if not t or len(t) > 200:
+        return None
+    for ch in t:
+        if ch.isalnum() or ch in "-_":
+            continue
+        return None
+    return t
+
+
+def _pdf_snapshot_store_put(resume: dict, user_id: int, template_hint: Optional[str] = None) -> str:
+    tok = secrets.token_urlsafe(32)
+    safe = _pdf_snapshot_sanitize_tok(tok)
+    if not safe:
+        raise RuntimeError("invalid snapshot token")
+    payload = {
+        "resume": copy.deepcopy(resume),
+        "uid": int(user_id),
+        "t": time.time(),
+        "template_hint": str(template_hint or "").strip(),
+    }
+    path = os.path.join(_pdf_snapshot_dir(), f"{safe}.json")
+    tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with _pdf_snapshot_lock:
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(payload, f)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                if os.path.isfile(tmp):
+                    os.remove(tmp)
+            except Exception:
+                pass
+            raise
+    return tok
+
+
+def _pdf_snapshot_store_get(tok: str) -> Optional[dict[str, Any]]:
+    safe = _pdf_snapshot_sanitize_tok(tok)
+    if not safe:
+        return None
+    path = os.path.join(_pdf_snapshot_dir(), f"{safe}.json")
+    with _pdf_snapshot_lock:
+        if not os.path.isfile(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                ent = json.load(f)
+        except Exception:
+            return None
+    if not isinstance(ent, dict):
+        return None
+    try:
+        if time.time() - float(ent.get("t") or 0.0) > _PDF_SNAPSHOT_TTL_S:
+            _pdf_snapshot_store_pop(tok)
+            return None
+    except Exception:
+        return None
+    return ent
+
+
+def _pdf_snapshot_store_pop(tok: str) -> None:
+    safe = _pdf_snapshot_sanitize_tok(str(tok or "").strip())
+    if not safe:
+        return
+    path = os.path.join(_pdf_snapshot_dir(), f"{safe}.json")
+    with _pdf_snapshot_lock:
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+
 
 app = Flask(__name__)
 
@@ -1047,6 +1150,7 @@ def send_email_verification_email(email: str, token: str, user_name: str, next_u
         _load_email_config_if_missing()
         import smtplib
         from email.mime.text import MIMEText
+        from email.mime.image import MIMEImage
         from email.mime.multipart import MIMEMultipart
         from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -1362,6 +1466,127 @@ def send_welcome_email(email: str, user_name: str) -> bool:
             pass
         logger.exception('Error sending welcome email')
         return False
+
+
+def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_trial_bonus: bool = True) -> bool:
+    """Send CTA email after trial cancellation, encouraging subscription reinstatement."""
+    try:
+        email = (email or '').strip().lower()
+        if not email:
+            return False
+
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.image import MIMEImage
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        if not auth_email or not auth_password:
+            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+        reinstate_url = _get_external_url('billing_cancel_page')
+        try:
+            home_url = _get_external_url('index')
+        except Exception:
+            home_url = ''
+        site_url = home_url or 'https://resumaticai.com'
+        logo_url = f"{site_url.rstrip('/')}/static/images/logo233_small.png"
+        logo_cid = 'resumatic_logo_trial_cta'
+        logo_bytes = None
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
+            with open(logo_path, 'rb') as f:
+                logo_bytes = f.read()
+        except Exception:
+            logo_bytes = None
+        logo_src = f"cid:{logo_cid}" if logo_bytes else logo_url
+
+        display_name = (user_name or '').strip() or 'there'
+        bonus_html = (
+            "<p style=\"margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;\">"
+            "If you reinstate now, we'll also extend your trial by <strong>2 weeks</strong>."
+            "</p>"
+            if include_trial_bonus else ""
+        )
+        bonus_text = "If you reinstate now, we'll also extend your trial by 2 weeks.\n\n" if include_trial_bonus else ""
+
+        subject = "Keep your edge in your job search - Reinstate your trial"
+        html_body = f"""\
+<html>
+  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
+    <div style="max-width: 620px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 16px;">
+        <a href="{site_url}" style="text-decoration: none;">
+          <img src="{logo_src}" alt="ResumaticAI" style="max-width: 180px; width: 180px; height: auto;">
+        </a>
+      </div>
+      <h2 style="margin: 0 0 12px; color: #0f172a;">Don't lose momentum, {display_name}</h2>
+      <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+        We strongly believe the service we offer is indispensable in your job search, and we believe with more time to access the service, you will agree.
+      </p>
+      {bonus_html}
+      <p style="margin: 0 0 20px;">
+        <a href="{reinstate_url}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px; font-weight: 700;">
+          Reinstate subscription
+        </a>
+      </p>
+      <p style="margin: 0; color: #64748b; font-size: 13px;">
+        If the button doesn't work, copy and paste this link into your browser:<br/>
+        <a href="{reinstate_url}" style="color: #0ea5e9;">{reinstate_url}</a>
+      </p>
+    </div>
+  </body>
+</html>
+"""
+        text_body = (
+            f"Don't lose momentum, {display_name}.\n\n"
+            "We strongly believe the service we offer is indispensable in your job search, and we believe with more time to access the service, you will agree.\n\n"
+            f"{bonus_text}"
+            f"Reinstate your subscription: {reinstate_url}\n"
+        )
+
+        msg_root = MIMEMultipart('related')
+        msg_root['Subject'] = subject
+        msg_root['From'] = f"ResumaticAI <{auth_email}>"
+        msg_root['To'] = email
+
+        msg_alt = MIMEMultipart('alternative')
+        msg_alt.attach(MIMEText(text_body, 'plain', 'utf-8'))
+        msg_alt.attach(MIMEText(html_body, 'html', 'utf-8'))
+        msg_root.attach(msg_alt)
+
+        if logo_bytes:
+            logo_part = MIMEImage(logo_bytes)
+            logo_part.add_header('Content-ID', f"<{logo_cid}>")
+            logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
+            msg_root.attach(logo_part)
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(auth_email, auth_password)
+        server.send_message(msg_root)
+        server.quit()
+
+        logger.info("Trial cancel CTA email sent to %s", email)
+        return True
+    except Exception:
+        try:
+            logger.error(
+                "Trial CTA email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
+                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+                os.getenv('SMTP_PORT', '587'),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (email or '').strip().lower(),
+            )
+        except Exception:
+            pass
+        logger.exception("Error sending trial cancellation reinstate CTA email")
+        return False
+
 
 def load_users():
     """Load users from JSON file"""
@@ -1695,6 +1920,142 @@ def _best_effort_client_ip() -> str:
         return _table_safe_str(getattr(request, 'remote_addr', ''), max_len=64)
     except Exception:
         return ''
+
+
+_GEOIP_COUNTRY_SESSION_KEY = 'geoip_country'
+_GEOIP_COUNTRY_AT_SESSION_KEY = 'geoip_country_at'
+
+
+def _best_effort_country_code() -> str:
+    """Best-effort 2-letter country code for the current request.
+
+    Prefer edge/CDN headers when available; otherwise fall back to a GeoIP API lookup.
+    Returns '' when unknown.
+    """
+    if not has_request_context():
+        return ''
+
+    # Manual override for testing / VPN edge-cases.
+    try:
+        if str(request.args.get('currency') or '').strip().lower() == 'inr':
+            try:
+                session[_GEOIP_COUNTRY_SESSION_KEY] = 'IN'
+                session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
+                session.modified = True
+            except Exception:
+                pass
+            return 'IN'
+    except Exception:
+        pass
+
+    # Cached in session (avoid GeoIP roundtrips on every request).
+    try:
+        cached = str(session.get(_GEOIP_COUNTRY_SESSION_KEY) or '').strip().upper()
+        cached_at = int(session.get(_GEOIP_COUNTRY_AT_SESSION_KEY) or 0)
+        cache_hours = int((os.getenv('GEOIP_CACHE_HOURS') or '24').strip() or '24')
+        if cached and cached_at and (time.time() - cached_at) < (max(1, cache_hours) * 3600):
+            if len(cached) == 2 and cached.isalpha():
+                return cached
+    except Exception:
+        pass
+
+    # Header-based (Cloudflare/CloudFront/etc.)
+    try:
+        for hdr in ('CF-IPCountry', 'CloudFront-Viewer-Country', 'X-AppEngine-Country'):
+            v = str(request.headers.get(hdr) or '').strip().upper()
+            if len(v) == 2 and v.isalpha():
+                try:
+                    session[_GEOIP_COUNTRY_SESSION_KEY] = v
+                    session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
+                    session.modified = True
+                except Exception:
+                    pass
+                return v
+    except Exception:
+        pass
+
+    # GeoIP fallback (ipapi.co; no key). Best-effort and failure-tolerant.
+    ip = ''
+    try:
+        ip = str(_best_effort_client_ip() or '').strip()
+    except Exception:
+        ip = ''
+    if not ip:
+        return ''
+    try:
+        ipa = ipaddress.ip_address(ip)
+        if ipa.is_private or ipa.is_loopback or ipa.is_link_local or ipa.is_multicast or ipa.is_reserved:
+            return ''
+    except Exception:
+        return ''
+
+    try:
+        timeout_seconds = float((os.getenv('GEOIP_TIMEOUT_SECONDS') or '1.5').strip() or '1.5')
+    except Exception:
+        timeout_seconds = 1.5
+
+    try:
+        resp = requests.get(
+            f"https://ipapi.co/{ip}/json/",
+            timeout=max(0.2, timeout_seconds),
+            headers={"Accept": "application/json", "User-Agent": "resumatic/geoip"},
+        )
+        data = resp.json() if getattr(resp, 'ok', False) else {}
+        v = str((data or {}).get('country') or (data or {}).get('country_code') or '').strip().upper()
+        if len(v) == 2 and v.isalpha():
+            try:
+                session[_GEOIP_COUNTRY_SESSION_KEY] = v
+                session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
+                session.modified = True
+            except Exception:
+                pass
+            return v
+    except Exception:
+        pass
+    return ''
+
+
+def _is_india_pricing_region() -> bool:
+    try:
+        return _best_effort_country_code() == 'IN'
+    except Exception:
+        return False
+
+
+def _plans_price_display_context() -> dict:
+    """Marketing copy for /plans cards. INR labels use PLANS_DISPLAY_* env vars when the visitor is in India."""
+    base_usd = {
+        'currency_mode': 'usd',
+        'monthly_strong': '$10.95',
+        'annual_strong': '$6.95',
+        'annual_equiv': 'Equivalent to $6.95/month.',
+        'monthly_pdf_main': '$10',
+        'monthly_pdf_decimals': '.95 / month',
+        'annual_pdf_main': '$6',
+        'annual_pdf_decimals': '.95 / month',
+        'note': '',
+    }
+    if not _is_india_pricing_region():
+        return dict(base_usd)
+    monthly = (os.getenv('PLANS_DISPLAY_MONTHLY_INR') or '').strip()
+    annual_pm = (os.getenv('PLANS_DISPLAY_ANNUAL_PER_MONTH_INR') or '').strip()
+    if monthly and annual_pm:
+        return {
+            'currency_mode': 'inr',
+            'monthly_strong': monthly,
+            'annual_strong': annual_pm,
+            'annual_equiv': f'Equivalent to {annual_pm}/month.',
+            'monthly_pdf_main': monthly,
+            'monthly_pdf_decimals': ' / month',
+            'annual_pdf_main': annual_pm,
+            'annual_pdf_decimals': ' / month',
+            'note': '',
+        }
+    out = dict(base_usd)
+    out['note'] = (
+        'If you are in India, your card is charged in INR at checkout (exact amount is shown on Stripe).'
+    )
+    return out
 
 
 def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login_at: str, login_method: str, row_key: str, login_audit_pk: str = '', login_audit_rk: str = '') -> None:
@@ -3862,6 +4223,7 @@ def plans():
         trial_unavailable=trial_unavailable,
         offer_retention=offer_retention,
         next_url=safe_next_url,
+        plan_prices=_plans_price_display_context(),
     )
 
 @app.route("/plans/template-pdf")
@@ -3888,6 +4250,7 @@ def plans_template_pdf():
         user=current_user,
         trial_unavailable=trial_unavailable,
         next_url=safe_next_url,
+        plan_prices=_plans_price_display_context(),
     )
 
 
@@ -3924,18 +4287,30 @@ def _get_plan_config(plan_id: str) -> Optional[dict]:
             'duration_days': 7,
         }
     if pid == 'monthly_10_95':
+        disp = _plans_price_display_context()
+        price_line = (
+            f"{disp['monthly_strong']} / month"
+            if disp.get('currency_mode') == 'inr'
+            else '$10.95 / month'
+        )
         return {
             'id': pid,
             'label': 'Monthly',
-            'price': '$10.95 / month',
+            'price': price_line,
             'plan_status': 'monthly',
             'duration_days': 31,
         }
     if pid == 'annual_6_95':
+        disp = _plans_price_display_context()
+        price_line = (
+            f"{disp['annual_strong']} / month (billed annually)"
+            if disp.get('currency_mode') == 'inr'
+            else '$6.95 / month (billed annually)'
+        )
         return {
             'id': pid,
             'label': 'Annual',
-            'price': '$6.95 / month (billed annually)',
+            'price': price_line,
             'plan_status': 'annual',
             'duration_days': 365,
         }
@@ -4430,23 +4805,67 @@ def _get_stripe_price_id(plan_id: str) -> Optional[str]:
     if plan_id == 'trial_7d':
         # Trial should be a subscription (auto-converts to monthly unless canceled).
         # Use a recurring monthly price here (or a dedicated trial recurring price).
+        if _is_india_pricing_region():
+            return (
+                (os.getenv('STRIPE_PRICE_TRIAL_RECURRING_INR') or '').strip()
+                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95_INR') or '').strip()
+                or (os.getenv('STRIPE_PRICE_TRIAL_RECURRING') or '').strip()
+                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
+                or None
+            )
         return (
             (os.getenv('STRIPE_PRICE_TRIAL_RECURRING') or '').strip()
             or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
             or None
         )
     if plan_id == 'monthly_10_95':
+        if _is_india_pricing_region():
+            return (
+                (os.getenv('STRIPE_PRICE_MONTHLY_10_95_INR') or '').strip()
+                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
+                or None
+            )
         return (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip() or None
     if plan_id == 'annual_6_95':
+        if _is_india_pricing_region():
+            return (
+                (os.getenv('STRIPE_PRICE_ANNUAL_6_95_INR') or '').strip()
+                or (os.getenv('STRIPE_PRICE_ANNUAL_6_95') or '').strip()
+                or None
+            )
         return (os.getenv('STRIPE_PRICE_ANNUAL_6_95') or '').strip() or None
     return None
+
+
+def _configured_stripe_price_ids_for_plan(plan_id: str) -> frozenset:
+    """Non-empty Stripe Price IDs from env for this plan (USD + INR), for matching subscriptions to plans."""
+    plan_id = _normalize_plan_id(plan_id)
+    raw: list[str] = []
+    if plan_id == 'monthly_10_95':
+        for k in ('STRIPE_PRICE_MONTHLY_10_95', 'STRIPE_PRICE_MONTHLY_10_95_INR'):
+            v = (os.getenv(k) or '').strip()
+            if v:
+                raw.append(v)
+    elif plan_id == 'annual_6_95':
+        for k in ('STRIPE_PRICE_ANNUAL_6_95', 'STRIPE_PRICE_ANNUAL_6_95_INR'):
+            v = (os.getenv(k) or '').strip()
+            if v:
+                raw.append(v)
+    return frozenset(raw)
 
 
 def _get_stripe_trial_upfront_fee_price_id() -> Optional[str]:
     """Optional one-time fee charged at checkout for the trial (e.g. $1.85).
 
     Create a one-time Price in Stripe and set STRIPE_PRICE_TRIAL_FEE_1_85 to its price_ id.
+    For India (INR), set STRIPE_PRICE_TRIAL_FEE_1_85_INR.
     """
+    if _is_india_pricing_region():
+        return (
+            (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85_INR') or '').strip()
+            or (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85') or '').strip()
+            or None
+        )
     return (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85') or '').strip() or None
 
 
@@ -4468,8 +4887,20 @@ def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
             or defaults['trial_7d']
         )
     if plan_id == 'monthly_10_95':
+        if _is_india_pricing_region():
+            return (
+                (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95_INR') or '').strip()
+                or (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95') or '').strip()
+                or defaults['monthly_10_95']
+            )
         return (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95') or '').strip() or defaults['monthly_10_95']
     if plan_id == 'annual_6_95':
+        if _is_india_pricing_region():
+            return (
+                (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95_INR') or '').strip()
+                or (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95') or '').strip()
+                or defaults['annual_6_95']
+            )
         return (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95') or '').strip() or defaults['annual_6_95']
     return None
 
@@ -4749,6 +5180,9 @@ def stripe_webhook():
     - STRIPE_SECRET_KEY
     - STRIPE_WEBHOOK_SECRET
     - STRIPE_PRICE_MONTHLY_10_95 / STRIPE_PRICE_ANNUAL_6_95
+
+    India (INR) checkout: set STRIPE_PRICE_*_INR, optional STRIPE_PAYMENTLINK_*_INR,
+    STRIPE_PRICE_TRIAL_FEE_1_85_INR, and PLANS_DISPLAY_MONTHLY_INR / PLANS_DISPLAY_ANNUAL_PER_MONTH_INR for /plans copy.
 
     Trial setup (to auto-convert to monthly unless canceled):
     - STRIPE_PRICE_TRIAL_RECURRING (optional, otherwise uses STRIPE_PRICE_MONTHLY_10_95)
@@ -5157,6 +5591,8 @@ def billing_cancel_page():
         return redirect(url_for("plans"))
 
     user_id = getattr(current_user, "id", "")
+    prof = get_user_profile_azure(user_id) or {}
+    reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
     if not subscription_id:
         flash("No active subscription found. If you just canceled, your access continues until the end of your billing period.", "info")
@@ -5170,6 +5606,7 @@ def billing_cancel_page():
         if status not in ("active", "trialing"):
             flash("Your subscription is not active.", "info")
             return redirect(url_for("settings_page"))
+        cancel_scheduled = bool(_stripe_obj_get(sub, "cancel_at_period_end", False)) or bool(_stripe_obj_get(sub, "cancel_at", None))
 
         current_period_end = _stripe_obj_get(sub, "current_period_end", None)
         period_end_display = ""
@@ -5199,6 +5636,9 @@ def billing_cancel_page():
         subscription_id=subscription_id,
         interval_label=interval_label,
         period_end_display=period_end_display or "end of billing period",
+        cancel_scheduled=bool(cancel_scheduled),
+        is_trialing=(status == "trialing"),
+        can_extend_trial_on_reinstate=(status == "trialing" and not reinstate_trial_bonus_used),
     ))
     # Avoid showing stale/cached cancellation UI.
     resp.headers["Cache-Control"] = "no-store, max-age=0"
@@ -5332,7 +5772,26 @@ def api_billing_cancel():
 
     stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
     try:
+        # Snapshot current subscription status before applying cancellation.
+        is_trialing_before_cancel = False
+        cta_skip_reason = ""
+        try:
+            sub_before = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+            status_before = str(_stripe_obj_get(sub_before, "status", "") or "").strip().lower()
+            is_trialing_before_cancel = (status_before == "trialing")
+        except Exception:
+            is_trialing_before_cancel = False
+        prof = get_user_profile_azure(user_id) or {}
+        reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+        if not is_trialing_before_cancel:
+            # Fallback: profile plan status can lag/lead Stripe in edge cases.
+            plan_status_prof = str(prof.get("plan_status") or "").strip().lower()
+            if plan_status_prof in ("trial", "trialing", "trial_7d"):
+                is_trialing_before_cancel = True
+
         if cancel_at_period_end:
+            cta_email_attempted = False
+            cta_email_sent = False
             # Best-effort: include cancellation reason so it shows in Stripe.
             try:
                 modify_params: dict = {"cancel_at_period_end": True}
@@ -5365,10 +5824,65 @@ def api_billing_cancel():
                     _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
                 except Exception as e:
                     logger.warning("billing_cancel feedback save failed: %s", str(e))
+            # Trial-specific CTA: send reinstatement email (best-effort, non-blocking).
+            if is_trialing_before_cancel:
+                try:
+                    cta_email_attempted = True
+                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    if not email:
+                        email = str(prof.get("email") or "").strip().lower()
+                    name = str(getattr(current_user, "name", "") or "").strip()
+                    if not email:
+                        cta_skip_reason = "missing_email"
+                        sent_ok = False
+                    else:
+                        sent_ok = bool(send_trial_cancellation_reinstate_email(
+                            email=email,
+                            user_name=name,
+                            include_trial_bonus=(not reinstate_trial_bonus_used),
+                        ))
+                    cta_email_sent = bool(sent_ok)
+                    if (not sent_ok) and (not cta_skip_reason):
+                        cta_skip_reason = "smtp_failed_or_rejected"
+                    logger.info(
+                        "billing_cancel trial_cta user_id=%s attempted=%s sent=%s reason=%s email=%s",
+                        user_id,
+                        bool(cta_email_attempted),
+                        bool(cta_email_sent),
+                        cta_skip_reason or "ok",
+                        email or "",
+                    )
+                    try:
+                        table_client = get_users_table_client()
+                        prev_count_raw = prof.get("trial_reinstate_cta_sent_count", 0)
+                        try:
+                            prev_count = int(prev_count_raw or 0)
+                        except Exception:
+                            prev_count = 0
+                        entity = {
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "trial_reinstate_cta_last_attempt_at": datetime.now(timezone.utc).isoformat(),
+                            "trial_reinstate_cta_last_attempt_ok": bool(sent_ok),
+                            "trial_reinstate_cta_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                        }
+                        if sent_ok:
+                            entity["trial_reinstate_cta_last_sent_at"] = entity["trial_reinstate_cta_last_attempt_at"]
+                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                    except Exception:
+                        logger.exception("Failed to persist trial reinstatement CTA email audit fields")
+                except Exception:
+                    cta_skip_reason = "exception_during_send"
+                    logger.exception("Failed to send trial reinstatement CTA email")
+            else:
+                cta_skip_reason = "not_trialing"
             return jsonify({
                 "success": True,
                 "cancel_at_period_end": True,
                 "message": "Your subscription will cancel at the end of your billing period. You'll keep access until then.",
+                "cta_email_attempted": bool(cta_email_attempted),
+                "cta_email_sent": bool(cta_email_sent),
+                "cta_skip_reason": cta_skip_reason or "",
             })
         else:
             # Immediate cancel. To keep the reason/explanation visible in Stripe Dashboard, first attach
@@ -5410,6 +5924,102 @@ def api_billing_cancel():
     except Exception as e:
         logger.error(f"api_billing_cancel error: {str(e)}")
         return jsonify({"error": "Unable to cancel subscription. Please try again."}), 500
+
+
+@app.route("/api/billing/reinstate", methods=["POST"])
+@login_required
+def api_billing_reinstate():
+    """Reinstate a scheduled-for-cancel subscription and extend trial by 2 weeks."""
+    if not _stripe_enabled():
+        return jsonify({"success": False, "error": "Billing is not configured."}), 400
+
+    user_id = getattr(current_user, "id", "")
+    prof = get_user_profile_azure(user_id) or {}
+    reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+    subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+    if not subscription_id:
+        return jsonify({"success": False, "error": "No active subscription found."}), 404
+
+    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    try:
+        sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+        status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
+        if status not in ("active", "trialing"):
+            return jsonify({"success": False, "error": "Your subscription is not active."}), 400
+
+        modify_params: dict = {"cancel_at_period_end": False}
+        extended_trial = False
+        if status == "trialing" and (not reinstate_trial_bonus_used):
+            trial_end = _stripe_obj_get(sub, "trial_end", None)
+            try:
+                if trial_end:
+                    trial_end_ts = int(trial_end)
+                    now_ts = int(datetime.now(timezone.utc).timestamp())
+                    base_ts = max(trial_end_ts, now_ts)
+                    # Extend trial by 14 days from the later of current trial_end and now.
+                    modify_params["trial_end"] = int(base_ts + (14 * 24 * 60 * 60))
+                    extended_trial = True
+            except Exception:
+                pass
+
+        stripe.Subscription.modify(subscription_id, **modify_params)
+        if extended_trial:
+            try:
+                table_client = get_users_table_client()
+                table_client.upsert_entity({
+                    "PartitionKey": str(user_id),
+                    "RowKey": "profile",
+                    "reinstate_trial_bonus_used": True,
+                    "reinstate_trial_bonus_used_at": datetime.now(timezone.utc).isoformat(),
+                }, mode=UpdateMode.MERGE)
+            except Exception:
+                pass
+        # Track reinstatement events and CTA conversion (best-effort).
+        try:
+            table_client = get_users_table_client()
+            prof_after = get_user_profile_azure(user_id) or {}
+            prev_reinstate_raw = prof_after.get("trial_reinstate_conversion_count", 0)
+            prev_cta_sent_raw = prof_after.get("trial_reinstate_cta_sent_count", 0)
+            try:
+                prev_reinstate_count = int(prev_reinstate_raw or 0)
+            except Exception:
+                prev_reinstate_count = 0
+            try:
+                prev_cta_sent_count = int(prev_cta_sent_raw or 0)
+            except Exception:
+                prev_cta_sent_count = 0
+            now_iso = datetime.now(timezone.utc).isoformat()
+            audit_patch = {
+                "PartitionKey": str(user_id),
+                "RowKey": "profile",
+                "trial_reinstate_conversion_count": prev_reinstate_count + 1,
+                "trial_reinstate_last_converted_at": now_iso,
+            }
+            # Mark as converted-from-CTA when at least one CTA email was sent before.
+            if prev_cta_sent_count > 0:
+                audit_patch["trial_reinstate_cta_converted"] = True
+                if not str(prof_after.get("trial_reinstate_cta_converted_at") or "").strip():
+                    audit_patch["trial_reinstate_cta_converted_at"] = now_iso
+            table_client.upsert_entity(audit_patch, mode=UpdateMode.MERGE)
+        except Exception:
+            logger.exception("Failed to persist trial reinstatement conversion audit fields")
+        msg = "Subscription reinstated successfully."
+        if extended_trial:
+            msg = "Subscription reinstated successfully. We added 2 weeks to your trial."
+        return jsonify({
+            "success": True,
+            "message": msg,
+            "redirect_url": url_for("settings_page"),
+        })
+    except stripe.error.InvalidRequestError as e:
+        logger.warning(f"api_billing_reinstate Stripe error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e.user_message) if getattr(e, "user_message", None) else "Unable to reinstate subscription. Please try again.",
+        }), 400
+    except Exception as e:
+        logger.error(f"api_billing_reinstate error: {str(e)}")
+        return jsonify({"success": False, "error": "Unable to reinstate subscription. Please try again."}), 500
 
 
 @app.route("/results", methods=["POST"])
@@ -5981,9 +6591,455 @@ def parse_resume_for_template():
         _safe_log_exception('parse_resume_for_template error', e)
         return jsonify({"success": False, "error": str(e)}), 500
 
+_TRANSLATE_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
+
+
+def _google_translate_request_auth():
+    """Return (headers, query_params) for Translation v2: prefer OAuth2 (service account / ADC); optional API key fallback."""
+    req = google.auth.transport.requests.Request()
+
+    sa_json = (os.environ.get("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON") or "").strip()
+    if sa_json:
+        try:
+            info = json.loads(sa_json)
+        except json.JSONDecodeError as e:
+            raise RuntimeError("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON is not valid JSON.") from e
+        if not isinstance(info, dict) or not info.get("private_key"):
+            raise RuntimeError("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON must be a full service account key JSON object.")
+        creds = service_account.Credentials.from_service_account_info(info, scopes=_TRANSLATE_SCOPES)
+        creds.refresh(req)
+        return ({"Authorization": f"Bearer {creds.token}"}, {})
+
+    adc_path = (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+    if adc_path and os.path.isfile(adc_path):
+        try:
+            creds = service_account.Credentials.from_service_account_file(adc_path, scopes=_TRANSLATE_SCOPES)
+            creds.refresh(req)
+            return ({"Authorization": f"Bearer {creds.token}"}, {})
+        except Exception:
+            # Not a service-account JSON file; fall through to Application Default Credentials.
+            pass
+
+    try:
+        creds, _ = google.auth.default(scopes=_TRANSLATE_SCOPES)
+        creds.refresh(req)
+        tok = getattr(creds, "token", None) or ""
+        if tok:
+            return ({"Authorization": f"Bearer {tok}"}, {})
+    except Exception:
+        pass
+
+    api_key = (os.environ.get("GOOGLE_TRANSLATE_API_KEY") or "").strip()
+    if api_key:
+        return ({}, {"key": api_key})
+
+    raise RuntimeError(
+        "Resume translation needs Google OAuth credentials (API keys are often rejected for Cloud Translation). "
+        "Set GOOGLE_APPLICATION_CREDENTIALS to the path of a service account JSON key with the "
+        "Cloud Translation API enabled, or set GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON to the raw JSON. "
+        "See https://cloud.google.com/docs/authentication#service_accounts"
+    )
+
+
+def _call_google_translate_batch(
+    texts: list[str],
+    target_lang: str,
+    source_lang: Optional[str],
+    auth_headers: dict,
+    auth_params: dict,
+) -> list[str]:
+    """Translate a list of strings (same order returned)."""
+    if not texts:
+        return []
+
+    url = "https://translation.googleapis.com/language/translate/v2"
+    out: list[str] = []
+    batch_size = 80
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        params = dict(auth_params)
+        headers = {**auth_headers, "Content-Type": "application/json"}
+        payload: dict = {"q": batch, "target": target_lang}
+        if source_lang:
+            sl = str(source_lang).strip().lower()
+            if re.match(r"^[a-z]{2,3}(-[a-z]{2,8})?$", sl):
+                payload["source"] = sl
+
+        r = requests.post(url, params=params or None, headers=headers, json=payload, timeout=90)
+        if not r.ok:
+            try:
+                err_detail = r.json()
+            except Exception:
+                err_detail = r.text
+            raise RuntimeError(str(err_detail)[:1200])
+
+        data = r.json()
+        trans_list = data.get("data", {}).get("translations", [])
+        if len(trans_list) != len(batch):
+            raise RuntimeError("Translation API returned an unexpected number of segments.")
+
+        for t in trans_list:
+            txt = t.get("translatedText", "")
+            out.append(html_stdlib.unescape(txt))
+
+    return out
+
+
+def _resume_section_present_for_heading(resume: dict, section_key: str) -> bool:
+    """Whether the resume has content for a standard section (matches template visibility rules roughly)."""
+    sk = str(section_key or "").strip()
+    if sk == "summary":
+        return bool(str(resume.get("summary") or "").strip())
+    if sk == "experience":
+        ex = resume.get("experience")
+        return isinstance(ex, list) and len(ex) > 0
+    if sk == "education":
+        ed = resume.get("education")
+        return isinstance(ed, list) and len(ed) > 0
+    if sk == "projects":
+        pr = resume.get("projects")
+        return isinstance(pr, list) and len(pr) > 0
+    if sk == "certifications":
+        ce = resume.get("certifications")
+        return isinstance(ce, list) and len(ce) > 0
+    if sk == "skills":
+        skills = resume.get("skills")
+        if isinstance(skills, list):
+            return any(str(x or "").strip() for x in skills)
+        return bool(str(skills or "").strip())
+    if sk == "languages":
+        langs = resume.get("languages")
+        if isinstance(langs, list):
+            return any(str(x or "").strip() for x in langs)
+        return bool(str(langs or "").strip())
+    if sk == "contact":
+        return bool(
+            str(resume.get("email") or "").strip()
+            or str(resume.get("phone") or "").strip()
+            or str(resume.get("location") or "").strip()
+            or str(resume.get("website") or resume.get("portfolio") or "").strip()
+        )
+    if sk == "info":
+        links = resume.get("links")
+        if isinstance(links, list) and len(links) > 0:
+            return True
+        return bool(str(resume.get("linkedin") or "").strip())
+    if sk == "accomplishments":
+        return bool(str(resume.get("accomplishments") or "").strip())
+    if sk == "strengths":
+        return bool(str(resume.get("strengths") or "").strip())
+    return False
+
+
+# Default English section titles embedded in each template when `section_headings` is unset.
+# Keys must match _canonical_template_id() outputs used in URLs.
+_SECTION_HEADING_DEFAULTS_EN: dict[str, dict[str, str]] = {
+    "professional": {
+        "summary": "Professional Summary",
+        "experience": "Work History",
+        "projects": "Projects",
+        "skills": "Skills",
+        "languages": "Languages",
+        "certifications": "Certifications",
+        "education": "Education",
+    },
+    "executive": {
+        "summary": "Professional Summary",
+        "experience": "Professional Experience",
+        "education": "Education",
+        "projects": "Projects",
+        "certifications": "Certifications",
+        "languages": "Languages",
+        "skills": "Core Competencies",
+    },
+    "classicRose": {
+        "summary": "Professional Statement",
+        "experience": "Work Experience",
+        "projects": "Projects",
+        "education": "Education",
+        "certifications": "Certifications",
+        "languages": "Languages",
+        "skills": "Skills",
+    },
+    "creative2": {
+        "education": "Education",
+        "experience": "Experience",
+        "projects": "Projects",
+        "certifications": "Certifications",
+        "languages": "Languages",
+        "contact": "Contact",
+        "skills": "Skills",
+    },
+    "boldProfessional": {
+        "summary": "Professional Summary",
+        "experience": "Work History",
+        "projects": "Projects",
+        "skills": "Skills",
+        "certifications": "Certifications",
+        "education": "Education",
+    },
+    "traditional": {
+        "summary": "Professional Summary",
+        "experience": "Work History",
+        "projects": "Projects",
+        "skills": "Skills",
+        "education": "Education",
+    },
+    "modern": {
+        "summary": "Summary",
+        "experience": "Experience",
+        "projects": "Projects",
+        "education": "Education",
+        "skills": "Skills",
+        "strengths": "Strengths",
+        "languages": "Languages",
+        "certifications": "Certifications",
+    },
+    "minimalSidebar": {
+        "summary": "PROFILE",
+        "experience": "EMPLOYMENT HISTORY",
+        "education": "EDUCATION",
+        "projects": "PROJECTS",
+        "certifications": "CERTIFICATIONS",
+        "skills": "SKILLS",
+        "languages": "LANGUAGES",
+        "info": "INFO",
+    },
+    "minimal": {
+        "summary": "Professional Summary",
+        "experience": "Work History",
+        "education": "Education",
+        "projects": "Projects",
+        "skills": "Skills",
+    },
+    "darkSidebarProgress": {
+        "summary": "Professional Summary",
+        "experience": "Work History",
+        "education": "Education",
+        "projects": "Projects",
+        "skills": "Skills",
+    },
+}
+
+
+def _inject_section_heading_defaults_for_preview(
+    out: dict,
+    template_raw: str,
+    target_lang: str,
+    source_lang: Optional[str],
+    auth_headers: dict,
+    auth_params: dict,
+) -> None:
+    """Templates render English fallback titles from code when `section_headings` is missing — inject translated defaults."""
+    canonical = _canonical_template_id(template_raw)
+    defaults = _SECTION_HEADING_DEFAULTS_EN.get(canonical) or _SECTION_HEADING_DEFAULTS_EN.get("professional") or {}
+
+    headings = out.get("section_headings")
+    if not isinstance(headings, dict):
+        headings = {}
+        out["section_headings"] = headings
+
+    pending_keys: list[str] = []
+    pending_texts: list[str] = []
+
+    for section_key, english_label in defaults.items():
+        if not _resume_section_present_for_heading(out, section_key):
+            continue
+        existing = headings.get(section_key)
+        if isinstance(existing, str) and existing.strip():
+            continue
+        pending_keys.append(section_key)
+        pending_texts.append(english_label)
+
+    if not pending_keys:
+        return
+
+    translated_labels = _call_google_translate_batch(
+        pending_texts, target_lang, source_lang, auth_headers, auth_params
+    )
+    for pk, tl in zip(pending_keys, translated_labels):
+        headings[pk] = tl
+
+
+def _translate_resume_strings_google(
+    resume: dict,
+    target_lang: str,
+    source_lang: Optional[str],
+    auth_headers: dict,
+    auth_params: dict,
+) -> dict:
+    """Deep-copy resume and translate user-facing string fields via Google Cloud Translation API v2."""
+
+    target_lang = str(target_lang or "").strip().lower()
+    if not re.match(r"^[a-z]{2,3}(-[a-z]{2,8})?$", target_lang):
+        raise RuntimeError("Invalid target language code.")
+
+    out = copy.deepcopy(resume)
+    refs: list[tuple] = []
+
+    SKIP_KEYS = frozenset({
+        "email", "phone", "website", "portfolio", "linkedin", "github",
+        "accentColor", "primaryColor", "secondaryColor", "template",
+    })
+    STYLE_SKIP_KEYS = frozenset({"templateViewerSettings", "templateViewerLayout"})
+
+    def looks_like_email(s: str) -> bool:
+        s = s.strip()
+        return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", s))
+
+    def looks_like_url(s: str) -> bool:
+        s = s.strip().lower()
+        return s.startswith("http://") or s.startswith("https://") or s.startswith("www.")
+
+    def looks_like_phone(s: str) -> bool:
+        digits = re.sub(r"\D", "", s)
+        return len(digits) >= 10 and len(s) <= 28
+
+    def should_translate_string(s: str) -> bool:
+        if not isinstance(s, str):
+            return False
+        t = s.strip()
+        if len(t) < 2:
+            return False
+        if looks_like_email(t):
+            return False
+        if looks_like_url(t):
+            return False
+        if looks_like_phone(t):
+            return False
+        return True
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for k, v in list(obj.items()):
+                ks = str(k)
+                if ks in SKIP_KEYS:
+                    continue
+                if ks == "style" and isinstance(v, dict):
+                    for sk, sv in v.items():
+                        if sk in STYLE_SKIP_KEYS or sk in SKIP_KEYS:
+                            continue
+                        if isinstance(sv, str) and should_translate_string(sv):
+                            refs.append((v, sk))
+                        elif isinstance(sv, (dict, list)):
+                            walk(sv)
+                    continue
+                if isinstance(v, str) and should_translate_string(v):
+                    refs.append((obj, k))
+                elif isinstance(v, (dict, list)):
+                    walk(v)
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                if isinstance(item, str) and should_translate_string(item):
+                    refs.append((obj, i))
+                elif isinstance(item, (dict, list)):
+                    walk(item)
+
+    walk(out)
+    if not refs:
+        return out
+
+    texts = [parent[key] for parent, key in refs]
+    translated_out = _call_google_translate_batch(texts, target_lang, source_lang, auth_headers, auth_params)
+
+    for idx, (parent, key) in enumerate(refs):
+        parent[key] = translated_out[idx]
+
+    return out
+
+
+@app.route("/api/translate-resume", methods=["POST"])
+def api_translate_resume():
+    """Translate structured resume text for template preview (Google Cloud Translation API)."""
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        resume = body.get("resume")
+        target = str(body.get("target") or body.get("target_lang") or "").strip()
+        source = str(body.get("source") or "").strip() or None
+        template_raw = str(
+            body.get("template") or body.get("template_name") or body.get("template_id") or ""
+        ).strip()
+
+        if not isinstance(resume, dict):
+            return jsonify({"success": False, "error": "Invalid resume payload."}), 400
+        if not target:
+            return jsonify({"success": False, "error": "Missing target language."}), 400
+
+        auth_headers, auth_params = _google_translate_request_auth()
+        out = _translate_resume_strings_google(resume, target, source, auth_headers, auth_params)
+        _inject_section_heading_defaults_for_preview(out, template_raw or "professional", target, source, auth_headers, auth_params)
+        return jsonify({"success": True, "resume": out})
+    except RuntimeError as e:
+        return jsonify({"success": False, "error": str(e)}), 503
+    except Exception as e:
+        logger.error("translate-resume failed: %s", e)
+        _safe_log_exception("translate-resume", e)
+        return jsonify({"success": False, "error": "Translation failed."}), 500
+
+
+@app.route("/api/template-pdf/snapshot", methods=["POST"])
+@login_required
+def api_template_pdf_snapshot():
+    """Store a one-shot resume JSON for the next Playwright PDF render (translated preview, etc.)."""
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        resume = body.get("resume")
+        template_hint = str(
+            body.get("template") or body.get("template_name") or body.get("template_id") or ""
+        ).strip()
+        if not isinstance(resume, dict):
+            return jsonify({"success": False, "error": "Invalid resume payload"}), 400
+
+        token = _pdf_snapshot_store_put(resume, int(current_user.id), template_hint or None)
+        return jsonify({"success": True, "token": token})
+    except Exception as e:
+        logger.error("template_pdf snapshot store failed: %s", e)
+        return jsonify({"success": False, "error": "Could not store PDF snapshot."}), 500
+
+
 @app.route("/api/template-data", methods=["GET"])
 def get_template_data():
     """Get structured resume data for template viewer"""
+    snap_tok = str(request.args.get("pdf_snapshot") or "").strip()
+    if snap_tok:
+        ent = _pdf_snapshot_store_get(snap_tok)
+        if not ent:
+            return jsonify({"error": "Invalid or expired PDF snapshot"}), 404
+        if not current_user.is_authenticated:
+            return jsonify({"error": "Authentication required"}), 401
+        try:
+            if int(ent.get("uid") or -1) != int(current_user.id):
+                return jsonify({"error": "Forbidden"}), 403
+        except Exception:
+            return jsonify({"error": "Forbidden"}), 403
+
+        template_data = session.get("template_data") or {}
+        if not isinstance(template_data, dict):
+            template_data = {}
+        results_data = session.get("results_data") or {}
+        source_revision_id = str(
+            (results_data.get("source_revision_id") if isinstance(results_data, dict) else None)
+            or (template_data.get("source_revision_id") if isinstance(template_data, dict) else None)
+            or ""
+        ).strip()
+
+        resume_out = ent.get("resume")
+        if not isinstance(resume_out, dict):
+            return jsonify({"error": "Invalid snapshot resume"}), 404
+
+        tmpl = str(ent.get("template_hint") or "").strip()
+        if not tmpl:
+            tmpl = str(template_data.get("template_name") or "professional")
+
+        return jsonify({
+            "success": True,
+            "resume": resume_out,
+            "template": _canonical_template_id(tmpl),
+            "revised_resume": template_data.get("revised_resume", "") if isinstance(template_data, dict) else "",
+            "source_revision_id": source_revision_id,
+        })
+
     template_data = session.get('template_data')
     if not template_data:
         return jsonify({"error": "Template data not found"}), 404
@@ -6235,6 +7291,7 @@ def api_template_pdf(template_id):
     Client-side html2canvas/html2pdf fails on modern Tailwind color functions like oklab/oklch.
     This endpoint renders the existing React template route in Chromium and returns a PDF attachment.
     """
+    pdf_snap_tok_cleanup = str(request.args.get("pdfSnapshot") or "").strip()
     step = "start"
     try:
         t0 = time.time()
@@ -6257,7 +7314,17 @@ def api_template_pdf(template_id):
 
         template_data = session.get('template_data')
         if not template_data:
-            return "Template data not found in session.", 404
+            if not pdf_snap_tok_cleanup:
+                return "Template data not found in session.", 404
+            step = "pdf_snapshot_validate"
+            ent = _pdf_snapshot_store_get(pdf_snap_tok_cleanup)
+            if not ent:
+                return "PDF snapshot expired or invalid.", 404
+            try:
+                if int(ent.get("uid") or -1) != int(current_user.id):
+                    return "Forbidden.", 403
+            except Exception:
+                return "Forbidden.", 403
         # If the App Service container recycled, OS libs may be missing until startup.sh finishes apt-get.
         # In that case, avoid a confusing TargetClosedError and return a retryable status instead.
         if _ON_AZURE:
@@ -6308,6 +7375,9 @@ def api_template_pdf(template_id):
         step = "build_target_url"
         base_url = request.host_url.rstrip('/')
         target_url = base_url + url_for('react_app', subpath=f"template-download/{canonical}")
+        if pdf_snap_tok_cleanup:
+            join = "&" if ("?" in target_url) else "?"
+            target_url = target_url + join + urlencode({"pdf_snapshot": pdf_snap_tok_cleanup})
         logger.info("template_pdf navigate url=%s t=%sms", target_url, _t())
 
         # Style overrides (match TemplateViewer sliders)
@@ -7195,6 +8265,9 @@ def api_template_pdf(template_id):
         if "Executable doesn't exist" in msg or "playwright install" in msg:
             msg = msg + " (Try: python -m playwright install chromium)"
         return msg, 500
+    finally:
+        if pdf_snap_tok_cleanup:
+            _pdf_snapshot_store_pop(pdf_snap_tok_cleanup)
 
 
 @app.route('/api/ai/resume-edit', methods=['POST'])
@@ -7382,6 +8455,15 @@ def discounts():
 def about():
     current_year = datetime.now().year
     return render_template("about.html", year=current_year, user=current_user if current_user.is_authenticated else None)
+
+@app.route("/resume-org-alternative")
+def resume_org_alternative():
+    current_year = datetime.now().year
+    return render_template(
+        "resume_org_alternative.html",
+        year=current_year,
+        user=current_user if current_user.is_authenticated else None,
+    )
 
 @app.route("/blog")
 def blog():
@@ -8118,6 +9200,7 @@ def sitemap():
     public_endpoints = {
         'index': {'priority': '1.0', 'changefreq': 'daily'},
         'about': {'priority': '0.8', 'changefreq': 'monthly'},
+        'resume_org_alternative': {'priority': '0.9', 'changefreq': 'weekly'},
         'blog': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_templates': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_builder': {'priority': '0.9', 'changefreq': 'weekly'},
@@ -8956,12 +10039,14 @@ def settings_page():
             if not price_id and si_price_id:
                 price_id = si_price_id
 
-            annual_pid = _get_stripe_price_id('annual_6_95') or ''
-            monthly_pid = _get_stripe_price_id('monthly_10_95') or ''
+            annual_ids = _configured_stripe_price_ids_for_plan('annual_6_95')
+            monthly_ids = _configured_stripe_price_ids_for_plan('monthly_10_95')
+            annual_pid = ','.join(sorted(annual_ids))
+            monthly_pid = ','.join(sorted(monthly_ids))
             # Infer interval if Stripe didn't provide recurring info
-            if not interval and price_id and annual_pid and price_id == annual_pid:
+            if not interval and price_id and price_id in annual_ids:
                 interval, interval_count = 'year', 1
-            if not interval and price_id and monthly_pid and price_id == monthly_pid:
+            if not interval and price_id and price_id in monthly_ids:
                 interval, interval_count = 'month', 1
 
             # Some Stripe setups can surface an "active" subscription where current_period_end is not populated
@@ -9604,7 +10689,41 @@ def registered_users_json():
         return jsonify({"error": "Forbidden"}), 403
     table_name = (request.args.get('table') or '').strip() or 'Users'
     users_rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
-    return jsonify({"table": resolved_table, "columns": all_keys, "users": users_rows})
+    cta_sent_total = 0
+    cta_sent_users = 0
+    cta_converted_users = 0
+    cta_conversion_events = 0
+    for row in users_rows:
+        try:
+            sent_count = int(row.get("trial_reinstate_cta_sent_count", 0) or 0)
+        except Exception:
+            sent_count = 0
+        try:
+            conv_count = int(row.get("trial_reinstate_conversion_count", 0) or 0)
+        except Exception:
+            conv_count = 0
+        converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        cta_sent_total += max(sent_count, 0)
+        cta_conversion_events += max(conv_count, 0)
+        if sent_count > 0:
+            cta_sent_users += 1
+        if converted_flag or (sent_count > 0 and conv_count > 0):
+            cta_converted_users += 1
+    cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
+    cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
+    return jsonify({
+        "table": resolved_table,
+        "columns": all_keys,
+        "users": users_rows,
+        "conversion_summary": {
+            "cta_sent_total": cta_sent_total,
+            "cta_sent_users": cta_sent_users,
+            "cta_converted_users": cta_converted_users,
+            "cta_conversion_events": cta_conversion_events,
+            "cta_user_conversion_rate": round(cta_user_conversion_rate, 1),
+            "cta_event_conversion_rate": round(cta_event_conversion_rate, 1),
+        },
+    })
 
 def _format_value_pacific_if_datetime(val):
     """Format datetime values to Pacific time for display."""
@@ -9630,7 +10749,51 @@ def registered_users_view():
             v = row.get(k)
             if v is not None and (hasattr(v, "isoformat") or (isinstance(v, str) and "T" in v)):
                 row[k] = _format_value_pacific_if_datetime(v)
-    return render_template('admin_registered_users.html', users=data, azure_users_table_name=resolved_table, columns=all_keys)
+    # CTA conversion summary (trial cancellation reinstate email).
+    cta_sent_total = 0
+    cta_sent_users = 0
+    cta_converted_users = 0
+    cta_conversion_events = 0
+    for row in data:
+        sent_raw = row.get("trial_reinstate_cta_sent_count", 0)
+        conv_raw = row.get("trial_reinstate_conversion_count", 0)
+        converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        try:
+            sent_count = int(sent_raw or 0)
+        except Exception:
+            sent_count = 0
+        try:
+            conv_count = int(conv_raw or 0)
+        except Exception:
+            conv_count = 0
+
+        cta_sent_total += max(sent_count, 0)
+        cta_conversion_events += max(conv_count, 0)
+        if sent_count > 0:
+            cta_sent_users += 1
+        # Converted user if explicit flag is true or they reinstated after any CTA send.
+        if converted_flag or (sent_count > 0 and conv_count > 0):
+            cta_converted_users += 1
+
+    cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
+    cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
+
+    conversion_summary = {
+        "cta_sent_total": cta_sent_total,
+        "cta_sent_users": cta_sent_users,
+        "cta_converted_users": cta_converted_users,
+        "cta_conversion_events": cta_conversion_events,
+        "cta_user_conversion_rate": round(cta_user_conversion_rate, 1),
+        "cta_event_conversion_rate": round(cta_event_conversion_rate, 1),
+    }
+
+    return render_template(
+        'admin_registered_users.html',
+        users=data,
+        azure_users_table_name=resolved_table,
+        columns=all_keys,
+        conversion_summary=conversion_summary,
+    )
 
 @app.route('/admin/registered_users.csv')
 @login_required

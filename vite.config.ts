@@ -25,11 +25,9 @@ export default defineConfig(({ mode }) => {
         },
         build: {
             outDir: '../static/react',  // Output to static/react folder
-            // IMPORTANT: do not wipe the output dir.
-            // Some clients (especially on mobile networks/CDNs) can briefly cache the SPA shell (index.html)
-            // and still request older hashed assets. If we delete them on each deploy/build, those users
-            // see an unstyled/skeleton page because CSS/JS 404.
-            emptyOutDir: false,
+            // Clean old hashed assets on each build to prevent unbounded growth.
+            // The SPA shell is served via Flask with no-store headers, so it shouldn't be cached.
+            emptyOutDir: true,
             assetsDir: 'assets',  // Put assets in assets subfolder
             sourcemap: false,  // Disable source maps for production
         },

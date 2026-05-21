@@ -3475,3 +3475,179 @@ oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF W
 [2026-05-08T02:59:44.993310Z] local_errors.log initialized
 
 [2026-05-08T03:06:49.949074Z] local_errors.log initialized
+
+[2026-05-09T02:04:30.529119Z] local_errors.log initialized
+
+[2026-05-09T22:20:53.080496Z] local_errors.log initialized
+
+[2026-05-09T23:03:22.186802Z] local_errors.log initialized
+
+[2026-05-09T23:23:38.116639Z] local_errors.log initialized
+
+[2026-05-09T23:46:47.476104Z] local_errors.log initialized
+
+[2026-05-09T23:59:50.801556Z] local_errors.log initialized
+
+[2026-05-10T00:02:50.972424Z] local_errors.log initialized
+
+[2026-05-10T00:06:03.570796Z] local_errors.log initialized
+
+[2026-05-10T00:08:37.589809Z] local_errors.log initialized
+
+[2026-05-10T00:12:20.368874Z] local_errors.log initialized
+
+[2026-05-10T03:56:57.438287Z] local_errors.log initialized
+
+[2026-05-10T04:05:14.203705Z] local_errors.log initialized
+
+[2026-05-10T05:08:44.575026Z] local_errors.log initialized
+
+[2026-05-10T05:15:14.022439Z] local_errors.log initialized
+
+[2026-05-10T05:20:10.674843Z] local_errors.log initialized
+
+[2026-05-10T05:30:27.430924Z] local_errors.log initialized
+
+[2026-05-10T05:34:07.744033Z] local_errors.log initialized
+
+[2026-05-10T05:40:27.440177Z] local_errors.log initialized
+
+[2026-05-10T05:44:24.347171Z] local_errors.log initialized
+
+[2026-05-10T05:44:43.025851Z] unhandled exception
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 241, in react_app
+    resp = send_file(index_abs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\helpers.py", line 504, in send_file
+    return werkzeug.utils.send_file(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\utils.py", line 428, in send_file
+    stat = os.stat(path)
+           ^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+
+
+[2026-05-10T05:44:45.365973Z] unhandled exception
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 241, in react_app
+    resp = send_file(index_abs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\helpers.py", line 504, in send_file
+    return werkzeug.utils.send_file(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\utils.py", line 428, in send_file
+    stat = os.stat(path)
+           ^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+
+
+[2026-05-10T05:46:51.005983Z] local_errors.log initialized
+
+[2026-05-10T05:53:04.487803Z] local_errors.log initialized
+
+[2026-05-10T05:58:55.257100Z] local_errors.log initialized
+
+[2026-05-10T05:59:38.868882Z] local_errors.log initialized
+
+[2026-05-10T06:34:08.977596Z] local_errors.log initialized
+
+[2026-05-11T08:46:17.904150Z] unhandled exception
+UndefinedError: 'plan_prices' is undefined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 4082, in plans
+    user_id=current_user.id,
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\plans.html", line 781, in top-level template code
+    <div class="price"><strong>{{ plan_prices.annual_strong }}</strong><span>/ month</span></div>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 490, in getattr
+    return getattr(obj, attribute)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'plan_prices' is undefined
+
+
+[2026-05-11T19:43:39.797865Z] local_errors.log initialized
+
+[2026-05-13T21:25:19.483764Z] local_errors.log initialized
+[2026-05-14T04:16:11.895842Z] upload GET: pid=31484 build=1778478601
+[2026-05-14T04:16:32.431117Z] results_route POST: start
+[2026-05-14T04:16:32.466267Z] results_route POST: received upload filename=renata_voss_resume.pdf
+[2026-05-14T04:16:32.793401Z] results_route POST: extracted_text_len=1150
+[2026-05-14T04:16:32.797574Z] results_route POST: calling revise_resume resume_len=1150 jd_len=0
+[2026-05-14T04:16:59.138901Z] results_route POST: revise_resume ok revised_len=3661
+[2026-05-14T04:16:59.696542Z] results_route POST: redirecting to results_get
+[2026-05-14T04:16:59.719313Z] results_get GET: start
+[2026-05-14T04:16:59.720797Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-15T06:32:18.498259Z] local_errors.log initialized
+
+[2026-05-15T06:42:50.155615Z] local_errors.log initialized
+[2026-05-18T00:14:58.018046Z] upload GET: pid=44284 build=1778478601
+[2026-05-18T00:15:10.855882Z] results_route POST: start
+[2026-05-18T00:15:10.863403Z] results_route POST: received upload filename=actuarial_resume_internship_12-25.docx
+[2026-05-18T00:15:10.934380Z] results_route POST: extracted_text_len=2037
+[2026-05-18T00:15:10.934380Z] results_route POST: calling revise_resume resume_len=2037 jd_len=0
+[2026-05-18T00:15:35.532588Z] results_route POST: revise_resume ok revised_len=3729
+[2026-05-18T00:15:36.128337Z] results_route POST: redirecting to results_get
+[2026-05-18T00:15:36.145949Z] results_get GET: start
+[2026-05-18T00:15:36.162159Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-18T00:23:35.340640Z] local_errors.log initialized
+[2026-05-18T00:24:16.785157Z] results_get GET: start
+[2026-05-18T00:24:16.785157Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:24:34.465218Z] results_get GET: start
+[2026-05-18T00:24:34.465218Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:24:38.462032Z] results_get GET: start
+[2026-05-18T00:24:38.462032Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:28:51.427390Z] results_get GET: start
+[2026-05-18T00:28:51.428479Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:28:55.520360Z] results_get GET: start
+[2026-05-18T00:28:55.522361Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:30:20.101076Z] upload GET: pid=7176 build=1778994081
+[2026-05-18T00:30:49.619448Z] results_route POST: start
+[2026-05-18T00:30:50.594709Z] results_route POST: received upload filename=actuarial_resume_internship_12-25.docx
+[2026-05-18T00:30:50.670029Z] results_route POST: extracted_text_len=2037
+[2026-05-18T00:30:50.670029Z] results_route POST: calling revise_resume resume_len=2037 jd_len=0
+[2026-05-18T00:31:13.726992Z] results_route POST: revise_resume ok revised_len=2972
+[2026-05-18T00:31:15.230168Z] results_route POST: redirecting to results_get
+[2026-05-18T00:31:16.533893Z] results_get GET: start
+[2026-05-18T00:31:16.533893Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-18T01:07:37.128987Z] local_errors.log initialized
+[2026-05-18T06:13:09.327560Z] upload GET: pid=25156 build=1778994081
+[2026-05-18T06:13:19.353958Z] results_route POST: start
+[2026-05-18T06:13:19.549459Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-05-18T06:13:38.334140Z] results_route POST: revise_resume ok revised_len=2371
+[2026-05-18T06:13:38.900096Z] results_route POST: redirecting to results_get
+[2026-05-18T06:13:38.934186Z] results_get GET: start
+[2026-05-18T06:13:38.934186Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id

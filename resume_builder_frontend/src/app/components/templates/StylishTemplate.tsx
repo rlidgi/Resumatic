@@ -149,7 +149,7 @@ export function StylishTemplate({ data }: StylishTemplateProps) {
 
           {/* Certifications */}
           {data.certifications && data.certifications.length > 0 && (
-            <SectionBlock title="CERTIFICATIONS" panelTone="secondary">
+            <SectionBlock title="CERTIFICATIONS">
               <div className="space-y-1">
                 {data.certifications.map((cert) => (
                   <div key={cert.id} className="text-[7px] text-black">

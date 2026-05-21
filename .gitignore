@@ -1,5 +1,4 @@
 # Environment variables
-.env
 
 # Node / frontend dependencies
 node_modules/
@@ -7,6 +6,11 @@ frontend/node_modules/
 
 # OAuth Credentials
 client_secret.json
+
+# Google Cloud service account keys (never commit; prefer storing outside the repo)
+*-service-account*.json
+*serviceaccount*.json
+google-application-credentials*.json
 
 # Python
 __pycache__/
@@ -54,3 +58,4 @@ temp_uploads/
 scripts/temp_uploads/
 scripts/counter.json
 cancellation_feedback.json
+config.bat

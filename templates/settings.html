@@ -57,10 +57,6 @@
                         <dt class="text-gray-500">Email</dt>
                         <dd class="font-semibold text-gray-900 break-all">{{ email or '' }}</dd>
                     </div>
-                    <div class="flex items-center justify-between gap-4">
-                        <dt class="text-gray-500">Name</dt>
-                        <dd class="font-semibold text-gray-900">{{ name or '' }}</dd>
-                    </div>
                 </dl>
             </div>
 
@@ -113,12 +109,12 @@
 
                         {% if is_paid %}
                         {% if cancel_scheduled %}
-                        <div
-                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 font-semibold">
-                            Cancellation scheduled
-                        </div>
+                        <a href="/billing/cancel"
+                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+                            Reinstate subscription
+                        </a>
                         <p class="text-xs text-gray-500">
-                            Your plan will end at the end of your billing period.
+                            Your plan is scheduled to end at the end of the current billing period.
                         </p>
                         {% else %}
                         <a href="/billing/cancel"

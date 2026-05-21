@@ -685,7 +685,7 @@ export default function ModernTemplate({
                         </SideSection>
                     )}
 
-                    {(strengths.length > 0 || showEmpty) && (
+                    {strengths.length > 0 && (
                         <SideSection
                             title={getHeading('strengths', 'Strengths')}
                             editMode={editMode}
@@ -1120,9 +1120,8 @@ function extractStrengths(sections: any): Array<{ title: string; body?: string }
         if (out.length > 0) return out;
     }
 
-    // fallback: use first few skills as "strengths" titles (no bodies)
-    const skills = normalizeList(sections.skills);
-    return skills.slice(0, 3).map((s) => ({ title: s }));
+    // No explicit strengths section found.
+    return [];
 }
 
 
