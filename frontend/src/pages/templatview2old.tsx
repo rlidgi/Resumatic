@@ -353,7 +353,7 @@ export default function TemplateViewer() {
             fetch('/api/me', { credentials: 'same-origin' })
                 .then(r => r.json())
                 .then(data => { if (!cancelled) setMe(data); })
-                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }); });
+                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 1, revisions_used: 0 }); });
         };
         loadMe();
 

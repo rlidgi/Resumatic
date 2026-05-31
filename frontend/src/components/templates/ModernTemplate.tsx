@@ -98,15 +98,15 @@ export default function ModernTemplate({
 
     const updateCertification = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
         setEditedData((prev: any) => {
-            const current = normalizeCertifications(prev?.certifications);
+            const current = normalizeCertifications(prev?.certifications, true);
             const nextArr = [...current];
             nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
-            const cleaned = nextArr.filter((c) => String(c?.name || '').trim());
+            const cleaned = editMode ? nextArr : nextArr.filter((c) => String(c?.name || '').trim());
             const next = { ...(prev || {}), certifications: cleaned };
             emit(next);
             return next;
         });
-    }, [emit]);
+    }, [editMode, emit]);
 
     const removeExperienceItem = useCallback((index: number) => {
         setEditedData((prev: any) => {
@@ -223,7 +223,7 @@ export default function ModernTemplate({
     const links = Array.isArray(data.links) ? data.links : [];
     const skills = normalizeList(data.skills);
     const languages = normalizeLanguages(data.languages);
-    const certifications = normalizeCertifications(data.certifications);
+    const certifications = normalizeCertifications(data.certifications, editMode);
     const strengths = extractStrengths(data);
     const education = Array.isArray(data.education) ? data.education : [];
     const experience = Array.isArray(data.experience) ? data.experience : [];
@@ -1068,7 +1068,7 @@ function normalizeLanguages(value: any): Array<{ name: string; level: string }> 
     return [];
 }
 
-function normalizeCertifications(value: any): Array<{ name: string; issuer: string; year: string }> {
+function normalizeCertifications(value: any, keepEmpty = false): Array<{ name: string; issuer: string; year: string }> {
     if (!value) return [];
     if (Array.isArray(value)) {
         return value
@@ -1084,7 +1084,7 @@ function normalizeCertifications(value: any): Array<{ name: string; issuer: stri
                 issuer: String(x.issuer || '').trim(),
                 year: String(x.year || '').trim(),
             }))
-            .filter((x) => x.name);
+            .filter((x) => keepEmpty || x.name);
     }
     if (typeof value === 'string') {
         return normalizeList(value).map((n) => ({ name: n, issuer: '', year: '' }));

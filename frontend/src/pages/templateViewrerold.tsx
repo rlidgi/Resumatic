@@ -448,7 +448,7 @@ export default function TemplateViewer() {
                         setMe({
                             is_authenticated: false,
                             is_paid: false,
-                            free_revision_limit: 2,
+                            free_revision_limit: 1,
                             revisions_used: 0,
                             auth_idle_timeout_seconds: null,
                         });

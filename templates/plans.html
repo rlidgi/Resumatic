@@ -744,7 +744,7 @@
                 <a class="btn lilac" href="{{ next_url or '/upload' }}">Continue free</a>
 
                 <ul class="features">
-                    <li><span class="check"></span>2 resume revisions</li>
+                    <li><span class="check"></span>1 resume revision</li>
 
                     <li><span class="check"></span><b>No PDF downloads</b></li>
                 </ul>
@@ -887,7 +887,7 @@
         // and clear any overlays on restore.
         try {
             sessionStorage.setItem("freeTierLimitReached", "1");
-            sessionStorage.setItem("freeTierLimitMessage", "Free tier includes only 2 resume revisions.");
+            sessionStorage.setItem("freeTierLimitMessage", "Free tier includes only 1 resume revision.");
         } catch (e) { /* ignore */ }
     </script>
     {% endif %}

@@ -158,7 +158,7 @@ export default function ContemporaryTemplate({
     const summary = String(editedData.summary || "").trim();
     const skills: string[] = Array.isArray(editedData.skills) ? editedData.skills : [];
     const languages = normalizeList((editedData as any)?.languages);
-    const certifications = normalizeCertifications((editedData as any)?.certifications);
+    const certifications = normalizeCertifications((editedData as any)?.certifications, editMode);
     const experience = Array.isArray(editedData.experience) ? editedData.experience : [];
     const projects = Array.isArray(editedData.projects) ? editedData.projects : [];
     const education = Array.isArray(editedData.education) ? editedData.education : [];
@@ -244,15 +244,15 @@ export default function ContemporaryTemplate({
 
     const updateCertificationField = useCallback((index: number, field: 'name' | 'issuer' | 'year', value: string) => {
         setEditedData((prev) => {
-            const current = normalizeCertifications((prev as any)?.certifications);
+            const current = normalizeCertifications((prev as any)?.certifications, true);
             const nextArr = [...current];
             nextArr[index] = { ...(nextArr[index] || { name: '', issuer: '', year: '' }), [field]: value };
-            const cleaned = nextArr.filter((c) => String((c as any)?.name || '').trim());
+            const cleaned = editMode ? nextArr : nextArr.filter((c) => String((c as any)?.name || '').trim());
             const next = { ...prev, certifications: cleaned };
             onContentChange?.(next);
             return next;
         });
-    }, [onContentChange]);
+    }, [editMode, onContentChange]);
 
     const updateCustomItem = useCallback((sectionIndex: number, itemIndex: number, field: string, value: string) => {
         setEditedData((prev) => {
@@ -1213,7 +1213,7 @@ function normalizeLanguages(value: any): Array<{ name: string; level: string }> 
     return [];
 }
 
-function normalizeCertifications(value: any): Array<{ name: string; issuer: string; year: string }> {
+function normalizeCertifications(value: any, keepEmpty = false): Array<{ name: string; issuer: string; year: string }> {
     if (!value) return [];
     if (Array.isArray(value)) {
         return value
@@ -1229,7 +1229,7 @@ function normalizeCertifications(value: any): Array<{ name: string; issuer: stri
                 issuer: String(x.issuer || '').trim(),
                 year: String(x.year || '').trim(),
             }))
-            .filter((x) => x.name);
+            .filter((x) => keepEmpty || x.name);
     }
     if (typeof value === 'string') {
         return normalizeList(value).map((n) => ({ name: n, issuer: '', year: '' }));

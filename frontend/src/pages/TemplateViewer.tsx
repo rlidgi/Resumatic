@@ -11,7 +11,11 @@ import StylishTemplate from '../components/templates/StylishTemplate';
 import { TemplateAiAssistProvider } from '../components/templates/EditableSection';
 import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, Sparkles, AlertTriangle, Languages } from 'lucide-react';
 import { mixWithBlack, mixWithWhite, normalizeHexColor } from '../utils/accentColor';
-import { PREVIEW_TRANSLATE_NONE_VALUE, PREVIEW_TRANSLATE_OPTIONS } from '../constants/previewTranslateLanguages';
+import {
+    PREVIEW_TRANSLATE_NONE_VALUE,
+    PREVIEW_TRANSLATE_OPTIONS,
+    PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE,
+} from '../constants/previewTranslateLanguages';
 
 type TemplateViewerStyleSettings = {
     fontScale: number;
@@ -29,6 +33,16 @@ const DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS: TemplateViewerStyleSettings = {
     paragraphGapPx: 0,
     spacingScale: 1,
 };
+
+const PROFESSIONAL_BACKGROUND_TONES: Array<{ name: string; value: string }> = [
+    { name: 'Soft Slate', value: '#B4C5DD' },
+    { name: 'Mist Gray', value: '#D2D4D9' },
+    { name: 'Warm Stone', value: '#cbbcae' },
+    { name: 'Steel Mist', value: '#A8B7CF' },
+    { name: 'Sage Mist', value: '#b9c8bc' },
+    { name: 'Powder Blue', value: '#B6D7F2' },
+    { name: 'Cloud Lilac', value: '#c7bbcf' },
+];
 
 function clampNumber(value: any, lo: number, hi: number, fallback: number): number {
     const n = Number(value);
@@ -390,17 +404,8 @@ export default function TemplateViewer() {
     const [editSaveError, setEditSaveError] = useState<string | null>(null);
     const [editSaveSuccess, setEditSaveSuccess] = useState(false);
     const [editSaveHubMessage, setEditSaveHubMessage] = useState<string | null>(null);
-    const [editingExperienceIndex, setEditingExperienceIndex] = useState<number | null>(null);
-    const [showAllWorkHistoryDescriptions, setShowAllWorkHistoryDescriptions] = useState(false);
-    const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
-    const [showAllProjectDescriptions, setShowAllProjectDescriptions] = useState(false);
-
-    // AI edit assistance (summary + experience + projects + custom sections)
+    // AI edit assistance
     const [aiEditError, setAiEditError] = useState<string | null>(null);
-    const [aiBusySummary, setAiBusySummary] = useState(false);
-    const [aiBusyExperience, setAiBusyExperience] = useState<Record<number, boolean>>({});
-    const [aiBusyProjects, setAiBusyProjects] = useState<Record<number, boolean>>({});
-    const [aiBusyCustom, setAiBusyCustom] = useState<Record<string, boolean>>({});
 
     // Download feedback modal (shown after printing/export)
     const [downloadFeedbackOpen, setDownloadFeedbackOpen] = useState(false);
@@ -621,9 +626,23 @@ export default function TemplateViewer() {
     const [translateError, setTranslateError] = useState<string | null>(null);
 
     const previewLangActive = React.useMemo(
-        () => Boolean(previewTargetLang) && previewTargetLang !== PREVIEW_TRANSLATE_NONE_VALUE,
+        () => (
+            Boolean(previewTargetLang) &&
+            previewTargetLang !== PREVIEW_TRANSLATE_NONE_VALUE &&
+            previewTargetLang !== PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE
+        ),
         [previewTargetLang],
     );
+
+    // Safety: if the reset option ever lands in state (e.g. due to browser quirks),
+    // immediately normalize back to the default "Translate" value.
+    useEffect(() => {
+        if (previewTargetLang !== PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE) return;
+        setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+        setTranslatedResume(null);
+        setTranslateError(null);
+        setTranslateLoading(false);
+    }, [previewTargetLang]);
 
     const displayResume = React.useMemo(() => {
         if (!previewLangActive) return draftResume;
@@ -644,6 +663,7 @@ export default function TemplateViewer() {
         if (!previewLangActive) {
             setTranslatedResume(null);
             setTranslateError(null);
+            setTranslateLoading(false);
             return;
         }
         let cancelled = false;
@@ -678,6 +698,9 @@ export default function TemplateViewer() {
         return () => {
             cancelled = true;
             window.clearTimeout(timer);
+            // If the user switches back to English while a request is in flight,
+            // don't leave the UI stuck in a loading state.
+            setTranslateLoading(false);
         };
     }, [previewTargetLang, draftResumeJsonStable]);
 
@@ -878,27 +901,10 @@ export default function TemplateViewer() {
         };
     }, []);
 
-    // Debug logging
-    useEffect(() => {
-        console.log('TemplateViewer: inlineEditMode changed to:', inlineEditMode);
-        console.log('TemplateViewer: sectionOrder:', sectionOrder);
-    }, [inlineEditMode, sectionOrder]);
-
-    console.log('TemplateViewer: Template name:', templateName);
-
     const downloadOnlyReturnToHub = React.useCallback(() => {
         const ret = new URLSearchParams(window.location.search || '').get('return') || '';
         window.location.href = ret || '/my_revisions';
     }, []);
-
-    useEffect(() => {
-        if (inlineEditMode) {
-            setShowAllWorkHistoryDescriptions(false);
-            setEditingExperienceIndex(null);
-            setShowAllProjectDescriptions(false);
-            setEditingProjectIndex(null);
-        }
-    }, [inlineEditMode]);
 
     useEffect(() => {
         let cancelled = false;
@@ -906,7 +912,7 @@ export default function TemplateViewer() {
             fetch('/api/me', { credentials: 'same-origin' })
                 .then(r => r.json())
                 .then(data => { if (!cancelled) setMe(data); })
-                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }); });
+                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 1, revisions_used: 0 }); });
         };
         loadMe();
 
@@ -1571,19 +1577,14 @@ export default function TemplateViewer() {
     }
 
     const loadTemplateData = React.useCallback(async () => {
-        console.log('TemplateViewer: Fetching template data...');
         try {
             const qs = location.search || '';
             const res = await fetch(`/api/template-data${qs}`, { credentials: 'same-origin' });
-            console.log('TemplateViewer: Response status:', res.status);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.error || `HTTP error! status: ${res.status}`);
             }
             const data = await res.json();
-            console.log('TemplateViewer: Received data:', data);
-            console.log('TemplateViewer: Resume data type:', typeof data.resume);
-            console.log('TemplateViewer: Resume data:', JSON.stringify(data.resume, null, 2));
             if (data.success) {
                 const urlRid = new URLSearchParams(window.location.search || '').get('rid') || '';
                 const apiRid = String(data.source_revision_id || '').trim();
@@ -1908,61 +1909,9 @@ export default function TemplateViewer() {
         [resumeData, templateName, sectionOrder, hiddenSectionKeys, styleSettings, sourceRevisionId],
     );
 
-    const saveEditedResumeRef = useRef(saveEditedResume);
-    saveEditedResumeRef.current = saveEditedResume;
-
-    /** After a preview translation succeeds, persist it and reset the language selector (same as the old explicit save). */
-    useEffect(() => {
-        if (!previewLangActive || translateLoading || !translatedResume || inlineEditMode) return;
-        let cancelled = false;
-        void (async () => {
-            await saveEditedResumeRef.current(
-                translatedResume,
-                (payload) => {
-                    if (cancelled) return;
-                    // End preview mode first so the translate effect does not re-run against the new resume
-                    // while the target language is still set (avoids save/translate loops and UI flicker).
-                    setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
-                    setTranslatedResume(null);
-                    setTranslateError(null);
-                    setInlineEditChanges({});
-                    setResumeData(payload);
-                },
-                { quiet: true },
-            );
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [previewLangActive, translateLoading, translatedResume, inlineEditMode]);
-
-    const setField = (key: string, value: any) => {
-        setResumeData((prev: any) => ({ ...(prev || {}), [key]: value }));
-    };
-
-    const getSectionLabel = (key: string, fallback: string): string => {
-        const h = resumeData?.section_headings?.[key];
-        const s = String(h ?? '').trim();
-        return s ? s : fallback;
-    };
-
-    const normalizeList = (v: any): string[] => {
-        if (!v) return [];
-        if (Array.isArray(v)) {
-            return v
-                .map((x) => {
-                    if (x && typeof x === 'object') {
-                        return String(x.name ?? x.label ?? x.title ?? x.skill ?? x.language ?? '').trim();
-                    }
-                    return String(x ?? '').trim();
-                })
-                .filter(Boolean);
-        }
-        return String(v)
-            .split(/\n|,|•/g)
-            .map((s) => s.trim())
-            .filter(Boolean);
-    };
+    // Preview translation is intentionally non-destructive: it should not overwrite the
+    // underlying resume data. Users can return to the original English version by selecting
+    // "English (default)" in the language selector.
 
     const updateDraftResume = React.useCallback((updater: (prev: any) => any) => {
         if (inlineEditMode) {
@@ -1993,9 +1942,6 @@ export default function TemplateViewer() {
         return sectionKey;
     }, [templateKey]);
 
-    const sidebarResume = inlineEditMode ? draftResume : resumeData;
-
-    const experienceList: any[] = Array.isArray(sidebarResume?.experience) ? sidebarResume.experience : [];
     const addExperienceItem = () => {
         const previewSectionKey = resolvePreviewSectionKey('experience');
         ensureSectionVisible(previewSectionKey);
@@ -2006,36 +1952,7 @@ export default function TemplateViewer() {
             return { ...(prev || {}), experience: nextArr };
         });
     };
-    const removeExperienceItem = (idx: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.experience) ? prev.experience : [];
-            return { ...(prev || {}), experience: prevArr.filter((_, i) => i !== idx) };
-        });
-    };
-    const updateExperienceDescription = (idx: number, nextDescription: string) => {
-        updateDraftResume((prev: any) => {
-            const prevExp: any[] = Array.isArray(prev?.experience) ? prev.experience : [];
-            const nextExp = prevExp.map((e, i) => (i === idx ? { ...(e || {}), description: nextDescription } : e));
-            return { ...(prev || {}), experience: nextExp };
-        });
-    };
 
-    const linksList: any[] = Array.isArray(sidebarResume?.links) ? sidebarResume.links : [];
-    const updateLinkField = (idx: number, field: 'label' | 'url', value: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.links) ? prev.links : [];
-            const nextArr = prevArr.map((l, i) => {
-                if (i !== idx) return l;
-                const cur = (l && typeof l === 'object') ? l : {};
-                if (field === 'label') return { ...(cur || {}), label: value };
-                // Keep compatibility with templates that read url||href.
-                return { ...(cur || {}), url: value };
-            });
-            return { ...(prev || {}), links: nextArr };
-        });
-    };
-
-    const educationList: any[] = Array.isArray(sidebarResume?.education) ? sidebarResume.education : [];
     const addEducationItem = () => {
         ensureSectionVisible('education');
         setPendingAddedSectionKey('education');
@@ -2045,21 +1962,7 @@ export default function TemplateViewer() {
             return { ...(prev || {}), education: nextArr };
         });
     };
-    const removeEducationItem = (idx: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
-            return { ...(prev || {}), education: prevArr.filter((_, i) => i !== idx) };
-        });
-    };
-    const updateEducationField = (idx: number, field: string, value: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
-            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
-            return { ...(prev || {}), education: nextArr };
-        });
-    };
 
-    const projectsList: any[] = Array.isArray(sidebarResume?.projects) ? sidebarResume.projects : [];
     const addProjectItem = () => {
         ensureSectionVisible('projects');
         setPendingAddedSectionKey('projects');
@@ -2069,49 +1972,21 @@ export default function TemplateViewer() {
             return { ...(prev || {}), projects: nextArr };
         });
     };
-    const removeProjectItem = (idx: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
-            return { ...(prev || {}), projects: prevArr.filter((_, i) => i !== idx) };
-        });
-    };
-    const updateProjectField = (idx: number, field: string, value: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
-            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
-            return { ...(prev || {}), projects: nextArr };
-        });
-    };
 
-    const certificationsList: any[] = Array.isArray(sidebarResume?.certifications) ? sidebarResume.certifications : [];
     const addCertificationItem = () => {
         ensureSectionVisible('certifications');
         setPendingAddedSectionKey('certifications');
         updateDraftResume((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
-            const nextArr = [...prevArr, { name: '', issuer: '', year: '' }];
-            return { ...(prev || {}), certifications: nextArr };
-        });
-    };
-    const removeCertificationItem = (idx: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
-            return { ...(prev || {}), certifications: prevArr.filter((_, i) => i !== idx) };
-        });
-    };
-    const updateCertification = (idx: number, patch: any) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
-            const nextArr = prevArr.map((c, i) => {
-                if (i !== idx) return c;
-                if (typeof c === 'string') return String(patch ?? '');
-                return { ...(c || {}), ...(patch || {}) };
-            });
+            const normalizedTemplateKey = String(templateKey || '').toLowerCase().replace(/[_-]/g, '');
+            const nextItem = (normalizedTemplateKey === 'boldprofessional' || normalizedTemplateKey === 'orangeheader')
+                ? ''
+                : { name: '', issuer: '', year: '' };
+            const nextArr = [...prevArr, nextItem];
             return { ...(prev || {}), certifications: nextArr };
         });
     };
 
-    const customSectionsList: any[] = Array.isArray(sidebarResume?.custom_sections) ? sidebarResume.custom_sections : [];
     const addCustomSection = () => {
         const nextCustomIndex = Array.isArray(draftResume?.custom_sections) ? draftResume.custom_sections.length : 0;
         setPendingAddedSectionKey(`custom_${nextCustomIndex}`);
@@ -2129,58 +2004,6 @@ export default function TemplateViewer() {
             return { ...(prev || {}), custom_sections: nextArr };
         });
     };
-    const removeCustomSection = (sectionIndex: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            return { ...(prev || {}), custom_sections: prevArr.filter((_, i) => i !== sectionIndex) };
-        });
-    };
-    const removeCustomSectionItem = (sectionIndex: number, itemIndex: number) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => {
-                if (i !== sectionIndex) return sec;
-                const cur = (sec && typeof sec === 'object') ? sec : {};
-                const items = Array.isArray(cur.items) ? cur.items.filter((_: any, idx: number) => idx !== itemIndex) : [];
-                return { ...(cur || {}), items };
-            });
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-
-    const updateCustomSectionHeading = (sectionIndex: number, heading: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => (i === sectionIndex ? { ...(sec || {}), heading } : sec));
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-    const updateCustomSectionBody = (sectionIndex: number, value: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => {
-                if (i !== sectionIndex) return sec;
-                // Prefer writing to `content` (templates read content/text/body)
-                return { ...(sec || {}), content: value };
-            });
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-    const updateCustomSectionItem = (sectionIndex: number, itemIndex: number, field: string, value: string) => {
-        updateDraftResume((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => {
-                if (i !== sectionIndex) return sec;
-                const cur = (sec && typeof sec === 'object') ? sec : {};
-                const items = Array.isArray(cur.items) ? [...cur.items] : [];
-                const curItem = (items[itemIndex] && typeof items[itemIndex] === 'object') ? items[itemIndex] : {};
-                items[itemIndex] = { ...(curItem || {}), [field]: value };
-                return { ...(cur || {}), items };
-            });
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-
     async function aiRewriteResumeField(args: {
         field: 'summary' | 'experience_description' | 'project_description' | 'custom_section';
         text: string;
@@ -2386,7 +2209,7 @@ export default function TemplateViewer() {
                 : Math.min(1, fitScaleRaw);
             // Normal mode deterrence: keep the preview fairly small even on wide screens.
             // (Edit mode remains full-size for usability.)
-            const NORMAL_MODE_MAX_SCALE = 0.49;
+            const NORMAL_MODE_MAX_SCALE = 0.56;
 
             // Shrink the last "page frame" to the actual remaining content height to avoid a trailing bottom edge/shadow line.
             // (Must run before pageScale in embed: height-fit uses the same model as the paged layout.)
@@ -2546,7 +2369,6 @@ export default function TemplateViewer() {
 
     // Preview uses optional translated copy; offscreen PDF root matches visible preview (including translation).
     const previewContent = JSON.stringify(displayResume);
-    console.log('TemplateViewer: Content being passed to template:', previewContent.substring(0, 200) + '...');
 
     // Render appropriate template based on templateName
     let TemplateComponent;
@@ -2656,7 +2478,16 @@ export default function TemplateViewer() {
                 <select
                     className="min-w-0 flex-1 text-sm text-gray-800 bg-transparent border-0 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     value={previewTargetLang}
-                    onChange={(e) => setPreviewTargetLang(e.target.value)}
+                    onChange={(e) => {
+                        const next = String(e.target.value || '');
+                        if (next === PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE) {
+                            setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+                            setTranslatedResume(null);
+                            setTranslateError(null);
+                            return;
+                        }
+                        setPreviewTargetLang(next);
+                    }}
                     disabled={inlineEditMode || translateLoading}
                     aria-label="Translate"
                     title={inlineEditMode ? 'Exit edit mode to translate the preview' : 'Translate preview text using Google Translate'}
@@ -3245,10 +3076,10 @@ export default function TemplateViewer() {
                     )}
 
                     <div
-                        className={`grid ${(isDownloadOnly || isEmbed) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} ${isEmbed ? 'gap-0' : 'gap-4 sm:gap-6'}`}
+                        className={`grid ${(isDownloadOnly || isEmbed || inlineEditMode) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} ${isEmbed ? 'gap-0' : 'gap-4 sm:gap-6'}`}
                     >
                         {/* Left settings panel */}
-                        {!isDownloadOnly && !isEmbed && (
+                        {!isDownloadOnly && !isEmbed && !inlineEditMode && (
                             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
                                 <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 border-b border-gray-100">
                                     <div className="flex items-start">
@@ -3312,15 +3143,28 @@ export default function TemplateViewer() {
                                                             <Wand2 className="w-4 h-4 text-sky-600" />
                                                             Background color
                                                         </label>
-                                                        <span className="text-xs text-gray-600">{safeSecondary}</span>
                                                     </div>
-                                                    <input
-                                                        type="color"
-                                                        value={safeSecondary}
-                                                        onChange={(e) => handleSecondaryColorChange(e.target.value)}
-                                                        className="h-10 w-14 rounded-md border border-gray-200 bg-white"
-                                                        disabled={!resumeData}
-                                                    />
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {PROFESSIONAL_BACKGROUND_TONES.map((tone) => {
+                                                            const active = safeSecondary.toLowerCase() === tone.value.toLowerCase();
+                                                            return (
+                                                                <button
+                                                                    key={tone.value}
+                                                                    type="button"
+                                                                    title={tone.name}
+                                                                    aria-label={tone.name}
+                                                                    aria-pressed={active}
+                                                                    onClick={() => handleSecondaryColorChange(tone.value)}
+                                                                    disabled={!resumeData}
+                                                                    className={`h-8 w-8 rounded-full border transition ${active
+                                                                        ? 'ring-2 ring-offset-2 ring-sky-500 border-sky-500'
+                                                                        : 'border-gray-300 hover:border-gray-500'
+                                                                        } ${!resumeData ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    style={{ backgroundColor: tone.value }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             )}
 
@@ -3383,922 +3227,6 @@ export default function TemplateViewer() {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Inline editing happens directly on the preview, so keep the left sidebar focused on layout settings. */}
-                                {false && inlineEditMode && (
-                                    <div className="px-4 pb-4">
-                                        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h2 className="text-sm font-semibold text-gray-900">Edit fields</h2>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => loadTemplateData()}
-                                                        className="text-sm text-gray-600 hover:text-gray-800"
-                                                        disabled={editSaving}
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {editSaveError && (
-                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                    {editSaveError}
-                                                </div>
-                                            )}
-                                            {editSaveSuccess && (
-                                                <div className="mb-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                                                    Saved.
-                                                </div>
-                                            )}
-
-                                            {editSaveHubMessage && (
-                                                <div className="mb-3 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                                    {editSaveHubMessage}
-                                                </div>
-                                            )}
-
-                                            {aiEditError && (
-                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                    {aiEditError}
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-3">
-                                                <Field label="Name">
-                                                    <input
-                                                        value={String(resumeData?.name ?? '')}
-                                                        onChange={(e) => setField('name', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                                <Field label="Title">
-                                                    <input
-                                                        value={String(resumeData?.title ?? '')}
-                                                        onChange={(e) => setField('title', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <Field label="Email">
-                                                        <input
-                                                            value={String(resumeData?.email ?? '')}
-                                                            onChange={(e) => setField('email', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                    <Field label="Phone">
-                                                        <input
-                                                            value={String(resumeData?.phone ?? '')}
-                                                            onChange={(e) => setField('phone', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                </div>
-                                                <Field label="Location">
-                                                    <input
-                                                        value={String(resumeData?.location ?? '')}
-                                                        onChange={(e) => setField('location', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-
-                                                {(String(resumeData?.website ?? resumeData?.portfolio ?? '').trim() || linksList.length > 0) && (
-                                                    <Field label="Website">
-                                                        <input
-                                                            value={String(resumeData?.website ?? resumeData?.portfolio ?? '')}
-                                                            onChange={(e) => setField('website', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                )}
-
-                                                {(linksList.length > 0) && (
-                                                    <div>
-                                                        <div className="text-sm font-bold text-blue-700 border-b border-gray-200 pb-1">Links</div>
-                                                        <div className="mt-2 space-y-2">
-                                                            {linksList.map((l: any, idx: number) => {
-                                                                const label = String(l?.label ?? l?.name ?? l?.title ?? '').trim();
-                                                                const url = String(l?.url ?? l?.href ?? '').trim();
-                                                                return (
-                                                                    <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                            <Field label="Label">
-                                                                                <input
-                                                                                    value={label}
-                                                                                    onChange={(e) => updateLinkField(idx, 'label', e.target.value)}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </Field>
-                                                                            <Field label="URL">
-                                                                                <input
-                                                                                    value={url}
-                                                                                    onChange={(e) => updateLinkField(idx, 'url', e.target.value)}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </Field>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {(() => {
-                                                    const hidden = new Set((Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).map(String));
-                                                    const blocks: Record<string, React.ReactNode> = {};
-
-                                                    const skillsVals = normalizeList(resumeData?.skills);
-                                                    const languageVals = normalizeList(resumeData?.languages);
-
-                                                    blocks.summary = (
-                                                        <label className="block">
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-2">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('summary', 'Professional summary')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className={
-                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                        (aiBusySummary
-                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                            : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-sm')
-                                                                    }
-                                                                    disabled={aiBusySummary}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            setAiBusySummary(true);
-                                                                            const nextText = await aiRewriteResumeField({
-                                                                                field: 'summary',
-                                                                                text: String(resumeData?.summary ?? ''),
-                                                                                meta: {
-                                                                                    title: String(resumeData?.title ?? ''),
-                                                                                },
-                                                                            });
-                                                                            setField('summary', nextText);
-                                                                        } catch (e: any) {
-                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                        } finally {
-                                                                            setAiBusySummary(false);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    {aiBusySummary ? (
-                                                                        'Improving…'
-                                                                    ) : (
-                                                                        <>
-                                                                            <Sparkles className="inline w-3 h-3 mr-1" />
-                                                                            Assist with AI
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            </div>
-                                                            <textarea
-                                                                value={String(resumeData?.summary ?? '')}
-                                                                onChange={(e) => setField('summary', e.target.value)}
-                                                                rows={4}
-                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                            />
-                                                        </label>
-                                                    );
-
-                                                    blocks.skills = (
-                                                        <ListField
-                                                            label={getSectionLabel('skills', 'Skills')}
-                                                            hint={(() => {
-                                                                const limit = getTemplateSkillsLimit(templateName);
-                                                                if (!limit) return undefined;
-                                                                return '# of skills limited by template';
-                                                            })()}
-                                                            values={skillsVals}
-                                                            onChange={(vals: string[]) => setField('skills', vals)}
-                                                        />
-                                                    );
-
-                                                    blocks.languages = (
-                                                        <ListField
-                                                            label={getSectionLabel('languages', 'Languages')}
-                                                            values={languageVals}
-                                                            onChange={(vals: string[]) => {
-                                                                const nextVals = Array.isArray(vals) ? vals : [];
-                                                                const hasAny = nextVals.some((v) => String(v || '').trim().length > 0);
-
-                                                                if (hasAny) {
-                                                                    // If the user previously hid (deleted) the Languages section via the template UI,
-                                                                    // adding languages should make it visible again.
-                                                                    const nextHidden = (Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).filter(
-                                                                        (k) => String(k) !== 'languages'
-                                                                    );
-                                                                    setHiddenSectionKeys(nextHidden);
-
-                                                                    if (Array.isArray(sectionOrder) && sectionOrder.length > 0 && !sectionOrder.includes('languages')) {
-                                                                        setSectionOrder([...sectionOrder, 'languages']);
-                                                                    }
-                                                                }
-
-                                                                setField('languages', nextVals);
-                                                            }}
-                                                        />
-                                                    );
-
-                                                    blocks.education = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('education', 'Education')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                    onClick={addEducationItem}
-                                                                >
-                                                                    Add
-                                                                </button>
-                                                            </div>
-                                                            {educationList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No education entries yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {educationList.map((edu: any, idx: number) => (
-                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                            <div className="mb-2 flex items-center justify-end">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="text-xs text-red-600 hover:text-red-700"
-                                                                                    onClick={() => removeEducationItem(idx)}
-                                                                                >
-                                                                                    Remove entry
-                                                                                </button>
-                                                                            </div>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                <Field label="Degree">
-                                                                                    <input
-                                                                                        value={String(edu?.degree ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'degree', e.target.value)}
-                                                                                        placeholder="Degree"
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                                <Field label="Year">
-                                                                                    <input
-                                                                                        value={String(edu?.year ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'year', e.target.value)}
-                                                                                        placeholder="Year"
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            </div>
-                                                                            <div className="mt-2">
-                                                                                <Field label="Institution">
-                                                                                    <input
-                                                                                        value={String(edu?.institution ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'institution', e.target.value)}
-                                                                                        placeholder="Institution"
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                                <div className="mt-2">
-                                                                                    <Field label="GPA">
-                                                                                        <input
-                                                                                            value={String(edu?.gpa ?? '')}
-                                                                                            onChange={(e) => updateEducationField(idx, 'gpa', e.target.value)}
-                                                                                            placeholder="GPA"
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                        />
-                                                                                    </Field>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    blocks.projects = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('projects', 'Projects')}</div>
-                                                                <div className="flex items-center gap-3">
-                                                                    {projectsList.length > 0 && (
-                                                                        <button
-                                                                            type="button"
-                                                                            className="text-xs text-gray-600 hover:text-gray-800"
-                                                                            onClick={() => {
-                                                                                if (showAllProjectDescriptions) {
-                                                                                    setShowAllProjectDescriptions(false);
-                                                                                    setEditingProjectIndex(null);
-                                                                                    return;
-                                                                                }
-                                                                                if (editingProjectIndex !== null) {
-                                                                                    setEditingProjectIndex(null);
-                                                                                    return;
-                                                                                }
-                                                                                setShowAllProjectDescriptions(true);
-                                                                            }}
-                                                                        >
-                                                                            {showAllProjectDescriptions
-                                                                                ? 'Collapse all'
-                                                                                : (editingProjectIndex !== null ? 'Collapse' : 'Expand all')}
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                        onClick={addProjectItem}
-                                                                    >
-                                                                        Add
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            {projectsList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No projects yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {projectsList.map((proj: any, idx: number) => (
-                                                                        (() => {
-                                                                            const title = String(proj?.title ?? 'Project');
-                                                                            const dates = String(proj?.dates ?? proj?.duration ?? '').trim();
-                                                                            const technologies = String(proj?.technologies ?? '').trim();
-                                                                            const link = String(proj?.link ?? '').trim();
-                                                                            const isOpen = showAllProjectDescriptions || editingProjectIndex === idx;
-                                                                            return (
-                                                                                <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                            if (showAllProjectDescriptions) {
-                                                                                                setShowAllProjectDescriptions(false);
-                                                                                                setEditingProjectIndex(idx);
-                                                                                                return;
-                                                                                            }
-                                                                                            setEditingProjectIndex(isOpen ? null : idx);
-                                                                                        }}
-                                                                                        className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                                    >
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                                {title}
-                                                                                            </div>
-                                                                                            <div className="text-xs text-gray-600 truncate">
-                                                                                                {[dates, technologies, link].filter(Boolean).join(' · ') || ' '}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                        <div className="text-xs text-indigo-700 shrink-0">
-                                                                                            {showAllProjectDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
-                                                                                        </div>
-                                                                                    </button>
-
-                                                                                    {isOpen && (
-                                                                                        <div className="p-3 bg-white">
-                                                                                            <div className="mb-2 flex items-center justify-end">
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="text-xs text-red-600 hover:text-red-700"
-                                                                                                    onClick={() => removeProjectItem(idx)}
-                                                                                                >
-                                                                                                    Remove project
-                                                                                                </button>
-                                                                                            </div>
-                                                                                            <Field label="Title">
-                                                                                                <input
-                                                                                                    value={String(proj?.title ?? '')}
-                                                                                                    onChange={(e) => updateProjectField(idx, 'title', e.target.value)}
-                                                                                                    placeholder="Project Title"
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                />
-                                                                                            </Field>
-                                                                                            <div className="mt-2">
-                                                                                                <Field label="Dates">
-                                                                                                    <input
-                                                                                                        value={String(proj?.dates ?? proj?.duration ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'dates', e.target.value)}
-                                                                                                        placeholder="Dates"
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </Field>
-                                                                                            </div>
-                                                                                            <div className="mt-2">
-                                                                                                <Field label="Technologies">
-                                                                                                    <input
-                                                                                                        value={String(proj?.technologies ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'technologies', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </Field>
-                                                                                            </div>
-                                                                                            <div className="mt-2">
-                                                                                                <Field label="Link">
-                                                                                                    <input
-                                                                                                        value={String(proj?.link ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'link', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </Field>
-                                                                                            </div>
-                                                                                            <div className="mt-2">
-                                                                                                <label className="block">
-                                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                                        <div className="text-xs font-semibold text-gray-700">Description</div>
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            className={
-                                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                                ((aiBusyProjects[idx] ?? false)
-                                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                                    : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-sm')
-                                                                                                            }
-                                                                                                            disabled={aiBusyProjects[idx] ?? false}
-                                                                                                            onClick={async () => {
-                                                                                                                try {
-                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                                    const nextText = await aiRewriteResumeField({
-                                                                                                                        field: 'project_description',
-                                                                                                                        text: String(proj?.description ?? ''),
-                                                                                                                        meta: {
-                                                                                                                            title: String(proj?.title ?? ''),
-                                                                                                                            technologies: String(proj?.technologies ?? ''),
-                                                                                                                            link: String(proj?.link ?? ''),
-                                                                                                                        },
-                                                                                                                    });
-                                                                                                                    updateProjectField(idx, 'description', nextText);
-                                                                                                                } catch (e: any) {
-                                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                                } finally {
-                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                                                }
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            {(aiBusyProjects[idx] ?? false) ? (
-                                                                                                                'Rewriting…'
-                                                                                                            ) : (
-                                                                                                                <>
-                                                                                                                    <Sparkles className="inline w-3 h-3 mr-1" />
-                                                                                                                    Assist with AI
-                                                                                                                </>
-                                                                                                            )}
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                    <textarea
-                                                                                                        rows={4}
-                                                                                                        value={String(proj?.description ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'description', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </label>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    blocks.certifications = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('certifications', 'Certifications')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                    onClick={addCertificationItem}
-                                                                >
-                                                                    Add
-                                                                </button>
-                                                            </div>
-                                                            {certificationsList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No certifications yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {certificationsList.map((cert: any, idx: number) => (
-                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                            <div className="mb-2 flex items-center justify-end">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="text-xs text-red-600 hover:text-red-700"
-                                                                                    onClick={() => removeCertificationItem(idx)}
-                                                                                >
-                                                                                    Remove entry
-                                                                                </button>
-                                                                            </div>
-                                                                            {typeof cert === 'string' ? (
-                                                                                <Field label="Certification">
-                                                                                    <input
-                                                                                        value={String(cert ?? '')}
-                                                                                        onChange={(e) => updateCertification(idx, e.target.value)}
-                                                                                        placeholder="Certification"
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <Field label="Name">
-                                                                                        <input
-                                                                                            value={String(cert?.name ?? '')}
-                                                                                            onChange={(e) => updateCertification(idx, { name: e.target.value })}
-                                                                                            placeholder="Certification"
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                        />
-                                                                                    </Field>
-                                                                                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                        <Field label="Issuer">
-                                                                                            <input
-                                                                                                value={String(cert?.issuer ?? '')}
-                                                                                                onChange={(e) => updateCertification(idx, { issuer: e.target.value })}
-                                                                                                placeholder="Issuer"
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </Field>
-                                                                                        <Field label="Year">
-                                                                                            <input
-                                                                                                value={String(cert?.year ?? '')}
-                                                                                                onChange={(e) => updateCertification(idx, { year: e.target.value })}
-                                                                                                placeholder="Year"
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </Field>
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    if (customSectionsList.length > 0) {
-                                                        customSectionsList.forEach((sec: any, sIdx: number) => {
-                                                            const heading = String(sec?.heading || sec?.title || sec?.label || `Section ${sIdx + 1}`).trim();
-                                                            const items = Array.isArray(sec?.items) ? sec.items : [];
-                                                            const body = sec?.content ?? sec?.text ?? sec?.body ?? '';
-                                                            blocks[`custom_${sIdx}`] = (
-                                                                <div>
-                                                                    <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                        <div className="text-sm font-bold text-blue-700">{heading || 'Custom section'}</div>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="text-xs text-red-600 hover:text-red-700"
-                                                                            onClick={() => removeCustomSection(sIdx)}
-                                                                        >
-                                                                            Remove section
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="mt-2 rounded-xl border border-gray-200 p-3 bg-white">
-                                                                        <Field label="Section name">
-                                                                            <input
-                                                                                value={String(sec?.heading ?? heading)}
-                                                                                onChange={(e) => updateCustomSectionHeading(sIdx, e.target.value)}
-                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                            />
-                                                                        </Field>
-
-                                                                        {items.length > 0 ? (
-                                                                            <div className="mt-2 space-y-2">
-                                                                                {items.map((it: any, iIdx: number) => (
-                                                                                    <div key={iIdx} className="rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                                                                        <div className="mb-2 flex items-center justify-end">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                className="text-xs text-red-600 hover:text-red-700"
-                                                                                                onClick={() => removeCustomSectionItem(sIdx, iIdx)}
-                                                                                            >
-                                                                                                Remove item
-                                                                                            </button>
-                                                                                        </div>
-                                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                            <Field label="Title">
-                                                                                                <input
-                                                                                                    value={String(it?.title ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'title', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                            <Field label="Date">
-                                                                                                <input
-                                                                                                    value={String(it?.date ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'date', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                        </div>
-                                                                                        <div className="mt-2">
-                                                                                            <Field label="Subtitle">
-                                                                                                <input
-                                                                                                    value={String(it?.subtitle ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'subtitle', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                        </div>
-                                                                                        <div className="mt-2">
-                                                                                            <label className="block">
-                                                                                                <div className="flex items-center justify-between mb-1">
-                                                                                                    <div className="text-xs font-semibold text-gray-700">Content</div>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className={
-                                                                                                            'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                            ((aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false)
-                                                                                                                ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                                : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-sm')
-                                                                                                        }
-                                                                                                        disabled={aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false}
-                                                                                                        onClick={async () => {
-                                                                                                            const k = `custom_${sIdx}_item_${iIdx}`;
-                                                                                                            try {
-                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
-                                                                                                                const nextText = await aiRewriteResumeField({
-                                                                                                                    field: 'custom_section',
-                                                                                                                    text: String(it?.content ?? ''),
-                                                                                                                    meta: {
-                                                                                                                        heading,
-                                                                                                                        item_title: String(it?.title ?? ''),
-                                                                                                                        item_subtitle: String(it?.subtitle ?? ''),
-                                                                                                                    },
-                                                                                                                });
-                                                                                                                updateCustomSectionItem(sIdx, iIdx, 'content', nextText);
-                                                                                                            } catch (e: any) {
-                                                                                                                setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                            } finally {
-                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
-                                                                                                            }
-                                                                                                        }}
-                                                                                                    >
-                                                                                                        {(aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false) ? (
-                                                                                                            'Rewriting…'
-                                                                                                        ) : (
-                                                                                                            <>
-                                                                                                                <Sparkles className="inline w-3 h-3 mr-1" />
-                                                                                                                Assist with AI
-                                                                                                            </>
-                                                                                                        )}
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                                <textarea
-                                                                                                    rows={4}
-                                                                                                    value={String(it?.content ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'content', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </label>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="mt-2">
-                                                                                <label className="block">
-                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                        <div className="text-xs font-semibold text-gray-700">Content</div>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className={
-                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                ((aiBusyCustom[`custom_${sIdx}_body`] ?? false)
-                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                    : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-sm')
-                                                                                            }
-                                                                                            disabled={aiBusyCustom[`custom_${sIdx}_body`] ?? false}
-                                                                                            onClick={async () => {
-                                                                                                const k = `custom_${sIdx}_body`;
-                                                                                                try {
-                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
-                                                                                                    const nextText = await aiRewriteResumeField({
-                                                                                                        field: 'custom_section',
-                                                                                                        text: String(body ?? ''),
-                                                                                                        meta: { heading },
-                                                                                                    });
-                                                                                                    updateCustomSectionBody(sIdx, nextText);
-                                                                                                } catch (e: any) {
-                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                } finally {
-                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            {(aiBusyCustom[`custom_${sIdx}_body`] ?? false) ? (
-                                                                                                'Rewriting…'
-                                                                                            ) : (
-                                                                                                <>
-                                                                                                    <Sparkles className="inline w-3 h-3 mr-1" />
-                                                                                                    Assist with AI
-                                                                                                </>
-                                                                                            )}
-                                                                                        </button>
-                                                                                    </div>
-                                                                                    <textarea
-                                                                                        rows={5}
-                                                                                        value={String(body ?? '')}
-                                                                                        onChange={(e) => updateCustomSectionBody(sIdx, e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </label>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    } else {
-                                                        blocks.custom_sections = (
-                                                            <div>
-                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-blue-700">Custom sections</div>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                        onClick={addCustomSection}
-                                                                    >
-                                                                        Add
-                                                                    </button>
-                                                                </div>
-                                                                <div className="mt-2 text-sm text-gray-500">No custom sections yet.</div>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    if (experienceList.length > 0) {
-                                                        blocks.experience = (
-                                                            <div className="pt-1">
-                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-blue-700">{getSectionLabel('experience', 'Work history')} descriptions</div>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-gray-600 hover:text-gray-800"
-                                                                        onClick={() => {
-                                                                            if (showAllWorkHistoryDescriptions) {
-                                                                                setShowAllWorkHistoryDescriptions(false);
-                                                                                setEditingExperienceIndex(null);
-                                                                                return;
-                                                                            }
-                                                                            if (editingExperienceIndex !== null) {
-                                                                                setEditingExperienceIndex(null);
-                                                                                return;
-                                                                            }
-                                                                            setShowAllWorkHistoryDescriptions(true);
-                                                                        }}
-                                                                    >
-                                                                        {showAllWorkHistoryDescriptions
-                                                                            ? 'Collapse all'
-                                                                            : (editingExperienceIndex !== null ? 'Collapse' : 'Expand all')}
-                                                                    </button>
-                                                                </div>
-
-                                                                <div className="mt-2 space-y-2">
-                                                                    {experienceList.map((exp: any, idx: number) => {
-                                                                        const title = String(exp?.title || exp?.position || exp?.role || 'Role');
-                                                                        const company = String(exp?.company || exp?.organization || '');
-                                                                        const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
-                                                                        const isOpen = showAllWorkHistoryDescriptions || editingExperienceIndex === idx;
-                                                                        return (
-                                                                            <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        if (showAllWorkHistoryDescriptions) {
-                                                                                            setShowAllWorkHistoryDescriptions(false);
-                                                                                            setEditingExperienceIndex(idx);
-                                                                                            return;
-                                                                                        }
-                                                                                        setEditingExperienceIndex(isOpen ? null : idx);
-                                                                                    }}
-                                                                                    className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                                >
-                                                                                    <div className="min-w-0">
-                                                                                        <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                            {title}
-                                                                                        </div>
-                                                                                        <div className="text-xs text-gray-600 truncate">
-                                                                                            {[company, dates].filter(Boolean).join(' · ')}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div className="text-xs text-indigo-700 shrink-0">
-                                                                                        {showAllWorkHistoryDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
-                                                                                    </div>
-                                                                                </button>
-                                                                                {isOpen && (
-                                                                                    <div className="p-3 bg-white">
-                                                                                        <div className="mb-2 flex items-center justify-end">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                className="text-xs text-red-600 hover:text-red-700"
-                                                                                                onClick={() => removeExperienceItem(idx)}
-                                                                                            >
-                                                                                                Remove entry
-                                                                                            </button>
-                                                                                        </div>
-                                                                                        <label className="block">
-                                                                                            <div className="flex items-center justify-between mb-1">
-                                                                                                <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className={
-                                                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                        ((aiBusyExperience[idx] ?? false)
-                                                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                            : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-sm')
-                                                                                                    }
-                                                                                                    disabled={aiBusyExperience[idx] ?? false}
-                                                                                                    onClick={async () => {
-                                                                                                        try {
-                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                            const nextText = await aiRewriteResumeField({
-                                                                                                                field: 'experience_description',
-                                                                                                                text: String(exp?.description ?? ''),
-                                                                                                                meta: {
-                                                                                                                    title,
-                                                                                                                    company,
-                                                                                                                    dates,
-                                                                                                                },
-                                                                                                            });
-                                                                                                            updateExperienceDescription(idx, nextText);
-                                                                                                        } catch (e: any) {
-                                                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                        } finally {
-                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {(aiBusyExperience[idx] ?? false) ? (
-                                                                                                        'Rewriting…'
-                                                                                                    ) : (
-                                                                                                        <>
-                                                                                                            <Sparkles className="inline w-3 h-3 mr-1" />
-                                                                                                            Assist with AI
-                                                                                                        </>
-                                                                                                    )}
-                                                                                                </button>
-                                                                                            </div>
-                                                                                            <textarea
-                                                                                                rows={6}
-                                                                                                value={String(exp?.description ?? '')}
-                                                                                                onChange={(e) => updateExperienceDescription(idx, e.target.value)}
-                                                                                                placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </label>
-                                                                                        <div className="mt-2 text-xs text-gray-500">
-                                                                                            Tip: start lines with “- ” to render bullets.
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    const presentKeys = Object.keys(blocks).filter((k) => Boolean(blocks[k]));
-
-                                                    const defaultOrder: string[] = [
-                                                        'summary',
-                                                        'experience',
-                                                        ...(customSectionsList.length > 0
-                                                            ? customSectionsList.map((_: any, i: number) => `custom_${i}`)
-                                                            : ['custom_sections']),
-                                                        'education',
-                                                        'projects',
-                                                        'certifications',
-                                                        'skills',
-                                                        'languages',
-                                                    ];
-
-                                                    const rawBase = (Array.isArray(sectionOrder) && sectionOrder.length > 0) ? sectionOrder : defaultOrder;
-                                                    const base = (() => {
-                                                        if (!blocks.custom_sections) return rawBase;
-                                                        if (rawBase.includes('custom_sections')) return rawBase;
-                                                        const expIdx = rawBase.indexOf('experience');
-                                                        if (expIdx >= 0) {
-                                                            return [...rawBase.slice(0, expIdx + 1), 'custom_sections', ...rawBase.slice(expIdx + 1)];
-                                                        }
-                                                        return [...rawBase, 'custom_sections'];
-                                                    })();
-                                                    const orderedKeys = [
-                                                        ...base,
-                                                        ...presentKeys.filter((k) => !base.includes(k)),
-                                                    ].filter((k) => Boolean(blocks[k]) && !hidden.has(String(k)));
-
-                                                    if (orderedKeys.length === 0) return null;
-
-                                                    return (
-                                                        <div className="divide-y divide-gray-200">
-                                                            {orderedKeys.map((k) => (
-                                                                <div key={k} className="py-3 first:pt-0">
-                                                                    {blocks[k]}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 
@@ -4433,43 +3361,46 @@ export default function TemplateViewer() {
                                             return (
                                                 <div style={isEmbedFlush ? { width: '100%', margin: 0 } : { width: `${scaledW}px`, margin: '0 auto' }}>
                                                     {inlineEditMode ? (
-                                                        <div className="mb-3 rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
-                                                            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
-
-                                                                <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
-                                                                    <div className="break-words">Click/Tap any content to edit.</div>
-                                                                    <div className="flex items-start gap-2">
-                                                                        <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                                                                        <span className="break-words">Drag sections using the handle on the left of each section. Drop on the right to delete.</span>
-                                                                    </div>
-                                                                    <div className="flex items-start gap-2 flex-wrap">
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
-                                                                            <Sparkles className="w-3 h-3" />
-                                                                            <span>Assist with AI</span>
-                                                                        </span>
-                                                                        <span className="break-words">AI rewriting is available directly on supported fields in the preview.</span>
-                                                                    </div>
-                                                                    <div className="pt-2">
-                                                                        <div className="flex flex-wrap gap-2">
-                                                                            {[
-                                                                                { label: 'Experience', onClick: addExperienceItem },
-                                                                                { label: 'Project', onClick: addProjectItem },
-                                                                                { label: 'Education', onClick: addEducationItem },
-                                                                                { label: 'Certification', onClick: addCertificationItem },
-                                                                                { label: 'Custom Section', onClick: addCustomSection },
-                                                                            ].map((action) => (
-                                                                                <button
-                                                                                    key={action.label}
-                                                                                    type="button"
-                                                                                    onClick={action.onClick}
-                                                                                    className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
-                                                                                >
-                                                                                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">+</span>
-                                                                                    <span>{action.label}</span>
-                                                                                </button>
-                                                                            ))}
+                                                        <div className="mb-3 space-y-2">
+                                                            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+                                                                <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                                                                    <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
+                                                                        <div className="break-words">Click/Tap any content to edit.</div>
+                                                                        <div className="flex items-start gap-2">
+                                                                            <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                                                                            <span className="break-words">Drag sections using the handle on the left of each section. Drop on the right to delete.</span>
+                                                                        </div>
+                                                                        <div className="flex items-start gap-2 flex-wrap">
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
+                                                                                <Sparkles className="w-3 h-3" />
+                                                                                <span>Assist with AI</span>
+                                                                            </span>
+                                                                            <span className="break-words">AI rewriting is available directly on supported fields in the preview.</span>
                                                                         </div>
                                                                     </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+                                                                <div className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Add a section:</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {[
+                                                                        { label: 'Experience', onClick: addExperienceItem },
+                                                                        { label: 'Project', onClick: addProjectItem },
+                                                                        { label: 'Education', onClick: addEducationItem },
+                                                                        { label: 'Certification', onClick: addCertificationItem },
+                                                                        { label: 'Custom Section', onClick: addCustomSection },
+                                                                    ].map((action) => (
+                                                                        <button
+                                                                            key={action.label}
+                                                                            type="button"
+                                                                            onClick={action.onClick}
+                                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
+                                                                        >
+                                                                            <span className="inline-flex h-5 items-center justify-center rounded-full bg-indigo-600 px-2 text-white text-xs leading-none">Add</span>
+                                                                            <span>{action.label}</span>
+                                                                        </button>
+                                                                    ))}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -4814,77 +3745,6 @@ export default function TemplateViewer() {
     );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <label className="block">
-            <div className="text-xs font-semibold text-gray-700 mb-1">{label}</div>
-            {children}
-        </label>
-    );
-}
-
-function ListField({
-    label,
-    hint,
-    values,
-    onChange,
-}: {
-    label: string;
-    hint?: string;
-    values: string[];
-    onChange: (vals: string[]) => void;
-}) {
-    const [draft, setDraft] = React.useState('');
-    return (
-        <div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                <div className="flex items-baseline gap-2 min-w-0">
-                    <div className="text-sm font-bold text-blue-700 truncate">{label}</div>
-                    {hint ? <div className="text-xs font-normal text-gray-500 whitespace-nowrap">{hint}</div> : null}
-                </div>
-                <button
-                    type="button"
-                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                    onClick={() => {
-                        const v = draft.trim();
-                        if (!v) return;
-                        onChange([...(values || []), v]);
-                        setDraft('');
-                    }}
-                >
-                    Add
-                </button>
-            </div>
-            <div className="flex gap-2">
-                <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder={`Add ${label.toLowerCase()}…`}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-                {(values || []).map((v, idx) => (
-                    <span
-                        key={`${v}-${idx}`}
-                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200 text-sm text-gray-800"
-                    >
-                        {v}
-                        <button
-                            type="button"
-                            className="text-gray-500 hover:text-gray-800"
-                            onClick={() => onChange(values.filter((_, i) => i !== idx))}
-                            aria-label={`Remove ${v}`}
-                        >
-                            ×
-                        </button>
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-}
-
 function getTemplateDefaultAccent(rawTemplateName?: string): string {
     const key = String(rawTemplateName || '')
         .trim()
@@ -4906,3 +3766,9 @@ function getTemplateDefaultAccent(rawTemplateName?: string): string {
             return '#243c6b';
     }
 }
+
+
+
+
+
+

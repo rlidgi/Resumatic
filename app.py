@@ -2615,7 +2615,7 @@ def login():
                             job_description=pending.get('job_description')
                         )
                     except FreeTierLimitReached:
-                        flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+                        flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
                     except Exception:
                         pass
                 flash('You have been successfully logged in!', 'success')
@@ -2825,7 +2825,7 @@ def verify_email_token(token):
                 job_description=pending.get('job_description')
             )
         except FreeTierLimitReached:
-            flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+            flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
         except Exception:
             pass
 
@@ -3246,7 +3246,7 @@ def google_callback():
                 job_description=pending.get('job_description')
             )
         except FreeTierLimitReached:
-            flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+            flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
         except Exception:
             pass
     nxt = _pop_auth_next()
@@ -4093,7 +4093,7 @@ def resume_new():
             session['last_resume_new_revision_id'] = source_revision_id
     except FreeTierLimitReached:
         # Still let the user proceed to the template viewer, but do not persist a new revision.
-        flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+        flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
         source_revision_id = None
         try:
             session.pop('last_resume_new_hash', None)
@@ -5132,6 +5132,39 @@ def checkout():
     return render_template("checkout.html", year=current_year, user=current_user, plan=plan)
 
 
+@app.route("/checkout/success")
+def checkout_success():
+    """Stripe success return URL.
+
+    Stripe Payment Links / Checkout can be configured to redirect here with a
+    `session_id` query param. We don't trust the param for authorization; instead
+    we best-effort refresh the user's paid status from Stripe (if logged in) and
+    send them to their dashboard.
+    """
+    # Keep session_id for potential debugging/analytics (not used for auth).
+    _ = str(request.args.get("session_id") or "").strip()
+
+    if not getattr(current_user, "is_authenticated", False):
+        return redirect(url_for("login", next=request.full_path))
+
+    refreshed = False
+    try:
+        refreshed = bool(_refresh_paid_status_from_stripe_for_user(current_user))
+    except Exception:
+        refreshed = False
+
+    # Even if refresh fails (e.g., webhook lag), avoid a dead-end page.
+    if refreshed or is_paid_user(current_user):
+        flash("Payment successful — your access is now active.", "success")
+        return redirect(url_for("my_revisions", checkout="success"))
+
+    flash(
+        "Payment completed, but we couldn't confirm access yet. If this persists for a few minutes, please contact support.",
+        "warning",
+    )
+    return redirect(url_for("my_revisions"))
+
+
 @app.route("/checkout/complete", methods=["POST"])
 @login_required
 def checkout_complete():
@@ -6030,12 +6063,12 @@ def results_route():
     try:
         resume_text = ""
         
-        # Enforce free tier revision limit (2) for authenticated non-paid users.
+        # Enforce free tier revision limit (1) for authenticated non-paid users.
         if current_user.is_authenticated and (not is_paid_user(current_user)):
             try:
                 used = len(get_user_revisions(current_user.id))
                 if used >= FREE_REVISION_LIMIT:
-                    flash("Free tier includes 2 resume revisions. Upgrade to unlock unlimited revisions and PDF downloads.", "danger")
+                    flash("Free tier includes 1 resume revision. Upgrade to unlock unlimited revisions and PDF downloads.", "danger")
                     return redirect(url_for("plans", limit="1"))
             except Exception:
                 # If counting fails, do not block.
@@ -6101,7 +6134,7 @@ def results_route():
                 )
             except FreeTierLimitReached:
                 # Still show results, but do not persist a new revision.
-                flash("You've reached the free tier limit (2 revisions). Upgrade to save unlimited revisions.", "danger")
+                flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
                 source_revision_id = None
             except Exception:
                 source_revision_id = None
@@ -6965,6 +6998,11 @@ def api_translate_resume():
             return jsonify({"success": False, "error": "Invalid resume payload."}), 400
         if not target:
             return jsonify({"success": False, "error": "Missing target language."}), 400
+
+        # Frontend preview uses sentinel values for "no translation" / "reset to English".
+        # Treat these as a no-op so older cached bundles never trigger a hard error.
+        if target in ("__source__", "__reset_to_english__"):
+            return jsonify({"success": True, "resume": resume})
 
         auth_headers, auth_params = _google_translate_request_auth()
         out = _translate_resume_strings_google(resume, target, source, auth_headers, auth_params)
@@ -9413,7 +9451,7 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
             pass
     return [], (table_names[0] if table_names else (os.getenv('AZURE_USERS_TABLE') or 'Users'))
 
-FREE_REVISION_LIMIT = int(os.getenv('FREE_REVISION_LIMIT', '2'))
+FREE_REVISION_LIMIT = int(os.getenv('FREE_REVISION_LIMIT', '1'))
 PAID_EMAILS = set([e.strip().lower() for e in (os.getenv('PAID_EMAILS', '') or '').split(',') if e.strip()])
 
 class FreeTierLimitReached(Exception):
@@ -9673,7 +9711,7 @@ def upsert_user_profile_azure(user_obj: 'User') -> None:
 # Save a revision to Azure Table Storage
 def save_resume_revision(user_id, revision_id, resume_content, feedback=None, original_resume=None, notes=None, job_description=None):
     from datetime import datetime, timezone
-    # Enforce free tier cap (2 revisions) for non-paid users.
+    # Enforce free tier cap (1 revision) for non-paid users.
     # Note: We enforce here as a safety net; primary gating happens earlier in /results.
     if not is_paid_user_id(user_id):
         try:

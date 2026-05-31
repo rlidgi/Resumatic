@@ -3651,3 +3651,101 @@ jinja2.exceptions.UndefinedError: 'plan_prices' is undefined
 [2026-05-18T06:13:38.900096Z] results_route POST: redirecting to results_get
 [2026-05-18T06:13:38.934186Z] results_get GET: start
 [2026-05-18T06:13:38.934186Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-21T21:02:40.390324Z] local_errors.log initialized
+
+[2026-05-23T23:02:27.402506Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3181, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-05-23T23:02:35.240853Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3181, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-05-23T23:23:10.329005Z] local_errors.log initialized
+
+[2026-05-23T23:30:40.014588Z] local_errors.log initialized
+
+[2026-05-30T07:22:02.966151Z] local_errors.log initialized
+
+[2026-05-30T07:24:35.546456Z] local_errors.log initialized
+[2026-05-30T07:24:41.111722Z] upload GET: pid=24460 build=1780125664
+[2026-05-30T07:25:02.877381Z] results_route POST: start
+[2026-05-30T21:16:42.727342Z] upload GET: pid=24460 build=1780125664
+[2026-05-30T21:16:53.129367Z] results_route POST: start
+[2026-05-30T21:16:53.159894Z] results_route POST: received upload filename=actuarial_resume_12-25_.docx
+[2026-05-30T21:16:53.276602Z] results_route POST: extracted_text_len=2035
+[2026-05-30T21:16:53.279586Z] results_route POST: calling revise_resume resume_len=2035 jd_len=0
+[2026-05-30T21:17:17.998834Z] results_route POST: revise_resume ok revised_len=3554
+[2026-05-30T21:17:18.556774Z] results_route POST: redirecting to results_get
+[2026-05-30T21:17:18.579162Z] results_get GET: start
+[2026-05-30T21:17:18.579162Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-30T21:43:52.059521Z] local_errors.log initialized
+
+[2026-05-30T21:47:28.217714Z] local_errors.log initialized
+
+[2026-05-30T21:49:49.450468Z] local_errors.log initialized
+
+[2026-05-30T21:53:50.333983Z] local_errors.log initialized
+
+[2026-05-30T22:14:36.822030Z] local_errors.log initialized
+[2026-05-30T22:57:10.627649Z] results_get GET: start
+[2026-05-30T22:57:10.633597Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-05-30T23:01:33.320037Z] local_errors.log initialized
+
+[2026-05-30T23:32:59.285613Z] local_errors.log initialized
+
+[2026-05-30T23:38:28.170041Z] local_errors.log initialized
+[2026-05-31T03:14:04.619572Z] upload GET: pid=24640 build=1780178128
+[2026-05-31T03:14:27.782247Z] results_route POST: start
+[2026-05-31T03:14:28.476162Z] results_route POST: received upload filename=resume-boldProfessional-1780184734119.pdf
+[2026-05-31T03:14:30.987666Z] results_route POST: extracted_text_len=2721
+[2026-05-31T03:14:31.021773Z] results_route POST: calling revise_resume resume_len=2721 jd_len=0
+[2026-05-31T03:14:56.188284Z] results_route POST: revise_resume ok revised_len=3773
+[2026-05-31T03:14:57.376740Z] results_route POST: redirecting to results_get
+[2026-05-31T03:14:58.876650Z] results_get GET: start
+[2026-05-31T03:14:58.879166Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-31T04:15:42.574632Z] local_errors.log initialized

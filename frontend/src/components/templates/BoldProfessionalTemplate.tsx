@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
@@ -77,7 +77,16 @@ export default function BoldProfessionalTemplate({
                 ? [...prev.certifications]
                 : normalizeCerts(prev?.certifications);
             const current = certs[index] || {};
-            certs[index] = typeof current === 'string' ? { title: value } : { ...(current || {}), [field]: value };
+            if (typeof current === 'string') {
+                const currentTitle = String(current || '').trim();
+                if (field === 'title' || field === 'name' || field === 'certification') {
+                    certs[index] = value;
+                } else {
+                    certs[index] = { title: currentTitle, [field]: value };
+                }
+            } else {
+                certs[index] = { ...(current || {}), [field]: value };
+            }
             const next = { ...(prev || {}), certifications: certs };
             emit(next);
             return next;
@@ -232,7 +241,7 @@ export default function BoldProfessionalTemplate({
                     items: [
                         {
                             title: 'Header',
-                            content: '• Bullet 1\n• Bullet 2',
+                            content: '- Bullet 1\n- Bullet 2',
                         },
                     ],
                 },
@@ -275,7 +284,7 @@ export default function BoldProfessionalTemplate({
     const experience = Array.isArray(data.experience) ? data.experience : [];
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const education = Array.isArray(data.education) ? data.education : [];
-    const certifications = Array.isArray(data.certifications) ? data.certifications : normalizeCerts(data.certifications);
+    const certifications = normalizeCerts(data.certifications);
     const languages = normalizeList(data.languages);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
@@ -501,14 +510,14 @@ export default function BoldProfessionalTemplate({
                                     ) : null}
                                     {editMode ? (
                                         <>
-                                            <EditableText value={String(c.title || c.name || c).trim()} onChange={(v) => updateCertification(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                            <span className="text-black/70"> — </span>
-                                            <EditableText value={String(c.issuer || '')} onChange={(v) => updateCertification(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" />
+                                            <EditableText value={getCertTitle(c)} placeholder="Certification" onChange={(v) => updateCertification(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                            <span className="text-black/70"> - </span>
+                                            <EditableText value={getCertIssuer(c)} placeholder="Issuer" onChange={(v) => updateCertification(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" />
                                         </>
                                     ) : (
                                         <>
-                                            {String(c.title || c.name || c).trim()}
-                                            {c.issuer ? <span className="text-black/70"> — {String(c.issuer)}</span> : null}
+                                            {getCertTitle(c)}
+                                            {getCertIssuer(c) ? <span className="text-black/70"> - {getCertIssuer(c)}</span> : null}
                                         </>
                                     )}
                                 </li>
@@ -803,13 +812,13 @@ function WorkItem({ exp, editMode, idx, onUpdate }: { exp: any; editMode: boolea
                     {editMode ? (
                         <>
                             <EditableText value={String(company)} placeholder="Company" onChange={(v) => onUpdate(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                            <span className="font-semibold text-black/70"> – </span>
+                            <span className="font-semibold text-black/70"> - </span>
                             <EditableText value={String(location)} placeholder="Location" onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline font-semibold text-black/70" />
                         </>
                     ) : (
                         <>
                             {String(company)}
-                            {location ? <span className="font-semibold text-black/70"> – {String(location)}</span> : null}
+                            {location ? <span className="font-semibold text-black/70"> - {String(location)}</span> : null}
                         </>
                     )}
                 </div>
@@ -913,11 +922,11 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                         <EditableText value={String(degree || school || 'Education')} onChange={(v) => onUpdate(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline font-semibold" />
                         {field ? <span className="text-black/70">: </span> : null}
                         {field ? <EditableText value={String(field)} onChange={(v) => onUpdate(idx, 'field', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
-                        {(school || editMode) ? <span className="text-black/70"> — </span> : null}
+                        {(school || editMode) ? <span className="text-black/70"> - </span> : null}
                         {(school || editMode) ? <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" placeholder="Institution" /> : null}
-                        {location ? <span className="text-black/70"> • </span> : null}
+                        {location ? <span className="text-black/70"> | </span> : null}
                         {location ? <EditableText value={String(location)} onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
-                        {gpa ? <span className="text-black/70"> • </span> : null}
+                        {gpa ? <span className="text-black/70"> | </span> : null}
                         {gpa ? (
                             <span className="text-black/70">
                                 GPA: <EditableText value={String(gpa)} onChange={(v) => onUpdate(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
@@ -928,9 +937,9 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                     <>
                         <span className="font-semibold">{String(degree || school || "Education")}</span>
                         {field ? <span className="text-black/70">: {String(field)}</span> : null}
-                        {school && degree ? <span className="text-black/70"> — {String(school)}</span> : null}
-                        {location ? <span className="text-black/70"> • {String(location)}</span> : null}
-                        {gpa ? <span className="text-black/70"> • GPA: {String(gpa)}</span> : null}
+                        {school && degree ? <span className="text-black/70"> - {String(school)}</span> : null}
+                        {location ? <span className="text-black/70"> | {String(location)}</span> : null}
+                        {gpa ? <span className="text-black/70"> | GPA: {String(gpa)}</span> : null}
                     </>
                 )}
             </div>
@@ -970,7 +979,7 @@ function normalizeList(value: any): string[] {
     if (Array.isArray(value)) return value.map((v) => String(v)).filter(Boolean);
     if (typeof value === "string") {
         return value
-            .split(/[,•]|\\n/g)
+            .split(/[,\u2022]|\\n/g)
             .map((s) => s.trim())
             .filter(Boolean);
     }
@@ -978,12 +987,43 @@ function normalizeList(value: any): string[] {
 }
 
 function normalizeCerts(value: any): any[] {
-    if (Array.isArray(value)) return value;
+    if (Array.isArray(value)) {
+        return value.map((entry) => {
+            if (typeof entry === "string") return entry;
+            if (!entry || typeof entry !== "object") return "";
+            return {
+                ...entry,
+                title: toPlainText((entry as any).title ?? (entry as any).name ?? (entry as any).certification),
+                name: toPlainText((entry as any).name),
+                certification: toPlainText((entry as any).certification),
+                issuer: toPlainText((entry as any).issuer),
+                year: toPlainText((entry as any).year),
+            };
+        });
+    }
     if (typeof value === "string") {
         return normalizeList(value).map((t) => ({ title: t }));
     }
     return [];
 }
+
+function toPlainText(value: any): string {
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return "";
+}
+
+function getCertTitle(cert: any): string {
+    if (typeof cert === "string") return cert;
+    if (!cert || typeof cert !== "object") return "";
+    return toPlainText(cert.title ?? cert.name ?? cert.certification);
+}
+
+function getCertIssuer(cert: any): string {
+    if (!cert || typeof cert !== "object") return "";
+    return toPlainText(cert.issuer);
+}
+
 
 
 
