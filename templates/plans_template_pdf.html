@@ -13,14 +13,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #e9edf3;
+            --bg: linear-gradient(160deg, #f5efff 0%, #ede2ff 52%, #e6dbff 100%);
             --card: #fdfdfd;
             --text: #111827;
             --muted: #6b7280;
             --line: rgba(15, 23, 42, 0.22);
             --accent: #2f7af1;
             --radius: 16px;
-            --shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+            --shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+            --on-dark: #2f1f55;
+            --on-dark-muted: #6d5d92;
+            --on-dark-link: #4f46a5;
         }
 
         * {
@@ -29,6 +32,7 @@
 
         body {
             margin: 0;
+            min-height: 100vh;
             font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
             color: var(--text);
             background: var(--bg);
@@ -53,7 +57,7 @@
             font-size: clamp(28px, 3.2vw, 42px);
             line-height: 1.08;
             letter-spacing: -0.02em;
-            color: #0f172a;
+            color: var(--on-dark);
         }
 
         .cta-confetti {
@@ -66,7 +70,7 @@
 
         .cta p {
             margin: 10px 0 0;
-            color: #1d4ed8;
+            color: var(--on-dark-link);
             font-weight: 600;
             font-size: clamp(16px, 1.6vw, 21px);
         }
@@ -137,7 +141,7 @@
             place-items: center;
             text-align: center;
             padding: 24px;
-            color: var(--muted);
+            color: var(--on-dark-muted);
         }
 
         .plans {
@@ -158,6 +162,28 @@
             padding: 16px 14px 14px;
             cursor: pointer;
             transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+        }
+
+        .includes-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #ffffff;
+            padding: 16px 14px 14px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+        }
+
+        .includes-card h2 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: #111827;
+        }
+
+        .includes-card .features {
+            margin: 0;
+            padding: 0;
+            border-top: 0;
         }
 
         .plan-option:hover {
@@ -231,7 +257,7 @@
 
         .plan-text {
             margin: 0;
-            font-size: 30px;
+            font-size: 22px;
             font-weight: 700;
             letter-spacing: -0.02em;
             line-height: 1.02;
@@ -279,8 +305,20 @@
             line-height: 1.4;
         }
 
+        .plans>.disclaimer {
+            margin: 0 0 10px;
+            color: var(--on-dark-muted);
+        }
+
+        .plan-terms {
+            margin: 8px 0 0;
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
         .plan-option.simple .plan-text {
-            font-size: 32px;
+            font-size: 24px;
         }
 
         .plan-option.simple .price-wrap {
@@ -289,8 +327,54 @@
             gap: 1px;
         }
 
+        .payment-methods {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .payment-secure-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            color: var(--on-dark-muted);
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .payment-secure-label svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .payment-methods img {
+            max-width: 100%;
+            width: min(100%, 340px);
+            height: auto;
+            display: block;
+        }
+
+        .cancel-note {
+            margin: 10px 0 0;
+            text-align: center;
+            color: var(--on-dark-muted);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.3;
+        }
+
+        .cancel-note strong {
+            color: var(--on-dark);
+        }
+
         .cta-btn {
-            margin-top: 2px;
+            margin-top: 8px;
             width: 100%;
             display: inline-flex;
             justify-content: center;
@@ -324,7 +408,7 @@
 
         .links a {
             font-size: 14px;
-            color: #1d4ed8;
+            color: var(--on-dark-link);
             text-decoration: none;
             font-weight: 600;
         }
@@ -375,13 +459,13 @@
         .page-footer {
             margin-top: 26px;
             padding: 16px 6px 6px;
-            border-top: 1px solid rgba(15, 23, 42, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.14);
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 10px 16px;
-            color: #475569;
+            color: var(--on-dark-muted);
             font-size: 14px;
         }
 
@@ -393,7 +477,7 @@
         }
 
         .page-footer a {
-            color: #1d4ed8;
+            color: var(--on-dark-link);
             text-decoration: none;
             font-weight: 600;
         }
@@ -441,7 +525,7 @@
 
             .plan-text,
             .plan-option.simple .plan-text {
-                font-size: 24px;
+                font-size: 20px;
             }
 
             .features {
@@ -509,21 +593,28 @@
                 {% if plan_prices and plan_prices.get('note') %}
                 <p class="disclaimer" style="margin: 0 0 10px;">{{ plan_prices.note }}</p>
                 {% endif %}
+
+                <article class="includes-card" aria-label="Included with every plan">
+                    <h2>Included:</h2>
+                    <ul class="features">
+                        <li><span class="check" aria-hidden="true">✓</span>Unlimited resume revisions</li>
+                        <li><span class="check" aria-hidden="true">✓</span>PDF downloads</li>
+                        <li><span class="check" aria-hidden="true">✓</span>Access to Job Search Command Center</li>
+                        <li><span class="check" aria-hidden="true">✓</span>Job search coach</li>
+                    </ul>
+                </article>
+
                 <label class="plan-option {% if not trial_unavailable %}selected{% endif %}" data-plan-option
                     data-plan="trial_7d">
                     <input type="radio" name="plan" value="trial_7d" {% if not trial_unavailable %}checked{% else
                         %}disabled{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if not trial_unavailable %}✓{% endif %}</span>
-                        <p class="plan-text">1 Week Free Trial</p>
+                        <p class="plan-text">{{ trial_hold_days }} Day Free Trial</p>
                         <div class="price-wrap">
                             <span class="plan-title">$0</span>
                         </div>
                     </div>
-                    <ul class="features">
-                        <li><span class="check" aria-hidden="true">✓</span>Unlimited resume revisions</li>
-                        <li><span class="check" aria-hidden="true">✓</span>PDF downloads</li>
-                    </ul>
                     {% if trial_unavailable %}
                     <p class="disclaimer">Trial already used on this account. Choose Monthly or Annual to continue.</p>
                     {% endif %}
@@ -557,6 +648,22 @@
                     </div>
                 </label>
 
+                <div class="payment-methods" aria-label="Accepted payment methods">
+                    <div class="payment-secure-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M7 10V8a5 5 0 0 1 10 0v2" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <rect x="5" y="10" width="14" height="11" rx="2" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                        <span>Pay securely with using Stripe</span>
+                    </div>
+                    <img src="{{ url_for('static', filename='images/payment_methids.png') }}"
+                        alt="Visa, Mastercard, Discover, American Express, Google Pay, and Amazon Pay accepted"
+                        loading="lazy" decoding="async">
+                </div>
+
+                <p class="cancel-note"><strong>Cancel anytime</strong> online or by email</p>
+
                 <a id="continueButton" class="cta-btn {% if trial_unavailable and not next_url %}disabled{% endif %}"
                     href="/checkout?plan={% if trial_unavailable %}monthly_10_95{% else %}trial_7d{% endif %}">
                     Continue
@@ -575,11 +682,12 @@
             <h2>FAQ</h2>
             <div class="faq">
                 <details>
-                    <summary>What happens after the 1-week trial?</summary>
+                    <summary>What happens after the {{ trial_hold_days }}-day trial?</summary>
                     <p>
-                        If you do not cancel before the end of the 7 days, your subscription renews based on your
-                        default renewal plan (commonly monthly). You can change or cancel anytime in your account
-                        settings.
+                        If you don’t cancel before day {{ trial_capture_day }}, your card authorization is captured as
+                        your first month’s payment. Cancel on day {{ trial_hold_days }} for a full refund if you were
+                        charged. Otherwise your subscription renews monthly unless canceled. You can change or cancel
+                        anytime in your account settings.
                     </p>
                 </details>
                 <details>

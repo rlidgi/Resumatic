@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="6;url={{ stripe_checkout_url }}" />
+    <title>Secure checkout | Resumatic AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
+    <div class="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+        <div class="text-sm font-semibold text-indigo-700">Secure checkout</div>
+        <h1 class="mt-2 text-2xl font-bold text-gray-900">{{ checkout_name or (trial_hold_days ~ ' days free trial $0.00') }}</h1>
+        <p class="mt-2 text-sm text-gray-600">
+            <span class="text-base font-medium text-gray-700">{{ amount_label or '$10.95' }}</span>
+            <span class="block mt-1 text-sm">temporary card authorization · not charged today</span>
+        </p>
+        {% if checkout_description %}
+        <p class="mt-4 text-base sm:text-lg text-gray-700 leading-relaxed font-medium">{{ checkout_description }}</p>
+        {% endif %}
+        <p class="mt-5 text-sm text-gray-500">Redirecting to Stripe’s encrypted checkout page…</p>
+        <a href="{{ stripe_checkout_url }}"
+            class="mt-4 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">
+            Continue to secure payment
+        </a>
+    </div>
+    <script>setTimeout(function () { window.location.replace({{ stripe_checkout_url|tojson }}); }, 6000);</script>
+</body>
+</html>

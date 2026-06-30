@@ -3,7 +3,7 @@
 
 <head>
     {% include "_clarity.html" %}
-{% include "_gtm.html" %}
+    {% include "_gtm.html" %}
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
     <script>
@@ -683,7 +683,7 @@
                 <div class="pill">🔒 Secure checkout • Cancel anytime</div>
                 <h1>Get on the path to Job search success!</h1>
                 <p class="sub">
-                    Start with a 1-week trial or save more with annual billing.
+                    Start with a {{ trial_hold_days }}-day trial or save more with annual billing.
                     All plans include unlimited edits and ATS-friendly formatting.
                 </p>
             </div>
@@ -753,7 +753,7 @@
             -->
             <!-- Trial -->
             <article class="card">
-                <p class="plan">1 Week Free Trial</p>
+                <p class="plan">{{ trial_hold_days }} Day Free Trial</p>
                 <div class="price"><strong>
                     </strong><span></span></div>
                 {% if trial_unavailable %}
@@ -812,11 +812,12 @@
             <h2>FAQ</h2>
             <div class="faq">
                 <details>
-                    <summary>What happens after the 1-week trial?</summary>
+                    <summary>What happens after the {{ trial_hold_days }}-day trial?</summary>
                     <p>
-                        If you don’t cancel before the end of the 7 days, your subscription renews based on your
-                        default renewal plan
-                        (commonly monthly). You can change or cancel anytime in your account settings.
+                        If you don’t cancel before day {{ trial_capture_day }}, your card authorization is captured as
+                        your first month’s payment. Cancel on day {{ trial_hold_days }} for a full refund if you were
+                        charged. Otherwise your subscription renews monthly unless canceled. You can change or cancel
+                        anytime in your account settings.
                     </p>
                 </details>
                 <details>

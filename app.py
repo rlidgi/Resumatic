@@ -10,6 +10,51 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import mammoth
 import logging
 import os
+
+# Configure CA bundle before google-auth/requests import urllib3 (local Windows dev).
+def _bootstrap_https_certificates() -> None:
+    if os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'):
+        return
+    if os.name != 'nt':
+        return
+    try:
+        # truststore needs platform.system(); on Windows that probes WMI and can hang for minutes.
+        import platform
+        platform.system = lambda: 'Windows'  # type: ignore[method-assign]
+        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '', 'Multiprocessor Free')  # type: ignore[method-assign]
+        import truststore
+        truststore.inject_into_ssl()
+        return
+    except Exception:
+        pass
+    try:
+        import certifi
+        ca_bundle = certifi.where()
+        os.environ.setdefault('SSL_CERT_FILE', ca_bundle)
+        os.environ.setdefault('REQUESTS_CA_BUNDLE', ca_bundle)
+        os.environ.setdefault('CURL_CA_BUNDLE', ca_bundle)
+    except Exception:
+        pass
+
+
+_bootstrap_https_certificates()
+
+
+def _ensure_local_truststore_ssl() -> None:
+    """Re-apply Windows trust-store SSL before outbound OAuth HTTPS calls."""
+    if os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'):
+        return
+    if os.name != 'nt':
+        return
+    try:
+        import platform
+        platform.system = lambda: 'Windows'  # type: ignore[method-assign]
+        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '', 'Multiprocessor Free')  # type: ignore[method-assign]
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:
+        pass
+
 import time
 import ipaddress
 import re
@@ -20,6 +65,7 @@ import atexit
 
 
 # Import newsletter system
+from email_audit import read_email_events, record_email_event
 from newsletter import NewsletterManager, NewsletterConfig
 
 try:
@@ -79,7 +125,6 @@ from docx import Document
 import stripe
 import csv
 from azure.data.tables import TableServiceClient, UpdateMode
-from azure.identity import DefaultAzureCredential
 from urllib.parse import urlparse, urljoin
 from urllib.parse import urlencode
 from flask_session import Session
@@ -332,7 +377,7 @@ except Exception:
 try:
     with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as _f:
         from datetime import datetime
-        _f.write(f"\n[{datetime.utcnow().isoformat()}Z] local_errors.log initialized\n")
+        _f.write(f"\n[{datetime.now(timezone.utc).isoformat()}] local_errors.log initialized\n")
 except Exception:
     pass
 
@@ -387,6 +432,32 @@ def _safe_print(*args, **kwargs) -> None:
 
 load_dotenv()
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or 'a-very-secret-random-key'
+
+# Local Windows Python often lacks a usable CA bundle for requests/google-auth HTTPS calls.
+def _configure_local_ssl_cert_bundle() -> None:
+    if bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID')):
+        return
+    if os.name == 'nt':
+        logger.info('Using Windows trust store for local HTTPS (truststore)')
+        return
+    for mod_name in ('truststore', 'pip._vendor.truststore'):
+        try:
+            mod = __import__(mod_name, fromlist=['inject_into_ssl'])
+            mod.inject_into_ssl()
+            logger.info('Using OS trust store for HTTPS via %s', mod_name)
+            return
+        except Exception:
+            continue
+    try:
+        import certifi
+        ca_bundle = certifi.where()
+        os.environ.setdefault('SSL_CERT_FILE', ca_bundle)
+        os.environ.setdefault('REQUESTS_CA_BUNDLE', ca_bundle)
+    except Exception:
+        pass
+
+
+_configure_local_ssl_cert_bundle()
 
 # Local-dev ergonomics: auto-reload templates/static caching unless running on Azure App Service.
 _ON_AZURE = bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'))
@@ -602,26 +673,46 @@ if not _ON_AZURE:
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Server-side sessions (prevents oversized cookie drops when storing large resume/feedback payloads).
-# Uses filesystem storage (safe for a single App Service instance); cookie stores only a small session id.
-try:
-    home_dir = (os.getenv('HOME') or '').strip()
-    if home_dir:
-        # App Service common root: /home/site/wwwroot (Linux) or D:\home\site\wwwroot (Windows)
-        session_dir = os.path.join(home_dir, 'site', 'wwwroot', '.flask_session')
-    else:
-        session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.flask_session')
-    os.makedirs(session_dir, exist_ok=True)
-
-    app.config['SESSION_TYPE'] = 'filesystem'
-    app.config['SESSION_FILE_DIR'] = session_dir
+def _apply_flask_session_cookie_defaults() -> None:
     app.config['SESSION_PERMANENT'] = False
     app.config['SESSION_USE_SIGNER'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    # Only mark cookies Secure when running on Azure HTTPS; avoid breaking local http://127.0.0.1
     app.config['SESSION_COOKIE_SECURE'] = bool(_ON_AZURE)
 
-    Session(app)
+
+def _should_use_filesystem_sessions() -> bool:
+    force = str(os.getenv('FLASK_FILESYSTEM_SESSIONS', '') or '').strip().lower()
+    if force in ('0', 'false', 'no', 'off'):
+        return False
+    if force in ('1', 'true', 'yes', 'on'):
+        return True
+    if _ON_AZURE:
+        return True
+    # FileSystemCache can block for minutes on Windows during WMI/platform probes.
+    if os.name == 'nt':
+        return False
+    return True
+
+
+try:
+    _apply_flask_session_cookie_defaults()
+    if _should_use_filesystem_sessions():
+        home_dir = (os.getenv('HOME') or '').strip()
+        if home_dir:
+            session_dir = os.path.join(home_dir, 'site', 'wwwroot', '.flask_session')
+        else:
+            session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.flask_session')
+        os.makedirs(session_dir, exist_ok=True)
+        app.config['SESSION_TYPE'] = 'filesystem'
+        app.config['SESSION_FILE_DIR'] = session_dir
+        Session(app)
+        logger.info('Filesystem sessions enabled (dir=%s)', session_dir)
+    elif (not _ON_AZURE) and os.name == 'nt':
+        # Signed cookie sessions: fast startup, OAuth state survives Google redirect + debug reloader.
+        logger.info('Signed cookie sessions enabled for local Windows dev')
+    else:
+        raise RuntimeError('no session backend selected for this host')
 except Exception as e:
     logger.warning(f"Server-side session setup failed; falling back to cookie sessions: {type(e).__name__}: {str(e)}")
 
@@ -922,15 +1013,39 @@ app.register_blueprint(facebook_bp, url_prefix="/login")  # MUST be before the r
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
+
+def _is_api_request() -> bool:
+    try:
+        path = str(getattr(request, 'path', '') or '')
+        return path.startswith('/api/') or path.startswith('/path/api/')
+    except Exception:
+        return False
+
+
+@login_manager.unauthorized_handler
+def _login_unauthorized():
+    """Return JSON for API calls instead of an HTML login redirect."""
+    if _is_api_request():
+        return jsonify({"success": False, "error": "Please sign in to use the Job Search Coach."}), 401
+    next_path = (request.full_path or request.path or "").strip()
+    if next_path.endswith("?"):
+        next_path = next_path[:-1]
+    return redirect(url_for('login', next=next_path or request.path))
+
 # Define a list of admin email addresses
 ADMIN_EMAILS = ["yaronyaronlid@gmail.com"]
-
-# User storage file
-USERS_FILE = "users_data.json"
+EXCLUDED_LOGIN_METRIC_EMAILS = {
+    "yaronyaronlid@gmail.com",
+    "rlidgi@go.pasadena.edu",
+}
+EXCLUDED_LOGIN_METRIC_DOMAINS = {
+    "resumaticai.com",
+}
 
 # Password reset tokens storage
 RESET_TOKENS_FILE = "reset_tokens.json"
 RESET_TOKEN_EXPIRY_HOURS = 24  # Tokens expire after 24 hours
+LOCAL_AUTH_USERS_FILE = "users_auth_local.json"
 
 # Login auditing (email + login timestamp + session duration)
 LOGIN_AUDIT_FILE = "login_audit.json"
@@ -946,7 +1061,7 @@ LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS = int(os.getenv('LOGIN_AUDIT_ACTIVIT
 # Auth session timeouts
 # - Idle timeout: log out after N minutes with no authenticated requests.
 # These are best-effort guards to reduce risk from unattended sessions.
-AUTH_IDLE_TIMEOUT_MINUTES = int(os.getenv('AUTH_IDLE_TIMEOUT_MINUTES', '45') or '45')
+AUTH_IDLE_TIMEOUT_MINUTES = int(os.getenv('AUTH_IDLE_TIMEOUT_MINUTES', '90') or '90')
 # Absolute timeout is disabled by default (set to >0 to enable).
 AUTH_ABSOLUTE_TIMEOUT_HOURS = int(os.getenv('AUTH_ABSOLUTE_TIMEOUT_HOURS', '0') or '0')
 AUTH_SESSION_START_AT_KEY = 'auth_session_start_at'
@@ -1092,6 +1207,12 @@ def _enforce_email_verification_gate():
         if endpoint.startswith('static'):
             return None
 
+        if _is_api_request():
+            return jsonify({
+                "success": False,
+                "error": "Please verify your email to use the Job Search Coach.",
+            }), 403
+
         return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
     except Exception:
         return None
@@ -1142,6 +1263,198 @@ def confirm_email_verification_token(token: str, max_age_seconds: int) -> dict |
         return None
     except Exception:
         return None
+
+
+def generate_reinstate_paid_offer_token(user_id: str, subscription_id: str, email: str) -> str:
+    """Create a signed token for paid-cancel reinstatement offer links."""
+    from itsdangerous import URLSafeTimedSerializer
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    payload = {
+        'user_id': str(user_id or '').strip(),
+        'subscription_id': str(subscription_id or '').strip(),
+        'email': str(email or '').strip().lower(),
+        'v': 1,
+    }
+    return serializer.dumps(payload, salt='reinstate-paid-offer')
+
+
+def _reinstate_offer_max_age_seconds() -> int:
+    try:
+        hours = int((os.getenv("REINSTATE_OFFER_TOKEN_EXPIRY_HOURS") or "720").strip())
+    except Exception:
+        hours = 720
+    if hours < 1:
+        hours = 720
+    return hours * 3600
+
+
+_REINSTATE_OFFER_SESSION_KEY = "reinstate_paid_offer_token"
+
+
+def _store_reinstate_paid_offer_token_in_session(token: str) -> None:
+    try:
+        token = str(token or "").strip()
+        if token:
+            session[_REINSTATE_OFFER_SESSION_KEY] = token
+            session.modified = True
+    except Exception:
+        pass
+
+
+def confirm_reinstate_paid_offer_token(token: str, max_age_seconds: int | None = None) -> dict | None:
+    """Validate a signed paid-cancel reinstatement offer token."""
+    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    max_age = int(max_age_seconds if max_age_seconds is not None else _reinstate_offer_max_age_seconds())
+    try:
+        return serializer.loads(token, salt='reinstate-paid-offer', max_age=max_age)
+    except SignatureExpired:
+        return None
+    except BadSignature:
+        return None
+    except Exception:
+        return None
+
+
+EMAIL_TRIAL_PLAN_ID = 'trial_10d_email'
+EMAIL_TRIAL_INVITE_SALT = 'email-trial-invite'
+
+
+def _rbi_embedded_checkout_plans() -> tuple[str, ...]:
+    return ('trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95', 'annual_6_95')
+
+
+def _is_email_trial_plan(plan_id: str) -> bool:
+    return _normalize_plan_id(plan_id) == EMAIL_TRIAL_PLAN_ID
+
+
+def _email_trial_invite_max_age_seconds() -> int:
+    try:
+        days = int((os.getenv('TRIAL_EMAIL_INVITE_MAX_AGE_DAYS') or '120').strip())
+    except Exception:
+        days = 120
+    if days < 1:
+        days = 120
+    return days * 86400
+
+
+def generate_email_trial_invite_token(
+    campaign: str = '',
+    trial_days: int = 10,
+    waive_upfront_fee: bool = True,
+) -> str:
+    """Create a signed invite token for the mass-email 10-day trial campaign."""
+    from itsdangerous import URLSafeTimedSerializer
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    payload = {
+        'plan_id': EMAIL_TRIAL_PLAN_ID,
+        'campaign': str(campaign or os.getenv('TRIAL_EMAIL_CAMPAIGN') or 'email-trial-2026').strip(),
+        'trial_days': max(1, int(trial_days or 10)),
+        'waive_upfront_fee': bool(waive_upfront_fee),
+        'v': 1,
+    }
+    return serializer.dumps(payload, salt=EMAIL_TRIAL_INVITE_SALT)
+
+
+def confirm_email_trial_invite_token(token: str, max_age_seconds: int | None = None) -> dict | None:
+    """Validate a signed mass-email trial invite token."""
+    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    max_age = int(max_age_seconds if max_age_seconds is not None else _email_trial_invite_max_age_seconds())
+    try:
+        payload = serializer.loads(token, salt=EMAIL_TRIAL_INVITE_SALT, max_age=max_age)
+    except SignatureExpired:
+        return None
+    except BadSignature:
+        return None
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if str(payload.get('plan_id') or '').strip() != EMAIL_TRIAL_PLAN_ID:
+        return None
+    return payload
+
+
+def _store_email_trial_invite_in_session(invite: dict) -> None:
+    try:
+        session['email_trial_invite'] = {
+            'plan_id': EMAIL_TRIAL_PLAN_ID,
+            'campaign': str(invite.get('campaign') or '').strip(),
+            'trial_days': max(1, int(invite.get('trial_days') or 10)),
+            'waive_upfront_fee': bool(invite.get('waive_upfront_fee', True)),
+        }
+        session.modified = True
+    except Exception:
+        pass
+
+
+def _get_email_trial_invite_from_session() -> dict | None:
+    try:
+        raw = session.get('email_trial_invite') or {}
+        if not isinstance(raw, dict):
+            return None
+        if str(raw.get('plan_id') or '').strip() != EMAIL_TRIAL_PLAN_ID:
+            return None
+        return raw
+    except Exception:
+        return None
+
+
+def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[bool, str]:
+    """Return (allowed, reason_code) for the mass-email 10-day trial."""
+    if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+        return False, 'authentication_required'
+    try:
+        if is_paid_user(user_obj):
+            return False, 'already_subscribed'
+    except Exception:
+        pass
+    if _stripe_enabled():
+        try:
+            prof = get_user_profile_azure(getattr(user_obj, 'id', '')) or {}
+            customer_id = str(prof.get('stripe_customer_id') or '').strip()
+            if not customer_id:
+                email = (getattr(user_obj, 'email', '') or '').strip()
+                if email:
+                    customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True)
+            if customer_id:
+                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                res = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+                for sub in list(getattr(res, 'data', []) or []):
+                    if _stripe_subscription_grants_access(sub):
+                        return False, 'already_subscribed'
+        except Exception:
+            pass
+    return True, ''
+
+
+def build_email_trial_checkout_url(invite_token: str, base_url: str = '') -> str:
+    """Build the mass-email checkout URL for a signed invite token."""
+    from urllib.parse import quote
+    root = (base_url or os.getenv('PUBLIC_SITE_URL') or 'https://resumaticai.com').strip().rstrip('/')
+    token = quote(str(invite_token or '').strip(), safe='')
+    return f"{root}/checkout?plan={EMAIL_TRIAL_PLAN_ID}&invite={token}"
+
+
+def _resolve_email_trial_invite(invite_token: str = '') -> dict | None:
+    """Validate invite from query param or session."""
+    token = str(invite_token or '').strip()
+    invite = confirm_email_trial_invite_token(token) if token else None
+    if invite:
+        _store_email_trial_invite_in_session(invite)
+        return invite
+    return _get_email_trial_invite_from_session()
+
+
+def _should_use_embedded_subscription_checkout(plan_id: str) -> bool:
+    """Embedded pending SetupIntent checkout for India monthly/annual only."""
+    if not _stripe_enabled():
+        return False
+    pid = _normalize_plan_id(plan_id)
+    if pid in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
+        return False
+    return _is_india_pricing_region() and pid in ('monthly_10_95', 'annual_6_95')
 
 
 def send_email_verification_email(email: str, token: str, user_name: str, next_url: str | None = None) -> bool:
@@ -1227,6 +1540,17 @@ ResumaticAI Team
         server.quit()
 
         logger.info(f"Verification email sent to {email}")
+        try:
+            record_email_event(
+                email_type="verification",
+                recipient=email,
+                subject=subject,
+                status="sent",
+                source="automatic",
+                metadata={"user_name": str(user_name or "").strip()},
+            )
+        except Exception:
+            pass
         return True
     except Exception:
         # Keep user-facing messaging generic; log full details for ops/debugging.
@@ -1242,6 +1566,18 @@ ResumaticAI Team
         except Exception:
             pass
         logger.exception("Error sending verification email")
+        try:
+            record_email_event(
+                email_type="verification",
+                recipient=email,
+                subject="Verify your email - ResumaticAI",
+                status="failed",
+                source="automatic",
+                metadata={"user_name": str(user_name or "").strip()},
+                error="smtp_send_failed",
+            )
+        except Exception:
+            pass
         return False
 
 
@@ -1360,11 +1696,11 @@ def send_welcome_email(email: str, user_name: str) -> bool:
             </p>
 
             <p>
-                For a limited time we are offering a free one week free trial of the premium plan, which you can find on our plans page:
+                For a limited time we are offering a free 3-day trial of the premium plan, which you can find on our plans page:
                 <a href="https://resumaticai.com/plans" style="color: #2563eb;">https://resumaticai.com/plans</a>.
             </p>
 
-            <p>Let's build a resume that gets you interviews.</p>
+            <p>Let's build a resume that gets you interviews!</p>
 
             <p>
                 Visit:
@@ -1412,10 +1748,10 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                 'https://www.trustpilot.com/review/resumaticai.com',
                 'Your support truly means a lot to us.',
                 '',
-                'For a limited time we are offering a free one week free trial of the premium plan, which you can find on our plans page:',
+                'For a limited time we are offering a free 3-day trial of the premium plan, which you can find on our plans page:',
                 'https://resumaticai.com/plans',
                 '',
-                "Let's build a resume that gets you interviews.",
+                "Let's build a resume that gets you interviews!",
                 '',
                 'Visit: https://resumaticai.com',
                 '',
@@ -1451,6 +1787,17 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         server.quit()
 
         logger.info(f"Welcome email sent to {email}")
+        try:
+            record_email_event(
+                email_type="welcome",
+                recipient=email,
+                subject=subject,
+                status="sent",
+                source="automatic",
+                metadata={"user_name": str(user_name or "").strip()},
+            )
+        except Exception:
+            pass
         return True
     except Exception:
         # Never log passwords/secrets.
@@ -1465,6 +1812,18 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         except Exception:
             pass
         logger.exception('Error sending welcome email')
+        try:
+            record_email_event(
+                email_type="welcome",
+                recipient=email,
+                subject="Welcome to ResumaticAI",
+                status="failed",
+                source="automatic",
+                metadata={"user_name": str(user_name or "").strip()},
+                error="smtp_send_failed",
+            )
+        except Exception:
+            pass
         return False
 
 
@@ -1572,6 +1931,20 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
         server.quit()
 
         logger.info("Trial cancel CTA email sent to %s", email)
+        try:
+            record_email_event(
+                email_type="trial_cancellation_reinstate",
+                recipient=email,
+                subject=subject,
+                status="sent",
+                source="automatic",
+                metadata={
+                    "user_name": str(user_name or "").strip(),
+                    "include_trial_bonus": bool(include_trial_bonus),
+                },
+            )
+        except Exception:
+            pass
         return True
     except Exception:
         try:
@@ -1585,36 +1958,278 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
         except Exception:
             pass
         logger.exception("Error sending trial cancellation reinstate CTA email")
+        try:
+            record_email_event(
+                email_type="trial_cancellation_reinstate",
+                recipient=email,
+                subject="Keep your edge in your job search - Reinstate your trial",
+                status="failed",
+                source="automatic",
+                metadata={
+                    "user_name": str(user_name or "").strip(),
+                    "include_trial_bonus": bool(include_trial_bonus),
+                },
+                error="smtp_send_failed",
+            )
+        except Exception:
+            pass
         return False
 
 
+def send_paid_cancellation_reinstate_email(email: str, user_name: str, user_id: str, subscription_id: str) -> bool:
+        """Send cancellation CTA email for users with real paid history."""
+        try:
+                email = (email or '').strip().lower()
+                if not email:
+                        return False
+
+                _load_email_config_if_missing()
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.image import MIMEImage
+                from email.mime.multipart import MIMEMultipart
+
+                smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+                smtp_port = int(os.getenv('SMTP_PORT', '587'))
+                auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+                auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+                if not auth_email or not auth_password:
+                        raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+                try:
+                    token = generate_reinstate_paid_offer_token(user_id=str(user_id or ""), subscription_id=str(subscription_id or ""), email=email)
+                    reinstate_url = _get_external_url('billing_reinstate_paid_offer', token=token)
+                except Exception:
+                    reinstate_url = _get_external_url('billing_cancel_page')
+                try:
+                        home_url = _get_external_url('index')
+                except Exception:
+                        home_url = ''
+                site_url = home_url or 'https://resumaticai.com'
+                logo_url = f"{site_url.rstrip('/')}/static/images/logo233_small.png"
+                logo_cid = 'resumatic_logo_paid_cancel_cta'
+                logo_bytes = None
+                try:
+                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
+                        with open(logo_path, 'rb') as f:
+                                logo_bytes = f.read()
+                except Exception:
+                        logo_bytes = None
+                logo_src = f"cid:{logo_cid}" if logo_bytes else logo_url
+
+                subject = 'Reinstate today for $3.99 - Exclusive 60% savings offer'
+                html_body = f"""\
+<html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
+        <div style="max-width: 620px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 16px;">
+                <a href="{site_url}" style="text-decoration: none;">
+                    <img src="{logo_src}" alt="ResumaticAI" style="max-width: 180px; width: 180px; height: auto;">
+                </a>
+            </div>
+            <h2 style="margin: 0 0 12px; color: #0f172a;">Dear Valued Customer,</h2>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                We noticed that you've recently canceled your subscription, and we'd love the opportunity to welcome you back.
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                As a special offer, you can reinstate your account today and receive your next month for just <strong>$3.99</strong>, an exclusive savings of over 60% off our regular monthly price.
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                We've made substantial upgrades to our platform, introducing new features, improved AI capabilities, enhanced performance, and most notably a comprehensive Job Dashboard. We're excited about these improvements and would love for you to explore everything that's new.
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                In today's competitive job market, having the right tools can make all the difference. With these recent enhancements, we believe our service has become an indispensable part of a successful job search campaign, helping job seekers create stronger resumes, stand out to employers, and increase their chances of landing interviews.
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                Don't miss this opportunity to experience our upgraded platform at a deeply discounted rate.
+            </p>
+            <p style="margin: 0 0 20px;">
+                <a href="{reinstate_url}" style="display: inline-block; background: #047857; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px; font-weight: 700;">
+                    Reactivate today for just $3.99 and see what's new.
+                </a>
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                We look forward to helping you achieve your career goals.
+            </p>
+            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                Best regards,<br/>
+                The ResumaticAI Team
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 13px;">
+                If the button doesn't work, copy and paste this link into your browser:<br/>
+                <a href="{reinstate_url}" style="color: #0ea5e9;">{reinstate_url}</a>
+            </p>
+        </div>
+    </body>
+</html>
+"""
+                text_body = (
+                    "Dear Valued Customer,\n\n"
+                    "We noticed that you've recently canceled your subscription, and we'd love the opportunity to welcome you back.\n\n"
+                    "As a special offer, you can reinstate your account today and receive your next month for just $3.99, an exclusive savings of over 60% off our regular monthly price.\n\n"
+                    "We've made substantial upgrades to our platform, introducing new features, improved AI capabilities, enhanced performance, and most notably a comprehensive Job Dashboard. We're excited about these improvements and would love for you to explore everything that's new.\n\n"
+                    "In today's competitive job market, having the right tools can make all the difference. With these recent enhancements, we believe our service has become an indispensable part of a successful job search campaign, helping job seekers create stronger resumes, stand out to employers, and increase their chances of landing interviews.\n\n"
+                    "Don't miss this opportunity to experience our upgraded platform at a deeply discounted rate.\n\n"
+                    "Reactivate today for just $3.99 and see what's new.\n\n"
+                    f"Reactivation link: {reinstate_url}\n\n"
+                    "We look forward to helping you achieve your career goals.\n\n"
+                    "Best regards,\n\n"
+                    "The ResumaticAI Team\n"
+                )
+
+                msg_root = MIMEMultipart('related')
+                msg_root['Subject'] = subject
+                msg_root['From'] = f"ResumaticAI <{auth_email}>"
+                msg_root['To'] = email
+
+                msg_alt = MIMEMultipart('alternative')
+                msg_alt.attach(MIMEText(text_body, 'plain', 'utf-8'))
+                msg_alt.attach(MIMEText(html_body, 'html', 'utf-8'))
+                msg_root.attach(msg_alt)
+
+                if logo_bytes:
+                        logo_part = MIMEImage(logo_bytes)
+                        logo_part.add_header('Content-ID', f"<{logo_cid}>")
+                        logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
+                        msg_root.attach(logo_part)
+
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(auth_email, auth_password)
+                server.send_message(msg_root)
+                server.quit()
+
+                logger.info("Paid cancel CTA email sent to %s", email)
+                try:
+                        record_email_event(
+                                email_type="paid_cancellation_reinstate",
+                                recipient=email,
+                                subject=subject,
+                                status="sent",
+                                source="automatic",
+                                metadata={
+                                        "user_name": str(user_name or "").strip(),
+                                        "user_id": str(user_id or "").strip(),
+                                        "subscription_id": str(subscription_id or "").strip(),
+                                },
+                        )
+                except Exception:
+                        pass
+                return True
+        except Exception:
+                try:
+                        logger.error(
+                                "Paid cancel CTA email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
+                                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+                                os.getenv('SMTP_PORT', '587'),
+                                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                                (email or '').strip().lower(),
+                        )
+                except Exception:
+                        pass
+                logger.exception('Error sending paid cancellation reinstate CTA email')
+                try:
+                        record_email_event(
+                                email_type="paid_cancellation_reinstate",
+                                recipient=email,
+                                subject="Reinstate today for $3.99 - Exclusive 60% savings offer",
+                                status="failed",
+                                source="automatic",
+                                metadata={
+                                        "user_name": str(user_name or "").strip(),
+                                        "user_id": str(user_id or "").strip(),
+                                        "subscription_id": str(subscription_id or "").strip(),
+                                },
+                                error="smtp_send_failed",
+                        )
+                except Exception:
+                        pass
+                return False
+
+
 def load_users():
-    """Load users from JSON file"""
+    """Load users from Azure-backed profiles, with local JSON fallback."""
     try:
-        if os.path.exists(USERS_FILE):
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                users_data = json.load(f)
-                return {user_id: User.from_dict(user_data) for user_id, user_data in users_data.items()}
-        return {}
-    except Exception as e:
-        logger.exception("Error loading users")
-        return {}
+        collector = globals().get('_collect_registered_users_from_azure_users_table')
+        if callable(collector):
+            rows, _, _ = collector()
+            loaded_users = {}
+            for row in rows:
+                user_id = str(row.get('id') or row.get('PartitionKey') or '').strip()
+                email = str(row.get('email') or '').strip()
+                if not user_id or not email:
+                    continue
+                user_data = {
+                    'id': user_id,
+                    'name': str(row.get('name') or '').strip() or email.split('@')[0] or 'User',
+                    'email': email,
+                    'password_hash': row.get('password_hash'),
+                    'created_at': row.get('created_at'),
+                    'email_verified': row.get('email_verified'),
+                    'email_verified_at': row.get('email_verified_at'),
+                    'email_verification_sent_at': row.get('email_verification_sent_at'),
+                    'welcome_email_sent_at': row.get('welcome_email_sent_at'),
+                }
+                loaded_users[user_id] = User.from_dict(user_data)
+            if loaded_users:
+                return loaded_users
+    except Exception:
+        logger.exception("Error loading users from Azure")
+    try:
+        if os.path.exists(LOCAL_AUTH_USERS_FILE):
+            with open(LOCAL_AUTH_USERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                loaded_users = {}
+                for user_id, user_data in data.items():
+                    if not isinstance(user_data, dict):
+                        continue
+                    try:
+                        record = dict(user_data)
+                        record['id'] = str(record.get('id') or user_id).strip()
+                        if not record['id'] or not str(record.get('email') or '').strip():
+                            continue
+                        loaded_users[record['id']] = User.from_dict(record)
+                    except Exception:
+                        continue
+                return loaded_users
+    except Exception:
+        logger.exception("Error loading users from local auth store")
+    return {}
 
 def save_users():
-    """Save users to JSON file"""
+    """Persist the in-memory user cache to Azure profiles and local fallback."""
     try:
-        users_data = {user_id: user.to_dict() for user_id, user in users.items()}
-        with open(USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(users_data, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        logger.exception("Error saving users")
+        for user in users.values():
+            upsert_user_profile_azure(user)
+    except Exception:
+        logger.exception("Error saving users to Azure")
+    try:
+        payload = {}
+        for user_id, user in users.items():
+            if not user:
+                continue
+            payload[str(user_id)] = user.to_dict()
+        with open(LOCAL_AUTH_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception:
+        logger.exception("Error saving users to local auth store")
 
 
 
 def add_user(user):
-    """Add a user and save to persistent storage"""
+    """Add a user and persist to Azure-backed storage plus local fallback."""
+    if user and not getattr(user, 'password_hash', None):
+        user.password_hash = generate_password_hash(secrets.token_urlsafe(32))
     users[user.id] = user
-    save_users()
+    try:
+        upsert_user_profile_azure(user)
+    except Exception:
+        logger.exception("Error upserting user to Azure")
+    try:
+        save_users()
+    except Exception:
+        logger.exception("Error persisting users after add_user")
     try:
         logger.info("Added user: %s (%s)", getattr(user, 'name', ''), getattr(user, 'email', ''))
     except Exception:
@@ -1636,6 +2251,84 @@ def _find_user_by_email(email: str):
         if _normalize_email(getattr(u, 'email', '')) == needle:
             return u
     return None
+
+
+def _find_azure_user_profile_by_email(email: str):
+    needle = _normalize_email(email)
+    if not needle:
+        return None
+    try:
+        table_client = get_users_table_client()
+        try:
+            pager = table_client.query_entities("RowKey eq 'profile'")
+        except Exception:
+            pager = table_client.list_entities()
+        for entity in pager:
+            if str(entity.get('RowKey') or '') != 'profile':
+                continue
+            if _normalize_email(entity.get('email', '')) == needle:
+                return dict(entity)
+    except Exception:
+        pass
+    return None
+
+
+def _get_auth_user_by_email(email: str):
+    user = _find_user_by_email(email)
+    if user:
+        return user
+
+    prof = _find_azure_user_profile_by_email(email)
+    if not prof:
+        return None
+
+    record = dict(prof)
+    record['id'] = str(record.get('PartitionKey') or record.get('id') or '').strip()
+    if not record['id'] or not record.get('password_hash'):
+        return None
+
+    try:
+        user = User.from_dict(record)
+        users[user.id] = user
+        save_users()
+        return user
+    except Exception:
+        return None
+
+
+def _resolve_oauth_user(user_id: str, name: str, email: str) -> tuple['User', bool]:
+    """Return (user, is_new) for OAuth logins using persistent profile lookup.
+
+    This prevents existing users from being treated as new after process restarts,
+    which can otherwise re-trigger one-time welcome email logic.
+    """
+    uid = str(user_id or '').strip()
+    normalized_email = _normalize_email(email)
+
+    existing = users.get(uid)
+    if existing:
+        if name:
+            existing.name = name
+        if normalized_email:
+            existing.email = normalized_email
+        return existing, False
+
+    try:
+        prof = get_user_profile_azure(uid) or {}
+        if prof and prof.get('email'):
+            record = dict(prof)
+            record['id'] = uid
+            existing = User.from_dict(record)
+            if name:
+                existing.name = name
+            if normalized_email:
+                existing.email = normalized_email
+            users[uid] = existing
+            return existing, False
+    except Exception:
+        pass
+
+    return User(uid, name, normalized_email, is_new=True), True
 
 
 def _load_login_audit_store() -> dict:
@@ -1735,6 +2428,102 @@ def _format_datetime_pacific(iso_value: str | None) -> str:
 
 
 _LOGIN_AUDIT_LOCK = threading.Lock()
+_RECENT_LOGIN_AUDIT_AT_BY_USER: dict[str, float] = {}
+_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS = int(os.getenv('LOGIN_AUDIT_DEDUPE_SECONDS', '45') or '45')
+_LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS = int(os.getenv('LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS', '300') or '300')
+_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES = int(os.getenv('LOGIN_AUDIT_METRICS_DEDUPE_MINUTES', '5') or '5')
+_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES = int(os.getenv('LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES', '10') or '10')
+
+
+def _login_audit_dedupe_window_seconds(login_method: str) -> float:
+    """Return the dedupe window for a login method when deciding whether to record an audit row."""
+    method = str(login_method or '').strip().lower()
+    if method == 'email_verification':
+        return float(max(_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS, _LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS))
+    return float(_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS)
+
+
+def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> bool:
+    """Return True when a new login audit row would duplicate a very recent auth event."""
+    user_id = str(user_id or '').strip()
+    email = _normalize_email(email)
+    dedupe_key = user_id or email
+    if not dedupe_key:
+        return False
+
+    now = datetime.now(timezone.utc)
+    now_mono = now.timestamp()
+    window_seconds = _login_audit_dedupe_window_seconds(login_method)
+    method = str(login_method or '').strip().lower()
+
+    last_at = _RECENT_LOGIN_AUDIT_AT_BY_USER.get(dedupe_key)
+    if last_at is not None and (now_mono - last_at) < window_seconds:
+        return True
+
+    existing_audit_id = session.get(LOGIN_AUDIT_SESSION_KEY)
+    existing_login_at = session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY)
+    if existing_audit_id and existing_login_at:
+        existing_dt = _parse_iso_datetime(existing_login_at)
+        if existing_dt is not None and (now - existing_dt).total_seconds() < window_seconds:
+            return True
+
+    def _matches_user(rec: dict) -> bool:
+        rec_uid = str(rec.get('user_id') or '').strip()
+        rec_email = _normalize_email(rec.get('email') or '')
+        if user_id and rec_uid == user_id:
+            return True
+        if email and rec_email == email:
+            return True
+        return False
+
+    def _recent_duplicate(rec_at: datetime | None, rec_method: str) -> bool:
+        if rec_at is None:
+            return False
+        elapsed = (now - rec_at).total_seconds()
+        if elapsed < 0:
+            return False
+        rec_method = str(rec_method or '').strip().lower()
+        onboarding_window_seconds = max(60, int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60)
+        if (
+            method == 'password'
+            and rec_method == 'email_verification'
+            and elapsed < onboarding_window_seconds
+        ):
+            return True
+        if elapsed >= window_seconds:
+            return False
+        if method == 'email_verification' and rec_method == 'email_verification':
+            return True
+        if method and method == rec_method:
+            return True
+        return False
+
+    if user_id:
+        try:
+            prof = get_user_profile_azure(user_id) or {}
+            last_login = _parse_iso_datetime(_coerce_datetime_iso(prof.get('last_login_at')))
+            last_method = str(prof.get('last_login_method') or '').strip().lower()
+            if _recent_duplicate(last_login, last_method):
+                return True
+        except Exception:
+            pass
+
+    try:
+        with _LOGIN_AUDIT_LOCK:
+            store = _load_login_audit_store()
+            sessions = store.get('sessions') if isinstance(store, dict) else {}
+            if isinstance(sessions, dict):
+                for rec in sessions.values():
+                    if not isinstance(rec, dict) or not _matches_user(rec):
+                        continue
+                    rec_at = _parse_iso_datetime(_coerce_datetime_iso(rec.get('login_at')))
+                    rec_method = str(rec.get('login_method') or '').strip().lower()
+                    if _recent_duplicate(rec_at, rec_method):
+                        return True
+    except Exception:
+        pass
+
+    return False
 
 
 def _auth_timeout_seconds() -> tuple[int | None, int | None]:
@@ -1828,6 +2617,8 @@ def _get_login_audit_table_client(create_if_missing: bool = True):
     if connection_string:
         service = TableServiceClient.from_connection_string(conn_str=connection_string)
     else:
+        # Import lazily: azure.identity import can be slow on some Windows hosts.
+        from azure.identity import DefaultAzureCredential
         credential = DefaultAzureCredential()
         service = TableServiceClient(endpoint=f"https://{account}.table.core.windows.net", credential=credential)
 
@@ -1843,8 +2634,12 @@ def _get_login_audit_table_client(create_if_missing: bool = True):
 def _azure_login_audit_upsert(entity: dict) -> bool:
     """Upsert a login audit entity to Azure (best-effort)."""
     try:
+        payload = dict(entity or {})
+        for key in ('login_at', 'last_activity_at', 'logout_at'):
+            if key in payload and payload[key] is not None:
+                payload[key] = _coerce_datetime_iso(payload[key])
         table_client = _get_login_audit_table_client(create_if_missing=True)
-        table_client.upsert_entity(mode=UpdateMode.REPLACE, entity=entity)
+        table_client.upsert_entity(mode=UpdateMode.REPLACE, entity=payload)
         return True
     except Exception:
         logger.exception('Azure login audit upsert failed')
@@ -2163,10 +2958,17 @@ def _audit_login_start(user: "User", login_method: str) -> None:
     try:
         import uuid
 
+        user_id = str(getattr(user, 'id', '') or '')
+        email = _normalize_email(getattr(user, 'email', ''))
+
+        if _should_skip_login_audit(user_id=user_id, email=email, login_method=login_method):
+            return
+
+        now_mono = datetime.now(timezone.utc).timestamp()
+        dedupe_key = user_id or email
+
         audit_id = uuid.uuid4().hex
         now = datetime.now(timezone.utc)
-        email = _normalize_email(getattr(user, 'email', ''))
-        user_id = str(getattr(user, 'id', '') or '')
         login_at = now.isoformat()
 
         # Generate a per-login session RowKey for the Azure Users table (append-only per session).
@@ -2217,6 +3019,8 @@ def _audit_login_start(user: "User", login_method: str) -> None:
                 session[LOGIN_AUDIT_SESSION_RK_KEY] = rk
                 session[LOGIN_AUDIT_SESSION_LOGIN_AT_KEY] = login_at
                 session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = login_at
+                if dedupe_key:
+                    _RECENT_LOGIN_AUDIT_AT_BY_USER[dedupe_key] = now_mono
                 return
 
         # If Azure login audit isn't enabled, still try to record the session in Users table.
@@ -2255,6 +3059,8 @@ def _audit_login_start(user: "User", login_method: str) -> None:
 
         session[LOGIN_AUDIT_SESSION_KEY] = audit_id
         session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = login_at
+        if dedupe_key:
+            _RECENT_LOGIN_AUDIT_AT_BY_USER[dedupe_key] = now_mono
     except Exception:
         logger.exception("Error starting login audit")
 
@@ -2513,7 +3319,21 @@ except Exception:
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(user_id)
+    cached_user = users.get(str(user_id))
+    if cached_user:
+        return cached_user
+
+    try:
+        prof = get_user_profile_azure(str(user_id)) or {}
+        if not prof or not prof.get('email'):
+            return None
+        record = dict(prof)
+        record['id'] = str(user_id)
+        cached_user = User.from_dict(record)
+        users[str(user_id)] = cached_user
+        return cached_user
+    except Exception:
+        return None
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -2562,7 +3382,7 @@ def login():
                 flash('Please enter both email and password.', 'danger')
                 return _render_login(active_tab='login')
             
-            user = _find_user_by_email(email)
+            user = _get_auth_user_by_email(email)
 
             # If the user exists but has no password, they likely signed up via Google/Facebook.
             if user and not getattr(user, 'password_hash', None):
@@ -2646,7 +3466,7 @@ def login():
                 return _render_login(active_tab='register')
             
             # Check if email already exists
-            existing_user = _find_user_by_email(email)
+            existing_user = _get_auth_user_by_email(email)
             if existing_user:
                 if not getattr(existing_user, 'password_hash', None):
                     flash('An account with this email already exists via Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
@@ -2758,8 +3578,10 @@ def verify_email_token(token):
     except Exception:
         pass
 
-    # If already verified, just proceed.
-    if not getattr(user, 'email_verified', True):
+    was_already_verified = bool(getattr(user, 'email_verified', True))
+
+    # If already verified, just proceed without creating another login audit row.
+    if not was_already_verified:
         user.email_verified = True
         user.email_verified_at = datetime.now(timezone.utc).isoformat()
         add_user(user)
@@ -2809,7 +3631,8 @@ def verify_email_token(token):
         logger.exception("Unexpected error during welcome-email attempt after verification")
 
     login_user(user)
-    _audit_login_start(user, login_method='email_verification')
+    if not was_already_verified:
+        _audit_login_start(user, login_method='email_verification')
 
     # Save pending revision if it exists
     pending = session.pop('pending_revision', None)
@@ -2829,7 +3652,10 @@ def verify_email_token(token):
         except Exception:
             pass
 
-    flash('Email verified successfully! You can now use your account.', 'success')
+    if was_already_verified:
+        flash('This email is already verified. You are now logged in.', 'success')
+    else:
+        flash('Email verified successfully! You can now use your account.', 'success')
     nxt = _pop_auth_next()
     return redirect(nxt or url_for('my_revisions'))
 
@@ -2992,7 +3818,17 @@ def forgot_password():
             flash('Please enter your email address.', 'danger')
             return render_template("forgot_password.html")
         
-        user = _find_user_by_email(email)
+        user = _get_auth_user_by_email(email)
+        if not user:
+            prof = _find_azure_user_profile_by_email(email)
+            if prof:
+                record = dict(prof)
+                record['id'] = str(record.get('PartitionKey') or record.get('id') or '').strip()
+                if record['id']:
+                    try:
+                        user = User.from_dict(record)
+                    except Exception:
+                        user = None
         
         # Redirect back with a generic success indicator (security: don't reveal if email exists)
         
@@ -3061,6 +3897,15 @@ def reset_password(token):
         # Get user and update password
         user_id = token_data['user_id']
         user = users.get(user_id)
+        if not user:
+            try:
+                prof = get_user_profile_azure(user_id) or {}
+                if prof and prof.get('email'):
+                    record = dict(prof)
+                    record['id'] = str(user_id)
+                    user = User.from_dict(record)
+            except Exception:
+                user = None
         
         if user:
             user.set_password(password)
@@ -3095,8 +3940,27 @@ def logout():
     return redirect(url_for('index'))
 
 
+def _oauth_ssl_verify_setting():
+    """Return requests/google-auth verify= value for local dev SSL issues."""
+    insecure_ssl = str(os.getenv('LOCAL_DEV_INSECURE_SSL', '') or '').strip().lower()
+    if (not _ON_AZURE) and insecure_ssl in ('1', 'true', 'yes', 'on'):
+        return False
+    # truststore patches ssl.SSLContext at import; use default verification (True).
+    return True
+
+
+def _apply_oauth_ssl_verify(flow) -> None:
+    """Ensure OAuth token exchange uses patched SSL verification."""
+    try:
+        _ensure_local_truststore_ssl()
+        flow.oauth2session.verify = _oauth_ssl_verify_setting()
+    except Exception:
+        pass
+
+
 @app.route("/login/google")
 def google_login():
+    _ensure_local_truststore_ssl()
     # Clear any lingering flash messages
     session.pop('_flashes', None)
 
@@ -3132,12 +3996,14 @@ def google_login():
             redirect_uri=url_for("google_callback", _external=True)
         )
     
+    _apply_oauth_ssl_verify(flow)
     auth_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
         prompt="select_account"  # 👈 This line is important
     )
     session["state"] = state
+    session.modified = True
     return redirect(auth_url)
 
 
@@ -3147,110 +4013,130 @@ def google_login():
 # Google OAuth Callback
 @app.route("/login/google/authorized")
 def google_callback():
+    _ensure_local_truststore_ssl()
     if current_user.is_authenticated:
         nxt = _pop_auth_next()
         return redirect(nxt or url_for('my_revisions'))
-    
-    if USE_ENV_CREDENTIALS:
-        # Use environment variables for credentials
-        client_config = {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "redirect_uris": [url_for("google_callback", _external=True)]
-            }
-        }
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=GOOGLE_SCOPES,
-            state=session["state"],
-            redirect_uri=url_for("google_callback", _external=True)
-        )
-    else:
-        # Use file-based credentials
-        flow = Flow.from_client_secrets_file(
-            GOOGLE_CLIENT_SECRET_FILE,
-            scopes=GOOGLE_SCOPES,
-            state=session["state"],
-            redirect_uri=url_for("google_callback", _external=True)
-        )
 
-    flow.fetch_token(authorization_response=request.url)
-    credentials = flow.credentials
-    
-    # Add clock skew tolerance for token verification with retry logic
-    import time
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            user_info = google.oauth2.id_token.verify_oauth2_token(
-                credentials.id_token, 
-                google.auth.transport.requests.Request(),
-                clock_skew_in_seconds=30  # Allow 30 seconds clock skew
+    oauth_state = str(session.pop("state", None) or "").strip()
+    if not oauth_state:
+        flash("Your sign-in session expired. Please try Google sign-in again.", "danger")
+        return redirect(url_for("login"))
+
+    try:
+        if USE_ENV_CREDENTIALS:
+            client_config = {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "redirect_uris": [url_for("google_callback", _external=True)]
+                }
+            }
+            flow = Flow.from_client_config(
+                client_config,
+                scopes=GOOGLE_SCOPES,
+                state=oauth_state,
+                redirect_uri=url_for("google_callback", _external=True)
             )
-            break  # Success, exit retry loop
-        except google.auth.exceptions.InvalidValue as e:
-            if "Token used too early" in str(e) and attempt < max_retries - 1:
-                # Wait 2 seconds and retry
-                time.sleep(2)
-                continue
-            else:
-                raise  # Re-raise if not a timing issue or max retries reached
-    user_id = user_info["sub"]
-    is_new = user_id not in users
-    user = User(user_id, user_info["name"], user_info.get("email", ""), is_new=is_new)
-    add_user(user)  # Use add_user to save persistently
-    # Marketing attribution + conversion (only for first-time signups; best-effort)
-    try:
-        if is_new:
-            _append_marketing_signup_csv(user, signup_method='google_oauth')
-            analytics.track_conversion(session, "signup")
-    except Exception:
-        pass
-    # One-time welcome email for new OAuth signups (best-effort, non-blocking)
-    try:
-        if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
-            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
-            if sent_ok:
-                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
-                add_user(user)
-    except Exception:
-        pass
-    # Record only first-time Google signups
-    try:
-        if is_new and str(user_id).isdigit():
-            _append_google_signup_csv(user.id, user.name, user.email, user.created_at)
-    except Exception:
-        pass
-    # Persist profile to Azure Users table
-    try:
-        upsert_user_profile_azure(user)
-    except Exception:
-        pass
-    login_user(user)
-    _audit_login_start(user, login_method='google_oauth')
-    # Save pending revision if it exists
-    pending = session.pop('pending_revision', None)
-    if pending:
-        import uuid
-        try:
-            save_resume_revision(
-                user.id,
-                str(uuid.uuid4()),
-                pending['revised_resume'],
-                feedback=pending.get('feedback'),
-                original_resume=pending.get('original_resume'),
-                job_description=pending.get('job_description')
+        else:
+            flow = Flow.from_client_secrets_file(
+                GOOGLE_CLIENT_SECRET_FILE,
+                scopes=GOOGLE_SCOPES,
+                state=oauth_state,
+                redirect_uri=url_for("google_callback", _external=True)
             )
-        except FreeTierLimitReached:
-            flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+
+        _apply_oauth_ssl_verify(flow)
+        insecure_ssl = str(os.getenv('LOCAL_DEV_INSECURE_SSL', '') or '').strip().lower()
+        if (not _ON_AZURE) and insecure_ssl in ('1', 'true', 'yes', 'on'):
+            flow.oauth2session.verify = False
+
+        flow.fetch_token(authorization_response=request.url)
+        credentials = flow.credentials
+
+        import time
+        _ensure_local_truststore_ssl()
+        google_request = google.auth.transport.requests.Request()
+        try:
+            google_request.session.verify = _oauth_ssl_verify_setting()
         except Exception:
             pass
-    nxt = _pop_auth_next()
-    return redirect(nxt or url_for('my_revisions'))
+        max_retries = 3
+        user_info = None
+        for attempt in range(max_retries):
+            try:
+                user_info = google.oauth2.id_token.verify_oauth2_token(
+                    credentials.id_token,
+                    google_request,
+                    clock_skew_in_seconds=30,
+                )
+                break
+            except google.auth.exceptions.InvalidValue as e:
+                if "Token used too early" in str(e) and attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                raise
+
+        user_id = user_info["sub"]
+        user, is_new = _resolve_oauth_user(user_id, user_info["name"], user_info.get("email", ""))
+        add_user(user)
+        try:
+            if is_new:
+                _append_marketing_signup_csv(user, signup_method='google_oauth')
+                analytics.track_conversion(session, "signup")
+        except Exception:
+            pass
+        try:
+            if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
+                sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+                if sent_ok:
+                    user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                    add_user(user)
+        except Exception:
+            pass
+        try:
+            if is_new and str(user_id).isdigit():
+                _append_google_signup_csv(user.id, user.name, user.email, user.created_at)
+        except Exception:
+            pass
+        try:
+            upsert_user_profile_azure(user)
+        except Exception:
+            pass
+        login_user(user)
+        _audit_login_start(user, login_method='google_oauth')
+        pending = session.pop('pending_revision', None)
+        if pending:
+            import uuid
+            try:
+                save_resume_revision(
+                    user.id,
+                    str(uuid.uuid4()),
+                    pending['revised_resume'],
+                    feedback=pending.get('feedback'),
+                    original_resume=pending.get('original_resume'),
+                    job_description=pending.get('job_description')
+                )
+            except FreeTierLimitReached:
+                flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+            except Exception:
+                pass
+        nxt = _pop_auth_next()
+        return redirect(nxt or url_for('my_revisions'))
+    except Exception as e:
+        err_name = type(e).__name__
+        err_text = str(e or "")
+        logger.exception("google_callback oauth exchange failed")
+        if "MismatchingStateError" in err_name or "mismatching_state" in err_text.lower():
+            flash("Google sign-in could not be verified. Please try again.", "danger")
+        elif "SSL" in err_name or "certificate verify failed" in err_text.lower():
+            flash("Google sign-in failed due to a local SSL certificate issue. Please restart the app and try again.", "danger")
+        else:
+            flash("Google sign-in failed. Please try again.", "danger")
+        return redirect(url_for("login"))
     
 
 @app.route("/login/facebook/authorized")
@@ -3265,8 +4151,7 @@ def facebook_callback():
 
     fb_info = resp.json()
     user_id = f"facebook_{fb_info['id']}"
-    is_new = user_id not in users
-    user = User(user_id, fb_info["name"], fb_info.get("email", ""), is_new=is_new)
+    user, is_new = _resolve_oauth_user(user_id, fb_info["name"], fb_info.get("email", ""))
     add_user(user)  # Use add_user to save persistently
     # Marketing attribution + conversion (only for first-time signups; best-effort)
     try:
@@ -3572,7 +4457,13 @@ def index():
     
     current_year = datetime.now().year
     scroll_to_form = (request.args.get('scroll_to_form', '').lower() == 'true')
-    return render_template("index.html", year=current_year, user=current_user, scroll_to_form=scroll_to_form)
+    resp = make_response(
+        render_template("index.html", year=current_year, user=current_user, scroll_to_form=scroll_to_form)
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/upload")
@@ -4224,6 +5115,8 @@ def plans():
         offer_retention=offer_retention,
         next_url=safe_next_url,
         plan_prices=_plans_price_display_context(),
+        trial_hold_days=_get_trial_hold_days(),
+        capture_day=max(1, _get_trial_hold_days() - _get_trial_capture_days_before_end(_get_trial_hold_days())),
     )
 
 @app.route("/plans/template-pdf")
@@ -4251,6 +5144,8 @@ def plans_template_pdf():
         trial_unavailable=trial_unavailable,
         next_url=safe_next_url,
         plan_prices=_plans_price_display_context(),
+        trial_hold_days=_get_trial_hold_days(),
+        capture_day=max(1, _get_trial_hold_days() - _get_trial_capture_days_before_end(_get_trial_hold_days())),
     )
 
 
@@ -4263,6 +5158,8 @@ def _normalize_plan_id(plan_id: str) -> str:
     # Legacy: trial used to be named trial_14d; it is now trial_7d.
     if pid == 'trial_14d':
         return 'trial_7d'
+    if pid in ('trial_10d', 'trial_10_day', 'trial_10_days'):
+        return EMAIL_TRIAL_PLAN_ID
     return pid
 
 
@@ -4270,7 +5167,21 @@ def _normalize_plan_id(plan_id: str) -> str:
 @app.route("/go/trial/")
 @login_required
 def go_trial():
-    return redirect(_TRIAL_STRIPE_PAYMENT_LINK)
+    return redirect(url_for("checkout", plan="trial_7d"))
+
+
+@app.route("/go/email-trial")
+@app.route("/go/email-trial/")
+def go_email_trial():
+    """Entry point for mass-email trial links. Requires a signed invite query param."""
+    invite_token = str(request.args.get('invite') or '').strip()
+    invite = _resolve_email_trial_invite(invite_token)
+    if not invite:
+        flash("This trial offer link has expired or is invalid. Please use the link from your email.", "danger")
+        return redirect(url_for("plans"))
+    if not getattr(current_user, 'is_authenticated', False):
+        return redirect(url_for("login", next=url_for("checkout", plan=EMAIL_TRIAL_PLAN_ID, invite=invite_token)))
+    return redirect(url_for("checkout", plan=EMAIL_TRIAL_PLAN_ID, invite=invite_token))
 
 
 def _get_plan_config(plan_id: str) -> Optional[dict]:
@@ -4279,12 +5190,38 @@ def _get_plan_config(plan_id: str) -> Optional[dict]:
         return None
     # Plan IDs must match templates/plans.html
     if pid == 'trial_7d':
+        disp = _plans_price_display_context()
+        deposit_label = disp.get('monthly_strong') or '$10.95'
+        hold_days = _get_trial_hold_days(pid)
+        capture_day = max(1, hold_days - _get_trial_capture_days_before_end(hold_days))
         return {
             'id': pid,
-            'label': '1-Week Trial',
-            'price': '$0',
+            'label': f'{hold_days}-Day Trial',
+            'price': deposit_label,
             'plan_status': 'trial',
-            'duration_days': 7,
+            'duration_days': hold_days,
+            'trial_deposit_label': deposit_label,
+            'trial_capture_day': capture_day,
+            'trial_deposit_terms': (
+                f'A temporary {deposit_label} authorization hold is placed on your card. '
+                f'If you cancel before day {capture_day}, the hold is released and you are not charged. '
+                f'If you stay subscribed, the hold is captured on day {capture_day} as your first month\'s subscription payment. '
+                f'Cancel on day {hold_days} for a full refund if you were charged.'
+            ),
+        }
+    if pid == EMAIL_TRIAL_PLAN_ID or pid == 'trial_10d_email':
+        disp = _plans_price_display_context()
+        deposit_label = disp.get('monthly_strong') or '$10.95'
+        hold_days = _get_trial_hold_days(pid)
+        capture_day = max(1, hold_days - _get_trial_capture_days_before_end(hold_days))
+        return {
+            'id': EMAIL_TRIAL_PLAN_ID,
+            'label': f'{hold_days}-Day Free Trial',
+            'price': deposit_label,
+            'plan_status': 'trial',
+            'duration_days': hold_days,
+            'trial_deposit_label': deposit_label,
+            'trial_capture_day': capture_day,
         }
     if pid == 'monthly_10_95':
         disp = _plans_price_display_context()
@@ -4317,6 +5254,24 @@ def _get_plan_config(plan_id: str) -> Optional[dict]:
     return None
 
 
+def _stripe_trial_end_ts_for_display() -> int:
+    """Return trial end timestamp aligned with the configured trial hold duration."""
+    return _stripe_trial_end_ts_for_days(_get_trial_hold_days())
+
+
+def _stripe_trial_end_ts_for_days(days: int, buffer_hours: int = 1) -> int:
+    """Return a Stripe trial_end timestamp for the given number of days."""
+    try:
+        day_count = max(1, int(days or 1))
+    except Exception:
+        day_count = 1
+    try:
+        buffer = max(0, int(buffer_hours or 0))
+    except Exception:
+        buffer = 1
+    return int(time.time()) + ((day_count * 24 + buffer) * 60 * 60)
+
+
 def _stripe_enabled() -> bool:
     return bool((os.getenv('STRIPE_SECRET_KEY') or '').strip())
 
@@ -4339,29 +5294,1060 @@ def _get_stripe_subscription_id_from_azure(user_id: str) -> str:
         return ''
 
 
-def _find_stripe_customer_id_by_email(email: str) -> str:
-    """Best-effort lookup for Stripe customer id by email (helps when webhook/profile hasn't saved ids yet)."""
+def _fetch_stripe_subscriptions_index() -> dict:
+    """Fetch all Stripe subscriptions for admin reconciliation (paginated)."""
+    empty = {
+        'subscriptions': [],
+        'by_id': {},
+        'by_customer': {},
+        'total': 0,
+        'error': None,
+    }
+    if not _stripe_enabled():
+        return empty
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        all_subs = []
+        starting_after = None
+        while True:
+            # Stripe allows max 4 expand levels on list; price.product would be 5.
+            params = {'status': 'all', 'limit': 100, 'expand': ['data.items.data.price']}
+            if starting_after:
+                params['starting_after'] = starting_after
+            res = stripe.Subscription.list(**params)
+            batch = list(getattr(res, 'data', []) or [])
+            all_subs.extend(batch)
+            if not getattr(res, 'has_more', False) or not batch:
+                break
+            starting_after = str(getattr(batch[-1], 'id', '') or '').strip()
+            if not starting_after:
+                break
+        by_id: dict[str, object] = {}
+        by_customer: dict[str, list] = {}
+        for sub in all_subs:
+            sid = str(getattr(sub, 'id', '') or '').strip()
+            cid = str(getattr(sub, 'customer', '') or '').strip()
+            if sid:
+                by_id[sid] = sub
+            if cid:
+                by_customer.setdefault(cid, []).append(sub)
+        for cid in by_customer:
+            by_customer[cid].sort(
+                key=lambda s: int(getattr(s, 'created', 0) or 0),
+                reverse=True,
+            )
+        return {
+            'subscriptions': all_subs,
+            'by_id': by_id,
+            'by_customer': by_customer,
+            'total': len(all_subs),
+            'error': None,
+        }
+    except Exception as e:
+        try:
+            logger.warning('Failed to fetch Stripe subscriptions for admin dashboard: %s', str(e))
+        except Exception:
+            pass
+        empty['error'] = str(e)
+        return empty
+
+
+def _match_user_to_stripe_subscriptions(prof: Optional[dict], stripe_index: dict) -> tuple[list, str]:
+    """Return Stripe subscription objects linked to this Azure profile."""
+    if not prof or not stripe_index:
+        return [], ''
+    sub_id = str(prof.get('stripe_subscription_id') or '').strip()
+    cid = str(prof.get('stripe_customer_id') or '').strip()
+    matched: list = []
+    seen: set[str] = set()
+
+    by_id = stripe_index.get('by_id') or {}
+    by_customer = stripe_index.get('by_customer') or {}
+
+    if sub_id and sub_id in by_id:
+        matched.append(by_id[sub_id])
+        seen.add(sub_id)
+
+    if cid and cid in by_customer:
+        for sub in by_customer[cid]:
+            sid = str(getattr(sub, 'id', '') or '').strip()
+            if sid and sid not in seen:
+                matched.append(sub)
+                seen.add(sid)
+
+    match_source = ''
+    if matched:
+        if sub_id and sub_id in seen:
+            match_source = 'subscription_id'
+        elif cid:
+            match_source = 'customer_id'
+    return matched, match_source
+
+
+def _stripe_sub_status_label(sub) -> str:
+    status = str(getattr(sub, 'status', '') or '').strip().lower()
+    labels = {
+        'active': 'Active',
+        'trialing': 'Active (Trial)',
+        'canceled': 'Canceled',
+        'past_due': 'Past Due',
+        'unpaid': 'Unpaid',
+        'incomplete': 'Incomplete',
+        'incomplete_expired': 'Incomplete Expired',
+        'paused': 'Paused',
+    }
+    return labels.get(status, status.replace('_', ' ').title() or 'Unknown')
+
+
+def _get_stripe_customer_email_cached(customer_id: str, cache: dict) -> str:
+    cid = (customer_id or '').strip()
+    if not cid:
+        return ''
+    if cid in cache:
+        return cache[cid]
+    email = ''
+    if _stripe_enabled():
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            cust = stripe.Customer.retrieve(cid)
+            email = str(getattr(cust, 'email', '') or '').strip().lower()
+        except Exception:
+            pass
+    cache[cid] = email
+    return email
+
+
+def _build_azure_profile_lookup(users_rows: list) -> dict:
+    lookup = {
+        'by_uid': {},
+        'by_customer': {},
+        'by_sub_id': {},
+        'by_email': {},
+    }
+    for row in users_rows:
+        uid = str(row.get('id') or row.get('PartitionKey') or '').strip()
+        if uid:
+            lookup['by_uid'][uid] = row
+        cid = str(row.get('stripe_customer_id') or '').strip()
+        if cid:
+            lookup['by_customer'].setdefault(cid, row)
+        sid = str(row.get('stripe_subscription_id') or '').strip()
+        if sid:
+            lookup['by_sub_id'].setdefault(sid, row)
+        email = str(row.get('email') or '').strip().lower()
+        if email:
+            lookup['by_email'].setdefault(email, row)
+    return lookup
+
+
+def _resolve_azure_profile_for_stripe_sub(sub, lookup: dict, email_cache: dict) -> tuple[Optional[dict], str]:
+    sid = str(getattr(sub, 'id', '') or '').strip()
+    cid = str(getattr(sub, 'customer', '') or '').strip()
+    if sid and sid in lookup['by_sub_id']:
+        return lookup['by_sub_id'][sid], 'subscription_id'
+    if cid and cid in lookup['by_customer']:
+        return lookup['by_customer'][cid], 'customer_id'
+    email = _get_stripe_customer_email_cached(cid, email_cache)
+    if email and email in lookup['by_email']:
+        return lookup['by_email'][email], 'email'
+    return None, ''
+
+
+def _stripe_sub_period_end_display(sub) -> str:
+    end_ts = getattr(sub, 'current_period_end', None)
+    if not end_ts:
+        return '—'
+    try:
+        dt = datetime.fromtimestamp(int(end_ts), tz=timezone.utc)
+        return dt.astimezone(_get_pacific_tzinfo()).strftime('%b %d, %Y')
+    except Exception:
+        return '—'
+
+
+def _build_stripe_price_to_plan_map() -> dict[str, str]:
+    """Map Stripe Price IDs from env to internal plan ids."""
+    out: dict[str, str] = {}
+    for plan_id in _rbi_embedded_checkout_plans():
+        try:
+            for price_id in _configured_stripe_price_ids_for_plan(plan_id):
+                if price_id:
+                    out[str(price_id)] = plan_id
+        except Exception:
+            pass
+        try:
+            price_id = _get_stripe_price_id(plan_id)
+            if price_id:
+                out[str(price_id)] = plan_id
+        except Exception:
+            pass
+    return out
+
+
+def _plan_id_to_product_label(plan_id: str) -> str:
+    pid = _normalize_plan_id(plan_id)
+    if not pid:
+        return ''
+    cfg = _get_plan_config(pid)
+    if cfg:
+        return f"{cfg.get('label') or pid} ({cfg.get('price') or ''})".strip()
+    return pid.replace('_', ' ').title()
+
+
+def _describe_stripe_subscription_product(sub, price_to_plan: dict[str, str]) -> str:
+    """Human-readable product/plan purchased for a Stripe subscription."""
+    try:
+        meta = _stripe_obj_get(sub, 'metadata', {}) or {}
+        plan_id = _normalize_plan_id(str(_stripe_obj_get(meta, 'plan_id', '') or ''))
+        if plan_id:
+            label = _plan_id_to_product_label(plan_id)
+            if label:
+                return label
+
+        price_id, interval, _interval_count = _get_subscription_price_id_and_recurring(sub)
+        if price_id and price_id in price_to_plan:
+            label = _plan_id_to_product_label(price_to_plan[price_id])
+            if label:
+                return label
+
+        items = _stripe_obj_get(sub, 'items', None)
+        items_data = _stripe_obj_get(items, 'data', []) if items else []
+        first_item = items_data[0] if items_data else None
+        if first_item:
+            price = _stripe_obj_get(first_item, 'price', None)
+            if price:
+                nickname = str(_stripe_obj_get(price, 'nickname', '') or '').strip()
+                if nickname:
+                    return nickname
+                amount = _stripe_obj_get(price, 'unit_amount', None)
+                currency = str(_stripe_obj_get(price, 'currency', '') or '').upper()
+                recurring = _stripe_obj_get(price, 'recurring', None)
+                bill_interval = str(_stripe_obj_get(recurring, 'interval', '') or '').strip() if recurring else interval
+                if amount is not None:
+                    try:
+                        amt = float(amount) / 100.0
+                        cur = currency or 'USD'
+                        if bill_interval:
+                            return f"{cur} {amt:.2f} / {bill_interval}"
+                        return f"{cur} {amt:.2f}"
+                    except Exception:
+                        pass
+                product = _stripe_obj_get(price, 'product', None)
+                product_name = ''
+                if isinstance(product, dict):
+                    product_name = str(product.get('name') or '').strip()
+                elif product is not None and not isinstance(product, str):
+                    product_name = str(_stripe_obj_get(product, 'name', '') or '').strip()
+                if product_name:
+                    if amount is not None:
+                        try:
+                            amt = float(amount) / 100.0
+                            cur = currency or 'USD'
+                            if bill_interval:
+                                return f"{product_name} ({cur} {amt:.2f} / {bill_interval})"
+                            return f"{product_name} ({cur} {amt:.2f})"
+                        except Exception:
+                            pass
+                    return product_name
+
+        if interval == 'year':
+            return 'Annual'
+        if interval == 'month':
+            return 'Monthly'
+        if price_id:
+            return price_id
+    except Exception:
+        pass
+    return '—'
+
+
+def _build_stripe_subscription_dashboard_rows(
+    stripe_index: dict,
+    users_rows: list,
+    signup_lookup: dict,
+    login_lookup: dict,
+    revision_counts: dict,
+) -> list[dict]:
+    """One dashboard row per Stripe subscription object (matches Stripe dashboard count)."""
+    subs = stripe_index.get('subscriptions') or []
+    if not subs:
+        return []
+
+    lookup = _build_azure_profile_lookup(users_rows)
+    email_cache: dict = {}
+    price_to_plan = _build_stripe_price_to_plan_map()
+    rows: list[dict] = []
+
+    for sub in subs:
+        sid = str(getattr(sub, 'id', '') or '').strip()
+        cid = str(getattr(sub, 'customer', '') or '').strip()
+        stripe_status = str(getattr(sub, 'status', '') or '').strip().lower()
+        is_active = stripe_status in ('active', 'trialing')
+
+        prof, match_source = _resolve_azure_profile_for_stripe_sub(sub, lookup, email_cache)
+
+        if prof:
+            uid = str(prof.get('id') or prof.get('PartitionKey') or '').strip()
+            email = str(prof.get('email') or '').strip()
+            name = str(prof.get('name') or '').strip()
+            paid_until = str(prof.get('paid_until') or '').strip()
+            created_at = _resolve_user_signup_date(uid, prof, signup_lookup)
+            last_login_at, last_login_method = _resolve_user_last_login(uid, prof, login_lookup)
+            rev_count = revision_counts.get(uid, 0)
+            revision_ts = prof.get('revision_Timestamp') or prof.get('revision_timestamp') or ''
+            revision_ts_str = _coerce_datetime_iso(revision_ts)
+            azure_linked = True
+        else:
+            uid = ''
+            email = _get_stripe_customer_email_cached(cid, email_cache)
+            name = ''
+            paid_until = ''
+            created_at = ''
+            last_login_at = ''
+            last_login_method = '—'
+            rev_count = 0
+            revision_ts_str = ''
+            azure_linked = False
+
+        sub_created_ts = int(getattr(sub, 'created', 0) or 0)
+        sub_created_iso = ''
+        if sub_created_ts:
+            sub_created_iso = datetime.fromtimestamp(sub_created_ts, tz=timezone.utc).isoformat()
+
+        status_label, status_badge = _subscription_status_for_dashboard(prof, is_active, [sub])
+        period_end = _stripe_sub_period_end_display(sub)
+        if period_end == '—' and paid_until:
+            period_end = _format_paid_until(paid_until)
+
+        product_purchased = _describe_stripe_subscription_product(sub, price_to_plan)
+        if product_purchased == '—' and prof:
+            azure_plan = _normalize_plan_id(str(prof.get('plan_status') or '').strip())
+            if azure_plan:
+                product_purchased = _plan_id_to_product_label(azure_plan) or product_purchased
+
+        rows.append({
+            'id': uid or '—',
+            'email': email or '—',
+            'name': name or '—',
+            'product_purchased': product_purchased,
+            'plan_status': stripe_status or '—',
+            'subscription_status': status_label,
+            'status_badge': status_badge,
+            'is_active': is_active,
+            'stripe_subscription_id': sid or '—',
+            'stripe_customer_id': cid or '—',
+            'azure_linked': azure_linked,
+            'match_source': match_source or ('stripe_only' if not azure_linked else '—'),
+            'subscription_created_display': _format_any_datetime_pacific(sub_created_iso) or '—',
+            'paid_until_display': period_end,
+            'created_at_display': _format_any_datetime_pacific(created_at) or '—',
+            'last_login_display': _format_any_datetime_pacific(last_login_at) or '—',
+            'last_login_method': last_login_method or '—',
+            'revision_count': rev_count,
+            'last_revision_display': _format_any_datetime_pacific(revision_ts_str) if revision_ts_str else '—',
+            '_sort_active': 0 if is_active else 1,
+            '_sort_created': sub_created_ts,
+        })
+
+    rows.sort(key=lambda r: r.get('_sort_created') or 0, reverse=True)
+    rows.sort(key=lambda r: r.get('_sort_active', 1))
+    for r in rows:
+        r.pop('_sort_active', None)
+        r.pop('_sort_created', None)
+    return rows
+
+
+def _find_stripe_customer_id_by_email(
+    email: str,
+    require_subscription_history: bool = False,
+    allow_ephemeral: bool = False,
+) -> str:
+    """Best-effort lookup for a reusable Stripe customer id by email.
+
+    By default, skip ephemeral checkout-only customers so abandoned embedded
+    flows do not get treated as real billing profiles later.
+    """
     e = (email or '').strip()
     if not e or not _stripe_enabled():
         return ''
     try:
         stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
-        # Prefer search when available
+        candidates = []
+        seen_ids = set()
+
+        def _append_customer_candidates(items) -> None:
+            for cust in list(items or []):
+                cid = str(getattr(cust, 'id', '') or '').strip()
+                if cid and cid not in seen_ids:
+                    seen_ids.add(cid)
+                    candidates.append(cust)
+
+        # Prefer search when available.
         try:
-            res = stripe.Customer.search(query=f"email:'{e}'", limit=1)
-            data = list(getattr(res, 'data', []) or [])
-            if data:
-                return str(getattr(data[0], 'id', '') or '').strip()
+            res = stripe.Customer.search(query=f"email:'{e}'", limit=10)
+            _append_customer_candidates(getattr(res, 'data', []) or [])
         except Exception:
             pass
-        # Fallback: list by email
-        res2 = stripe.Customer.list(email=e, limit=1)
-        data2 = list(getattr(res2, 'data', []) or [])
-        if data2:
-            return str(getattr(data2[0], 'id', '') or '').strip()
+
+        # Fallback: list by email.
+        try:
+            res2 = stripe.Customer.list(email=e, limit=10)
+            _append_customer_candidates(getattr(res2, 'data', []) or [])
+        except Exception:
+            pass
+
+        best_id = ''
+        best_score = -1
+        for cust in candidates:
+            cid = str(getattr(cust, 'id', '') or '').strip()
+            if not cid:
+                continue
+            meta = getattr(cust, 'metadata', None) or _stripe_obj_get(cust, 'metadata', {}) or {}
+            if isinstance(meta, dict):
+                ephemeral_flag = str(meta.get('ephemeral_checkout') or '').strip()
+            else:
+                ephemeral_flag = str(getattr(meta, 'ephemeral_checkout', '') or '').strip()
+            has_sub_history = _stripe_customer_has_any_subscription(cid)
+            if require_subscription_history and not has_sub_history:
+                continue
+            if ephemeral_flag == '1' and not allow_ephemeral and not has_sub_history:
+                continue
+            score = 0
+            if has_sub_history:
+                score += 100
+            if ephemeral_flag != '1':
+                score += 10
+            if score > best_score:
+                best_score = score
+                best_id = cid
+        if best_id:
+            return best_id
     except Exception:
         return ''
     return ''
+
+
+def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, mark_ephemeral: bool = False) -> str:
+    """Find or create a Stripe Customer for the given user and persist the id to Azure profile.
+
+    Returns the customer id or empty string on failure.
+    """
+    try:
+        user_id = str(getattr(user, "id", "") or "")
+        email = (getattr(user, "email", "") or "").strip()
+        # Check existing profile
+        cid = _get_stripe_customer_id_from_azure(user_id)
+        if cid:
+            return cid
+
+        # Try best-effort lookup by email
+        if email:
+            found = _find_stripe_customer_id_by_email(email)
+            if found:
+                if persist_profile:
+                    try:
+                        table_client = get_users_table_client()
+                        entity = {
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "stripe_customer_id": str(found),
+                        }
+                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                    except Exception:
+                        pass
+                return found
+
+        # Create a new Stripe Customer
+        if not _stripe_enabled():
+            return ''
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        customer_metadata = {"user_id": str(user_id)}
+        if mark_ephemeral:
+            customer_metadata["ephemeral_checkout"] = "1"
+        cust = stripe.Customer.create(email=email or None, metadata=customer_metadata)
+        customer_id = str(getattr(cust, 'id', '') or '')
+        if customer_id and persist_profile:
+            try:
+                table_client = get_users_table_client()
+                entity = {
+                    "PartitionKey": str(user_id),
+                    "RowKey": "profile",
+                    "stripe_customer_id": customer_id,
+                }
+                table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+            except Exception:
+                pass
+        return customer_id
+    except Exception:
+        return ''
+
+
+def _stripe_metadata_user_id(obj) -> str:
+    """Best-effort user_id read from a Stripe object's metadata."""
+    meta = getattr(obj, 'metadata', None) or _stripe_obj_get(obj, 'metadata', {}) or {}
+    if isinstance(meta, dict):
+        return str(meta.get('user_id') or '').strip()
+    return str(getattr(meta, 'user_id', '') or '').strip()
+
+
+def _cleanup_ephemeral_stripe_customer(customer_id: str, user_id: str = '') -> None:
+    """Best-effort delete of an unpersisted ephemeral Stripe customer after abandoned checkout."""
+    cid = str(customer_id or '').strip()
+    uid = str(user_id or '').strip()
+    if not cid or not _stripe_enabled():
+        return
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        cust = stripe.Customer.retrieve(cid)
+        deleted = bool(getattr(cust, 'deleted', False) or _stripe_obj_get(cust, 'deleted', False))
+        if deleted:
+            return
+        if _get_stripe_customer_id_from_azure(uid) == cid:
+            return
+        meta = getattr(cust, 'metadata', None) or _stripe_obj_get(cust, 'metadata', {}) or {}
+        ephemeral_flag = str(meta.get('ephemeral_checkout') or '').strip() if isinstance(meta, dict) else str(getattr(meta, 'ephemeral_checkout', '') or '').strip()
+        owner_uid = _stripe_metadata_user_id(cust)
+        if ephemeral_flag != '1' or (uid and owner_uid and owner_uid != uid):
+            return
+        try:
+            subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+            for sub in list(getattr(subs, 'data', []) or []):
+                status = str(getattr(sub, 'status', '') or '').strip().lower()
+                if status not in ('canceled', 'cancelled', 'incomplete_expired'):
+                    return
+            stripe.Customer.delete(cid)
+        except Exception:
+            return
+    except Exception:
+        return
+
+
+def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) -> tuple[bool, str]:
+    """Best-effort cancel of an incomplete embedded subscription checkout."""
+    sid = str(subscription_id or '').strip()
+    uid = str(user_id or '').strip()
+    if not sid or not uid or not _stripe_enabled():
+        return False, 'missing_parameters'
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        sub = stripe.Subscription.retrieve(sid, expand=['pending_setup_intent'])
+    except Exception:
+        return False, 'subscription_not_found'
+    if _stripe_metadata_user_id(sub) != uid:
+        return False, 'subscription_mismatch'
+    if _stripe_subscription_grants_access(sub):
+        return True, 'already_completed'
+    customer_id = str(getattr(sub, 'customer', '') or '').strip()
+    status = str(getattr(sub, 'status', '') or '').strip().lower()
+    if status not in ('incomplete', 'trialing', 'past_due', 'unpaid', 'incomplete_expired'):
+        return True, f'ignored_{status or "unknown"}'
+    try:
+        if status != 'incomplete_expired':
+            stripe.Subscription.delete(sid)
+    except Exception:
+        return False, 'subscription_cancel_failed'
+    _cleanup_ephemeral_stripe_customer(customer_id, uid)
+    return True, 'cleaned'
+
+
+def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> tuple[bool, str]:
+    """Best-effort cancel of an embedded trial-hold authorization before activation."""
+    pi_id = str(payment_intent_id or '').strip()
+    uid = str(user_id or '').strip()
+    if not pi_id or not uid or not _stripe_enabled():
+        return False, 'missing_parameters'
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found'
+    if _stripe_metadata_user_id(intent) != uid:
+        return False, 'payment_intent_mismatch'
+    customer_id = str(getattr(intent, 'customer', '') or '').strip()
+    status = str(getattr(intent, 'status', '') or '').strip().lower()
+    if status in ('canceled',):
+        _cleanup_ephemeral_stripe_customer(customer_id, uid)
+        return True, 'already_canceled'
+    if status in ('requires_payment_method', 'requires_confirmation', 'requires_action', 'processing', 'requires_capture'):
+        try:
+            stripe.PaymentIntent.cancel(pi_id)
+        except Exception:
+            return False, 'payment_intent_cancel_failed'
+        _cleanup_ephemeral_stripe_customer(customer_id, uid)
+        return True, 'cleaned'
+    if status == 'succeeded':
+        return True, 'already_completed'
+    return True, f'ignored_{status or "unknown"}'
+
+
+
+
+def _find_user_id_by_stripe_customer_id(customer_id: str) -> str:
+    """Return Azure user id (PartitionKey) for a Stripe customer, or empty string."""
+    cid = (customer_id or '').strip()
+    if not cid:
+        return ''
+    try:
+        table_client = get_users_table_client()
+        for e in table_client.list_entities():
+            if e.get('RowKey') != 'profile':
+                continue
+            if str(e.get('stripe_customer_id') or '') == cid:
+                return str(e.get('PartitionKey') or '').strip()
+    except Exception:
+        pass
+    return ''
+
+
+def _stripe_subscription_grants_access(sub) -> bool:
+    """Return True only when a Stripe subscription should unlock product access.
+
+    Trialing subscriptions created with a pending SetupIntent must NOT grant access
+    until a default payment method is saved (card confirmed / RBI e-mandate registered).
+    """
+    if not sub:
+        return False
+    status = str(_stripe_obj_get(sub, 'status', '') or getattr(sub, 'status', '') or '').strip().lower()
+    if status in ('incomplete', 'incomplete_expired'):
+        return False
+    if status == 'active':
+        return True
+    if status == 'trialing':
+        dpm = _stripe_obj_get(sub, 'default_payment_method', None)
+        if not dpm:
+            try:
+                dpm = getattr(sub, 'default_payment_method', None)
+            except Exception:
+                dpm = None
+        if dpm:
+            return True
+        pending_si = _stripe_obj_get(sub, 'pending_setup_intent', None)
+        if not pending_si:
+            try:
+                pending_si = getattr(sub, 'pending_setup_intent', None)
+            except Exception:
+                pending_si = None
+        if pending_si:
+            return False
+        return False
+    return False
+
+
+def _subscription_needs_payment_setup(sub) -> bool:
+    """Return True when subscription exists but still needs card/setup confirmation."""
+    if not sub:
+        return False
+    status = str(_stripe_obj_get(sub, 'status', '') or getattr(sub, 'status', '') or '').strip().lower()
+    if status == 'incomplete':
+        return True
+    if status == 'trialing' and not _stripe_subscription_grants_access(sub):
+        return True
+    return False
+
+
+def _find_resumable_pending_subscription(customer_id: str, plan_id: str):
+    """Reuse an incomplete subscription awaiting SetupIntent confirmation (avoid duplicates on refresh)."""
+    cid = (customer_id or '').strip()
+    pid = _normalize_plan_id(plan_id)
+    if not cid or not pid or not _stripe_enabled():
+        return None
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        res = stripe.Subscription.list(customer=cid, status='all', limit=20, expand=['data.pending_setup_intent'])
+        candidates = list(getattr(res, 'data', []) or [])
+        for sub in sorted(candidates, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True):
+            if not _subscription_needs_payment_setup(sub):
+                continue
+            meta = getattr(sub, 'metadata', None) or {}
+            sub_plan = ''
+            if isinstance(meta, dict):
+                sub_plan = str(meta.get('plan_id') or '').strip()
+            else:
+                sub_plan = str(getattr(meta, 'plan_id', '') or '').strip()
+            if sub_plan and _normalize_plan_id(sub_plan) != pid:
+                continue
+            pending = getattr(sub, 'pending_setup_intent', None)
+            if pending and getattr(pending, 'client_secret', None):
+                return sub
+            try:
+                expanded = stripe.Subscription.retrieve(
+                    str(getattr(sub, 'id', '') or ''),
+                    expand=['pending_setup_intent'],
+                )
+                pending2 = getattr(expanded, 'pending_setup_intent', None)
+                if pending2 and getattr(pending2, 'client_secret', None):
+                    return expanded
+            except Exception:
+                continue
+    except Exception:
+        return None
+    return None
+
+
+def _persist_stripe_subscription_to_profile(user_id: str, sub, plan_id: str = '') -> None:
+    """Persist Stripe subscription state to the user's Azure profile."""
+    uid = str(user_id or '').strip()
+    if not uid or not sub:
+        return
+    if not _stripe_subscription_grants_access(sub):
+        return
+    try:
+        customer_id = str(getattr(sub, 'customer', '') or _stripe_obj_get(sub, 'customer', '') or '')
+        sub_status = str(getattr(sub, 'status', '') or _stripe_obj_get(sub, 'status', '') or '').lower()
+        sub_id = str(getattr(sub, 'id', '') or _stripe_obj_get(sub, 'id', '') or '')
+        entity = {
+            'PartitionKey': uid,
+            'RowKey': 'profile',
+            'is_paid': True,
+            'plan_status': plan_id or str(getattr(sub, 'status', '') or _stripe_obj_get(sub, 'status', '') or ''),
+            'stripe_customer_id': customer_id,
+            'stripe_subscription_id': sub_id,
+        }
+        if sub_status == 'trialing' or _normalize_plan_id(plan_id) in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
+            entity['trial_used'] = True
+            entity['trial_used_at'] = datetime.now(timezone.utc).isoformat()
+        try:
+            current_period_end = getattr(sub, 'current_period_end', None) or _stripe_obj_get(sub, 'current_period_end', None)
+            trial_end = getattr(sub, 'trial_end', None) or _stripe_obj_get(sub, 'trial_end', None)
+            ts = current_period_end or trial_end
+            if ts:
+                entity['paid_until'] = datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+        except Exception:
+            pass
+        table_client = get_users_table_client()
+        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+    except Exception:
+        pass
+
+
+def _subscription_belongs_to_customer(subscription_id: str, customer_id: str) -> bool:
+    """Return True if the subscription belongs to the given Stripe customer."""
+    sid = (subscription_id or '').strip()
+    cid = (customer_id or '').strip()
+    if not sid or not cid or not _stripe_enabled():
+        return False
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        sub = stripe.Subscription.retrieve(sid)
+        return str(getattr(sub, 'customer', '') or '') == cid
+    except Exception:
+        return False
+
+
+def _handle_setup_intent_succeeded_webhook(setup_intent: dict) -> None:
+    """Activate user access after RBI e-mandate SetupIntent succeeds."""
+    customer_id = str(setup_intent.get('customer') or '').strip()
+    if not customer_id or not _stripe_enabled():
+        return
+    user_id = _find_user_id_by_stripe_customer_id(customer_id)
+    if not user_id:
+        meta = setup_intent.get('metadata') or {}
+        user_id = str(meta.get('user_id') or '').strip()
+    if not user_id:
+        return
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+        sdata = list(getattr(subs, 'data', []) or [])
+        if not sdata:
+            return
+
+        def _rank(sub):
+            status = str(getattr(sub, 'status', '') or '').strip().lower()
+            created = int(getattr(sub, 'created', 0) or 0)
+            sr = 0
+            if status == 'trialing':
+                sr = 3
+            elif status == 'active':
+                sr = 2
+            elif status == 'incomplete':
+                sr = 1
+            return (sr, created)
+
+        best = sorted(sdata, key=_rank, reverse=True)[0]
+        best_status = str(getattr(best, 'status', '') or '').strip().lower()
+        if not _stripe_subscription_grants_access(best):
+            return
+        plan_id = ''
+        try:
+            meta = getattr(best, 'metadata', None) or {}
+            if isinstance(meta, dict):
+                plan_id = str(meta.get('plan_id') or '').strip()
+            else:
+                plan_id = str(getattr(meta, 'plan_id', '') or '').strip()
+        except Exception:
+            plan_id = ''
+        _persist_stripe_subscription_to_profile(user_id, best, plan_id=plan_id)
+        logger.info(f"setup_intent.succeeded: persisted subscription for user {user_id}")
+    except Exception as e:
+        logger.warning(f"setup_intent.succeeded webhook handler error: {str(e)}")
+
+@app.route('/stripe/create-setup-intent', methods=['POST'])
+def stripe_create_setup_intent():
+    """Deprecated for RBI e-mandate flows.
+
+    Standalone SetupIntents do not register Indian e-mandates correctly.
+    Use POST /stripe/create-subscription instead.
+    """
+    return jsonify({
+        'error': 'deprecated',
+        'message': 'Use /stripe/create-subscription for RBI-compliant e-mandate registration.',
+    }), 410
+
+
+@app.route('/stripe/create-subscription', methods=['POST'])
+def stripe_create_subscription():
+    """Create an incomplete subscription with pending SetupIntent (RBI e-mandate flow).
+
+    Expects JSON: { "plan_id": "trial_7d" | "trial_10d_email" | "monthly_10_95" | "annual_6_95" }
+    Returns subscription_id and pending_setup_intent_client_secret for confirmSetup.
+    """
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+    try:
+        body = request.get_json(force=True) or {}
+        plan_id = _normalize_plan_id(str(body.get('plan_id') or ''))
+        if not plan_id:
+            return jsonify({'error': 'missing_parameters'}), 400
+
+        if _is_email_trial_plan(plan_id):
+            invite = _get_email_trial_invite_from_session()
+            if not invite:
+                return jsonify({'error': 'invalid_invite', 'message': 'This trial offer link is invalid or expired.'}), 403
+            allowed, reason = _user_can_start_email_trial(current_user)
+            if not allowed:
+                if reason == 'already_subscribed':
+                    return jsonify({'error': 'already_subscribed', 'message': 'You already have an active subscription.'}), 400
+                return jsonify({'error': reason or 'not_allowed'}), 400
+        elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+            return jsonify({'error': 'trial_already_used'}), 400
+
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+
+        # Ensure customer exists
+        customer_id = _create_or_get_stripe_customer_for_user(current_user, persist_profile=False, mark_ephemeral=True)
+        if not customer_id:
+            return jsonify({'error': 'customer_creation_failed'}), 500
+
+        price_id = _get_stripe_price_id(plan_id)
+        if not price_id:
+            return jsonify({'error': 'price_not_configured'}), 400
+
+        if plan_id not in _rbi_embedded_checkout_plans():
+            return jsonify({'error': 'invalid_plan'}), 400
+
+        user_id = str(getattr(current_user, 'id', '') or '')
+        invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(plan_id) else None
+        reinstate_from_offer = _consume_reinstate_offer_checkout_from_session()
+        subscription_params = {
+            'customer': customer_id,
+            'items': [{'price': price_id, 'quantity': 1}],
+            'payment_behavior': 'default_incomplete',
+            'payment_settings': {'save_default_payment_method': 'on_subscription'},
+            'expand': ['pending_setup_intent'],
+            'metadata': {
+                'plan_id': plan_id,
+                'user_id': user_id,
+                'campaign': str((invite or {}).get('campaign') or ''),
+            },
+        }
+        if reinstate_from_offer:
+            subscription_params['metadata']['reinstate_from_offer'] = '1'
+        if _is_email_trial_plan(plan_id):
+            trial_days = max(1, int((invite or {}).get('trial_days') or 10))
+            subscription_params['trial_end'] = _stripe_trial_end_ts_for_days(trial_days)
+        elif plan_id == 'trial_7d':
+            subscription_params['trial_end'] = _stripe_trial_end_ts_for_display()
+
+        existing = _find_resumable_pending_subscription(customer_id, plan_id)
+        if existing:
+            sub = existing
+        else:
+            sub = stripe.Subscription.create(**subscription_params)
+
+        # Return subscription id and pending SetupIntent client_secret (if present)
+        pending = getattr(sub, 'pending_setup_intent', None)
+        pending_client_secret = ''
+        try:
+            pending_client_secret = getattr(pending, 'client_secret', '') or ''
+        except Exception:
+            pending_client_secret = ''
+        if not pending_client_secret:
+            return jsonify({'error': 'pending_setup_intent_missing'}), 500
+
+        return jsonify({
+            'subscription_id': getattr(sub, 'id', ''),
+            'pending_setup_intent_client_secret': pending_client_secret,
+            'status': getattr(sub, 'status', ''),
+            'customer_id': str(customer_id),
+        })
+    except Exception as e:
+        logger.exception('Error creating subscription')
+        return jsonify({'error': 'subscription_failed', 'message': str(e)}), 500
+
+
+@app.route('/stripe/complete-subscription', methods=['POST'])
+def stripe_complete_subscription():
+    """Finalize subscription after frontend confirms the pending SetupIntent."""
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+    try:
+        body = request.get_json(force=True) or {}
+        subscription_id = str(body.get('subscription_id') or '').strip()
+        if not subscription_id:
+            return jsonify({'error': 'missing_parameters'}), 400
+
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        sub = stripe.Subscription.retrieve(
+            subscription_id,
+            expand=['pending_setup_intent', 'latest_invoice.payment_intent', 'items.data.price'],
+        )
+        if _stripe_metadata_user_id(sub) != str(getattr(current_user, 'id', '') or '').strip():
+            return jsonify({'error': 'subscription_not_found'}), 404
+        if not _stripe_subscription_grants_access(sub):
+            return jsonify({
+                'error': 'payment_method_required',
+                'message': 'Please save a payment method to start your trial.',
+                'status': str(getattr(sub, 'status', '') or ''),
+            }), 400
+
+        plan_id = ''
+        try:
+            meta = getattr(sub, 'metadata', None) or {}
+            if isinstance(meta, dict):
+                plan_id = str(meta.get('plan_id') or '').strip()
+            else:
+                plan_id = str(getattr(meta, 'plan_id', '') or '').strip()
+        except Exception:
+            plan_id = ''
+
+        _persist_stripe_subscription_to_profile(str(getattr(current_user, 'id', '') or ''), sub, plan_id=plan_id)
+        return jsonify({'subscription_id': getattr(sub, 'id', ''), 'status': getattr(sub, 'status', '')})
+    except Exception as e:
+        logger.exception('Error completing subscription')
+        return jsonify({'error': 'complete_failed', 'message': str(e)}), 500
+
+
+@app.route('/stripe/create-trial-hold', methods=['POST'])
+def stripe_create_trial_hold():
+    """Create a manual-capture PaymentIntent for a trial authorization hold."""
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+
+    body = request.get_json(force=True) or {}
+    plan_id = _normalize_plan_id(str(body.get('plan_id') or 'trial_7d')) or 'trial_7d'
+    if not _should_use_trial_authorization_hold(plan_id):
+        return jsonify({'error': 'trial_hold_not_available'}), 400
+
+    if _is_email_trial_plan(plan_id):
+        if not _get_email_trial_invite_from_session():
+            return jsonify({'error': 'invalid_invite', 'message': 'This trial offer link is invalid or expired.'}), 403
+        allowed, reason = _user_can_start_email_trial(current_user)
+        if not allowed:
+            if reason == 'already_subscribed':
+                return jsonify({'error': 'already_subscribed', 'message': 'You already have an active subscription.'}), 400
+            return jsonify({'error': reason or 'not_allowed'}), 400
+    elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+        return jsonify({'error': 'trial_already_used'}), 400
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        user_id = str(getattr(current_user, 'id', '') or '')
+        intent = _create_trial_hold_payment_intent(user_id, plan_id=plan_id)
+        if not intent:
+            return jsonify({'error': 'payment_intent_failed'}), 500
+
+        return jsonify({
+            'clientSecret': getattr(intent, 'client_secret', ''),
+            'customerId': str(getattr(intent, 'customer', '') or ''),
+            'paymentIntentId': getattr(intent, 'id', ''),
+            'amountCents': int(getattr(intent, 'amount', 0) or 0),
+            'currency': str(getattr(intent, 'currency', 'usd') or 'usd'),
+            'trialHoldDays': _get_trial_hold_days(plan_id),
+            'planId': plan_id,
+        })
+    except Exception as e:
+        logger.exception('Error creating trial hold PaymentIntent')
+        return jsonify({'error': 'trial_hold_failed', 'message': str(e)}), 500
+
+
+@app.route('/stripe/activate-trial-hold', methods=['POST'])
+def stripe_activate_trial_hold():
+    """Activate trial access after the authorization hold is confirmed (requires_capture)."""
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+
+    body = request.get_json(force=True) or {}
+    payment_intent_id = str(body.get('paymentIntentId') or body.get('payment_intent_id') or '').strip()
+    if not payment_intent_id:
+        return jsonify({'error': 'missing_parameters'}), 400
+
+    user_id = str(getattr(current_user, 'id', '') or '')
+    ok, reason = _activate_trial_hold(user_id, payment_intent_id)
+    if not ok:
+        status = 400
+        if reason == 'payment_intent_mismatch':
+            status = 403
+        return jsonify({'error': reason, 'message': 'Payment was not authorized'}), status
+
+    return jsonify({'success': True, 'paymentIntentId': payment_intent_id})
+
+
+@app.route('/stripe/cancel-trial-hold', methods=['POST'])
+def stripe_cancel_trial_hold():
+    """Revoke trial-hold access without manually canceling the card authorization."""
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+
+    user_id = str(getattr(current_user, 'id', '') or '')
+    prof = get_user_profile_azure(user_id) or {}
+    pi_id = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    if not pi_id:
+        return jsonify({'error': 'no_active_trial_hold'}), 404
+
+    if not _payment_intent_belongs_to_user(pi_id, user_id):
+        return jsonify({'error': 'payment_intent_mismatch'}), 403
+
+    _revoke_trial_hold_profile(user_id, cancelled=True)
+
+    return jsonify({'success': True})
+
+
+@app.route('/stripe/abandon-checkout', methods=['POST'])
+def stripe_abandon_checkout():
+    """Best-effort cleanup for embedded checkout that was initialized but not completed."""
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'error': 'authentication_required'}), 401
+    if not _stripe_enabled():
+        return jsonify({'error': 'stripe_not_configured'}), 400
+
+    body = request.get_json(silent=True) or {}
+    flow = str(body.get('flow') or '').strip().lower()
+    user_id = str(getattr(current_user, 'id', '') or '').strip()
+
+    if flow == 'subscription':
+        ok, reason = _abandon_embedded_subscription_checkout(
+            str(body.get('subscription_id') or '').strip(),
+            user_id,
+        )
+    elif flow == 'trial_hold':
+        ok, reason = _abandon_trial_hold_checkout(
+            str(body.get('payment_intent_id') or body.get('paymentIntentId') or '').strip(),
+            user_id,
+        )
+    else:
+        return jsonify({'error': 'invalid_flow'}), 400
+
+    return jsonify({'success': bool(ok), 'reason': reason})
 
 
 def _find_trialing_subscription_for_customer(customer_id: str) -> Optional[dict]:
@@ -4663,6 +6649,73 @@ def _stripe_obj_get(obj, key: str, default=None):
     except Exception:
         return default
 
+
+def _stripe_schedule_id_from_subscription(sub) -> str:
+    """Return subscription schedule id when Stripe manages the subscription via a schedule."""
+    sched = _stripe_obj_get(sub, "schedule", None)
+    if not sched:
+        return ""
+    if isinstance(sched, str):
+        return sched.strip()
+    if isinstance(sched, dict):
+        return str(sched.get("id") or "").strip()
+    return str(getattr(sched, "id", "") or "").strip()
+
+
+def _stripe_subscription_cancel_scheduled(sub, schedule=None) -> bool:
+    """True when cancellation is scheduled (directly or via subscription schedule)."""
+    if bool(_stripe_obj_get(sub, "cancel_at_period_end", False)):
+        return True
+    if _stripe_obj_get(sub, "cancel_at", None):
+        return True
+    schedule_id = _stripe_schedule_id_from_subscription(sub)
+    if not schedule_id:
+        return False
+    try:
+        if schedule is None:
+            schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
+        if str(_stripe_obj_get(schedule, "end_behavior", "") or "").strip().lower() == "cancel":
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _stripe_subscription_modify(subscription_id: str, sub=None, **modify_params):
+    """Modify subscription; route cancel/reinstate through schedule when required by Stripe."""
+    sid = (subscription_id or "").strip()
+    if not sid or not modify_params:
+        return None
+    if sub is None:
+        sub = stripe.Subscription.retrieve(sid)
+
+    schedule_id = _stripe_schedule_id_from_subscription(sub)
+    touches_cancel = ("cancel_at_period_end" in modify_params) or ("cancel_at" in modify_params)
+    extra_params = {k: v for k, v in modify_params.items() if k not in ("cancel_at_period_end", "cancel_at")}
+
+    if schedule_id and touches_cancel:
+        cancel_at_period_end = modify_params.get("cancel_at_period_end")
+        if cancel_at_period_end is True:
+            stripe.SubscriptionSchedule.modify(schedule_id, end_behavior="cancel")
+        elif cancel_at_period_end is False:
+            stripe.SubscriptionSchedule.modify(schedule_id, end_behavior="release")
+        else:
+            stripe.Subscription.modify(sid, **modify_params)
+            return None
+        if extra_params:
+            try:
+                return stripe.Subscription.modify(sid, **extra_params)
+            except stripe.error.InvalidRequestError as exc:
+                logger.warning(
+                    "stripe subscription modify extras skipped for schedule-managed sub %s: %s",
+                    sid,
+                    str(exc)[:240],
+                )
+        return None
+
+    return stripe.Subscription.modify(sid, **modify_params)
+
+
 def _stripe_upcoming_invoice(customer_id: str, subscription_id: str):
     """Get upcoming invoice using a method compatible with older stripe python versions."""
     cid = (customer_id or "").strip()
@@ -4712,6 +6765,79 @@ def _stripe_latest_invoice_for_subscription(subscription_id: str):
     except Exception:
         return None
     return None
+
+
+def _stripe_cancellation_paid_history_flags(subscription_id: str) -> dict:
+    """Return paid-history flags used for cancellation email targeting."""
+    sid = (subscription_id or "").strip()
+    out = {
+        "eligible": False,
+        "reason": "unknown",
+        "has_real_paid_history": False,
+        "latest_paid_is_real": False,
+    }
+    if not sid:
+        out["reason"] = "missing_subscription_id"
+        return out
+
+    invoices = []
+    try:
+        if hasattr(stripe, "Invoice") and hasattr(stripe.Invoice, "list"):
+            invs = stripe.Invoice.list(subscription=sid, limit=24)
+            invoices = list(getattr(invs, "data", []) or [])
+    except Exception:
+        invoices = []
+
+    if not invoices:
+        try:
+            res = stripe.Invoice._static_request("get", "/v1/invoices", params={"subscription": sid, "limit": 24})
+            invoices = list(_stripe_obj_get(res, "data", []) or [])
+        except Exception:
+            invoices = []
+
+    if not invoices:
+        out["reason"] = "no_invoices"
+        return out
+
+    paid_invoices = []
+    for inv in invoices:
+        if bool(_stripe_obj_get(inv, "paid", False)):
+            paid_invoices.append(inv)
+
+    if not paid_invoices:
+        out["reason"] = "no_paid_invoices"
+        return out
+
+    has_real_paid_history = False
+    for inv in paid_invoices:
+        try:
+            amount_paid = int(_stripe_obj_get(inv, "amount_paid", 0) or 0)
+        except Exception:
+            amount_paid = 0
+        if amount_paid > 0:
+            has_real_paid_history = True
+            break
+
+    latest_paid = paid_invoices[0]
+    try:
+        latest_paid_amount = int(_stripe_obj_get(latest_paid, "amount_paid", 0) or 0)
+    except Exception:
+        latest_paid_amount = 0
+    latest_paid_is_real = latest_paid_amount > 0
+
+    out["has_real_paid_history"] = bool(has_real_paid_history)
+    out["latest_paid_is_real"] = bool(latest_paid_is_real)
+    out["eligible"] = bool(has_real_paid_history and latest_paid_is_real)
+
+    if out["eligible"]:
+        out["reason"] = "eligible"
+    elif not has_real_paid_history:
+        out["reason"] = "no_real_paid_history"
+    elif not latest_paid_is_real:
+        out["reason"] = "latest_paid_was_zero"
+    else:
+        out["reason"] = "ineligible"
+    return out
 
 
 def _stripe_customer_has_any_subscription(customer_id: str) -> bool:
@@ -4791,7 +6917,7 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
             if not customer_id:
                 email = (getattr(user_obj, 'email', '') or '').strip()
                 if email:
-                    customer_id = _find_stripe_customer_id_by_email(email)
+                    customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True)
             if customer_id and _stripe_customer_has_any_subscription(customer_id):
                 return True
 
@@ -4802,7 +6928,7 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
 def _get_stripe_price_id(plan_id: str) -> Optional[str]:
     """Map internal plan IDs to Stripe Price IDs via env vars."""
     plan_id = _normalize_plan_id(plan_id)
-    if plan_id == 'trial_7d':
+    if plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
         # Trial should be a subscription (auto-converts to monthly unless canceled).
         # Use a recurring monthly price here (or a dedicated trial recurring price).
         if _is_india_pricing_region():
@@ -4855,18 +6981,1284 @@ def _configured_stripe_price_ids_for_plan(plan_id: str) -> frozenset:
 
 
 def _get_stripe_trial_upfront_fee_price_id() -> Optional[str]:
-    """Optional one-time fee charged at checkout for the trial (e.g. $1.85).
+    """Optional one-time fee charged at checkout for email-trial campaigns.
 
-    Create a one-time Price in Stripe and set STRIPE_PRICE_TRIAL_FEE_1_85 to its price_ id.
-    For India (INR), set STRIPE_PRICE_TRIAL_FEE_1_85_INR.
+    Legacy env vars STRIPE_PRICE_TRIAL_FEE_1_85* are still supported.
     """
+    return _get_stripe_trial_deposit_price_id()
+
+
+def _get_stripe_trial_deposit_price_id() -> Optional[str]:
+    """Optional one-time Stripe Price for the trial deposit (defaults to monthly plan amount)."""
+    keys = ['STRIPE_PRICE_TRIAL_DEPOSIT_10_95']
     if _is_india_pricing_region():
-        return (
-            (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85_INR') or '').strip()
-            or (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85') or '').strip()
-            or None
+        keys = ['STRIPE_PRICE_TRIAL_DEPOSIT_10_95_INR', 'STRIPE_PRICE_TRIAL_DEPOSIT_10_95'] + keys
+    keys.extend(['STRIPE_PRICE_TRIAL_FEE_1_85_INR', 'STRIPE_PRICE_TRIAL_FEE_1_85'] if _is_india_pricing_region() else ['STRIPE_PRICE_TRIAL_FEE_1_85'])
+    for key in keys:
+        value = (os.getenv(key) or '').strip()
+        if value:
+            return value
+    return None
+
+
+def _get_trial_deposit_amount_cents() -> int:
+    """One-time trial deposit amount in cents (defaults to the monthly plan price)."""
+    override = (os.getenv('STRIPE_TRIAL_DEPOSIT_CENTS') or '').strip()
+    if override.isdigit():
+        return int(override)
+    deposit_price_id = _get_stripe_trial_deposit_price_id()
+    if deposit_price_id and _stripe_enabled():
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            price = stripe.Price.retrieve(deposit_price_id)
+            unit_amount = int(getattr(price, 'unit_amount', 0) or 0)
+            if unit_amount > 0:
+                return unit_amount
+        except Exception:
+            pass
+    try:
+        monthly_price_id = _get_stripe_price_id('monthly_10_95')
+        if monthly_price_id and _stripe_enabled():
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            price = stripe.Price.retrieve(monthly_price_id)
+            unit_amount = int(getattr(price, 'unit_amount', 0) or 0)
+            if unit_amount > 0:
+                return unit_amount
+    except Exception:
+        pass
+    return 1095
+
+
+def _build_trial_deposit_line_item() -> dict:
+    """Stripe Checkout line item for the trial deposit charged before subscription creation."""
+    deposit_price_id = _get_stripe_trial_deposit_price_id()
+    if deposit_price_id:
+        return {'price': deposit_price_id, 'quantity': 1}
+    amount = _get_trial_deposit_amount_cents()
+    currency = 'inr' if _is_india_pricing_region() else 'usd'
+    checkout_name, checkout_description = _trial_checkout_product_copy()
+    product_data = {'name': checkout_name}
+    if checkout_description:
+        product_data['description'] = checkout_description
+    return {
+        'price_data': {
+            'currency': currency,
+            'unit_amount': amount,
+            'product_data': product_data,
+        },
+        'quantity': 1,
+    }
+
+
+def _fulfill_trial_deposit_checkout(
+    *,
+    client_ref: str,
+    customer_id: str,
+    amount_total: int,
+    currency: str,
+    payment_intent_id: str,
+    plan_id: str = 'trial_7d',
+) -> Optional[str]:
+    """Create a trialing subscription only after the deposit payment succeeds."""
+    uid = str(client_ref or '').strip()
+    cid = str(customer_id or '').strip()
+    pi_id = str(payment_intent_id or '').strip()
+    plan_id = _normalize_plan_id(plan_id) or 'trial_7d'
+    if not uid or not cid or not pi_id or amount_total <= 0 or not _stripe_enabled():
+        return None
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        for sub in list(getattr(subs, 'data', []) or []):
+            meta = getattr(sub, 'metadata', None) or {}
+            if isinstance(meta, dict):
+                existing_pi = str(meta.get('trial_deposit_payment_intent') or '').strip()
+            else:
+                existing_pi = str(getattr(meta, 'trial_deposit_payment_intent', '') or '').strip()
+            if existing_pi and existing_pi == pi_id:
+                return str(getattr(sub, 'id', '') or '')
+    except Exception:
+        pass
+
+    price_id = _get_stripe_price_id(plan_id)
+    if not price_id:
+        logger.error('trial deposit fulfillment failed: missing recurring price for %s', plan_id)
+        return None
+
+    subscription_params = {
+        'customer': cid,
+        'items': [{'price': price_id, 'quantity': 1}],
+        'trial_end': _stripe_trial_end_ts_for_display(),
+        'payment_settings': {'save_default_payment_method': 'on_subscription'},
+        'metadata': {
+            'plan_id': plan_id,
+            'user_id': uid,
+            'trial_deposit_payment_intent': pi_id,
+            'trial_deposit_cents': str(int(amount_total)),
+            'trial_deposit_currency': str(currency or 'usd').lower(),
+        },
+    }
+    sub = stripe.Subscription.create(**subscription_params)
+    sub_id = str(getattr(sub, 'id', '') or '')
+
+    try:
+        stripe.Customer.create_balance_transaction(
+            cid,
+            amount=-int(amount_total),
+            currency=str(currency or 'usd').lower(),
+            description='Trial deposit credit applied to first month if not canceled within 7 days',
         )
-    return (os.getenv('STRIPE_PRICE_TRIAL_FEE_1_85') or '').strip() or None
+    except Exception:
+        logger.exception('trial deposit fulfillment: failed to apply customer balance credit')
+
+    _persist_stripe_subscription_to_profile(uid, sub, plan_id=plan_id)
+    return sub_id or None
+
+
+def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, str]:
+    """Refund the trial deposit when a user cancels during the trial period."""
+    sid = str(subscription_id or '').strip()
+    if not sid or not _stripe_enabled():
+        return False, 'stripe_not_configured'
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        sub = stripe.Subscription.retrieve(sid)
+    except Exception:
+        return False, 'subscription_not_found'
+
+    meta = getattr(sub, 'metadata', None) or {}
+    if isinstance(meta, dict):
+        pi_id = str(meta.get('trial_deposit_payment_intent') or '').strip()
+        refunded_flag = str(meta.get('trial_deposit_refunded') or '').strip()
+        deposit_cents = int(str(meta.get('trial_deposit_cents') or '0').strip() or '0')
+        currency = str(meta.get('trial_deposit_currency') or 'usd').strip().lower()
+    else:
+        pi_id = str(getattr(meta, 'trial_deposit_payment_intent', '') or '').strip()
+        refunded_flag = str(getattr(meta, 'trial_deposit_refunded', '') or '').strip()
+        deposit_cents = int(str(getattr(meta, 'trial_deposit_cents', '0') or '0').strip() or '0')
+        currency = str(getattr(meta, 'trial_deposit_currency', 'usd') or 'usd').strip().lower()
+
+    if not pi_id:
+        return False, 'no_deposit_payment'
+    if refunded_flag == '1':
+        return True, 'already_refunded'
+
+    try:
+        stripe.Refund.create(payment_intent=pi_id)
+    except Exception as e:
+        logger.warning('trial deposit refund failed for %s: %s', sid, str(e))
+        return False, 'refund_failed'
+
+    customer_id = str(getattr(sub, 'customer', '') or '').strip()
+    if customer_id and deposit_cents > 0:
+        try:
+            stripe.Customer.create_balance_transaction(
+                customer_id,
+                amount=int(deposit_cents),
+                currency=currency or 'usd',
+                description='Reversal of trial deposit credit after cancellation within trial period',
+            )
+        except Exception:
+            logger.exception('trial deposit refund: failed to reverse customer balance credit')
+
+    try:
+        stripe.Subscription.modify(
+            sid,
+            metadata={
+                'trial_deposit_refunded': '1',
+                'trial_deposit_refunded_at': datetime.now(timezone.utc).isoformat(),
+            },
+        )
+    except Exception:
+        pass
+    return True, 'refunded'
+
+
+def _get_email_trial_hold_days(invite: Optional[dict] = None) -> int:
+    """Trial length from the signed email invite (default 10 days)."""
+    raw_invite = invite if invite is not None else _get_email_trial_invite_from_session()
+    try:
+        return max(1, min(14, int((raw_invite or {}).get('trial_days') or 10)))
+    except Exception:
+        return 10
+
+
+def _get_trial_hold_days(plan_id: str = 'trial_7d') -> int:
+    """Number of days for a trial authorization hold."""
+    pid = _normalize_plan_id(plan_id) or 'trial_7d'
+    if _is_email_trial_plan(pid):
+        return _get_email_trial_hold_days()
+    raw = (os.getenv('TRIAL_HOLD_DAYS') or os.getenv('TRIAL_DURATION_DAYS') or '7').strip()
+    try:
+        return max(1, min(14, int(raw)))
+    except Exception:
+        return 7
+
+
+def _get_trial_capture_days_before_end(hold_days: Optional[int] = None) -> int:
+    """Days before trial end when the authorization hold is captured."""
+    hold = max(1, int(hold_days if hold_days is not None else _get_trial_hold_days()))
+    raw = (os.getenv('TRIAL_CAPTURE_DAYS_BEFORE_END') or '1').strip()
+    try:
+        before_end = max(0, int(raw))
+    except Exception:
+        before_end = 1
+    before_end = min(before_end, max(0, hold - 1))
+    # Card authorizations typically expire after ~7 days; capture no later than day 6 of the hold.
+    if hold > 7:
+        before_end = max(before_end, max(0, hold - 6))
+    return before_end
+
+
+def _trial_hold_capture_at_from_end(trial_ends: datetime, hold_days: Optional[int] = None) -> datetime:
+    """Return the UTC timestamp when a trial authorization hold should be captured."""
+    hold = max(1, int(hold_days or _get_trial_hold_days()))
+    return trial_ends - timedelta(days=_get_trial_capture_days_before_end(hold))
+
+
+def _get_trial_hold_capture_at(prof: Optional[dict], sub=None) -> Optional[datetime]:
+    """Resolve the scheduled capture time for a trial authorization hold."""
+    capture_raw = str((prof or {}).get('trial_hold_capture_at') or '').strip()
+    if capture_raw:
+        parsed = _parse_iso_dt(capture_raw)
+        if parsed is not None:
+            return parsed
+    meta_capture = ''
+    if sub is not None:
+        meta_capture = _subscription_metadata_get(sub, 'trial_hold_capture_at')
+    if meta_capture:
+        parsed = _parse_iso_dt(meta_capture)
+        if parsed is not None:
+            return parsed
+    ends_at = _parse_iso_dt(str((prof or {}).get('trial_hold_ends_at') or '').strip())
+    if ends_at is None and sub is not None:
+        trial_end_ts = _stripe_obj_get(sub, 'trial_end', None)
+        if trial_end_ts:
+            try:
+                ends_at = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+            except Exception:
+                ends_at = None
+    if ends_at is not None:
+        hold_days = 0
+        try:
+            hold_days = int(str((prof or {}).get('trial_hold_days') or '').strip() or '0')
+        except Exception:
+            hold_days = 0
+        if hold_days <= 0 and sub is not None:
+            try:
+                hold_days = int(_subscription_metadata_get(sub, 'trial_hold_days', '0') or '0')
+            except Exception:
+                hold_days = 0
+        if hold_days <= 0:
+            plan_id = ''
+            if sub is not None:
+                plan_id = _subscription_metadata_get(sub, 'plan_id', 'trial_7d')
+            hold_days = _get_trial_hold_days(plan_id or 'trial_7d')
+        return _trial_hold_capture_at_from_end(ends_at, hold_days)
+    return None
+
+
+def _subscription_authorization_hold_captured(sub) -> bool:
+    return _subscription_metadata_get(sub, 'authorization_hold_captured') == '1'
+
+
+def _subscription_authorization_hold_refunded(sub) -> bool:
+    return _subscription_metadata_get(sub, 'authorization_hold_refunded') == '1'
+
+
+def _trial_cancel_eligible_for_capture_refund(prof: Optional[dict], sub=None) -> bool:
+    """True on the final trial day when a post-capture cancellation should be refunded."""
+    ref_now = datetime.now(timezone.utc)
+    ends_at = _parse_iso_dt(str((prof or {}).get('trial_hold_ends_at') or '').strip())
+    if ends_at is None and sub is not None:
+        trial_end_ts = _stripe_obj_get(sub, 'trial_end', None)
+        if trial_end_ts:
+            try:
+                ends_at = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+            except Exception:
+                ends_at = None
+    if ends_at is None:
+        return False
+    capture_at = _get_trial_hold_capture_at(prof, sub)
+    if capture_at is not None and ref_now < capture_at:
+        return False
+    window_start = ends_at - timedelta(days=1)
+    return window_start <= ref_now <= (ends_at + timedelta(hours=1))
+
+
+def _trial_checkout_product_copy(plan_id: str = 'trial_7d') -> tuple[str, str]:
+    """Title + subtitle for Stripe Checkout (trial is free; amount shown is a hold only)."""
+    hold_days = _get_trial_hold_days(plan_id)
+    name = (os.getenv('STRIPE_TRIAL_CHECKOUT_NAME') or '').strip()
+    if not name:
+        zero_label = '₹0.00' if _is_india_pricing_region() else '$0.00'
+        name = f'{hold_days} days free trial {zero_label}'
+    description = (os.getenv('STRIPE_TRIAL_CHECKOUT_DESCRIPTION') or '').strip()
+    return name, description
+
+
+def _should_use_trial_authorization_hold(plan_id: str) -> bool:
+    """Use a card authorization hold instead of charging/refunding the trial deposit."""
+    if not _stripe_enabled():
+        return False
+    pid = _normalize_plan_id(plan_id)
+    return pid in ('trial_7d', EMAIL_TRIAL_PLAN_ID)
+
+
+def _get_trial_exit_offer_target_cents() -> int:
+    """Target net charge for the first paid month after the trial."""
+    raw = (os.getenv('TRIAL_EXIT_OFFER_TARGET_CENTS') or '649').strip()
+    try:
+        target = int(raw)
+    except Exception:
+        target = 649
+    return max(1, target)
+
+
+def _get_trial_exit_offer_for_user(user_id: str) -> dict:
+    """Return the claimed trial-exit offer for the user, if any."""
+    uid = str(user_id or '').strip()
+    if not uid:
+        return {}
+    prof = get_user_profile_azure(uid) or {}
+    if str(prof.get('trial_exit_offer_active') or '').strip() != '1':
+        return {}
+    try:
+        target_cents = int(str(prof.get('trial_exit_offer_target_cents') or '').strip() or '0')
+    except Exception:
+        target_cents = 0
+    if target_cents <= 0:
+        target_cents = _get_trial_exit_offer_target_cents()
+    return {
+        'active': True,
+        'target_cents': target_cents,
+        'accepted_at': str(prof.get('trial_exit_offer_accepted_at') or '').strip(),
+    }
+
+
+def _should_use_embedded_trial_hold_checkout(plan_id: str) -> bool:
+    """Trial hold on our checkout page (Payment Element) when HTTPS or localhost allows it."""
+    return _should_use_trial_authorization_hold(plan_id) and _request_allows_stripe_embedded_payments()
+
+
+def _trial_hold_checkout_template_context(plan_id: str = 'trial_7d') -> dict:
+    """Shared copy/pricing for embedded and hosted trial hold checkout."""
+    pid = _normalize_plan_id(plan_id) or 'trial_7d'
+    checkout_name, checkout_description = _trial_checkout_product_copy(pid)
+    amount_label = _plans_price_display_context().get('monthly_strong') or '$10.95'
+    zero_label = '₹0.00' if _is_india_pricing_region() else '$0.00'
+    hold_days = _get_trial_hold_days(pid)
+    capture_days_before_end = _get_trial_capture_days_before_end(hold_days)
+    capture_day = max(1, hold_days - capture_days_before_end)
+    return {
+        'checkout_name': checkout_name,
+        'checkout_description': checkout_description,
+        'amount_label': amount_label,
+        'trial_hold_days': hold_days,
+        'trial_capture_day': capture_day,
+        'trial_zero_label': zero_label,
+        'india_pricing': _is_india_pricing_region(),
+        'trial_deposit_terms': (
+            f'A temporary {amount_label} authorization hold is placed on your card. '
+            f'If you cancel before day {capture_day}, the hold is released and you are not charged. '
+            f'If you stay subscribed, the hold is captured on day {capture_day} as your first month\'s payment. '
+            f'Cancel on day {hold_days} for a full refund if you were charged.'
+        ),
+    }
+
+
+@app.context_processor
+def inject_trial_plan_context():
+    """Expose configured trial duration to all Jinja templates."""
+    try:
+        hold_days = _get_trial_hold_days()
+        capture_day = max(1, hold_days - _get_trial_capture_days_before_end())
+        trial_plan = _get_plan_config('trial_7d') or {}
+        return {
+            'trial_hold_days': hold_days,
+            'trial_capture_day': capture_day,
+            'trial_deposit_terms': str(trial_plan.get('trial_deposit_terms') or '').strip(),
+        }
+    except Exception:
+        return {
+            'trial_hold_days': 7,
+            'trial_capture_day': 6,
+            'trial_deposit_terms': '',
+        }
+
+
+def _request_allows_stripe_embedded_payments() -> bool:
+    """Stripe Payment Element requires HTTPS or localhost (not plain HTTP on LAN hostnames)."""
+    try:
+        proto = str(request.headers.get('X-Forwarded-Proto') or '').strip().lower()
+        if request.is_secure or proto == 'https':
+            return True
+        host = str(request.host or '').split(':')[0].strip().lower()
+        if host in ('localhost', '127.0.0.1', '[::1]'):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _external_url_scheme() -> str:
+    """Prefer HTTPS for Stripe redirect URLs (required outside localhost)."""
+    try:
+        proto = str(request.headers.get('X-Forwarded-Proto') or '').strip().lower()
+        if request.is_secure or proto == 'https':
+            return 'https'
+        host = str(request.host or '').split(':')[0].strip().lower()
+        if host in ('localhost', '127.0.0.1', '[::1]'):
+            return str(request.scheme or 'http')
+    except Exception:
+        pass
+    return 'https'
+
+
+def _create_trial_hold_checkout_session_url(user, plan_id: str = 'trial_7d') -> str:
+    """Stripe Hosted Checkout for trial authorization hold (card form on stripe.com over HTTPS)."""
+    if not _stripe_enabled():
+        return ''
+    pid = _normalize_plan_id(plan_id) or 'trial_7d'
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    user_id = str(getattr(user, 'id', '') or '').strip()
+    email = (getattr(user, 'email', '') or '').strip()
+    if not user_id:
+        return ''
+
+    hold_days = _get_trial_hold_days(pid)
+    _, checkout_blurb = _trial_checkout_product_copy(pid)
+    scheme = _external_url_scheme()
+    success_url = (
+        url_for('checkout_trial_hold_success', _external=True, _scheme=scheme)
+        + '?session_id={CHECKOUT_SESSION_ID}'
+    )
+    cancel_url = url_for('checkout', plan=pid, _external=True, _scheme=scheme)
+
+    session_params = {
+        'mode': 'payment',
+        'customer_creation': 'always',
+        'line_items': [_build_trial_deposit_line_item()],
+        'client_reference_id': user_id,
+        'metadata': {
+            'plan_id': pid,
+            'trial_hold_checkout': '1',
+        },
+        'payment_intent_data': {
+            'capture_method': 'manual',
+            'setup_future_usage': 'off_session',
+            'metadata': {
+                'purpose': 'trial_hold',
+                'plan_id': pid,
+                'user_id': user_id,
+                'trial_hold_days': str(hold_days),
+                'pricing_region': 'in' if _is_india_pricing_region() else 'us',
+            },
+        },
+        'success_url': success_url,
+        'cancel_url': cancel_url,
+    }
+    if email:
+        session_params['customer_email'] = email
+    if checkout_blurb:
+        session_params['custom_text'] = {'submit': {'message': checkout_blurb}}
+    session = stripe.checkout.Session.create(**session_params)
+    return str(getattr(session, 'url', '') or '')
+
+
+def _trial_hold_currency() -> str:
+    """Currency for the trial authorization hold (INR in India, USD elsewhere)."""
+    return 'inr' if _is_india_pricing_region() else 'usd'
+
+
+def _subscription_metadata_get(sub, key: str, default: str = '') -> str:
+    """Read a string value from Stripe subscription metadata."""
+    try:
+        meta = _stripe_obj_get(sub, 'metadata', None) or {}
+        if isinstance(meta, dict):
+            return str(meta.get(key) or default).strip()
+        return str(getattr(meta, key, default) or default).strip()
+    except Exception:
+        return default
+
+
+def _get_subscription_authorization_payment_intent_id(sub) -> str:
+    """Return the linked authorization-hold PaymentIntent id from subscription metadata."""
+    return (
+        _subscription_metadata_get(sub, 'authorization_payment_intent')
+        or _subscription_metadata_get(sub, 'trial_hold_payment_intent')
+    )
+
+
+def _find_subscription_by_authorization_pi(customer_id: str, payment_intent_id: str):
+    """Find an existing subscription already linked to this authorization PaymentIntent."""
+    cid = str(customer_id or '').strip()
+    pi_id = str(payment_intent_id or '').strip()
+    if not cid or not pi_id or not _stripe_enabled():
+        return None
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        for sub in list(getattr(subs, 'data', []) or []):
+            if _get_subscription_authorization_payment_intent_id(sub) == pi_id:
+                return sub
+    except Exception:
+        pass
+    return None
+
+
+def _get_active_trial_authorization_payment_intent(
+    prof: Optional[dict],
+    subscription_id: str = '',
+) -> str:
+    """Resolve the active trial authorization PaymentIntent from profile or subscription."""
+    pi_id = str((prof or {}).get('trial_hold_payment_intent_id') or '').strip()
+    if pi_id:
+        return pi_id
+    sid = str(subscription_id or (prof or {}).get('stripe_subscription_id') or '').strip()
+    if not sid or not _stripe_enabled():
+        return ''
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        sub = stripe.Subscription.retrieve(sid)
+        return _get_subscription_authorization_payment_intent_id(sub)
+    except Exception:
+        return ''
+
+
+def _profile_has_active_trial_hold(prof: Optional[dict], *, now: Optional[datetime] = None) -> bool:
+    """Return True when the user has an active authorization hold granting trial access."""
+    if not prof:
+        return False
+    pi_id = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    if not pi_id:
+        return False
+    if str(prof.get('trial_hold_cancelled') or '').strip() == '1':
+        return False
+    ends_at = _parse_iso_dt(str(prof.get('trial_hold_ends_at') or '').strip())
+    ref_now = now or datetime.now(timezone.utc)
+    if ends_at is not None and ends_at < ref_now:
+        return False
+    return True
+
+
+def _create_trial_hold_payment_intent(user_id: str, plan_id: str = 'trial_7d', customer_id: str = ''):
+    """Create a manual-capture PaymentIntent for the trial hold amount."""
+    cid = str(customer_id or '').strip()
+    uid = str(user_id or '').strip()
+    pid = _normalize_plan_id(plan_id) or 'trial_7d'
+    if not uid or not _stripe_enabled():
+        return None
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    hold_days = _get_trial_hold_days(pid)
+    amount = _get_trial_deposit_amount_cents()
+    currency = _trial_hold_currency()
+    # Authorization holds require card capture; UPI settles immediately and cannot be held.
+    params = {
+        'amount': amount,
+        'currency': currency,
+        'payment_method_types': ['card'],
+        'capture_method': 'manual',
+        'metadata': {
+            'purpose': 'trial_hold',
+            'plan_id': pid,
+            'user_id': uid,
+            'trial_hold_days': str(hold_days),
+            'pricing_region': 'in' if _is_india_pricing_region() else 'us',
+        },
+    }
+    if cid:
+        params['customer'] = cid
+    return stripe.PaymentIntent.create(**params)
+
+
+def _trial_hold_plan_id_from_intent(intent) -> str:
+    """Read the plan id stored on a trial-hold PaymentIntent."""
+    meta = getattr(intent, 'metadata', None) or {}
+    if isinstance(meta, dict):
+        plan_id = str(meta.get('plan_id') or '').strip()
+    else:
+        plan_id = str(getattr(meta, 'plan_id', '') or '').strip()
+    return _normalize_plan_id(plan_id) or 'trial_7d'
+
+
+def _trial_hold_days_from_intent(intent) -> int:
+    """Read trial length from PaymentIntent metadata."""
+    meta = getattr(intent, 'metadata', None) or {}
+    if isinstance(meta, dict):
+        raw_days = str(meta.get('trial_hold_days') or '').strip()
+    else:
+        raw_days = str(getattr(meta, 'trial_hold_days', '') or '').strip()
+    try:
+        days = int(raw_days)
+    except Exception:
+        days = 0
+    if days > 0:
+        return days
+    return _get_trial_hold_days(_trial_hold_plan_id_from_intent(intent))
+
+
+def _payment_intent_belongs_to_user(payment_intent_id: str, user_id: str) -> bool:
+    """Verify a PaymentIntent metadata user_id matches the authenticated user."""
+    pi_id = str(payment_intent_id or '').strip()
+    uid = str(user_id or '').strip()
+    if not pi_id or not uid or not _stripe_enabled():
+        return False
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+        meta = getattr(intent, 'metadata', None) or {}
+        if isinstance(meta, dict):
+            meta_uid = str(meta.get('user_id') or '').strip()
+        else:
+            meta_uid = str(getattr(meta, 'user_id', '') or '').strip()
+        return meta_uid == uid
+    except Exception:
+        return False
+
+
+def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, str]:
+    """Grant trial access after the card authorization hold succeeds (requires_capture).
+
+    Creates a trialing Stripe subscription linked to the authorization PaymentIntent.
+    The hold is captured on the scheduled capture day (default day 6 of a 7-day trial).
+    """
+    uid = str(user_id or '').strip()
+    pi_id = str(payment_intent_id or '').strip()
+    if not uid or not pi_id or not _stripe_enabled():
+        return False, 'missing_parameters'
+    if not _payment_intent_belongs_to_user(pi_id, uid):
+        return False, 'payment_intent_mismatch'
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found'
+
+    status = str(getattr(intent, 'status', '') or '').strip().lower()
+    if status != 'requires_capture':
+        return False, 'not_authorized'
+
+    prof = get_user_profile_azure(uid) or {}
+    existing_pi = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    existing_sub_id = str(prof.get('stripe_subscription_id') or '').strip()
+    if existing_pi and existing_pi == pi_id and existing_sub_id:
+        return True, 'already_active'
+
+    payment_method_id = str(getattr(intent, 'payment_method', '') or '').strip()
+    if not payment_method_id:
+        return False, 'missing_payment_method'
+
+    amount = int(getattr(intent, 'amount', 0) or 0)
+    currency = str(getattr(intent, 'currency', 'usd') or 'usd').strip().lower()
+    exit_offer = _get_trial_exit_offer_for_user(uid)
+    plan_id = _trial_hold_plan_id_from_intent(intent)
+    hold_days = _trial_hold_days_from_intent(intent)
+    invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(plan_id) else None
+    campaign = str((invite or {}).get('campaign') or '').strip()
+    customer_id = str(getattr(intent, 'customer', '') or '').strip()
+    if not customer_id:
+        customer_id = str(prof.get('stripe_customer_id') or '').strip()
+    if not customer_id:
+        email = str(prof.get('email') or getattr(current_user, 'email', '') or '').strip()
+        customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True) if email else ''
+    if not customer_id:
+        try:
+            cust = stripe.Customer.create(
+                email=str(prof.get('email') or getattr(current_user, 'email', '') or '').strip() or None,
+                metadata={'user_id': uid},
+            )
+            customer_id = str(getattr(cust, 'id', '') or '').strip()
+        except Exception:
+            logger.exception('trial hold activation: customer creation failed')
+            return False, 'customer_creation_failed'
+    try:
+        stripe.PaymentMethod.attach(payment_method_id, customer=customer_id)
+    except Exception:
+        # The card may already be attached to this customer after a previous successful attempt.
+        pass
+
+    try:
+        stripe.Customer.modify(
+            customer_id,
+            invoice_settings={'default_payment_method': payment_method_id},
+        )
+    except Exception:
+        logger.exception('trial hold activation: failed to set default payment method')
+
+    sub = _find_subscription_by_authorization_pi(customer_id, pi_id)
+    if not sub:
+        price_id = _get_stripe_price_id(plan_id)
+        if not price_id:
+            return False, 'price_not_configured'
+        sub_metadata = {
+            'plan_id': plan_id,
+            'user_id': uid,
+            'authorization_payment_intent': pi_id,
+            'trial_hold_payment_intent': pi_id,
+            'trial_hold_days': str(hold_days),
+            'trial_exit_offer_active': '1' if exit_offer.get('active') else '',
+            'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)) if exit_offer.get('active') else '',
+        }
+        if campaign:
+            sub_metadata['campaign'] = campaign
+        try:
+            sub = stripe.Subscription.create(
+                customer=customer_id,
+                items=[{'price': price_id, 'quantity': 1}],
+                default_payment_method=payment_method_id,
+                trial_period_days=hold_days,
+                payment_settings={'save_default_payment_method': 'on_subscription'},
+                metadata=sub_metadata,
+            )
+        except Exception:
+            logger.exception('trial hold activation: subscription creation failed')
+            return False, 'subscription_failed'
+    elif exit_offer.get('active') and _subscription_metadata_get(sub, 'trial_exit_offer_active') != '1':
+        try:
+            patch_meta = {
+                'plan_id': plan_id,
+                'user_id': uid,
+                'authorization_payment_intent': pi_id,
+                'trial_hold_payment_intent': pi_id,
+                'trial_hold_days': str(hold_days),
+                'trial_exit_offer_active': '1',
+                'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)),
+            }
+            if campaign:
+                patch_meta['campaign'] = campaign
+            stripe.Subscription.modify(
+                str(getattr(sub, 'id', '') or ''),
+                metadata=patch_meta,
+            )
+            sub = stripe.Subscription.retrieve(str(getattr(sub, 'id', '') or ''))
+        except Exception:
+            logger.exception('trial hold activation: failed to attach exit offer metadata')
+
+    if not _stripe_subscription_grants_access(sub):
+        return False, 'subscription_not_active'
+
+    _persist_stripe_subscription_to_profile(uid, sub, plan_id=plan_id)
+
+    trial_end_ts = getattr(sub, 'trial_end', None)
+    if trial_end_ts:
+        trial_ends = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+    else:
+        trial_ends = datetime.now(timezone.utc) + timedelta(days=hold_days)
+    capture_at = _trial_hold_capture_at_from_end(trial_ends, hold_days)
+    sub_id = str(getattr(sub, 'id', '') or '').strip()
+    if sub_id:
+        try:
+            stripe.Subscription.modify(
+                sub_id,
+                metadata={
+                    'trial_hold_capture_at': capture_at.isoformat(),
+                    'trial_hold_days': str(hold_days),
+                },
+            )
+        except Exception:
+            logger.exception('trial hold activation: failed to persist capture schedule on subscription')
+
+    try:
+        table_client = get_users_table_client()
+        entity = {
+            'PartitionKey': uid,
+            'RowKey': 'profile',
+            'stripe_customer_id': customer_id,
+            'stripe_subscription_id': sub_id,
+            'trial_hold_payment_intent_id': pi_id,
+            'trial_hold_customer_id': customer_id,
+            'trial_hold_ends_at': trial_ends.isoformat(),
+            'trial_hold_capture_at': capture_at.isoformat(),
+            'trial_hold_days': str(hold_days),
+            'trial_hold_amount_cents': str(amount),
+            'trial_hold_currency': currency,
+            'trial_hold_cancelled': '',
+            'trial_used': True,
+            'trial_used_at': datetime.now(timezone.utc).isoformat(),
+            'trial_exit_offer_active': '1' if exit_offer.get('active') else '',
+            'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)) if exit_offer.get('active') else '',
+        }
+        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+    except Exception:
+        logger.exception('trial hold activation: failed to persist profile')
+        return False, 'profile_update_failed'
+
+    return True, 'activated'
+
+
+def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
+    """Capture the linked authorization hold when a trialing subscription is about to end."""
+    if not sub or not _stripe_enabled():
+        return False, 'missing_subscription'
+
+    sub_id = str(_stripe_obj_get(sub, 'id', '') or '').strip()
+    status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+    if status != 'trialing':
+        return False, 'not_trialing'
+
+    # Never capture if cancellation is already scheduled; let the authorization expire naturally.
+    if _stripe_subscription_cancel_scheduled(sub):
+        return False, 'cancellation_scheduled'
+
+    if _subscription_metadata_get(sub, 'authorization_hold_captured') == '1':
+        return True, 'already_captured'
+
+    pi_id = _get_subscription_authorization_payment_intent_id(sub)
+    if not pi_id:
+        return False, 'no_authorization_payment_intent'
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found'
+
+    pi_status = str(getattr(intent, 'status', '') or '').strip().lower()
+    captured_intent = intent
+    if pi_status == 'requires_capture':
+        try:
+            captured_intent = stripe.PaymentIntent.capture(pi_id)
+        except Exception as e:
+            logger.warning('authorization hold capture failed sub=%s pi=%s err=%s', sub_id, pi_id, str(e))
+            return False, 'capture_failed'
+    elif pi_status != 'succeeded':
+        return False, f'unexpected_status_{pi_status}'
+
+    if str(getattr(captured_intent, 'status', '') or '').strip().lower() != 'succeeded':
+        return False, 'capture_not_succeeded'
+
+    amount = int(getattr(captured_intent, 'amount', 0) or 0)
+    currency = str(getattr(captured_intent, 'currency', 'usd') or 'usd').strip().lower()
+    customer_id = str(_stripe_obj_get(sub, 'customer', '') or getattr(captured_intent, 'customer', '') or '').strip()
+    offer_target_cents = 0
+    if _subscription_metadata_get(sub, 'trial_exit_offer_active') == '1':
+        try:
+            offer_target_cents = int(_subscription_metadata_get(sub, 'trial_exit_offer_target_cents', '0') or '0')
+        except Exception:
+            offer_target_cents = 0
+    refund_cents = 0
+    if offer_target_cents > 0 and amount > offer_target_cents:
+        refund_cents = int(amount - offer_target_cents)
+    if customer_id and amount > 0:
+        try:
+            stripe.Customer.create_balance_transaction(
+                customer_id,
+                amount=-amount,
+                currency=currency,
+                description='Trial authorization captured — credit toward first subscription invoice',
+            )
+        except Exception:
+            logger.exception('authorization hold capture: failed to apply customer balance credit')
+
+    metadata_update = {
+        'authorization_hold_captured': '1',
+        'authorization_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+        'authorization_hold_balance_credit_cents': str(amount),
+    }
+    if refund_cents > 0:
+        try:
+            stripe.Refund.create(
+                payment_intent=pi_id,
+                amount=refund_cents,
+                metadata={
+                    'purpose': 'trial_exit_offer',
+                    'subscription_id': sub_id,
+                },
+            )
+            metadata_update['trial_exit_offer_applied'] = '1'
+            metadata_update['trial_exit_offer_refund_cents'] = str(refund_cents)
+            metadata_update['trial_exit_offer_applied_at'] = datetime.now(timezone.utc).isoformat()
+        except Exception:
+            logger.exception('authorization hold capture: failed to refund exit offer discount')
+            metadata_update['trial_exit_offer_refund_failed'] = '1'
+            metadata_update['trial_exit_offer_refund_failed_at'] = datetime.now(timezone.utc).isoformat()
+
+    try:
+        stripe.Subscription.modify(
+            sub_id,
+            metadata=metadata_update,
+        )
+    except Exception:
+        pass
+
+    user_id = _subscription_metadata_get(sub, 'user_id')
+    if user_id:
+        try:
+            table_client = get_users_table_client()
+            entity = {
+                'PartitionKey': user_id,
+                'RowKey': 'profile',
+                'trial_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+                'trial_exit_offer_active': '',
+                'trial_exit_offer_refund_cents': str(refund_cents) if refund_cents > 0 else '',
+            }
+            table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+        except Exception:
+            pass
+
+    return True, 'captured'
+
+
+def _release_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
+    """Release an uncaptured authorization hold when a trial subscription is canceled."""
+    pi_id = _get_subscription_authorization_payment_intent_id(sub)
+    if not pi_id:
+        return False, 'no_authorization_payment_intent'
+    if _subscription_authorization_hold_captured(sub):
+        return True, 'already_captured'
+    return _cancel_trial_hold_payment_intent(pi_id)
+
+
+def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str]:
+    """Refund a captured trial authorization hold and reverse the customer balance credit."""
+    if not sub or not _stripe_enabled():
+        return False, 'missing_subscription'
+
+    sub_id = str(_stripe_obj_get(sub, 'id', '') or '').strip()
+    if _subscription_authorization_hold_refunded(sub):
+        return True, 'already_refunded'
+    if not _subscription_authorization_hold_captured(sub):
+        return False, 'not_captured'
+
+    pi_id = _get_subscription_authorization_payment_intent_id(sub)
+    if not pi_id:
+        return False, 'no_authorization_payment_intent'
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found'
+
+    pi_status = str(getattr(intent, 'status', '') or '').strip().lower()
+    if pi_status != 'succeeded':
+        return False, f'unexpected_status_{pi_status}'
+
+    amount = int(getattr(intent, 'amount', 0) or 0)
+    currency = str(getattr(intent, 'currency', 'usd') or 'usd').strip().lower()
+    customer_id = str(_stripe_obj_get(sub, 'customer', '') or getattr(intent, 'customer', '') or '').strip()
+    if amount <= 0:
+        return False, 'zero_amount'
+
+    already_refunded = 0
+    try:
+        refunds = stripe.Refund.list(payment_intent=pi_id, limit=20)
+        for refund in list(getattr(refunds, 'data', []) or []):
+            refund_status = str(getattr(refund, 'status', '') or '').strip().lower()
+            if refund_status in ('succeeded', 'pending'):
+                already_refunded += int(getattr(refund, 'amount', 0) or 0)
+    except Exception:
+        logger.exception('trial authorization refund: failed to list existing refunds')
+
+    remaining_refund = max(0, amount - already_refunded)
+    if remaining_refund > 0:
+        try:
+            stripe.Refund.create(
+                payment_intent=pi_id,
+                amount=remaining_refund,
+                metadata={
+                    'purpose': 'trial_final_day_cancel',
+                    'subscription_id': sub_id,
+                },
+            )
+        except Exception as e:
+            logger.warning('trial authorization refund failed sub=%s pi=%s err=%s', sub_id, pi_id, str(e))
+            return False, 'refund_failed'
+
+    try:
+        credit_cents = int(_subscription_metadata_get(sub, 'authorization_hold_balance_credit_cents', str(amount)) or amount)
+    except Exception:
+        credit_cents = amount
+    if customer_id and credit_cents > 0:
+        try:
+            stripe.Customer.create_balance_transaction(
+                customer_id,
+                amount=int(credit_cents),
+                currency=currency,
+                description='Reversal of trial authorization credit after final-day cancellation',
+            )
+        except Exception:
+            logger.exception('trial authorization refund: failed to reverse customer balance credit')
+
+    metadata_update = {
+        'authorization_hold_refunded': '1',
+        'authorization_hold_refunded_at': datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        stripe.Subscription.modify(sub_id, metadata=metadata_update)
+    except Exception:
+        pass
+
+    user_id = _subscription_metadata_get(sub, 'user_id')
+    if user_id:
+        try:
+            table_client = get_users_table_client()
+            entity = {
+                'PartitionKey': user_id,
+                'RowKey': 'profile',
+                'trial_hold_refunded_at': datetime.now(timezone.utc).isoformat(),
+            }
+            table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+        except Exception:
+            pass
+
+    return True, 'refunded'
+
+
+def _cancel_trial_hold_payment_intent(payment_intent_id: str) -> tuple[bool, str]:
+    """Release an uncaptured authorization hold."""
+    pi_id = str(payment_intent_id or '').strip()
+    if not pi_id or not _stripe_enabled():
+        return False, 'missing_payment_intent'
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found'
+
+    status = str(getattr(intent, 'status', '') or '').strip().lower()
+    if status in ('canceled', 'cancelled'):
+        return True, 'already_cancelled'
+    if status == 'requires_capture':
+        try:
+            stripe.PaymentIntent.cancel(pi_id)
+            return True, 'cancelled'
+        except Exception as e:
+            logger.warning('trial hold cancel failed for %s: %s', pi_id, str(e))
+            return False, 'cancel_failed'
+    if status == 'succeeded':
+        return False, 'already_captured'
+    return False, f'unexpected_status_{status}'
+
+
+def _revoke_trial_hold_profile(user_id: str, *, cancelled: bool = True) -> None:
+    """Clear trial-hold access fields from the user profile."""
+    uid = str(user_id or '').strip()
+    if not uid:
+        return
+    try:
+        table_client = get_users_table_client()
+        entity = {
+            'PartitionKey': uid,
+            'RowKey': 'profile',
+            'is_paid': False,
+            'plan_status': 'free',
+            'paid_until': '',
+            'trial_hold_cancelled': '1' if cancelled else '',
+            'trial_hold_cancelled_at': datetime.now(timezone.utc).isoformat() if cancelled else '',
+        }
+        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+    except Exception:
+        logger.exception('trial hold revoke: failed to update profile for %s', uid)
+
+
+def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional[str]]:
+    """Legacy fallback: capture hold and create subscription for profiles without a Stripe sub.
+
+    New trial signups create a trialing subscription at activation; capture runs on
+    customer.subscription.trial_will_end instead.
+    """
+    uid = str(user_id or '').strip()
+    if not uid or not _stripe_enabled():
+        return False, 'missing_parameters', None
+
+    prof = get_user_profile_azure(uid) or {}
+    existing_sub_id = str(prof.get('stripe_subscription_id') or '').strip()
+    if existing_sub_id:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        try:
+            sub = stripe.Subscription.retrieve(existing_sub_id)
+            ok, reason = _capture_authorization_hold_for_subscription(sub)
+            return ok, reason, existing_sub_id
+        except Exception:
+            return True, 'subscription_already_exists', existing_sub_id
+
+    pi_id = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    customer_id = str(prof.get('trial_hold_customer_id') or prof.get('stripe_customer_id') or '').strip()
+    if not pi_id or not customer_id:
+        return False, 'no_active_trial_hold', None
+    if str(prof.get('trial_hold_cancelled') or '').strip() == '1':
+        return False, 'trial_hold_cancelled', None
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        return False, 'payment_intent_not_found', None
+
+    status = str(getattr(intent, 'status', '') or '').strip().lower()
+    if status == 'succeeded':
+        captured_intent = intent
+    elif status == 'requires_capture':
+        try:
+            captured_intent = stripe.PaymentIntent.capture(pi_id)
+        except Exception as e:
+            logger.warning('trial hold capture failed for %s: %s', pi_id, str(e))
+            return False, 'capture_failed', None
+    else:
+        return False, f'unexpected_status_{status}', None
+
+    if str(getattr(captured_intent, 'status', '') or '').strip().lower() != 'succeeded':
+        return False, 'capture_not_succeeded', None
+
+    payment_method_id = str(getattr(captured_intent, 'payment_method', '') or '').strip()
+    if not payment_method_id:
+        return False, 'missing_payment_method', None
+
+    try:
+        stripe.Customer.modify(
+            customer_id,
+            invoice_settings={'default_payment_method': payment_method_id},
+        )
+    except Exception:
+        logger.exception('trial hold: failed to set default payment method')
+
+    price_id = _get_stripe_price_id('monthly_10_95')
+    if not price_id:
+        return False, 'price_not_configured', None
+
+    subscription_params = {
+        'customer': customer_id,
+        'items': [{'price': price_id}],
+        'default_payment_method': payment_method_id,
+        'payment_settings': {'save_default_payment_method': 'on_subscription'},
+        'metadata': {
+            'plan_id': 'monthly_10_95',
+            'user_id': uid,
+            'started_after_trial_hold': 'true',
+            'authorization_payment_intent': pi_id,
+            'trial_hold_payment_intent': pi_id,
+            'authorization_hold_captured': '1',
+        },
+    }
+    try:
+        sub = stripe.Subscription.create(**subscription_params)
+    except Exception as e:
+        logger.exception('trial hold: subscription creation failed')
+        return False, f'subscription_failed:{str(e)}', None
+
+    sub_id = str(getattr(sub, 'id', '') or '').strip()
+    _persist_stripe_subscription_to_profile(uid, sub, plan_id='monthly_10_95')
+
+    try:
+        table_client = get_users_table_client()
+        entity = {
+            'PartitionKey': uid,
+            'RowKey': 'profile',
+            'trial_hold_payment_intent_id': pi_id,
+            'trial_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+        }
+        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+    except Exception:
+        pass
+
+    return True, 'subscribed', sub_id or None
+
+
+def _maybe_capture_due_trial_hold_for_user(user_id: str) -> None:
+    """Capture a trialing subscription's authorization hold once the scheduled capture time arrives."""
+    uid = str(user_id or '').strip()
+    if not uid or not _stripe_enabled():
+        return
+
+    prof = get_user_profile_azure(uid) or {}
+    subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
+    if not subscription_id:
+        return
+
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        sub = stripe.Subscription.retrieve(subscription_id)
+    except Exception:
+        return
+
+    sub_status = str(getattr(sub, 'status', '') or '').strip().lower()
+    if sub_status != 'trialing':
+        return
+
+    if not _get_subscription_authorization_payment_intent_id(sub):
+        return
+    if _subscription_authorization_hold_captured(sub):
+        return
+    if _stripe_subscription_cancel_scheduled(sub):
+        return
+
+    capture_at = _get_trial_hold_capture_at(prof, sub)
+    if capture_at is None or datetime.now(timezone.utc) < capture_at:
+        return
+
+    ok, reason = _capture_authorization_hold_for_subscription(sub)
+    logger.info(
+        'deferred trial hold capture user_id=%s sub=%s ok=%s reason=%s',
+        uid,
+        subscription_id,
+        bool(ok),
+        reason or 'ok',
+    )
+
+
+def _process_trial_hold_lifecycle_for_user(user_id: str) -> None:
+    """Release expired holds, capture due holds, or migrate legacy profiles without a Stripe subscription."""
+    uid = str(user_id or '').strip()
+    if not uid or not _stripe_enabled():
+        return
+
+    _maybe_capture_due_trial_hold_for_user(uid)
+
+    prof = get_user_profile_azure(uid) or {}
+    pi_id = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    if not pi_id:
+        return
+
+    subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    if subscription_id:
+        try:
+            sub = stripe.Subscription.retrieve(subscription_id)
+            sub_status = str(getattr(sub, 'status', '') or '').strip().lower()
+            if sub_status == 'trialing' and _get_subscription_authorization_payment_intent_id(sub):
+                return
+        except Exception:
+            pass
+        return
+
+    now = datetime.now(timezone.utc)
+    ends_at = _parse_iso_dt(str(prof.get('trial_hold_ends_at') or '').strip())
+    cancelled = str(prof.get('trial_hold_cancelled') or '').strip() == '1'
+
+    try:
+        intent = stripe.PaymentIntent.retrieve(pi_id)
+    except Exception:
+        if cancelled or (ends_at is not None and ends_at < now):
+            _revoke_trial_hold_profile(uid, cancelled=cancelled)
+        return
+
+    status = str(getattr(intent, 'status', '') or '').strip().lower()
+
+    if cancelled:
+        _revoke_trial_hold_profile(uid, cancelled=True)
+        return
+
+    if status in ('canceled', 'cancelled'):
+        _revoke_trial_hold_profile(uid, cancelled=True)
+        return
+
+    if status == 'succeeded' and not subscription_id:
+        _capture_trial_hold_and_subscribe(uid)
+        return
+
+    if ends_at is not None and ends_at <= now and status == 'requires_capture':
+        ok, reason, _sub_id = _capture_trial_hold_and_subscribe(uid)
+        if not ok:
+            logger.warning('trial hold auto-capture failed user_id=%s reason=%s', uid, reason)
+        return
+
+    if status not in ('requires_capture', 'processing', 'requires_action'):
+        if ends_at is not None and ends_at < now:
+            _revoke_trial_hold_profile(uid, cancelled=False)
 
 
 def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
@@ -4915,6 +8307,24 @@ def _get_stripe_retention_coupon_id() -> Optional[str]:
     return (os.getenv('STRIPE_COUPON_RETENTION') or '').strip() or None
 
 
+def _get_payment_method_config_for_checkout(plan_id: str) -> dict:
+    """Get payment method configuration for Stripe Checkout based on region and plan.
+
+    For India recurring: uses card (3DS required) + UPI if supported.
+    Note: RBI mandates are created by Stripe through subscription flow, not metadata.
+    Requires Stripe API version 2025-01-27 or later for UPI subscriptions.
+    """
+    config = {}
+
+    if _is_india_pricing_region() and plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95', 'annual_6_95'):
+        # For India recurring subscriptions, enable card (3DS enforced) + UPI
+        # Stripe creates mandates through subscription flow for on-session first payment
+        # UPI support requires Stripe API 2025+ and account eligibility check
+        config['payment_method_types'] = ['card', 'upi']
+
+    return config
+
+
 def _compute_retention_credit_cents(subscription) -> int:
     """Compute 50% off for one month (applied twice = 50% off for 2 months). Works with flexible billing."""
     try:
@@ -4958,12 +8368,477 @@ def _compute_retention_credit_cents(subscription) -> int:
         return DEFAULT_MONTHLY_HALF_CENTS
 
 
+def _apply_reinstate_next_month_price_offer(subscription, target_price_cents: int = 399) -> tuple[bool, str, int]:
+    """Apply one-time credit so the next monthly invoice is effectively target_price_cents."""
+    try:
+        target_cents = int(target_price_cents or 0)
+    except Exception:
+        target_cents = 399
+    if target_cents <= 0:
+        target_cents = 399
+
+    try:
+        sub_id = str(_stripe_obj_get(subscription, "id", "") or "").strip()
+        customer_id = str(_stripe_obj_get(subscription, "customer", "") or "").strip()
+        if not sub_id or not customer_id:
+            return False, "Unable to apply offer: subscription billing details are missing.", 0
+
+        _, interval, interval_count = _get_subscription_price_id_and_recurring(subscription)
+        if str(interval or "").strip().lower() != "month" or int(interval_count or 1) != 1:
+            return False, "Offer applies only to monthly subscriptions.", 0
+
+        items = _stripe_obj_get(subscription, "items", None)
+        items_data = list(_stripe_obj_get(items, "data", []) or []) if items is not None else []
+        if not items_data:
+            return False, "Unable to apply offer: subscription price is unavailable.", 0
+
+        first = items_data[0]
+        price = _stripe_obj_get(first, "price", None)
+        unit_amount = int(_stripe_obj_get(price, "unit_amount", 0) or 0)
+        currency = str(_stripe_obj_get(price, "currency", "usd") or "usd").strip().lower()
+        if unit_amount <= 0:
+            return False, "Unable to apply offer: invalid subscription amount.", 0
+        if currency != "usd":
+            return False, "Offer currently supports USD subscriptions only.", 0
+        if unit_amount <= target_cents:
+            return False, "Your next month is already priced at or below this offer.", 0
+
+        current_period_end = str(_stripe_obj_get(subscription, "current_period_end", "") or "").strip()
+        metadata = _stripe_obj_get(subscription, "metadata", {}) or {}
+        already_period_end = str(_stripe_obj_get(metadata, "reinstate_offer_399_period_end", "") or "").strip()
+        if current_period_end and already_period_end == current_period_end:
+            return True, "Offer already applied to your next month.", 0
+
+        credit_cents = int(unit_amount - target_cents)
+        if credit_cents <= 0:
+            return False, "Unable to apply offer: discount amount is not positive.", 0
+
+        stripe.Customer.create_balance_transaction(
+            customer_id,
+            amount=-credit_cents,
+            currency=currency,
+            description=f"Reinstate offer: next month ${target_cents / 100:.2f}",
+        )
+
+        stripe.Subscription.modify(
+            sub_id,
+            metadata={
+                "reinstate_offer_399_period_end": current_period_end,
+                "reinstate_offer_399_credit_cents": str(credit_cents),
+                "reinstate_offer_399_applied_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        return True, f"Offer applied: your next month will be ${target_cents / 100:.2f}.", credit_cents
+    except Exception:
+        logger.exception("Failed applying reinstate next-month price offer")
+        return False, "Unable to apply the $3.99 next-month offer.", 0
+
+
+def _apply_reinstate_offer_credit_from_monthly_price(customer_id: str, target_price_cents: int = 399) -> tuple[bool, str, int]:
+    """Apply $3.99-offer credit using the configured monthly list price."""
+    cid = str(customer_id or '').strip()
+    if not cid:
+        return False, "Unable to apply offer: customer billing details are missing.", 0
+    try:
+        target_cents = int(target_price_cents or 0)
+    except Exception:
+        target_cents = 399
+    if target_cents <= 0:
+        target_cents = 399
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        price_id = _get_stripe_price_id('monthly_10_95')
+        if not price_id:
+            return False, "Monthly plan price is not configured.", 0
+        price = stripe.Price.retrieve(price_id)
+        unit_amount = int(_stripe_obj_get(price, 'unit_amount', 0) or 0)
+        currency = str(_stripe_obj_get(price, 'currency', 'usd') or 'usd').strip().lower()
+        if unit_amount <= 0:
+            return False, "Unable to apply offer: invalid subscription amount.", 0
+        if currency != 'usd':
+            return False, "Offer currently supports USD subscriptions only.", 0
+        if unit_amount <= target_cents:
+            return False, "Your next month is already priced at or below this offer.", 0
+        credit_cents = int(unit_amount - target_cents)
+        if credit_cents <= 0:
+            return False, "Unable to apply offer: discount amount is not positive.", 0
+        stripe.Customer.create_balance_transaction(
+            cid,
+            amount=-credit_cents,
+            currency=currency,
+            description=f"Reinstate offer: next month ${target_cents / 100:.2f}",
+        )
+        return True, f"Offer applied: your next month will be ${target_cents / 100:.2f}.", credit_cents
+    except Exception:
+        logger.exception("Failed applying reinstate offer credit from monthly price")
+        return False, "Unable to apply the $3.99 next-month offer.", 0
+
+
+_REINSTATE_OFFER_CHECKOUT_SESSION_KEY = "reinstate_offer_checkout"
+
+
+def _is_reinstate_offer_checkout_request() -> bool:
+    try:
+        raw = str(request.args.get('reinstate_offer') or request.args.get('reinstate') or '').strip().lower()
+        return raw in ('1', 'true', 'yes')
+    except Exception:
+        return False
+
+
+def _mark_reinstate_offer_checkout_in_session() -> None:
+    try:
+        session[_REINSTATE_OFFER_CHECKOUT_SESSION_KEY] = True
+        session.modified = True
+    except Exception:
+        pass
+
+
+def _consume_reinstate_offer_checkout_from_session() -> bool:
+    try:
+        return bool(session.pop(_REINSTATE_OFFER_CHECKOUT_SESSION_KEY, False))
+    except Exception:
+        return False
+
+
+def _create_reinstate_offer_checkout_url(user_id: str, customer_id: str) -> str:
+    """Stripe Checkout that always collects a payment method for reinstatement."""
+    uid = str(user_id or '').strip()
+    cid = str(customer_id or '').strip()
+    if not uid or not cid or not _stripe_enabled():
+        return ''
+    price_id = _get_stripe_price_id('monthly_10_95')
+    if not price_id:
+        return ''
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
+        cancel_url = url_for('plans', _external=True, _scheme=request.scheme)
+        session_obj = stripe.checkout.Session.create(
+            mode='subscription',
+            customer=cid,
+            payment_method_collection='always',
+            line_items=[{'price': price_id, 'quantity': 1}],
+            client_reference_id=uid,
+            metadata={
+                'plan_id': 'monthly_10_95',
+                'reinstate_from_offer': '1',
+            },
+            subscription_data={
+                'metadata': {
+                    'plan_id': 'monthly_10_95',
+                    'user_id': uid,
+                    'reinstate_from_offer': '1',
+                },
+            },
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+        return str(getattr(session_obj, 'url', '') or '').strip()
+    except Exception:
+        logger.exception('Failed creating reinstate offer checkout session for customer %s', cid)
+        return ''
+
+
+def _find_access_granting_subscription_for_customer(customer_id: str):
+    cid = str(customer_id or '').strip()
+    if not cid or not _stripe_enabled():
+        return None
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        eligible = [s for s in list(getattr(subs, 'data', []) or []) if _stripe_subscription_grants_access(s)]
+        if not eligible:
+            return None
+
+        def _rank(sub):
+            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            cpe = int(_stripe_obj_get(sub, 'current_period_end', 0) or 0)
+            score = 1
+            if status == 'active':
+                score = 3
+            elif status == 'trialing':
+                score = 2
+            return (score, cpe)
+
+        return sorted(eligible, key=_rank, reverse=True)[0]
+    except Exception:
+        return None
+
+
+def _resolve_reinstate_offer_subscription_id(
+    user_id: str,
+    token_subscription_id: str = '',
+    email: str = '',
+) -> tuple[str, str]:
+    """Resolve which Stripe subscription a signed reinstate offer should target.
+
+    Returns (subscription_id, error_message). error_message is empty on success.
+    """
+    uid = str(user_id or '').strip()
+    token_sid = str(token_subscription_id or '').strip()
+    if not uid:
+        return '', 'No subscription found to reinstate.'
+
+    customer_id = _get_stripe_customer_id_from_azure(uid)
+    if not customer_id:
+        customer_id = _find_stripe_customer_id_by_email(str(email or '').strip().lower(), require_subscription_history=True)
+
+    def _belongs(sid: str) -> bool:
+        if not sid:
+            return False
+        if customer_id:
+            return _subscription_belongs_to_customer(sid, customer_id)
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            sub = stripe.Subscription.retrieve(sid)
+            cust = str(_stripe_obj_get(sub, 'customer', '') or '').strip()
+            if not cust:
+                return False
+            owner = _find_user_id_by_stripe_customer_id(cust)
+            return owner == uid
+        except Exception:
+            return False
+
+    if customer_id and _stripe_enabled():
+        active = _find_access_granting_subscription_for_customer(customer_id)
+        if active:
+            active_sid = str(_stripe_obj_get(active, 'id', '') or '').strip()
+            if active_sid:
+                return active_sid, ''
+
+    if token_sid:
+        if _belongs(token_sid):
+            return token_sid, ''
+        return '', 'This offer link does not match your account.'
+
+    azure_sid = _get_stripe_subscription_id_from_azure(uid)
+    if azure_sid and _belongs(azure_sid):
+        return azure_sid, ''
+
+    if customer_id and _stripe_enabled():
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            subs = stripe.Subscription.list(customer=customer_id, status='all', limit=20)
+            candidates = list(getattr(subs, 'data', []) or [])
+            if candidates:
+                latest = sorted(
+                    candidates,
+                    key=lambda s: int(_stripe_obj_get(s, 'created', 0) or 0),
+                    reverse=True,
+                )[0]
+                latest_sid = str(_stripe_obj_get(latest, 'id', '') or '').strip()
+                if latest_sid:
+                    return latest_sid, ''
+        except Exception:
+            logger.exception('reinstate offer: unable to list subscriptions for customer %s', customer_id)
+
+    return '', 'No subscription found to reinstate.'
+
+
+def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> dict:
+    """Reinstate a paid-cancel offer for active, scheduled-cancel, or fully canceled subs."""
+    uid = str(user_id or '').strip()
+    sid = str(subscription_id or '').strip()
+    if not uid or not sid:
+        return {
+            'ok': False,
+            'message': 'No subscription found to reinstate.',
+            'redirect_url': '',
+            'offer_applied': False,
+            'reactivated': False,
+        }
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        sub = stripe.Subscription.retrieve(
+            sid,
+            expand=['items.data.price', 'default_payment_method'],
+        )
+    except Exception:
+        logger.exception('reinstate offer: unable to retrieve subscription %s', sid)
+        return {
+            'ok': False,
+            'message': 'Unable to reinstate subscription. Please try again.',
+            'redirect_url': '',
+            'offer_applied': False,
+            'reactivated': False,
+        }
+
+    customer_id = str(_stripe_obj_get(sub, 'customer', '') or '').strip()
+    status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+    offer_applied = False
+    offer_message = ''
+    reactivated = False
+
+    existing_active = _find_access_granting_subscription_for_customer(customer_id)
+    if existing_active:
+        active_sid = str(_stripe_obj_get(existing_active, 'id', '') or '').strip()
+        if active_sid and active_sid != sid:
+            sub = existing_active
+            sid = active_sid
+            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            reactivated = True
+
+    if status in ('active', 'trialing'):
+        _stripe_subscription_modify(sid, sub, cancel_at_period_end=False)
+        offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(sub, target_price_cents=399)
+        offer_applied = bool(offer_ok)
+        offer_message = str(offer_msg or '')
+        _persist_stripe_subscription_to_profile(uid, sub, plan_id='monthly_10_95')
+        msg = 'Subscription reinstated.'
+        if offer_message:
+            msg = f'{msg} {offer_message}'.strip()
+        return {
+            'ok': True,
+            'message': msg,
+            'redirect_url': url_for('settings_page'),
+            'offer_applied': offer_applied,
+            'reactivated': reactivated,
+        }
+
+    if status in ('canceled', 'incomplete_expired'):
+        if not customer_id:
+            return {
+                'ok': False,
+                'message': 'Unable to reinstate subscription: billing profile is incomplete.',
+                'redirect_url': url_for('settings_page'),
+                'offer_applied': False,
+                'reactivated': False,
+            }
+        offer_ok, offer_msg, _ = _apply_reinstate_offer_credit_from_monthly_price(customer_id, target_price_cents=399)
+        offer_applied = bool(offer_ok)
+        offer_message = str(offer_msg or '')
+        msg = 'Please enter your payment details to reactivate your subscription.'
+        if offer_message:
+            msg = f'{msg} {offer_message}'.strip()
+        return {
+            'ok': False,
+            'message': msg,
+            'redirect_url': url_for('checkout', plan='monthly_10_95', reinstate_offer='1'),
+            'offer_applied': offer_applied,
+            'reactivated': False,
+        }
+
+    return {
+        'ok': False,
+        'message': 'Your subscription is not active. Please contact support to reactivate.',
+        'redirect_url': url_for('checkout', plan='monthly_10_95'),
+        'offer_applied': False,
+        'reactivated': False,
+    }
+
+
+def _create_invoice_payment_link(customer_id: str, invoice_id: str) -> Optional[str]:
+    """Create Stripe Hosted Invoice Payment Page URL for manual payment retry.
+
+    For India recurring payments when mandate expires or bank rejects: allows customer
+    to re-authenticate and reestablish the recurring mandate.
+    """
+    try:
+        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+        if not stripe.api_key or not customer_id or not invoice_id:
+            return None
+
+        # Retrieve invoice to get the hosted invoice URL
+        invoice = stripe.Invoice.retrieve(invoice_id)
+        hosted_invoice_url = getattr(invoice, 'hosted_invoice_url', None)
+        if hosted_invoice_url:
+            return str(hosted_invoice_url)
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to create invoice payment link: {str(e)}")
+        return None
+
+
+def _send_payment_recovery_email(email: str, payment_link: str) -> bool:
+    """Send payment recovery email to customer with link to retry payment.
+
+    For India recurring payments: when automatic renewal fails, customer receives
+    this email asking them to manually complete payment.
+    """
+    try:
+        email = (email or '').strip().lower()
+        if not email or not payment_link:
+            return False
+
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+
+        if not auth_email or not auth_password:
+            logger.warning('Email credentials not configured for payment recovery email.')
+            return False
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Action Required: Complete Your Subscription Payment'
+        msg['From'] = auth_email
+        msg['To'] = email
+
+        # Plain text version
+        text_body = f"""
+Your subscription payment requires your attention.
+
+Your bank has blocked the automatic payment for your subscription. This is common for recurring payments in India and can usually be resolved in seconds.
+
+To complete your payment and keep your subscription active, please click the link below:
+
+{payment_link}
+
+You'll be prompted to authenticate with your bank and approve the payment. Once completed, your subscription will continue automatically.
+
+If you have any questions or need assistance, please reply to this email.
+
+Thank you!
+Resumatic Team
+        """
+
+        # HTML version
+        html_body = f"""
+<html>
+  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <h2>Action Required: Complete Your Subscription Payment</h2>
+    <p>Your subscription payment requires your attention.</p>
+    <p>Your bank has blocked the automatic payment for your subscription. This is common for recurring payments in India and can usually be resolved in seconds.</p>
+    <p><strong>To complete your payment and keep your subscription active:</strong></p>
+    <p style="margin: 20px 0;">
+      <a href="{payment_link}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">
+        Complete Payment Now
+      </a>
+    </p>
+    <p>You'll be prompted to authenticate with your bank and approve the payment. Once completed, your subscription will continue automatically.</p>
+    <p>If you have any questions or need assistance, please reply to this email.</p>
+    <p>Thank you!<br/>Resumatic Team</p>
+  </body>
+</html>
+        """
+
+        part1 = MIMEText(text_body, 'plain')
+        part2 = MIMEText(html_body, 'html')
+        msg.attach(part1)
+        msg.attach(part2)
+
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as server:
+            server.starttls()
+            server.login(auth_email, auth_password)
+            server.send_message(msg)
+
+        logger.info(f"Payment recovery email sent to {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send payment recovery email to {email}: {str(e)}")
+        return False
+
+
 def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
-    # Trial must be a subscription with a 7-day trial and auto-convert to monthly unless canceled.
-    # If Trial is a one-time Payment Link, it cannot auto-renew. So do NOT use a Payment Link for trial.
+    # Trial plans must be subscriptions with pending SetupIntent / Checkout Session, not Payment Links.
     plan_id = _normalize_plan_id(plan_id)
-    if plan_id == 'trial_7d':
+    if plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
         return None
     link = _get_stripe_payment_link(plan_id)
     if not link:
@@ -5000,21 +8875,136 @@ def checkout():
     If STRIPE_SECRET_KEY is configured, creates a Stripe Checkout Session and redirects to Stripe.
     Otherwise falls back to the placeholder confirmation page.
     """
-    plan_id = _normalize_plan_id(request.args.get('plan', '').strip())
+    def _checkout_response(resp):
+        try:
+            resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            resp.headers['Pragma'] = 'no-cache'
+            resp.headers['Expires'] = '0'
+        except Exception:
+            pass
+        return resp
+
+    invite_token = str(request.args.get('invite') or '').strip()
+    plan_arg = str(request.args.get('plan') or '').strip()
+
+    # Persist a valid email-trial invite before any redirects (e.g. login).
+    if invite_token:
+        _resolve_email_trial_invite(invite_token)
+
+    plan_id = _normalize_plan_id(plan_arg)
+    if not plan_id and _get_email_trial_invite_from_session():
+        plan_id = EMAIL_TRIAL_PLAN_ID
+    if not plan_id and invite_token and confirm_email_trial_invite_token(invite_token):
+        plan_id = EMAIL_TRIAL_PLAN_ID
+
     offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
+    reinstate_offer = _is_reinstate_offer_checkout_request()
     plan = _get_plan_config(plan_id)
     if not plan:
+        logger.warning(
+            "checkout invalid plan: plan_arg=%r plan_id=%r invite_present=%s session_invite=%s",
+            plan_arg,
+            plan_id,
+            bool(invite_token),
+            bool(_get_email_trial_invite_from_session()),
+        )
         flash("Please select a valid plan.", "danger")
         return redirect(url_for("plans"))
 
+    if _is_email_trial_plan(plan_id):
+        invite = _resolve_email_trial_invite(invite_token)
+        if not invite:
+            flash("This trial offer link has expired or is invalid. Please use the link from your email.", "danger")
+            return redirect(url_for("plans"))
+
     if not current_user.is_authenticated:
         # Require login so we can unlock paid features for the correct user.
-        return redirect(url_for("login", next=request.full_path))
+        login_next = url_for("checkout", plan=plan_id)
+        if invite_token and _is_email_trial_plan(plan_id):
+            login_next = url_for("checkout", plan=plan_id, invite=invite_token)
+        if reinstate_offer and plan_id == 'monthly_10_95':
+            login_next = url_for("checkout", plan=plan_id, reinstate_offer='1')
+        return redirect(url_for("login", next=login_next))
 
-    # Enforce: 1-week trial is a one-time offer.
-    if plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+    if _is_email_trial_plan(plan_id):
+        invite = _resolve_email_trial_invite(invite_token)
+        allowed, reason = _user_can_start_email_trial(current_user)
+        if not allowed:
+            if reason == 'already_subscribed':
+                flash("You already have an active subscription.", "warning")
+            else:
+                flash("This trial offer is not available for your account.", "warning")
+            return redirect(url_for("my_revisions"))
+    elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
         flash("The trial subscription is a one-time offer and has already been used on this account. Please choose Monthly or Annual.", "warning")
         return redirect(url_for("plans"))
+
+    if reinstate_offer and plan_id == 'monthly_10_95':
+        _mark_reinstate_offer_checkout_in_session()
+        if _stripe_enabled():
+            try:
+                prof = get_user_profile_azure(getattr(current_user, "id", "")) or {}
+                customer_id = str(prof.get("stripe_customer_id") or "").strip()
+                if not customer_id:
+                    customer_id = _find_stripe_customer_id_by_email((getattr(current_user, "email", "") or "").strip(), require_subscription_history=True)
+                if customer_id and not _should_use_embedded_subscription_checkout(plan_id):
+                    checkout_url = _create_reinstate_offer_checkout_url(str(current_user.id), customer_id)
+                    if checkout_url:
+                        return redirect(checkout_url, code=303)
+            except Exception:
+                logger.exception("reinstate offer checkout redirect failed")
+
+    # RBI e-mandate: India monthly/annual use embedded SetupIntent; standard trial uses embedded hold below.
+    if _should_use_embedded_subscription_checkout(plan_id):
+        current_year = datetime.now().year
+        stripe_pub = (os.getenv('STRIPE_PUBLISHABLE_KEY') or '').strip()
+        return _checkout_response(make_response(render_template(
+            "checkout.html",
+            year=current_year,
+            user=current_user,
+            plan=plan,
+            stripe_enabled=True,
+            stripe_publishable_key=stripe_pub,
+            use_rbi_embedded_checkout=True,
+            reinstate_offer=reinstate_offer,
+        )))
+
+    # Standard trial: embedded Payment Element on our page (fallback to Stripe Hosted Checkout).
+    if _should_use_trial_authorization_hold(plan_id):
+        current_year = datetime.now().year
+        stripe_pub = (os.getenv('STRIPE_PUBLISHABLE_KEY') or '').strip()
+        trial_ctx = _trial_hold_checkout_template_context(plan_id)
+
+        if _should_use_embedded_trial_hold_checkout(plan_id):
+            return _checkout_response(make_response(render_template(
+                'checkout.html',
+                year=current_year,
+                user=current_user,
+                plan=plan,
+                stripe_enabled=True,
+                stripe_publishable_key=stripe_pub,
+                use_rbi_embedded_checkout=False,
+                use_trial_hold_checkout=True,
+                reinstate_offer=reinstate_offer,
+                **trial_ctx,
+            )))
+
+        try:
+            checkout_url = _create_trial_hold_checkout_session_url(current_user, plan_id=plan_id)
+            if checkout_url:
+                resp = make_response(render_template(
+                    'checkout_trial_redirect.html',
+                    stripe_checkout_url=checkout_url,
+                    plan=plan,
+                    **trial_ctx,
+                ))
+                resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+                resp.headers['Pragma'] = 'no-cache'
+                return resp
+        except Exception:
+            logger.exception('trial hold hosted checkout redirect failed')
+        flash('Checkout is temporarily unavailable. Please try again.', 'danger')
+        return redirect(url_for('plans'))
 
     # Upgrade during trial:
     # Charge the customer now (so they enter card + pay immediately), but keep the trial time.
@@ -5025,7 +9015,7 @@ def checkout():
             prof = get_user_profile_azure(getattr(current_user, "id", "")) or {}
             customer_id = str(prof.get("stripe_customer_id") or "").strip()
             if not customer_id:
-                customer_id = _find_stripe_customer_id_by_email((getattr(current_user, "email", "") or "").strip())
+                customer_id = _find_stripe_customer_id_by_email((getattr(current_user, "email", "") or "").strip(), require_subscription_history=True)
             if customer_id:
                 trial_sub = _find_trialing_subscription_for_customer(customer_id)
                 if trial_sub:
@@ -5071,15 +9061,16 @@ def checkout():
 
     # For brand-new Monthly/Annual purchases, prefer Stripe Payment Links.
     # This keeps promo-code behavior consistent with what you configure in Stripe.
-    if _stripe_enabled() and plan_id in ("monthly_10_95", "annual_6_95"):
+    if _stripe_enabled() and plan_id in ("monthly_10_95", "annual_6_95") and not reinstate_offer:
         pl_redirect = _redirect_to_stripe_payment_link(plan_id, offer_retention=offer_retention)
         if pl_redirect:
             return pl_redirect
 
     # For other plans (or if Payment Links are configured later), still allow Payment Link redirects.
-    pl_redirect = _redirect_to_stripe_payment_link(plan_id, offer_retention=offer_retention)
-    if pl_redirect:
-        return pl_redirect
+    if not (reinstate_offer and plan_id == 'monthly_10_95'):
+        pl_redirect = _redirect_to_stripe_payment_link(plan_id, offer_retention=offer_retention)
+        if pl_redirect:
+            return pl_redirect
 
     # Alternative: Real Stripe Checkout flow via API (requires secret key + price ids).
     if _stripe_enabled():
@@ -5096,25 +9087,50 @@ def checkout():
         try:
             subscription_data = None
             line_items = [{"price": price_id, "quantity": 1}]
-            if plan_id == 'trial_7d':
-                # 7-day trial that converts into the recurring monthly subscription unless canceled
-                subscription_data = {"trial_period_days": 7}
-                # Optional one-time upfront trial fee (e.g. $1.85)
-                fee_price = _get_stripe_trial_upfront_fee_price_id()
-                if fee_price:
-                    line_items.append({"price": fee_price, "quantity": 1})
+            email_invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(plan_id) else None
+            if _is_email_trial_plan(plan_id):
+                trial_days = max(1, int((email_invite or {}).get('trial_days') or 10))
+                subscription_data = {"trial_end": _stripe_trial_end_ts_for_days(trial_days)}
+                if not bool((email_invite or {}).get('waive_upfront_fee', True)):
+                    fee_price = _get_stripe_trial_upfront_fee_price_id()
+                    if fee_price:
+                        line_items.append({"price": fee_price, "quantity": 1})
+
+            metadata = {"plan_id": plan_id}
+            if email_invite and str(email_invite.get('campaign') or '').strip():
+                metadata["campaign"] = str(email_invite.get('campaign') or '').strip()
+            if reinstate_offer and plan_id == 'monthly_10_95':
+                metadata["reinstate_from_offer"] = "1"
 
             session_params = {
                 "mode": "subscription",
                 "line_items": line_items,
                 "customer_email": (getattr(current_user, 'email', '') or None),
                 "client_reference_id": str(current_user.id),
-                "metadata": {"plan_id": plan_id},
+                "metadata": metadata,
                 "subscription_data": subscription_data,
                 "success_url": success_url,
                 "cancel_url": cancel_url,
                 "allow_promotion_codes": True,
             }
+            if reinstate_offer and plan_id == 'monthly_10_95':
+                prof = get_user_profile_azure(getattr(current_user, "id", "")) or {}
+                customer_id = str(prof.get("stripe_customer_id") or "").strip()
+                if not customer_id:
+                    customer_id = _find_stripe_customer_id_by_email((getattr(current_user, "email", "") or "").strip(), require_subscription_history=True)
+                if customer_id:
+                    session_params.pop("customer_email", None)
+                    session_params["customer"] = customer_id
+                session_params["payment_method_collection"] = "always"
+                session_params["allow_promotion_codes"] = False
+            if plan_id == EMAIL_TRIAL_PLAN_ID:
+                session_params["billing_address_collection"] = "required"
+
+            # Add India-specific payment method config for recurring subscriptions
+            payment_config = _get_payment_method_config_for_checkout(plan_id)
+            if payment_config and 'payment_method_types' in payment_config:
+                session_params['payment_method_types'] = payment_config['payment_method_types']
+
             # Retention offer: pre-apply coupon when user came from cancel flow
             if offer_retention:
                 coupon_id = _get_stripe_retention_coupon_id()
@@ -5129,8 +9145,104 @@ def checkout():
 
     # Fallback placeholder confirmation page (no Stripe configured)
     current_year = datetime.now().year
-    return render_template("checkout.html", year=current_year, user=current_user, plan=plan)
+    # Pass Stripe publishable key and enabled flag to template so frontend can use SetupIntent flow
+    stripe_pub = (os.getenv('STRIPE_PUBLISHABLE_KEY') or '').strip()
+    return _checkout_response(make_response(render_template("checkout.html", year=current_year, user=current_user, plan=plan, stripe_enabled=_stripe_enabled(), stripe_publishable_key=stripe_pub, use_rbi_embedded_checkout=False)))
 
+
+
+
+@app.route("/checkout/trial-hold-success")
+@login_required
+def checkout_trial_hold_success():
+    """Return URL after Stripe Hosted Checkout authorizes the trial hold."""
+    session_id = str(request.args.get('session_id') or '').strip()
+    if not session_id or not _stripe_enabled():
+        flash('Trial checkout could not be confirmed. Please try again.', 'danger')
+        return redirect(url_for('plans'))
+
+    user_id = str(getattr(current_user, 'id', '') or '')
+    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    try:
+        sess = stripe.checkout.Session.retrieve(session_id, expand=['payment_intent'])
+        client_ref = str(getattr(sess, 'client_reference_id', '') or '').strip()
+        if client_ref and client_ref != user_id:
+            flash('This checkout session does not belong to your account.', 'danger')
+            return redirect(url_for('plans'))
+
+        payment_intent = getattr(sess, 'payment_intent', None)
+        pi_id = ''
+        if isinstance(payment_intent, str):
+            pi_id = payment_intent
+        elif payment_intent is not None:
+            pi_id = str(getattr(payment_intent, 'id', '') or '')
+
+        if not pi_id:
+            flash('Payment authorization was not completed. Please try again.', 'danger')
+            plan_id = str((getattr(sess, 'metadata', None) or {}).get('plan_id') or 'trial_7d').strip()
+            return redirect(url_for('checkout', plan=_normalize_plan_id(plan_id) or 'trial_7d'))
+
+        ok, reason = _activate_trial_hold(user_id, pi_id)
+        if not ok and reason not in ('already_active',):
+            flash('Your card was not authorized for the trial. Please try another card.', 'danger')
+            try:
+                intent = stripe.PaymentIntent.retrieve(pi_id)
+                plan_id = _trial_hold_plan_id_from_intent(intent)
+            except Exception:
+                plan_id = 'trial_7d'
+            return redirect(url_for('checkout', plan=plan_id))
+
+        flash('Your trial has started. A temporary authorization hold may appear on your card.', 'success')
+        return redirect(url_for('my_revisions', checkout='success'))
+    except Exception:
+        logger.exception('checkout_trial_hold_success failed')
+        flash('Trial activation failed. Please contact support if you were charged.', 'danger')
+        return redirect(url_for('plans'))
+
+
+@app.route("/checkout/subscription-confirm")
+@login_required
+def checkout_subscription_confirm():
+    """Return URL after 3DS confirmSetup for RBI e-mandate subscription setup."""
+    subscription_id = str(request.args.get("subscription_id") or "").strip()
+    setup_intent_id = str(request.args.get("setup_intent") or "").strip()
+    redirect_status = str(request.args.get("redirect_status") or "").strip().lower()
+
+    if setup_intent_id and redirect_status and redirect_status != "succeeded":
+        flash("Card authentication did not complete. Please try again.", "danger")
+        return redirect(url_for("plans"))
+
+    if subscription_id and _stripe_enabled():
+        try:
+            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+            sub = stripe.Subscription.retrieve(
+                subscription_id,
+                expand=["items.data.price", "pending_setup_intent"],
+            )
+            if _stripe_metadata_user_id(sub) == str(getattr(current_user, "id", "") or "").strip():
+                if _stripe_subscription_grants_access(sub):
+                    plan_id = ""
+                    try:
+                        meta = getattr(sub, "metadata", None) or {}
+                        if isinstance(meta, dict):
+                            plan_id = str(meta.get("plan_id") or "").strip()
+                        else:
+                            plan_id = str(getattr(meta, "plan_id", "") or "").strip()
+                    except Exception:
+                        plan_id = ""
+                    _persist_stripe_subscription_to_profile(
+                        str(getattr(current_user, "id", "") or ""), sub, plan_id=plan_id
+                    )
+                    flash("Payment method saved — your subscription is active.", "success")
+                    return redirect(url_for("my_revisions", checkout="success"))
+        except Exception as e:
+            logger.warning(f"checkout_subscription_confirm error: {str(e)}")
+
+    flash(
+        "Payment completed, but we couldn't confirm access yet. If this persists, please contact support.",
+        "warning",
+    )
+    return redirect(url_for("my_revisions"))
 
 @app.route("/checkout/success")
 def checkout_success():
@@ -5141,11 +9253,45 @@ def checkout_success():
     we best-effort refresh the user's paid status from Stripe (if logged in) and
     send them to their dashboard.
     """
-    # Keep session_id for potential debugging/analytics (not used for auth).
-    _ = str(request.args.get("session_id") or "").strip()
+    # Keep session_id for webhook-lag fallback on trial deposit checkouts.
+    session_id = str(request.args.get("session_id") or "").strip()
 
     if not getattr(current_user, "is_authenticated", False):
         return redirect(url_for("login", next=request.full_path))
+
+    if session_id and _stripe_enabled():
+        try:
+            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            sess = stripe.checkout.Session.retrieve(session_id, expand=['payment_intent'])
+            meta = getattr(sess, 'metadata', None) or {}
+            if isinstance(meta, dict):
+                trial_deposit = str(meta.get('trial_deposit_payment') or '').strip()
+                plan_id = str(meta.get('plan_id') or 'trial_7d').strip()
+            else:
+                trial_deposit = str(getattr(meta, 'trial_deposit_payment', '') or '').strip()
+                plan_id = str(getattr(meta, 'plan_id', 'trial_7d') or 'trial_7d').strip()
+            pay_status = str(getattr(sess, 'payment_status', '') or '').strip().lower()
+            if trial_deposit == '1' and pay_status == 'paid':
+                customer_id = str(getattr(sess, 'customer', '') or '').strip()
+                amount_total = int(getattr(sess, 'amount_total', 0) or 0)
+                currency = str(getattr(sess, 'currency', 'usd') or 'usd')
+                payment_intent = getattr(sess, 'payment_intent', None)
+                payment_intent_id = ''
+                if isinstance(payment_intent, str):
+                    payment_intent_id = payment_intent
+                elif payment_intent is not None:
+                    payment_intent_id = str(getattr(payment_intent, 'id', '') or '')
+                if customer_id and payment_intent_id and amount_total > 0:
+                    _fulfill_trial_deposit_checkout(
+                        client_ref=str(getattr(current_user, 'id', '') or ''),
+                        customer_id=customer_id,
+                        amount_total=amount_total,
+                        currency=currency,
+                        payment_intent_id=payment_intent_id,
+                        plan_id=plan_id,
+                    )
+        except Exception:
+            logger.exception('checkout_success trial deposit fulfillment fallback failed')
 
     refreshed = False
     try:
@@ -5180,7 +9326,7 @@ def checkout_complete():
 
     # Enforce one-time trial offer even when running with the placeholder checkout flow.
     if plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
-        flash("The 1-week trial is a one-time offer and has already been used on this account.", "warning")
+        flash("The 7-day trial is a one-time offer and has already been used on this account.", "warning")
         return redirect(url_for("plans"))
 
     try:
@@ -5193,7 +9339,7 @@ def checkout_complete():
             'plan_status': plan.get('plan_status') or 'paid',
             'paid_until': paid_until,
         }
-        if _normalize_plan_id(plan_id) == 'trial_7d':
+        if _normalize_plan_id(plan_id) in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
             entity['trial_used'] = True
             entity['trial_used_at'] = datetime.now(timezone.utc).isoformat()
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
@@ -5205,6 +9351,28 @@ def checkout_complete():
         return redirect(url_for("plans"))
 
 
+@app.route("/sw.js")
+def service_worker():
+    """Serve a harmless no-op service worker script."""
+    js = """
+self.addEventListener('install', function (event) {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', function () {});
+""".strip()
+    resp = make_response(js)
+    resp.headers["Content-Type"] = "application/javascript; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
+
 @app.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     """Stripe webhook handler.
@@ -5214,7 +9382,8 @@ def stripe_webhook():
     - STRIPE_WEBHOOK_SECRET
     - STRIPE_PRICE_MONTHLY_10_95 / STRIPE_PRICE_ANNUAL_6_95
 
-    India (INR) checkout: set STRIPE_PRICE_*_INR, optional STRIPE_PAYMENTLINK_*_INR,
+    India (INR) RBI e-mandate: embedded checkout uses pending_setup_intent; add webhook
+    event setup_intent.succeeded. Also set STRIPE_PRICE_*_INR, optional STRIPE_PAYMENTLINK_*_INR,
     STRIPE_PRICE_TRIAL_FEE_1_85_INR, and PLANS_DISPLAY_MONTHLY_INR / PLANS_DISPLAY_ANNUAL_PER_MONTH_INR for /plans copy.
 
     Trial setup (to auto-convert to monthly unless canceled):
@@ -5278,6 +9447,34 @@ def stripe_webhook():
 
             if not client_ref:
                 return ("No client_reference_id", 200)
+
+            trial_deposit_payment = str((data.get("metadata") or {}).get("trial_deposit_payment") or "").strip()
+            trial_hold_checkout = str((data.get("metadata") or {}).get("trial_hold_checkout") or "").strip()
+            if trial_hold_checkout == "1" and mode == "payment" and customer_id:
+                payment_intent_id = str(data.get("payment_intent") or "").strip()
+                if payment_intent_id:
+                    _activate_trial_hold(str(client_ref), payment_intent_id)
+                return ("OK", 200)
+
+            if trial_deposit_payment == "1" and mode == "payment" and customer_id:
+                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                try:
+                    amount_total = int(data.get("amount_total") or 0)
+                    currency = str(data.get("currency") or "usd")
+                except Exception:
+                    amount_total = 0
+                    currency = "usd"
+                payment_intent_id = str(data.get("payment_intent") or "").strip()
+                if amount_total > 0 and payment_intent_id:
+                    _fulfill_trial_deposit_checkout(
+                        client_ref=str(client_ref),
+                        customer_id=str(customer_id),
+                        amount_total=amount_total,
+                        currency=currency,
+                        payment_intent_id=payment_intent_id,
+                        plan_id=str(plan_id or "trial_7d"),
+                    )
+                return ("OK", 200)
 
             # Special case: trial upgrade where we charged up-front (payment mode) and need to:
             # 1) credit the customer balance so the first subscription invoice at trial end is covered
@@ -5377,7 +9574,7 @@ def stripe_webhook():
                     "is_paid": True,
                     "plan_status": (plan_id or plan_status or "paid"),
                 }
-                if _normalize_plan_id(str(plan_id or '').strip()) == 'trial_7d':
+                if _normalize_plan_id(str(plan_id or '').strip()) in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
                     # Persist one-time trial usage flag.
                     entity["trial_used"] = True
                     entity["trial_used_at"] = datetime.now(timezone.utc).isoformat()
@@ -5439,6 +9636,95 @@ def stripe_webhook():
                     except Exception as e:
                         logger.warning(f"retention 2nd credit webhook error: {str(e)}")
 
+        if etype == "setup_intent.succeeded":
+            _handle_setup_intent_succeeded_webhook(data)
+
+        if etype == "payment_intent.amount_capturable_updated":
+            meta = data.get("metadata") or {}
+            purpose = str(meta.get("purpose") or "").strip()
+            if purpose == "trial_hold":
+                user_id = str(meta.get("user_id") or "").strip()
+                pi_id = str(data.get("id") or "").strip()
+                status = str(data.get("status") or "").strip().lower()
+                if user_id and pi_id and status == "requires_capture":
+                    _activate_trial_hold(user_id, pi_id)
+
+        if etype == "payment_intent.succeeded":
+            meta = data.get("metadata") or {}
+            purpose = str(meta.get("purpose") or "").strip()
+            if purpose == "trial_hold":
+                user_id = str(meta.get("user_id") or "").strip()
+                if user_id:
+                    try:
+                        table_client = get_users_table_client()
+                        entity = {
+                            "PartitionKey": user_id,
+                            "RowKey": "profile",
+                            "trial_hold_captured_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                    except Exception:
+                        pass
+
+        if etype == "customer.subscription.trial_will_end":
+            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+            sub = data
+            status = str(sub.get("status") or "").strip().lower()
+            if status == "trialing":
+                pi_id = _get_subscription_authorization_payment_intent_id(sub)
+                if pi_id:
+                    logger.info(
+                        "trial_will_end deferred capture skipped sub=%s pi=%s",
+                        str(sub.get("id") or ""),
+                        pi_id,
+                    )
+                else:
+                    ok, reason = _capture_authorization_hold_for_subscription(sub)
+                    logger.info(
+                        "trial_will_end capture sub=%s ok=%s reason=%s",
+                        str(sub.get("id") or ""),
+                        bool(ok),
+                        reason or "ok",
+                    )
+
+        # India payment recovery: customer needs to re-authenticate to complete recurring payment
+        # (common for recurring payments in India when mandate expires or bank rejects)
+        if etype == "invoice.payment_action_required":
+            inv = data
+            customer_id = str(inv.get("customer") or "").strip()
+            invoice_id = str(inv.get("id") or "").strip()
+            if customer_id and invoice_id:
+                try:
+                    # Find user by stripe_customer_id to send recovery email
+                    table_client = get_users_table_client()
+                    for e in table_client.list_entities():
+                        if e.get("RowKey") != "profile":
+                            continue
+                        if str(e.get("stripe_customer_id") or "") == customer_id:
+                            user_email = str(e.get("email") or "").strip()
+                            if user_email:
+                                # Send recovery email with payment link
+                                try:
+                                    payment_link = _create_invoice_payment_link(customer_id, invoice_id)
+                                    if payment_link:
+                                        _send_payment_recovery_email(user_email, payment_link)
+                                        logger.info(f"Sent payment recovery email to {user_email} for invoice {invoice_id}")
+                                except Exception as e:
+                                    logger.warning(f"Failed to send payment recovery email: {str(e)}")
+                            break
+                except Exception as e:
+                    logger.warning(f"Payment action required webhook error: {str(e)}")
+
+        # India payment failed: log and notify (customer needs manual retry)
+        if etype == "invoice.payment_failed":
+            inv = data
+            customer_id = str(inv.get("customer") or "").strip()
+            invoice_id = str(inv.get("id") or "").strip()
+            last_error = inv.get("last_payment_error", {})
+            error_msg = last_error.get("message", "Unknown error")
+            if customer_id and invoice_id:
+                logger.warning(f"Invoice {invoice_id} payment failed: {error_msg}")
+
         # Keep subscription status in sync (cancel/expire)
         if etype in ("customer.subscription.updated", "customer.subscription.deleted"):
             stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
@@ -5468,8 +9754,7 @@ def stripe_webhook():
                             entity["plan_status"] = str(status or "")
                             if paid_until:
                                 entity["paid_until"] = paid_until
-                            # Consider user paid only if active/trialing
-                            entity["is_paid"] = str(status or "").lower() in ("active", "trialing")
+                            entity["is_paid"] = bool(_stripe_subscription_grants_access(sub))
                             if subscription_id:
                                 entity["stripe_subscription_id"] = str(subscription_id)
                             table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
@@ -5627,6 +9912,36 @@ def billing_cancel_page():
     prof = get_user_profile_azure(user_id) or {}
     reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+
+    # Trial authorization hold (no subscription yet).
+    if not subscription_id and _profile_has_active_trial_hold(prof):
+        hold_days = _get_trial_hold_days()
+        ends_display = ""
+        ends_at = _parse_iso_dt(str(prof.get("trial_hold_ends_at") or "").strip())
+        if ends_at:
+            try:
+                ends_display = ends_at.astimezone(timezone.utc).strftime("%B %d, %Y")
+            except Exception:
+                ends_display = "end of trial period"
+        resp = make_response(render_template(
+            "billing_cancel.html",
+            subscription_id="",
+            trial_hold_mode=True,
+            interval_label=f"{hold_days}-Day Trial",
+            period_end_display=ends_display or "end of trial period",
+            cancel_scheduled=False,
+            is_trialing=True,
+            can_extend_trial_on_reinstate=False,
+        ))
+        resp.headers["Cache-Control"] = "no-store, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        try:
+            resp.headers["X-Resumatic-Build"] = str(_BUILD_ID)
+        except Exception:
+            pass
+        return resp
+
     if not subscription_id:
         flash("No active subscription found. If you just canceled, your access continues until the end of your billing period.", "info")
         return redirect(url_for("settings_page"))
@@ -5639,7 +9954,7 @@ def billing_cancel_page():
         if status not in ("active", "trialing"):
             flash("Your subscription is not active.", "info")
             return redirect(url_for("settings_page"))
-        cancel_scheduled = bool(_stripe_obj_get(sub, "cancel_at_period_end", False)) or bool(_stripe_obj_get(sub, "cancel_at", None))
+        cancel_scheduled = _stripe_subscription_cancel_scheduled(sub)
 
         current_period_end = _stripe_obj_get(sub, "current_period_end", None)
         period_end_display = ""
@@ -5672,6 +9987,7 @@ def billing_cancel_page():
         cancel_scheduled=bool(cancel_scheduled),
         is_trialing=(status == "trialing"),
         can_extend_trial_on_reinstate=(status == "trialing" and not reinstate_trial_bonus_used),
+        trial_hold_mode=False,
     ))
     # Avoid showing stale/cached cancellation UI.
     resp.headers["Cache-Control"] = "no-store, max-age=0"
@@ -5716,7 +10032,7 @@ def _apply_retention_offer(subscription_id: str) -> tuple[bool, str]:
         customer_id,
         metadata={"retention_2nd_credit_cents": str(credit_cents)},
     )
-    stripe.Subscription.modify(subscription_id, cancel_at_period_end=False)
+    _stripe_subscription_modify(subscription_id, sub, cancel_at_period_end=False)
     return True, "50% off applied! Your next 2 months will be half price. You keep full access until your current period ends."
 
 
@@ -5783,6 +10099,36 @@ def api_billing_apply_retention():
         return jsonify({"success": False, "error": "Unable to apply the offer. Please try again."}), 500
 
 
+@app.route("/api/billing/claim-trial-exit-offer", methods=["POST"])
+@login_required
+def api_claim_trial_exit_offer():
+    """Claim the trial-checkout exit offer for a discounted first paid month."""
+    user_id = str(getattr(current_user, "id", "") or "").strip()
+    if not user_id:
+        return jsonify({"success": False, "error": "Authentication required."}), 401
+
+    target_cents = _get_trial_exit_offer_target_cents()
+    try:
+        table_client = get_users_table_client()
+        entity = {
+            "PartitionKey": user_id,
+            "RowKey": "profile",
+            "trial_exit_offer_active": "1",
+            "trial_exit_offer_target_cents": str(target_cents),
+            "trial_exit_offer_accepted_at": datetime.now(timezone.utc).isoformat(),
+        }
+        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+    except Exception:
+        logger.exception("claim trial exit offer: failed to persist profile flag")
+        return jsonify({"success": False, "error": "Unable to save the offer right now."}), 500
+
+    return jsonify({
+        "success": True,
+        "target_price_cents": target_cents,
+        "message": f"Offer applied: if you keep the {_get_trial_hold_days()}-day trial, your first paid month will be ${target_cents / 100:.2f}.",
+    })
+
+
 @app.route("/api/billing/cancel", methods=["POST"])
 @login_required
 def api_billing_cancel():
@@ -5791,7 +10137,44 @@ def api_billing_cancel():
         return jsonify({"error": "Billing not configured"}), 400
 
     user_id = getattr(current_user, "id", "")
+    prof = get_user_profile_azure(user_id) or {}
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
+
+    # Cancel trial authorization hold (legacy profile without Stripe subscription).
+    if not subscription_id and _profile_has_active_trial_hold(prof):
+        data = request.get_json(silent=True) or {}
+        cancel_reason = str(data.get("cancel_reason") or "").strip()
+        cancel_reason_other = str(data.get("cancel_reason_other") or "").strip()
+        pi_id = _get_active_trial_authorization_payment_intent(prof)
+        if pi_id:
+            _cancel_trial_hold_payment_intent(pi_id)
+        _revoke_trial_hold_profile(str(user_id), cancelled=True)
+        if cancel_reason or cancel_reason_other:
+            try:
+                email = str(getattr(current_user, "email", "") or "")
+                _append_cancellation_feedback(str(user_id), pi_id or "trial_hold", cancel_reason, cancel_reason_other, email)
+            except Exception:
+                pass
+        cta_email_sent = False
+        try:
+            email = str(getattr(current_user, "email", "") or "").strip().lower()
+            name = str(getattr(current_user, "name", "") or "").strip()
+            if email:
+                cta_email_sent = bool(send_trial_cancellation_reinstate_email(
+                    email=email,
+                    user_name=name,
+                    include_trial_bonus=(not bool(prof.get("reinstate_trial_bonus_used", False))),
+                ))
+        except Exception:
+            logger.exception("trial hold cancel CTA email failed")
+        return jsonify({
+            "success": True,
+            "cancel_at_period_end": False,
+            "trial_hold_cancelled": True,
+            "message": "Your trial has been canceled. The card authorization hold will expire automatically.",
+            "cta_email_sent": bool(cta_email_sent),
+        })
+
     if not subscription_id:
         return jsonify({"error": "No active subscription found"}), 404
 
@@ -5808,6 +10191,9 @@ def api_billing_cancel():
         # Snapshot current subscription status before applying cancellation.
         is_trialing_before_cancel = False
         cta_skip_reason = ""
+        paid_cancel_email_attempted = False
+        paid_cancel_email_sent = False
+        paid_cancel_email_skip_reason = ""
         try:
             sub_before = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
             status_before = str(_stripe_obj_get(sub_before, "status", "") or "").strip().lower()
@@ -5816,6 +10202,9 @@ def api_billing_cancel():
             is_trialing_before_cancel = False
         prof = get_user_profile_azure(user_id) or {}
         reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+        paid_cancel_email_eligibility = _stripe_cancellation_paid_history_flags(subscription_id)
+        if not bool(paid_cancel_email_eligibility.get("eligible", False)):
+            paid_cancel_email_skip_reason = str(paid_cancel_email_eligibility.get("reason") or "not_eligible")
         if not is_trialing_before_cancel:
             # Fallback: profile plan status can lag/lead Stripe in edge cases.
             plan_status_prof = str(prof.get("plan_status") or "").strip().lower()
@@ -5825,6 +10214,8 @@ def api_billing_cancel():
         if cancel_at_period_end:
             cta_email_attempted = False
             cta_email_sent = False
+            trial_hold_refunded = False
+            trial_hold_released = False
             # Best-effort: include cancellation reason so it shows in Stripe.
             try:
                 modify_params: dict = {"cancel_at_period_end": True}
@@ -5832,7 +10223,7 @@ def api_billing_cancel():
                     modify_params["cancellation_details"] = cancellation_details
                 if cancellation_metadata:
                     modify_params["metadata"] = cancellation_metadata
-                stripe.Subscription.modify(subscription_id, **modify_params)
+                _stripe_subscription_modify(subscription_id, sub_before, **modify_params)
             except stripe.error.InvalidRequestError as e:
                 # If Stripe rejects cancellation_details for any reason, retry without it so
                 # the cancellation still succeeds.
@@ -5844,7 +10235,7 @@ def api_billing_cancel():
                     retry_params: dict = {"cancel_at_period_end": True}
                     if cancellation_metadata:
                         retry_params["metadata"] = cancellation_metadata
-                    stripe.Subscription.modify(subscription_id, **retry_params)
+                    _stripe_subscription_modify(subscription_id, sub_before, **retry_params)
                 else:
                     raise
             if cancel_reason or cancel_reason_other:
@@ -5857,8 +10248,44 @@ def api_billing_cancel():
                     _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
                 except Exception as e:
                     logger.warning("billing_cancel feedback save failed: %s", str(e))
-            # Trial-specific CTA: send reinstatement email (best-effort, non-blocking).
+            # Trial-specific CTA: release authorization hold, refund final-day capture, or refund legacy deposit.
             if is_trialing_before_cancel:
+                try:
+                    hold_pi = _get_active_trial_authorization_payment_intent(prof, subscription_id)
+                    if hold_pi and sub_before:
+                        if _subscription_authorization_hold_captured(sub_before):
+                            if _trial_cancel_eligible_for_capture_refund(prof, sub_before):
+                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(sub_before)
+                                trial_hold_refunded = bool(refunded_ok)
+                                logger.info(
+                                    "billing_cancel trial_hold_refund user_id=%s subscription_id=%s ok=%s reason=%s",
+                                    user_id,
+                                    subscription_id,
+                                    bool(refunded_ok),
+                                    refund_reason or "ok",
+                                )
+                        else:
+                            released_ok, release_reason = _release_authorization_hold_for_subscription(sub_before)
+                            trial_hold_released = bool(released_ok)
+                            logger.info(
+                                "billing_cancel trial_hold_release user_id=%s subscription_id=%s ok=%s reason=%s",
+                                user_id,
+                                subscription_id,
+                                bool(released_ok),
+                                release_reason or "ok",
+                            )
+                        _revoke_trial_hold_profile(str(user_id), cancelled=True)
+                    else:
+                        refunded_ok, refund_reason = _refund_trial_deposit_for_subscription(subscription_id)
+                        logger.info(
+                            "billing_cancel trial_deposit_refund user_id=%s subscription_id=%s ok=%s reason=%s",
+                            user_id,
+                            subscription_id,
+                            bool(refunded_ok),
+                            refund_reason or "ok",
+                        )
+                except Exception:
+                    logger.exception("billing_cancel trial hold/deposit release failed")
                 try:
                     cta_email_attempted = True
                     email = str(getattr(current_user, "email", "") or "").strip().lower()
@@ -5909,15 +10336,94 @@ def api_billing_cancel():
                     logger.exception("Failed to send trial reinstatement CTA email")
             else:
                 cta_skip_reason = "not_trialing"
+
+            # Paid-customer CTA: only if user has real paid history and latest paid invoice > 0.
+            if bool(paid_cancel_email_eligibility.get("eligible", False)):
+                try:
+                    paid_cancel_email_attempted = True
+                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    if not email:
+                        email = str(prof.get("email") or "").strip().lower()
+                    name = str(getattr(current_user, "name", "") or "").strip()
+                    if not email:
+                        paid_cancel_email_skip_reason = "missing_email"
+                        sent_ok = False
+                    else:
+                        sent_ok = bool(send_paid_cancellation_reinstate_email(
+                            email=email,
+                            user_name=name,
+                            user_id=str(user_id or ""),
+                            subscription_id=str(subscription_id or ""),
+                        ))
+                    paid_cancel_email_sent = bool(sent_ok)
+                    if (not sent_ok) and (not paid_cancel_email_skip_reason):
+                        paid_cancel_email_skip_reason = "smtp_failed_or_rejected"
+                    logger.info(
+                        "billing_cancel paid_cta user_id=%s attempted=%s sent=%s reason=%s email=%s",
+                        user_id,
+                        bool(paid_cancel_email_attempted),
+                        bool(paid_cancel_email_sent),
+                        paid_cancel_email_skip_reason or "ok",
+                        email or "",
+                    )
+                    try:
+                        table_client = get_users_table_client()
+                        prev_count_raw = prof.get("paid_reinstate_offer_email_sent_count", 0)
+                        try:
+                            prev_count = int(prev_count_raw or 0)
+                        except Exception:
+                            prev_count = 0
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        entity = {
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "paid_reinstate_offer_email_last_attempt_at": now_iso,
+                            "paid_reinstate_offer_email_last_attempt_ok": bool(sent_ok),
+                            "paid_reinstate_offer_email_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                        }
+                        if sent_ok:
+                            entity["paid_reinstate_offer_email_last_sent_at"] = now_iso
+                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                    except Exception:
+                        logger.exception("Failed to persist paid reinstatement offer email audit fields")
+                except Exception:
+                    paid_cancel_email_skip_reason = "exception_during_send"
+                    logger.exception("Failed to send paid cancellation CTA email")
+            cancel_message = "Your subscription will cancel at the end of your billing period. You'll keep access until then."
+            if trial_hold_refunded:
+                cancel_message = "Your trial has been canceled and your recent charge has been refunded."
+            elif trial_hold_released:
+                cancel_message = "Your trial has been canceled. The card authorization hold has been released."
             return jsonify({
                 "success": True,
                 "cancel_at_period_end": True,
-                "message": "Your subscription will cancel at the end of your billing period. You'll keep access until then.",
+                "message": cancel_message,
+                "trial_hold_refunded": bool(trial_hold_refunded),
+                "trial_hold_released": bool(trial_hold_released),
                 "cta_email_attempted": bool(cta_email_attempted),
                 "cta_email_sent": bool(cta_email_sent),
                 "cta_skip_reason": cta_skip_reason or "",
+                "paid_cancel_email_attempted": bool(paid_cancel_email_attempted),
+                "paid_cancel_email_sent": bool(paid_cancel_email_sent),
+                "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
             })
         else:
+            trial_hold_refunded = False
+            trial_hold_released = False
+            if is_trialing_before_cancel and sub_before:
+                try:
+                    hold_pi = _get_active_trial_authorization_payment_intent(prof, subscription_id)
+                    if hold_pi:
+                        if _subscription_authorization_hold_captured(sub_before):
+                            if _trial_cancel_eligible_for_capture_refund(prof, sub_before):
+                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(sub_before)
+                                trial_hold_refunded = bool(refunded_ok)
+                        else:
+                            released_ok, release_reason = _release_authorization_hold_for_subscription(sub_before)
+                            trial_hold_released = bool(released_ok)
+                        _revoke_trial_hold_profile(str(user_id), cancelled=True)
+                except Exception:
+                    logger.exception("billing_cancel(immediate) trial hold release/refund failed")
             # Immediate cancel. To keep the reason/explanation visible in Stripe Dashboard, first attach
             # it to the subscription (metadata + cancellation_details) then delete.
             if cancellation_details or cancellation_metadata:
@@ -5946,10 +10452,72 @@ def api_billing_cancel():
                     _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
                 except Exception as e:
                     logger.warning("billing_cancel(immediate) feedback save failed: %s", str(e))
+
+            if bool(paid_cancel_email_eligibility.get("eligible", False)):
+                try:
+                    paid_cancel_email_attempted = True
+                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    if not email:
+                        email = str(prof.get("email") or "").strip().lower()
+                    name = str(getattr(current_user, "name", "") or "").strip()
+                    if not email:
+                        paid_cancel_email_skip_reason = "missing_email"
+                        sent_ok = False
+                    else:
+                        sent_ok = bool(send_paid_cancellation_reinstate_email(
+                            email=email,
+                            user_name=name,
+                            user_id=str(user_id or ""),
+                            subscription_id=str(subscription_id or ""),
+                        ))
+                    paid_cancel_email_sent = bool(sent_ok)
+                    if (not sent_ok) and (not paid_cancel_email_skip_reason):
+                        paid_cancel_email_skip_reason = "smtp_failed_or_rejected"
+                    logger.info(
+                        "billing_cancel(immediate) paid_cta user_id=%s attempted=%s sent=%s reason=%s email=%s",
+                        user_id,
+                        bool(paid_cancel_email_attempted),
+                        bool(paid_cancel_email_sent),
+                        paid_cancel_email_skip_reason or "ok",
+                        email or "",
+                    )
+                    try:
+                        table_client = get_users_table_client()
+                        prev_count_raw = prof.get("paid_reinstate_offer_email_sent_count", 0)
+                        try:
+                            prev_count = int(prev_count_raw or 0)
+                        except Exception:
+                            prev_count = 0
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        entity = {
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "paid_reinstate_offer_email_last_attempt_at": now_iso,
+                            "paid_reinstate_offer_email_last_attempt_ok": bool(sent_ok),
+                            "paid_reinstate_offer_email_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                        }
+                        if sent_ok:
+                            entity["paid_reinstate_offer_email_last_sent_at"] = now_iso
+                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                    except Exception:
+                        logger.exception("Failed to persist paid reinstatement offer email audit fields (immediate)")
+                except Exception:
+                    paid_cancel_email_skip_reason = "exception_during_send"
+                    logger.exception("Failed to send paid cancellation CTA email (immediate)")
+            immediate_message = "Your subscription has been canceled."
+            if trial_hold_refunded:
+                immediate_message = "Your trial has been canceled and your recent charge has been refunded."
+            elif trial_hold_released:
+                immediate_message = "Your trial has been canceled. The card authorization hold has been released."
             return jsonify({
                 "success": True,
                 "cancel_at_period_end": False,
-                "message": "Your subscription has been canceled.",
+                "message": immediate_message,
+                "trial_hold_refunded": bool(trial_hold_refunded),
+                "trial_hold_released": bool(trial_hold_released),
+                "paid_cancel_email_attempted": bool(paid_cancel_email_attempted),
+                "paid_cancel_email_sent": bool(paid_cancel_email_sent),
+                "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
             })
     except stripe.error.InvalidRequestError as e:
         logger.warning(f"api_billing_cancel Stripe error: {str(e)}")
@@ -5969,12 +10537,47 @@ def api_billing_reinstate():
     user_id = getattr(current_user, "id", "")
     prof = get_user_profile_azure(user_id) or {}
     reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+    data = request.get_json(silent=True) or {}
+    apply_offer_399 = bool(data.get("apply_offer_399", False))
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
     if not subscription_id:
         return jsonify({"success": False, "error": "No active subscription found."}), 404
 
     stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
     try:
+        if apply_offer_399:
+            result = _reinstate_paid_offer_subscription(str(user_id or ''), subscription_id)
+            if result.get('ok'):
+                if result.get('offer_applied'):
+                    try:
+                        table_client = get_users_table_client()
+                        prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                        try:
+                            prev_apply = int(prev_apply_raw or 0)
+                        except Exception:
+                            prev_apply = 0
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        table_client.upsert_entity({
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "paid_reinstate_offer_apply_count": prev_apply + 1,
+                            "paid_reinstate_offer_last_applied_at": now_iso,
+                        }, mode=UpdateMode.MERGE)
+                    except Exception:
+                        logger.exception("Failed to persist paid reinstatement offer apply audit fields")
+                return jsonify({
+                    "success": True,
+                    "message": str(result.get('message') or 'Subscription reinstated successfully.'),
+                    "offer_399_applied": bool(result.get('offer_applied')),
+                    "offer_399_message": str(result.get('message') or ''),
+                    "redirect_url": str(result.get('redirect_url') or url_for("settings_page")),
+                })
+            return jsonify({
+                "success": False,
+                "error": str(result.get('message') or 'Unable to reinstate subscription. Please try again.'),
+                "redirect_url": str(result.get('redirect_url') or ''),
+            }), 400
+
         sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
         status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
         if status not in ("active", "trialing"):
@@ -5995,7 +10598,31 @@ def api_billing_reinstate():
             except Exception:
                 pass
 
-        stripe.Subscription.modify(subscription_id, **modify_params)
+        _stripe_subscription_modify(subscription_id, sub, **modify_params)
+
+        offer_applied = False
+        offer_message = ""
+        if apply_offer_399:
+            offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(sub, target_price_cents=399)
+            offer_applied = bool(offer_ok)
+            offer_message = str(offer_msg or "")
+            if offer_applied:
+                try:
+                    table_client = get_users_table_client()
+                    prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                    try:
+                        prev_apply = int(prev_apply_raw or 0)
+                    except Exception:
+                        prev_apply = 0
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    table_client.upsert_entity({
+                        "PartitionKey": str(user_id),
+                        "RowKey": "profile",
+                        "paid_reinstate_offer_apply_count": prev_apply + 1,
+                        "paid_reinstate_offer_last_applied_at": now_iso,
+                    }, mode=UpdateMode.MERGE)
+                except Exception:
+                    logger.exception("Failed to persist paid reinstatement offer apply audit fields")
         if extended_trial:
             try:
                 table_client = get_users_table_client()
@@ -6039,9 +10666,13 @@ def api_billing_reinstate():
         msg = "Subscription reinstated successfully."
         if extended_trial:
             msg = "Subscription reinstated successfully. We added 2 weeks to your trial."
+        if offer_message:
+            msg = f"{msg} {offer_message}".strip()
         return jsonify({
             "success": True,
             "message": msg,
+            "offer_399_applied": bool(offer_applied),
+            "offer_399_message": offer_message,
             "redirect_url": url_for("settings_page"),
         })
     except stripe.error.InvalidRequestError as e:
@@ -6053,6 +10684,105 @@ def api_billing_reinstate():
     except Exception as e:
         logger.error(f"api_billing_reinstate error: {str(e)}")
         return jsonify({"success": False, "error": "Unable to reinstate subscription. Please try again."}), 500
+
+
+@app.route("/billing/reinstate-paid-offer")
+def billing_reinstate_paid_offer():
+    """One-click reinstatement from email with $3.99 next-month offer."""
+    if not _stripe_enabled():
+        flash("Billing is not configured.", "danger")
+        return redirect(url_for("plans"))
+
+    token_arg = str(request.args.get("token") or "").strip()
+    if token_arg:
+        _store_reinstate_paid_offer_token_in_session(token_arg)
+
+    if not getattr(current_user, "is_authenticated", False):
+        return redirect(url_for("login", next=url_for("billing_reinstate_paid_offer")))
+
+    token = token_arg or str(session.get(_REINSTATE_OFFER_SESSION_KEY) or "").strip()
+    if not token:
+        flash("This offer link is invalid.", "danger")
+        return redirect(url_for("settings_page"))
+
+    payload = confirm_reinstate_paid_offer_token(token)
+    if not payload:
+        session.pop(_REINSTATE_OFFER_SESSION_KEY, None)
+        flash("This offer link is invalid or has expired.", "danger")
+        return redirect(url_for("settings_page"))
+    session.pop(_REINSTATE_OFFER_SESSION_KEY, None)
+
+    user_id = str(getattr(current_user, "id", "") or "").strip()
+    token_user_id = str(payload.get("user_id") or "").strip()
+    if not user_id or (token_user_id and token_user_id != user_id):
+        flash("This offer link does not match your account.", "danger")
+        return redirect(url_for("settings_page"))
+
+    subscription_id, resolve_err = _resolve_reinstate_offer_subscription_id(
+        user_id,
+        token_subscription_id=str(payload.get("subscription_id") or "").strip(),
+        email=str(payload.get("email") or getattr(current_user, "email", "") or "").strip(),
+    )
+    if resolve_err:
+        flash(resolve_err, "danger")
+        return redirect(url_for("settings_page"))
+    if not subscription_id:
+        flash("No subscription found to reinstate.", "danger")
+        return redirect(url_for("settings_page"))
+
+    try:
+        table_client = get_users_table_client()
+        prof = get_user_profile_azure(user_id) or {}
+        prev_click_raw = prof.get("paid_reinstate_offer_click_count", 0)
+        try:
+            prev_click = int(prev_click_raw or 0)
+        except Exception:
+            prev_click = 0
+        table_client.upsert_entity({
+            "PartitionKey": str(user_id),
+            "RowKey": "profile",
+            "paid_reinstate_offer_click_count": prev_click + 1,
+            "paid_reinstate_offer_last_clicked_at": datetime.now(timezone.utc).isoformat(),
+        }, mode=UpdateMode.MERGE)
+    except Exception:
+        logger.exception("Failed to persist paid reinstatement offer click audit fields")
+
+    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    try:
+        result = _reinstate_paid_offer_subscription(user_id, subscription_id)
+        if result.get('offer_applied'):
+            try:
+                table_client = get_users_table_client()
+                prof = get_user_profile_azure(user_id) or {}
+                prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                try:
+                    prev_apply = int(prev_apply_raw or 0)
+                except Exception:
+                    prev_apply = 0
+                now_iso = datetime.now(timezone.utc).isoformat()
+                table_client.upsert_entity({
+                    "PartitionKey": str(user_id),
+                    "RowKey": "profile",
+                    "paid_reinstate_offer_apply_count": prev_apply + 1,
+                    "paid_reinstate_offer_last_applied_at": now_iso,
+                }, mode=UpdateMode.MERGE)
+            except Exception:
+                logger.exception("Failed to persist paid reinstatement offer apply audit fields (link)")
+
+        if result.get('ok'):
+            flash(str(result.get('message') or 'Subscription reinstated.'), "success")
+        else:
+            flash(str(result.get('message') or 'Unable to reinstate subscription. Please try again.'), "warning" if result.get('redirect_url') else "danger")
+        redirect_target = str(result.get('redirect_url') or url_for('settings_page'))
+        return redirect(redirect_target)
+    except stripe.error.InvalidRequestError as e:
+        logger.warning("billing_reinstate_paid_offer Stripe error: %s", str(e))
+        flash(str(e.user_message) if getattr(e, "user_message", None) else "Unable to reinstate subscription. Please try again.", "danger")
+        return redirect(url_for("settings_page"))
+    except Exception as e:
+        logger.error("billing_reinstate_paid_offer error: %s", str(e))
+        flash("Unable to reinstate subscription. Please try again.", "danger")
+        return redirect(url_for("settings_page"))
 
 
 @app.route("/results", methods=["POST"])
@@ -8465,6 +13195,1786 @@ def api_ai_resume_edit():
             pass
         return jsonify({"success": False, "error": "AI edit failed"}), 500
 
+
+def _coach_openai_error_message(exc: Exception) -> str:
+    msg = str(exc or '').strip()
+    low = msg.lower()
+    if 'certificate verify failed' in low or 'connection error' in low:
+        return 'Could not reach OpenAI from the server. Check network/SSL configuration and OPENAI_API_KEY.'
+    if 'invalid_api_key' in low or 'incorrect api key' in low:
+        return 'OpenAI API key is invalid or not configured on the server.'
+    if 'model' in low and ('not found' in low or 'does not exist' in low):
+        return 'The configured AI model is unavailable. Set OPENAI_JOB_COACH_MODEL to a valid model (e.g. gpt-4o).'
+    if msg:
+        return f'Job Search Coach error: {msg[:220]}'
+    return 'Job Search Coach is temporarily unavailable. Please try again.'
+
+
+_JOB_COACH_MAX_OUTPUT_TOKENS = 300
+_JOB_COACH_MAX_REPLY_CHARS = 2100
+
+
+def _coach_chat_completion(client, messages):
+    """Try the preferred coach model, then fall back to known-good models."""
+    models = []
+    env_model = (os.getenv('OPENAI_JOB_COACH_MODEL') or '').strip()
+    if env_model:
+        models.append(env_model)
+    for candidate in ('gpt-5.2-2025-12-11', 'gpt-4o', 'gpt-4o-mini'):
+        if candidate not in models:
+            models.append(candidate)
+
+    last_exc = None
+    for model in models:
+        try:
+            request_kwargs = {"model": model, "messages": messages}
+            if model.startswith('gpt-5'):
+                request_kwargs["max_completion_tokens"] = _JOB_COACH_MAX_OUTPUT_TOKENS
+            else:
+                request_kwargs["temperature"] = 0.5
+                request_kwargs["max_tokens"] = _JOB_COACH_MAX_OUTPUT_TOKENS
+            resp = client.chat.completions.create(**request_kwargs)
+            return resp, model
+        except Exception as exc:
+            last_exc = exc
+            try:
+                logger.warning("Job search coach model %s failed: %s: %s", model, type(exc).__name__, str(exc)[:240])
+            except Exception:
+                pass
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError('No AI model configured for Job Search Coach')
+
+
+_ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS = 700
+_ADMIN_ASSISTANT_MAX_REPLY_CHARS = 4200
+_ADMIN_ASSISTANT_MAX_TOOL_CALLS = 6
+
+
+def _admin_assistant_error_message(exc: Exception) -> str:
+    msg = str(exc or '').strip()
+    low = msg.lower()
+    if 'certificate verify failed' in low or 'connection error' in low:
+        return 'Could not reach OpenAI from the server. Check network/SSL configuration and OPENAI_API_KEY.'
+    if 'invalid_api_key' in low or 'incorrect api key' in low:
+        return 'OpenAI API key is invalid or not configured on the server.'
+    if msg:
+        return f'Admin assistant error: {msg[:220]}'
+    return 'Admin assistant is temporarily unavailable. Please try again.'
+
+
+def _admin_assistant_chat_completion(client, messages, tools=None):
+    """Try the preferred admin model, then fall back to known-good models."""
+    models = []
+    env_model = (os.getenv('OPENAI_ADMIN_ASSISTANT_MODEL') or '').strip()
+    if env_model:
+        models.append(env_model)
+    for candidate in ('gpt-5.2-2025-12-11', 'gpt-4o', 'gpt-4o-mini'):
+        if candidate not in models:
+            models.append(candidate)
+
+    last_exc = None
+    for model in models:
+        try:
+            request_kwargs = {"model": model, "messages": messages}
+            if tools:
+                request_kwargs["tools"] = tools
+                request_kwargs["tool_choice"] = "auto"
+            if model.startswith('gpt-5'):
+                request_kwargs["max_completion_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
+            else:
+                request_kwargs["temperature"] = 0.2
+                request_kwargs["max_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
+            resp = client.chat.completions.create(**request_kwargs)
+            return resp, model
+        except Exception as exc:
+            last_exc = exc
+            try:
+                logger.warning("Admin assistant model %s failed: %s: %s", model, type(exc).__name__, str(exc)[:240])
+            except Exception:
+                pass
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError('No AI model configured for Admin Assistant')
+
+
+def _read_admin_feedback_rows(limit: int = 100) -> list[dict]:
+    rows: list[dict] = []
+    safe_limit = max(1, min(int(limit or 100), 200))
+    try:
+        feedback_path = 'download_feedback.csv'
+        if not os.path.exists(feedback_path):
+            return rows
+        with open(feedback_path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                rows.append({
+                    'timestamp_iso': str(row.get('timestamp_iso') or '').strip(),
+                    'user_id': str(row.get('user_id') or '').strip(),
+                    'user_email': str(row.get('user_email') or '').strip(),
+                    'rating': str(row.get('rating') or '').strip(),
+                    'comment': str(row.get('comment') or '').strip(),
+                    'comparison': str(row.get('comparison') or '').strip(),
+                })
+    except Exception as e:
+        try:
+            logger.warning("Failed to read admin feedback rows: %s", str(e))
+        except Exception:
+            pass
+        return []
+    return rows[-safe_limit:][::-1]
+
+
+def _admin_assistant_slim_user_row(row: dict) -> dict:
+    return {
+        'user_id': str(row.get('user_id') or row.get('id') or row.get('PartitionKey') or '').strip(),
+        'email': str(row.get('email') or '').strip(),
+        'name': str(row.get('name') or '').strip(),
+        'provider': str(row.get('provider') or '').strip(),
+        'plan_status': str(row.get('plan_status') or '').strip(),
+        'is_subscriber': str(row.get('is_subscriber') or '').strip() or ('yes' if _profile_indicates_paid(row) else 'no'),
+        'sign_up_date': str(row.get('sign_up_date') or '').strip(),
+        'last_login_date': str(row.get('last_login_date') or '').strip(),
+        'last_login_method': str(row.get('last_login_method') or '').strip(),
+        'revision_count': int(row.get('revision_count') or row.get('revisions') or 0),
+    }
+
+
+def _admin_assistant_json_safe(value):
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        try:
+            dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        except Exception:
+            return str(value)
+    if isinstance(value, (list, tuple)):
+        return [_admin_assistant_json_safe(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _admin_assistant_json_safe(v) for k, v in value.items()}
+    try:
+        if hasattr(value, 'isoformat'):
+            return value.isoformat()
+    except Exception:
+        pass
+    return str(value)
+
+
+def _admin_assistant_row_matches_filters(row: dict, *, search: str = '', partition_key: str = '', row_key: str = '') -> bool:
+    pk_filter = str(partition_key or '').strip().lower()
+    rk_filter = str(row_key or '').strip().lower()
+    needle = str(search or '').strip().lower()
+    pk = str(row.get('PartitionKey') or row.get('partition_key') or '').strip().lower()
+    rk = str(row.get('RowKey') or row.get('row_key') or '').strip().lower()
+    if pk_filter and pk != pk_filter:
+        return False
+    if rk_filter and rk != rk_filter:
+        return False
+    if needle:
+        try:
+            haystack = json.dumps(_admin_assistant_json_safe(row), ensure_ascii=False, default=str).lower()
+        except Exception:
+            haystack = str(row).lower()
+        if needle not in haystack:
+            return False
+    return True
+
+
+def _admin_assistant_get_login_audit_rows(limit: int = 25, offset: int = 0, partition_key: str = '', row_key: str = '', search: str = '') -> dict:
+    safe_limit = max(1, min(int(limit or 25), 100))
+    safe_offset = max(0, int(offset or 0))
+    rows = _azure_login_audit_list(limit=0) if _azure_login_audit_enabled() else []
+    filtered = []
+    for row in rows:
+        if _admin_assistant_row_matches_filters(
+            row,
+            search=search,
+            partition_key=partition_key,
+            row_key=row_key,
+        ):
+            filtered.append(_admin_assistant_json_safe(dict(row)))
+    total = len(filtered)
+    page = filtered[safe_offset:safe_offset + safe_limit]
+    return {
+        'table': AZURE_LOGIN_AUDIT_TABLE,
+        'returned': len(page),
+        'total_matching_rows': total,
+        'offset': safe_offset,
+        'limit': safe_limit,
+        'has_more': safe_offset + safe_limit < total,
+        'rows': page,
+    }
+
+
+def _admin_assistant_get_resume_revision_rows(limit: int = 25, offset: int = 0, partition_key: str = '', row_key: str = '', search: str = '') -> dict:
+    safe_limit = max(1, min(int(limit or 25), 100))
+    safe_offset = max(0, int(offset or 0))
+    out = []
+    try:
+        table_client = get_table_client('ResumeRevisions', create_if_missing=False)
+        for entity in table_client.list_entities():
+            try:
+                row = dict(entity) if not isinstance(entity, dict) else dict(entity)
+            except Exception:
+                continue
+            if _admin_assistant_row_matches_filters(
+                row,
+                search=search,
+                partition_key=partition_key,
+                row_key=row_key,
+            ):
+                out.append(_admin_assistant_json_safe(row))
+    except Exception as e:
+        return {
+            'table': 'ResumeRevisions',
+            'returned': 0,
+            'total_matching_rows': 0,
+            'offset': safe_offset,
+            'limit': safe_limit,
+            'has_more': False,
+            'rows': [],
+            'error': str(e)[:220],
+        }
+    try:
+        out.sort(
+            key=lambda r: str(r.get('timestamp') or r.get('Timestamp') or ''),
+            reverse=True,
+        )
+    except Exception:
+        pass
+    total = len(out)
+    page = out[safe_offset:safe_offset + safe_limit]
+    return {
+        'table': 'ResumeRevisions',
+        'returned': len(page),
+        'total_matching_rows': total,
+        'offset': safe_offset,
+        'limit': safe_limit,
+        'has_more': safe_offset + safe_limit < total,
+        'rows': page,
+    }
+
+
+def _admin_assistant_normalize_select(select) -> list[str]:
+    if isinstance(select, str):
+        parts = [p.strip() for p in select.split(',')]
+    elif isinstance(select, list):
+        parts = [str(p or '').strip() for p in select]
+    else:
+        parts = []
+    out = []
+    seen = set()
+    for part in parts:
+        if not part or part in seen:
+            continue
+        seen.add(part)
+        out.append(part)
+    return out[:25]
+
+
+def _admin_assistant_query_table_rows(table_name: str, *, filter_text: str = '', select=None, top: int = 25, offset: int = 0, sort_field: str = '') -> dict:
+    safe_top = max(1, min(int(top or 25), 100))
+    safe_offset = max(0, min(int(offset or 0), 5000))
+    safe_filter = str(filter_text or '').strip()
+    safe_select = _admin_assistant_normalize_select(select)
+    safe_sort_field = str(sort_field or '').strip()
+
+    try:
+        if table_name == AZURE_LOGIN_AUDIT_TABLE:
+            table_client = _get_login_audit_table_client(create_if_missing=False)
+        else:
+            table_client = get_table_client(table_name, create_if_missing=False)
+
+        if safe_filter:
+            pager = table_client.query_entities(safe_filter, select=safe_select or None)
+        else:
+            pager = table_client.list_entities(select=safe_select or None)
+
+        rows = []
+        for entity in pager:
+            try:
+                rows.append(_admin_assistant_json_safe(dict(entity) if not isinstance(entity, dict) else dict(entity)))
+            except Exception:
+                continue
+
+        if safe_sort_field:
+            try:
+                rows.sort(key=lambda r: str(r.get(safe_sort_field) or ''), reverse=True)
+            except Exception:
+                pass
+
+        total = len(rows)
+        page = rows[safe_offset:safe_offset + safe_top]
+        return {
+            'table': table_name,
+            'filter': safe_filter,
+            'select': safe_select,
+            'returned': len(page),
+            'total_matching_rows': total,
+            'offset': safe_offset,
+            'top': safe_top,
+            'has_more': safe_offset + safe_top < total,
+            'rows': page,
+        }
+    except Exception as e:
+        return {
+            'table': table_name,
+            'filter': safe_filter,
+            'select': safe_select,
+            'returned': 0,
+            'total_matching_rows': 0,
+            'offset': safe_offset,
+            'top': safe_top,
+            'has_more': False,
+            'rows': [],
+            'error': str(e)[:300],
+        }
+
+
+def _admin_assistant_find_user_profile(user_identifier: str) -> Optional[dict]:
+    needle = str(user_identifier or '').strip().lower()
+    if not needle:
+        return None
+    rows, _, _ = _collect_registered_users_from_azure_users_table()
+    exact_email = None
+    exact_id = None
+    partial = None
+    for row in rows:
+        uid = str(row.get('id') or row.get('PartitionKey') or '').strip()
+        email = str(row.get('email') or '').strip()
+        name = str(row.get('name') or '').strip()
+        if uid.lower() == needle:
+            exact_id = row
+            break
+        if email.lower() == needle:
+            exact_email = row
+        if partial is None and needle in f"{uid} {email} {name}".lower():
+            partial = row
+    return exact_id or exact_email or partial
+
+
+def _admin_assistant_tool_inventory() -> dict:
+    return {
+        'available_sources': [
+            'visit analytics summary',
+            'login audit summary and recent sessions',
+            'full Azure LoginAudit table rows',
+            'registered users from Azure Users table',
+            'resume revision counts and per-user recent revisions',
+            'full Azure ResumeRevisions table rows',
+            'download feedback CSV',
+            'subscription and reconciliation dashboard data',
+            'Stripe customers, subscriptions, invoices, and charges',
+        ],
+        'read_only': True,
+        'notes': [
+            'The assistant uses curated server-side tools, not raw arbitrary table queries.',
+            'The assistant can issue controlled read-only Azure Table queries for LoginAudit and ResumeRevisions.',
+            'Stripe access is read-only and exposed through curated server-side tools.',
+            'Large result sets are summarized or capped to keep responses reliable.',
+        ],
+    }
+
+
+def _admin_assistant_get_stats_overview() -> dict:
+    analytics_data = analytics.get_full_analytics() or {}
+    summary = analytics_data.get('summary') if isinstance(analytics_data, dict) else {}
+    login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
+    login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
+    feedback_rows = _read_admin_feedback_rows(limit=100)
+    return {
+        'visit_summary': {
+            'total_visits': int((summary or {}).get('total_visits') or 0),
+            'facebook_ad_visits': int((summary or {}).get('facebook_ad_visits') or 0),
+            'organic_visits': int((summary or {}).get('organic_visits') or 0),
+            'total_conversions': int((summary or {}).get('total_conversions') or 0),
+            'facebook_ad_conversions': int((summary or {}).get('facebook_ad_conversions') or 0),
+            'last_updated': str((summary or {}).get('last_updated') or '').strip(),
+        },
+        'login_summary': login_summary,
+        'feedback_summary': {
+            'recent_feedback_rows_loaded': len(feedback_rows),
+            'latest_feedback_timestamp': str(feedback_rows[0].get('timestamp_iso') or '').strip() if feedback_rows else '',
+        },
+    }
+
+
+def _admin_assistant_search_users(search: str = '', plan_status: str = '', limit: int = 10) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    needle = str(search or '').strip().lower()
+    plan_filter = str(plan_status or '').strip().lower()
+    rows = _collect_registered_users_activity_rows()
+    matches = []
+    for row in rows:
+        row_plan = str(row.get('plan_status') or '').strip().lower()
+        if plan_filter and row_plan != plan_filter:
+            continue
+        haystack = ' '.join([
+            str(row.get('user_id') or ''),
+            str(row.get('email') or ''),
+            str(row.get('name') or ''),
+            str(row.get('provider') or ''),
+            str(row.get('plan_status') or ''),
+        ]).lower()
+        if needle and needle not in haystack:
+            continue
+        matches.append(_admin_assistant_slim_user_row(row))
+        if len(matches) >= safe_limit:
+            break
+    return {
+        'query': search,
+        'plan_status': plan_status,
+        'returned': len(matches),
+        'users': matches,
+    }
+
+
+def _admin_assistant_get_user_detail(user_identifier: str, revision_limit: int = 5) -> dict:
+    safe_limit = max(1, min(int(revision_limit or 5), 10))
+    profile = _admin_assistant_find_user_profile(user_identifier)
+    if not profile:
+        return {'found': False, 'user_identifier': user_identifier}
+
+    uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+    signup_lookup = _build_signup_lookup_from_csv()
+    login_lookup = _build_last_login_lookup()
+    revisions = get_user_revisions(uid) or []
+    last_login_at, last_login_method = _resolve_user_last_login(uid, profile, login_lookup)
+    applications = []
+    total_applications = 0
+    for rev in revisions:
+        apps = rev.get('applications') or []
+        total_applications += len(apps)
+        for app in apps[:5]:
+            applications.append({
+                'revision_name': str(rev.get('revision_name') or '').strip(),
+                'company': str(app.get('company') or '').strip(),
+                'role': str(app.get('role') or '').strip(),
+                'status': str(app.get('status') or '').strip(),
+                'date_applied': str(app.get('date_applied') or '').strip(),
+                'follow_up_date': str(app.get('follow_up_date') or '').strip(),
+            })
+            if len(applications) >= 10:
+                break
+        if len(applications) >= 10:
+            break
+
+    recent_revisions = []
+    for rev in revisions[:safe_limit]:
+        recent_revisions.append({
+            'revision_id': str(rev.get('revision_id') or '').strip(),
+            'revision_name': str(rev.get('revision_name') or '').strip(),
+            'timestamp': _coerce_datetime_iso(rev.get('timestamp')),
+            'notes_present': bool(str(rev.get('notes') or '').strip()),
+            'job_description_present': bool(str(rev.get('job_description') or '').strip()),
+            'applications_count': int(rev.get('applications_count') or 0),
+        })
+
+    return {
+        'found': True,
+        'user': {
+            'user_id': uid,
+            'email': str(profile.get('email') or '').strip(),
+            'name': str(profile.get('name') or '').strip(),
+            'provider': str(profile.get('provider') or '').strip(),
+            'plan_status': str(profile.get('plan_status') or '').strip(),
+            'is_paid': bool(_profile_indicates_paid(profile)),
+            'sign_up_date': _format_any_datetime_pacific(_resolve_user_signup_date(uid, profile, signup_lookup)),
+            'last_login_date': _format_any_datetime_pacific(last_login_at) or str(last_login_at or '').strip(),
+            'last_login_method': str(last_login_method or '').strip(),
+            'revision_count': len(revisions),
+            'application_count': total_applications,
+        },
+        'recent_revisions': recent_revisions,
+        'recent_applications': applications,
+    }
+
+
+def _admin_assistant_get_subscription_reconciliation(limit: int = 10) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    dashboard = _collect_admin_dashboard_data()
+    subscribers = dashboard.get('subscribers') or []
+    return {
+        'kpis': dashboard.get('kpis') or {},
+        'reconciliation': dashboard.get('reconciliation') or {},
+        'sample_subscribers': subscribers[:safe_limit],
+    }
+
+
+def _admin_assistant_stripe_unavailable() -> dict:
+    return {
+        'available': False,
+        'error': 'stripe_not_configured',
+        'message': 'Stripe is not configured on the server.',
+    }
+
+
+def _admin_assistant_stripe_object_id(value) -> str:
+    if not value:
+        return ''
+    if isinstance(value, str):
+        return value.strip()
+    return str(_stripe_obj_get(value, 'id', '') or '').strip()
+
+
+def _admin_assistant_stripe_timestamp_to_iso(ts) -> str:
+    try:
+        if ts in (None, ''):
+            return ''
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+    except Exception:
+        return ''
+
+
+def _admin_assistant_stripe_metadata(meta, max_items: int = 12, max_value_len: int = 160) -> dict:
+    if not meta:
+        return {}
+    try:
+        items = meta.items() if isinstance(meta, dict) else dict(meta).items()
+    except Exception:
+        return {}
+    out = {}
+    for key, value in items:
+        safe_key = str(key or '').strip()
+        if not safe_key:
+            continue
+        safe_value = str(value or '').strip()
+        if len(safe_value) > max_value_len:
+            safe_value = safe_value[:max_value_len].rstrip() + '...'
+        out[safe_key] = safe_value
+        if len(out) >= max(1, int(max_items or 12)):
+            break
+    return out
+
+
+def _admin_assistant_stripe_price_summary(price) -> dict:
+    if not price:
+        return {}
+    recurring = _stripe_obj_get(price, 'recurring', None) or {}
+    return {
+        'price_id': str(_stripe_obj_get(price, 'id', '') or '').strip(),
+        'nickname': str(_stripe_obj_get(price, 'nickname', '') or '').strip(),
+        'currency': str(_stripe_obj_get(price, 'currency', '') or '').strip().lower(),
+        'unit_amount': int(_stripe_obj_get(price, 'unit_amount', 0) or 0),
+        'product_id': _admin_assistant_stripe_object_id(_stripe_obj_get(price, 'product', None)),
+        'interval': str(_stripe_obj_get(recurring, 'interval', '') or '').strip(),
+        'interval_count': int(_stripe_obj_get(recurring, 'interval_count', 0) or 0),
+    }
+
+
+def _admin_assistant_stripe_customer_summary(customer) -> dict:
+    return {
+        'customer_id': str(_stripe_obj_get(customer, 'id', '') or '').strip(),
+        'email': str(_stripe_obj_get(customer, 'email', '') or '').strip(),
+        'name': str(_stripe_obj_get(customer, 'name', '') or '').strip(),
+        'description': str(_stripe_obj_get(customer, 'description', '') or '').strip(),
+        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(customer, 'created', None)),
+        'currency': str(_stripe_obj_get(customer, 'currency', '') or '').strip().lower(),
+        'balance': int(_stripe_obj_get(customer, 'balance', 0) or 0),
+        'delinquent': bool(_stripe_obj_get(customer, 'delinquent', False)),
+        'tax_exempt': str(_stripe_obj_get(customer, 'tax_exempt', '') or '').strip(),
+        'metadata': _admin_assistant_stripe_metadata(_stripe_obj_get(customer, 'metadata', {}) or {}),
+    }
+
+
+def _admin_assistant_stripe_subscription_summary(sub) -> dict:
+    price_to_plan = _build_stripe_price_to_plan_map()
+    items = []
+    items_data = _stripe_obj_get(_stripe_obj_get(sub, 'items', None), 'data', []) or []
+    for item in list(items_data)[:5]:
+        items.append({
+            'item_id': str(_stripe_obj_get(item, 'id', '') or '').strip(),
+            'quantity': int(_stripe_obj_get(item, 'quantity', 0) or 0),
+            'price': _admin_assistant_stripe_price_summary(_stripe_obj_get(item, 'price', None)),
+        })
+    return {
+        'subscription_id': str(_stripe_obj_get(sub, 'id', '') or '').strip(),
+        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'customer', None)),
+        'status': str(_stripe_obj_get(sub, 'status', '') or '').strip().lower(),
+        'product_purchased': _describe_stripe_subscription_product(sub, price_to_plan),
+        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'created', None)),
+        'current_period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'current_period_start', None)),
+        'current_period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'current_period_end', None)),
+        'trial_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'trial_start', None)),
+        'trial_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'trial_end', None)),
+        'cancel_at_period_end': bool(_stripe_obj_get(sub, 'cancel_at_period_end', False)),
+        'cancel_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'cancel_at', None)),
+        'canceled_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'canceled_at', None)),
+        'ended_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'ended_at', None)),
+        'schedule_id': _stripe_schedule_id_from_subscription(sub),
+        'latest_invoice_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'latest_invoice', None)),
+        'default_payment_method_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'default_payment_method', None)),
+        'metadata': _admin_assistant_stripe_metadata(_stripe_obj_get(sub, 'metadata', {}) or {}),
+        'items': items,
+    }
+
+
+def _admin_assistant_stripe_invoice_summary(inv) -> dict:
+    lines = _stripe_obj_get(_stripe_obj_get(inv, 'lines', None), 'data', []) or []
+    line_items = []
+    for line in list(lines)[:5]:
+        line_items.append({
+            'description': str(_stripe_obj_get(line, 'description', '') or '').strip(),
+            'amount': int(_stripe_obj_get(line, 'amount', 0) or 0),
+            'currency': str(_stripe_obj_get(line, 'currency', '') or '').strip().lower(),
+            'period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(_stripe_obj_get(line, 'period', None), 'start', None)),
+            'period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(_stripe_obj_get(line, 'period', None), 'end', None)),
+        })
+    return {
+        'invoice_id': str(_stripe_obj_get(inv, 'id', '') or '').strip(),
+        'status': str(_stripe_obj_get(inv, 'status', '') or '').strip().lower(),
+        'collection_method': str(_stripe_obj_get(inv, 'collection_method', '') or '').strip(),
+        'billing_reason': str(_stripe_obj_get(inv, 'billing_reason', '') or '').strip(),
+        'currency': str(_stripe_obj_get(inv, 'currency', '') or '').strip().lower(),
+        'amount_due': int(_stripe_obj_get(inv, 'amount_due', 0) or 0),
+        'amount_paid': int(_stripe_obj_get(inv, 'amount_paid', 0) or 0),
+        'amount_remaining': int(_stripe_obj_get(inv, 'amount_remaining', 0) or 0),
+        'subtotal': int(_stripe_obj_get(inv, 'subtotal', 0) or 0),
+        'total': int(_stripe_obj_get(inv, 'total', 0) or 0),
+        'paid': bool(_stripe_obj_get(inv, 'paid', False)),
+        'attempted': bool(_stripe_obj_get(inv, 'attempted', False)),
+        'attempt_count': int(_stripe_obj_get(inv, 'attempt_count', 0) or 0),
+        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'customer', None)),
+        'subscription_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'subscription', None)),
+        'charge_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'charge', None)),
+        'payment_intent_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'payment_intent', None)),
+        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'created', None)),
+        'period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'period_start', None)),
+        'period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'period_end', None)),
+        'hosted_invoice_url': str(_stripe_obj_get(inv, 'hosted_invoice_url', '') or '').strip(),
+        'invoice_pdf': str(_stripe_obj_get(inv, 'invoice_pdf', '') or '').strip(),
+        'line_items': line_items,
+    }
+
+
+def _admin_assistant_stripe_charge_summary(charge) -> dict:
+    refunds = _stripe_obj_get(_stripe_obj_get(charge, 'refunds', None), 'data', []) or []
+    refund_rows = []
+    for refund in list(refunds)[:5]:
+        refund_rows.append({
+            'refund_id': str(_stripe_obj_get(refund, 'id', '') or '').strip(),
+            'status': str(_stripe_obj_get(refund, 'status', '') or '').strip(),
+            'amount': int(_stripe_obj_get(refund, 'amount', 0) or 0),
+            'currency': str(_stripe_obj_get(refund, 'currency', '') or '').strip().lower(),
+            'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(refund, 'created', None)),
+        })
+    billing_details = _stripe_obj_get(charge, 'billing_details', None) or {}
+    return {
+        'charge_id': str(_stripe_obj_get(charge, 'id', '') or '').strip(),
+        'status': str(_stripe_obj_get(charge, 'status', '') or '').strip().lower(),
+        'currency': str(_stripe_obj_get(charge, 'currency', '') or '').strip().lower(),
+        'amount': int(_stripe_obj_get(charge, 'amount', 0) or 0),
+        'amount_captured': int(_stripe_obj_get(charge, 'amount_captured', 0) or 0),
+        'amount_refunded': int(_stripe_obj_get(charge, 'amount_refunded', 0) or 0),
+        'paid': bool(_stripe_obj_get(charge, 'paid', False)),
+        'captured': bool(_stripe_obj_get(charge, 'captured', False)),
+        'refunded': bool(_stripe_obj_get(charge, 'refunded', False)),
+        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'customer', None)),
+        'invoice_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'invoice', None)),
+        'payment_intent_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'payment_intent', None)),
+        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(charge, 'created', None)),
+        'description': str(_stripe_obj_get(charge, 'description', '') or '').strip(),
+        'failure_code': str(_stripe_obj_get(charge, 'failure_code', '') or '').strip(),
+        'failure_message': str(_stripe_obj_get(charge, 'failure_message', '') or '').strip(),
+        'receipt_url': str(_stripe_obj_get(charge, 'receipt_url', '') or '').strip(),
+        'billing_email': str(_stripe_obj_get(billing_details, 'email', '') or '').strip(),
+        'refunds': refund_rows,
+    }
+
+
+def _admin_assistant_pick_customer_subscription(customer_id: str):
+    cid = str(customer_id or '').strip()
+    if not cid or not _stripe_enabled():
+        return None
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        res = stripe.Subscription.list(customer=cid, status='all', limit=10, expand=['data.items.data.price'])
+        subs = list(getattr(res, 'data', []) or [])
+        if not subs:
+            return None
+        for sub in subs:
+            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            if status in ('active', 'trialing', 'past_due', 'unpaid'):
+                return sub
+        return subs[0]
+    except Exception:
+        return None
+
+
+def _admin_assistant_resolve_stripe_context(
+    user_identifier: str = '',
+    customer_id: str = '',
+    subscription_id: str = '',
+) -> dict:
+    profile = None
+    email = ''
+    uid = ''
+    if user_identifier:
+        profile = _admin_assistant_find_user_profile(user_identifier)
+        if profile:
+            uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+            email = str(profile.get('email') or '').strip().lower()
+
+    resolved_customer_id = str(customer_id or '').strip()
+    resolved_subscription_id = str(subscription_id or '').strip()
+
+    if not resolved_customer_id and profile:
+        resolved_customer_id = str(profile.get('stripe_customer_id') or '').strip()
+    if not resolved_subscription_id and profile:
+        resolved_subscription_id = str(profile.get('stripe_subscription_id') or '').strip()
+
+    if not resolved_customer_id and email:
+        resolved_customer_id = _find_stripe_customer_id_by_email(
+            email,
+            require_subscription_history=False,
+            allow_ephemeral=True,
+        )
+
+    if not resolved_subscription_id and resolved_customer_id:
+        best_sub = _admin_assistant_pick_customer_subscription(resolved_customer_id)
+        if best_sub is not None:
+            resolved_subscription_id = str(_stripe_obj_get(best_sub, 'id', '') or '').strip()
+
+    return {
+        'profile_found': bool(profile),
+        'user_id': uid,
+        'email': email,
+        'customer_id': resolved_customer_id,
+        'subscription_id': resolved_subscription_id,
+    }
+
+
+def _admin_assistant_search_stripe_customers(search: str = '', limit: int = 10) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    needle = str(search or '').strip().lower()
+    if not _stripe_enabled():
+        return _admin_assistant_stripe_unavailable()
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        candidates = []
+        seen = set()
+
+        def _append(customer) -> None:
+            cid = str(_stripe_obj_get(customer, 'id', '') or '').strip()
+            if cid and cid not in seen:
+                seen.add(cid)
+                candidates.append(customer)
+
+        if needle.startswith('cus_'):
+            try:
+                customer = stripe.Customer.retrieve(needle)
+                if customer:
+                    _append(customer)
+            except Exception:
+                pass
+
+        if '@' in needle:
+            try:
+                exact = stripe.Customer.list(email=needle, limit=safe_limit)
+                for customer in list(getattr(exact, 'data', []) or []):
+                    _append(customer)
+            except Exception:
+                pass
+
+        fetch_limit = min(max(safe_limit * 4, 25), 100)
+        if len(candidates) < safe_limit:
+            try:
+                recent = stripe.Customer.list(limit=fetch_limit)
+                for customer in list(getattr(recent, 'data', []) or []):
+                    haystack = ' '.join([
+                        str(_stripe_obj_get(customer, 'id', '') or ''),
+                        str(_stripe_obj_get(customer, 'email', '') or ''),
+                        str(_stripe_obj_get(customer, 'name', '') or ''),
+                        str(_stripe_obj_get(customer, 'description', '') or ''),
+                    ]).lower()
+                    if needle and needle not in haystack:
+                        continue
+                    _append(customer)
+                    if len(candidates) >= safe_limit:
+                        break
+            except Exception as exc:
+                return {'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
+
+        return {
+            'search': search,
+            'returned': min(len(candidates), safe_limit),
+            'customers': [_admin_assistant_stripe_customer_summary(c) for c in candidates[:safe_limit]],
+            'search_window_limited': True,
+        }
+    except Exception as exc:
+        return {'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
+
+
+def _admin_assistant_get_stripe_customer_detail(customer_id: str = '', user_identifier: str = '') -> dict:
+    if not _stripe_enabled():
+        return _admin_assistant_stripe_unavailable()
+
+    ctx = _admin_assistant_resolve_stripe_context(user_identifier=user_identifier, customer_id=customer_id)
+    cid = str(ctx.get('customer_id') or '').strip()
+    if not cid:
+        return {
+            'found': False,
+            'customer_id': customer_id,
+            'user_identifier': user_identifier,
+            'message': 'No Stripe customer could be resolved from the provided input.',
+        }
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        customer = stripe.Customer.retrieve(cid)
+        latest_sub = _admin_assistant_pick_customer_subscription(cid)
+        return {
+            'found': True,
+            'resolved_from': ctx,
+            'customer': _admin_assistant_stripe_customer_summary(customer),
+            'latest_subscription': _admin_assistant_stripe_subscription_summary(latest_sub) if latest_sub else None,
+        }
+    except Exception as exc:
+        return {'found': False, 'customer_id': cid, 'error': str(exc)[:220]}
+
+
+def _admin_assistant_get_stripe_subscription_detail(subscription_id: str = '', user_identifier: str = '') -> dict:
+    if not _stripe_enabled():
+        return _admin_assistant_stripe_unavailable()
+
+    ctx = _admin_assistant_resolve_stripe_context(
+        user_identifier=user_identifier,
+        subscription_id=subscription_id,
+    )
+    sid = str(ctx.get('subscription_id') or '').strip()
+    if not sid:
+        return {
+            'found': False,
+            'subscription_id': subscription_id,
+            'user_identifier': user_identifier,
+            'message': 'No Stripe subscription could be resolved from the provided input.',
+        }
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        sub = stripe.Subscription.retrieve(sid, expand=['items.data.price', 'latest_invoice'])
+        latest_invoice = _stripe_obj_get(sub, 'latest_invoice', None)
+        if latest_invoice and not isinstance(latest_invoice, str):
+            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(latest_invoice)
+        else:
+            latest_invoice_obj = _stripe_latest_invoice_for_subscription(sid)
+            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(latest_invoice_obj) if latest_invoice_obj else None
+        return {
+            'found': True,
+            'resolved_from': ctx,
+            'subscription': _admin_assistant_stripe_subscription_summary(sub),
+            'latest_invoice': latest_invoice_summary,
+        }
+    except Exception as exc:
+        return {'found': False, 'subscription_id': sid, 'error': str(exc)[:220]}
+
+
+def _admin_assistant_list_stripe_invoices(
+    customer_id: str = '',
+    subscription_id: str = '',
+    user_identifier: str = '',
+    limit: int = 10,
+) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    if not _stripe_enabled():
+        return _admin_assistant_stripe_unavailable()
+
+    ctx = _admin_assistant_resolve_stripe_context(
+        user_identifier=user_identifier,
+        customer_id=customer_id,
+        subscription_id=subscription_id,
+    )
+    cid = str(ctx.get('customer_id') or '').strip()
+    sid = str(ctx.get('subscription_id') or '').strip()
+    if not cid and not sid:
+        return {
+            'returned': 0,
+            'message': 'No Stripe customer or subscription could be resolved from the provided input.',
+            'resolved_from': ctx,
+        }
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        params = {'limit': safe_limit, 'expand': ['data.charge', 'data.payment_intent']}
+        if sid:
+            params['subscription'] = sid
+        elif cid:
+            params['customer'] = cid
+        invoices = stripe.Invoice.list(**params)
+        rows = [_admin_assistant_stripe_invoice_summary(inv) for inv in list(getattr(invoices, 'data', []) or [])]
+        return {
+            'resolved_from': ctx,
+            'returned': len(rows),
+            'invoices': rows,
+        }
+    except Exception as exc:
+        return {'error': f'Unable to list Stripe invoices: {str(exc)[:220]}'}
+
+
+def _admin_assistant_list_stripe_charges(
+    customer_id: str = '',
+    subscription_id: str = '',
+    user_identifier: str = '',
+    limit: int = 10,
+) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    if not _stripe_enabled():
+        return _admin_assistant_stripe_unavailable()
+
+    ctx = _admin_assistant_resolve_stripe_context(
+        user_identifier=user_identifier,
+        customer_id=customer_id,
+        subscription_id=subscription_id,
+    )
+    cid = str(ctx.get('customer_id') or '').strip()
+    sid = str(ctx.get('subscription_id') or '').strip()
+
+    try:
+        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        charges = []
+        seen = set()
+
+        def _append(charge) -> None:
+            charge_id = str(_stripe_obj_get(charge, 'id', '') or '').strip()
+            if charge_id and charge_id not in seen:
+                seen.add(charge_id)
+                charges.append(charge)
+
+        if sid:
+            invs = stripe.Invoice.list(subscription=sid, limit=min(max(safe_limit * 2, 10), 50), expand=['data.charge'])
+            for inv in list(getattr(invs, 'data', []) or []):
+                charge_obj = _stripe_obj_get(inv, 'charge', None)
+                if charge_obj and not isinstance(charge_obj, str):
+                    _append(charge_obj)
+                    if len(charges) >= safe_limit:
+                        break
+                charge_id = _admin_assistant_stripe_object_id(charge_obj)
+                if charge_id and len(charges) < safe_limit:
+                    try:
+                        _append(stripe.Charge.retrieve(charge_id))
+                    except Exception:
+                        pass
+            if not charges and cid:
+                res = stripe.Charge.list(customer=cid, limit=safe_limit)
+                for charge in list(getattr(res, 'data', []) or []):
+                    _append(charge)
+        elif cid:
+            res = stripe.Charge.list(customer=cid, limit=safe_limit)
+            for charge in list(getattr(res, 'data', []) or []):
+                _append(charge)
+        else:
+            return {
+                'returned': 0,
+                'message': 'No Stripe customer or subscription could be resolved from the provided input.',
+                'resolved_from': ctx,
+            }
+
+        rows = [_admin_assistant_stripe_charge_summary(c) for c in charges[:safe_limit]]
+        return {
+            'resolved_from': ctx,
+            'returned': len(rows),
+            'charges': rows,
+        }
+    except Exception as exc:
+        return {'error': f'Unable to list Stripe charges: {str(exc)[:220]}'}
+
+
+def _admin_assistant_get_recent_feedback(limit: int = 10) -> dict:
+    safe_limit = max(1, min(int(limit or 10), 25))
+    rows = _read_admin_feedback_rows(limit=safe_limit)
+    return {
+        'returned': len(rows),
+        'feedback': rows,
+    }
+
+
+def _admin_assistant_get_recent_logins(days: int = 7, limit: int = 20) -> dict:
+    safe_days = max(1, min(int(days or 7), 90))
+    safe_limit = max(1, min(int(limit or 20), 50))
+    sessions_list, _, _, _ = _load_login_audit_sessions_for_admin()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=safe_days)
+    rows = []
+    for rec in sessions_list:
+        login_dt = _login_at_from_audit_record(rec)
+        if login_dt is None or login_dt < cutoff:
+            continue
+        rows.append({
+            'user_id': str(rec.get('user_id') or '').strip(),
+            'email': str(rec.get('email') or '').strip(),
+            'login_at': _coerce_datetime_iso(login_dt),
+            'login_time_pacific': _format_any_datetime_pacific(login_dt),
+            'login_method': str(rec.get('login_method') or '').strip(),
+            'last_activity_at': _coerce_datetime_iso(rec.get('last_activity_at')),
+            'logout_at': _coerce_datetime_iso(rec.get('logout_at')),
+        })
+    rows.sort(key=lambda r: str(r.get('login_at') or ''), reverse=True)
+    return {
+        'days': safe_days,
+        'returned': min(len(rows), safe_limit),
+        'rows': rows[:safe_limit],
+    }
+
+
+def _admin_assistant_send_email(recipient: str, subject: str, body: str, confirm_send: bool = False) -> dict:
+    email = str(recipient or '').strip().lower()
+    subj = str(subject or '').strip()
+    text_body = str(body or '').strip()
+    admin_id = str(getattr(current_user, 'id', '') or '').strip()
+    admin_email = str(getattr(current_user, 'email', '') or '').strip().lower()
+
+    if not confirm_send:
+        return {
+            'sent': False,
+            'error': 'confirm_send_required',
+            'message': 'The user must explicitly confirm sending before this tool may send email.',
+        }
+    if not email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return {'sent': False, 'error': 'invalid_recipient'}
+    if not subj:
+        return {'sent': False, 'error': 'missing_subject'}
+    if not text_body:
+        return {'sent': False, 'error': 'missing_body'}
+    if len(subj) > 200:
+        return {'sent': False, 'error': 'subject_too_long'}
+    if len(text_body) > 12000:
+        return {'sent': False, 'error': 'body_too_long'}
+
+    try:
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        if not auth_email or not auth_password:
+            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+
+        html_body = (
+            "<html><body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">"
+            + ''.join(f"<p>{html_stdlib.escape(line)}</p>" for line in text_body.splitlines() if line.strip())
+            + "</body></html>"
+        )
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subj
+        msg['From'] = f"ResumaticAI <{auth_email}>"
+        msg['To'] = email
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+        server.starttls()
+        server.login(auth_email, auth_password)
+        server.send_message(msg)
+        server.quit()
+
+        try:
+            record_email_event(
+                email_type="admin_ai_assistant",
+                recipient=email,
+                subject=subj,
+                status="sent",
+                source="admin_ai_assistant",
+                metadata={
+                    "admin_user_id": admin_id,
+                    "admin_email": admin_email,
+                    "surface": "admin_stats",
+                },
+            )
+        except Exception:
+            pass
+
+        return {
+            'sent': True,
+            'recipient': email,
+            'subject': subj,
+            'message': 'Email sent successfully.',
+        }
+    except Exception as exc:
+        try:
+            record_email_event(
+                email_type="admin_ai_assistant",
+                recipient=email,
+                subject=subj,
+                status="failed",
+                source="admin_ai_assistant",
+                metadata={
+                    "admin_user_id": admin_id,
+                    "admin_email": admin_email,
+                    "surface": "admin_stats",
+                },
+                error="smtp_send_failed",
+            )
+        except Exception:
+            pass
+        return {
+            'sent': False,
+            'recipient': email,
+            'subject': subj,
+            'error': str(exc)[:220],
+        }
+
+
+def _admin_assistant_send_batch_email(
+    recipients,
+    subject: str,
+    body: str,
+    confirm_send: bool = False,
+    campaign_label: str = '',
+) -> dict:
+    if not confirm_send:
+        return {
+            'sent': False,
+            'error': 'confirm_send_required',
+            'message': 'The user must explicitly confirm batch sending before this tool may send email.',
+        }
+
+    raw_recipients = recipients if isinstance(recipients, list) else []
+    normalized = []
+    seen = set()
+    for item in raw_recipients:
+        email = str(item or '').strip().lower()
+        if not email or email in seen:
+            continue
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            continue
+        seen.add(email)
+        normalized.append(email)
+
+    if not normalized:
+        return {'sent': False, 'error': 'no_valid_recipients'}
+    if len(normalized) > 100:
+        return {'sent': False, 'error': 'too_many_recipients', 'max_allowed': 100}
+
+    subj = str(subject or '').strip()
+    text_body = str(body or '').strip()
+    if not subj:
+        return {'sent': False, 'error': 'missing_subject'}
+    if not text_body:
+        return {'sent': False, 'error': 'missing_body'}
+
+    results = []
+    sent = 0
+    failed = 0
+    for email in normalized:
+        res = _admin_assistant_send_email(
+            recipient=email,
+            subject=subj,
+            body=text_body,
+            confirm_send=True,
+        )
+        results.append(res)
+        if res.get('sent'):
+            sent += 1
+        else:
+            failed += 1
+
+    return {
+        'sent': failed == 0,
+        'campaign_label': str(campaign_label or '').strip(),
+        'recipient_count': len(normalized),
+        'sent_count': sent,
+        'failed_count': failed,
+        'results': results[:25],
+        'results_truncated': len(results) > 25,
+    }
+
+
+def _admin_assistant_call_tool(name: str, args: dict) -> dict:
+    args = args or {}
+    if name == 'get_data_inventory':
+        return _admin_assistant_tool_inventory()
+    if name == 'get_admin_stats_overview':
+        return _admin_assistant_get_stats_overview()
+    if name == 'search_registered_users':
+        return _admin_assistant_search_users(
+            search=args.get('search', ''),
+            plan_status=args.get('plan_status', ''),
+            limit=args.get('limit', 10),
+        )
+    if name == 'get_user_detail':
+        return _admin_assistant_get_user_detail(
+            user_identifier=args.get('user_identifier', ''),
+            revision_limit=args.get('revision_limit', 5),
+        )
+    if name == 'get_subscription_reconciliation':
+        return _admin_assistant_get_subscription_reconciliation(limit=args.get('limit', 10))
+    if name == 'search_stripe_customers':
+        return _admin_assistant_search_stripe_customers(
+            search=args.get('search', ''),
+            limit=args.get('limit', 10),
+        )
+    if name == 'get_stripe_customer_detail':
+        return _admin_assistant_get_stripe_customer_detail(
+            customer_id=args.get('customer_id', ''),
+            user_identifier=args.get('user_identifier', ''),
+        )
+    if name == 'get_stripe_subscription_detail':
+        return _admin_assistant_get_stripe_subscription_detail(
+            subscription_id=args.get('subscription_id', ''),
+            user_identifier=args.get('user_identifier', ''),
+        )
+    if name == 'list_stripe_invoices':
+        return _admin_assistant_list_stripe_invoices(
+            customer_id=args.get('customer_id', ''),
+            subscription_id=args.get('subscription_id', ''),
+            user_identifier=args.get('user_identifier', ''),
+            limit=args.get('limit', 10),
+        )
+    if name == 'list_stripe_charges':
+        return _admin_assistant_list_stripe_charges(
+            customer_id=args.get('customer_id', ''),
+            subscription_id=args.get('subscription_id', ''),
+            user_identifier=args.get('user_identifier', ''),
+            limit=args.get('limit', 10),
+        )
+    if name == 'get_recent_feedback':
+        return _admin_assistant_get_recent_feedback(limit=args.get('limit', 10))
+    if name == 'get_recent_logins':
+        return _admin_assistant_get_recent_logins(
+            days=args.get('days', 7),
+            limit=args.get('limit', 20),
+        )
+    if name == 'get_login_audit_table_rows':
+        return _admin_assistant_get_login_audit_rows(
+            limit=args.get('limit', 25),
+            offset=args.get('offset', 0),
+            partition_key=args.get('partition_key', ''),
+            row_key=args.get('row_key', ''),
+            search=args.get('search', ''),
+        )
+    if name == 'get_resume_revision_table_rows':
+        return _admin_assistant_get_resume_revision_rows(
+            limit=args.get('limit', 25),
+            offset=args.get('offset', 0),
+            partition_key=args.get('partition_key', ''),
+            row_key=args.get('row_key', ''),
+            search=args.get('search', ''),
+        )
+    if name == 'query_login_audit_table':
+        return _admin_assistant_query_table_rows(
+            AZURE_LOGIN_AUDIT_TABLE,
+            filter_text=args.get('filter', ''),
+            select=args.get('select', []),
+            top=args.get('top', 25),
+            offset=args.get('offset', 0),
+            sort_field=args.get('sort_field', 'login_at'),
+        )
+    if name == 'query_resume_revisions_table':
+        return _admin_assistant_query_table_rows(
+            'ResumeRevisions',
+            filter_text=args.get('filter', ''),
+            select=args.get('select', []),
+            top=args.get('top', 25),
+            offset=args.get('offset', 0),
+            sort_field=args.get('sort_field', 'timestamp'),
+        )
+    if name == 'send_admin_email':
+        return _admin_assistant_send_email(
+            recipient=args.get('recipient', ''),
+            subject=args.get('subject', ''),
+            body=args.get('body', ''),
+            confirm_send=bool(args.get('confirm_send', False)),
+        )
+    if name == 'send_batch_admin_email':
+        return _admin_assistant_send_batch_email(
+            recipients=args.get('recipients', []),
+            subject=args.get('subject', ''),
+            body=args.get('body', ''),
+            confirm_send=bool(args.get('confirm_send', False)),
+            campaign_label=args.get('campaign_label', ''),
+        )
+    return {'error': f'Unknown tool: {name}'}
+
+
+def _admin_assistant_tool_specs() -> list[dict]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_data_inventory",
+                "description": "List the admin data sources and what the assistant can read.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_admin_stats_overview",
+                "description": "Get the high-level visit analytics, login summary, and feedback summary shown around admin stats.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_registered_users",
+                "description": "Search registered users by email, name, user ID, provider, or plan status.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search": {"type": "string"},
+                        "plan_status": {"type": "string"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_user_detail",
+                "description": "Get one user's profile summary, recent revisions, and recent tracked applications.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_identifier": {"type": "string", "description": "User ID or exact/partial email"},
+                        "revision_limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                    },
+                    "required": ["user_identifier"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_subscription_reconciliation",
+                "description": "Get subscription KPI and Stripe versus Azure reconciliation data.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_stripe_customers",
+                "description": "Search Stripe customers by customer ID, email, name, or description.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search": {"type": "string", "description": "Customer ID, email, name, or other text to match"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                    "required": ["search"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_stripe_customer_detail",
+                "description": "Get one Stripe customer and their latest subscription using a customer ID or app user identifier.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string"},
+                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_stripe_subscription_detail",
+                "description": "Get one Stripe subscription and its latest invoice using a subscription ID or app user identifier.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "subscription_id": {"type": "string"},
+                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_stripe_invoices",
+                "description": "List recent Stripe invoices for a customer, subscription, or app user.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string"},
+                        "subscription_id": {"type": "string"},
+                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_stripe_charges",
+                "description": "List recent Stripe charges for a customer, subscription, or app user.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string"},
+                        "subscription_id": {"type": "string"},
+                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_recent_feedback",
+                "description": "Get recent feedback submissions from the admin feedback CSV.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_recent_logins",
+                "description": "Get recent login audit rows for the requested number of days.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "minimum": 1, "maximum": 90},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_login_audit_table_rows",
+                "description": "Read rows from the full Azure LoginAudit table with optional filters and pagination.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "offset": {"type": "integer", "minimum": 0},
+                        "partition_key": {"type": "string"},
+                        "row_key": {"type": "string"},
+                        "search": {"type": "string", "description": "Substring search across the row JSON"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_resume_revision_table_rows",
+                "description": "Read rows from the full Azure ResumeRevisions table with optional filters and pagination.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "offset": {"type": "integer", "minimum": 0},
+                        "partition_key": {"type": "string"},
+                        "row_key": {"type": "string"},
+                        "search": {"type": "string", "description": "Substring search across the row JSON"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_login_audit_table",
+                "description": "Run a controlled read-only Azure Table query against the LoginAudit table using filter/select/top semantics.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filter": {"type": "string", "description": "Azure Table/OData filter expression"},
+                        "select": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional list of fields to return",
+                        },
+                        "top": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "offset": {"type": "integer", "minimum": 0},
+                        "sort_field": {"type": "string", "description": "Optional client-side sort field for the returned rows"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_resume_revisions_table",
+                "description": "Run a controlled read-only Azure Table query against the ResumeRevisions table using filter/select/top semantics.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filter": {"type": "string", "description": "Azure Table/OData filter expression"},
+                        "select": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional list of fields to return",
+                        },
+                        "top": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "offset": {"type": "integer", "minimum": 0},
+                        "sort_field": {"type": "string", "description": "Optional client-side sort field for the returned rows"},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "send_admin_email",
+                "description": "Send one admin-triggered email through the configured SMTP account. Use only when the admin explicitly instructs you to send the final email.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "recipient": {"type": "string", "description": "Single recipient email address"},
+                        "subject": {"type": "string"},
+                        "body": {"type": "string", "description": "Plain-text email body"},
+                        "confirm_send": {"type": "boolean", "description": "Set true only when the admin explicitly asked to send the email now"},
+                    },
+                    "required": ["recipient", "subject", "body", "confirm_send"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "send_batch_admin_email",
+                "description": "Send the same email to an explicit list of targeted recipients. Use only when the admin explicitly asks you to send the final batch now.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "recipients": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Explicit list of recipient email addresses, up to 100",
+                        },
+                        "subject": {"type": "string"},
+                        "body": {"type": "string", "description": "Plain-text email body sent to all recipients"},
+                        "campaign_label": {"type": "string"},
+                        "confirm_send": {"type": "boolean", "description": "Set true only when the admin explicitly asked to send the batch now"},
+                    },
+                    "required": ["recipients", "subject", "body", "confirm_send"],
+                },
+            },
+        },
+    ]
+
+
+@app.route('/api/ai/job-search-coach', methods=['POST'])
+@app.route('/path/api/ai/job-search-coach', methods=['POST'])
+@login_required
+def api_job_search_coach():
+    """Conversational job-search coach with dashboard context (latest resume + applications)."""
+    try:
+        if _requires_email_verification(current_user):
+            return jsonify({"success": False, "error": "Please verify your email to use the Job Search Coach."}), 403
+
+        payload = request.get_json(force=True, silent=True) or {}
+        raw_messages = payload.get('messages')
+        if not isinstance(raw_messages, list) or not raw_messages:
+            return jsonify({"success": False, "error": "Missing messages"}), 400
+        if len(raw_messages) > 30:
+            return jsonify({"success": False, "error": "Conversation is too long. Start a new chat."}), 400
+
+        openai_messages = []
+        for item in raw_messages[-20:]:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get('role') or '').strip().lower()
+            if role not in ('user', 'assistant'):
+                continue
+            content = str(item.get('content') or '').strip()
+            if not content:
+                continue
+            if len(content) > 4000:
+                content = content[:4000]
+            openai_messages.append({"role": role, "content": content})
+
+        if not any(m.get('role') == 'user' for m in openai_messages):
+            return jsonify({"success": False, "error": "No user message provided"}), 400
+
+        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip('"').strip("'")
+        if not api_key:
+            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, timeout=90.0, max_retries=2)
+
+        coach_ctx = _build_job_search_coach_context(getattr(current_user, 'id', ''))
+        context_block = _format_job_search_coach_context(coach_ctx)
+        system_prompt = (
+            "You are Scout, Resumatic AI's Job Search Coach — a practical, encouraging career advisor embedded in the user's "
+            "Job Search Dashboard.\n"
+            "You automatically receive their latest resume revision and every tracked job application on the dashboard.\n"
+            "Use that context to give specific, actionable advice about applications, follow-ups, interview prep, "
+            "resume positioning, and prioritization.\n"
+            "Rules:\n"
+            "- Keep every reply short and scannable: lead with one direct sentence, then at most 3–5 bullets or brief steps.\n"
+            "- Stay under ~100 words unless the user explicitly asks for a longer draft (e.g. a full email).\n"
+            "- Do not recap the resume or application list; reference only what is needed for your answer.\n"
+            "- Reference real companies/roles/statuses from the context when relevant.\n"
+            "- Do NOT invent employers, interviews, offers, or resume facts that are not in the context.\n"
+            "- If information is missing, ask one clarifying question or suggest one concrete next step.\n"
+            "- Email/message drafts: 4–6 sentences max unless the user asks for more; label them clearly as drafts.\n"
+            "- If more detail would help, end with one line offering to go deeper on a specific topic.\n"
+            "- Do not claim you can change dashboard data; the user updates the dashboard themselves.\n\n"
+            f"{context_block}"
+        )
+
+        chat_messages = [{"role": "system", "content": system_prompt}] + openai_messages
+        resp, model_used = _coach_chat_completion(client, chat_messages)
+        reply = (resp.choices[0].message.content or '').strip()
+        if not reply:
+            return jsonify({"success": False, "error": "Empty AI response"}), 502
+        if len(reply) > _JOB_COACH_MAX_REPLY_CHARS:
+            reply = (
+                reply[:_JOB_COACH_MAX_REPLY_CHARS].rstrip()
+                + "\n\n*(Reply shortened — ask me to expand any part.)*"
+            )
+
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "model": model_used,
+            "context_summary": {
+                "revision_count": coach_ctx.get('revision_count', 0),
+                "application_count": coach_ctx.get('application_count', 0),
+                "latest_resume_name": (coach_ctx.get('latest_resume') or {}).get('revision_name') or '',
+            },
+        })
+    except Exception as e:
+        try:
+            logger.error(f"Job search coach failed: {type(e).__name__}: {str(e)}")
+        except Exception:
+            pass
+        return jsonify({"success": False, "error": _coach_openai_error_message(e)}), 500
+
+
+@app.route('/api/ai/admin-stats-assistant', methods=['POST'])
+@login_required
+def api_admin_stats_assistant():
+    """Read-only admin assistant with curated tools for stats, users, revisions, logins, feedback, and email sending."""
+    try:
+        if not getattr(current_user, "is_admin", False):
+            return jsonify({"success": False, "error": "Forbidden"}), 403
+
+        payload = request.get_json(force=True, silent=True) or {}
+        raw_messages = payload.get('messages')
+        if not isinstance(raw_messages, list) or not raw_messages:
+            return jsonify({"success": False, "error": "Missing messages"}), 400
+        if len(raw_messages) > 40:
+            return jsonify({"success": False, "error": "Conversation is too long. Start a new chat."}), 400
+
+        openai_messages = []
+        for item in raw_messages[-40:]:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get('role') or '').strip().lower()
+            if role not in ('user', 'assistant'):
+                continue
+            content = str(item.get('content') or '').strip()
+            if not content:
+                continue
+            if len(content) > 5000:
+                content = content[:5000]
+            openai_messages.append({"role": role, "content": content})
+
+        if not any(m.get('role') == 'user' for m in openai_messages):
+            return jsonify({"success": False, "error": "No user message provided"}), 400
+
+        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip('"').strip("'")
+        if not api_key:
+            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, timeout=90.0, max_retries=2)
+
+        system_prompt = (
+            "You are ResumaticAI's Admin Stats Assistant embedded in the admin statistics page.\n"
+            "You help the admin inspect site analytics, Azure user data, revisions, login activity, feedback, Stripe billing data, and subscription reconciliation.\n"
+            "You have server-side tools to read curated admin datasets, read Stripe billing data, and send one email or a targeted batch email.\n"
+            "You also have controlled read-only query tools for the Azure LoginAudit and ResumeRevisions tables.\n"
+            "Rules:\n"
+            "- Be concise and operational. Lead with the answer, then short bullets when useful.\n"
+            "- Use tools when data is needed; do not guess counts, user details, or subscription state.\n"
+            "- For Stripe questions, prefer the dedicated Stripe customer, subscription, invoice, and charge tools instead of guessing from reconciliation data.\n"
+            "- For targeted investigation in LoginAudit or ResumeRevisions, prefer the table query tools with filter/select/top semantics.\n"
+            "- When you used a tool, mention which source you used in plain language.\n"
+            "- Treat all data as sensitive. Only surface the minimum necessary details.\n"
+            "- Never claim you changed or deleted data. You are read-only except for the explicit email-sending tool.\n"
+            "- Only send an email when the admin explicitly asks you to send it now. If they are still drafting, do not call the send tool.\n"
+            "- Before sending, make sure you have a concrete recipient or explicit recipient list, plus a subject and body. If anything is missing, ask for it.\n"
+            "- For batch sends, prefer first showing who will receive it and summarizing the audience before sending.\n"
+            "- If a tool result is partial or capped, say so.\n"
+        )
+
+        tools = _admin_assistant_tool_specs()
+        messages = [{"role": "system", "content": system_prompt}] + openai_messages
+        model_used = ''
+
+        for _ in range(_ADMIN_ASSISTANT_MAX_TOOL_CALLS):
+            resp, model_used = _admin_assistant_chat_completion(client, messages, tools=tools)
+            msg = resp.choices[0].message
+            tool_calls = getattr(msg, 'tool_calls', None) or []
+            if not tool_calls:
+                reply = str(msg.content or '').strip()
+                if not reply:
+                    return jsonify({"success": False, "error": "Empty AI response"}), 502
+                if len(reply) > _ADMIN_ASSISTANT_MAX_REPLY_CHARS:
+                    reply = reply[:_ADMIN_ASSISTANT_MAX_REPLY_CHARS].rstrip() + "\n\n*(Reply shortened.)*"
+                return jsonify({"success": True, "reply": reply, "model": model_used})
+
+            assistant_message = {
+                "role": "assistant",
+                "content": msg.content or "",
+                "tool_calls": [],
+            }
+            for tc in tool_calls:
+                assistant_message["tool_calls"].append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                })
+            messages.append(assistant_message)
+
+            for tc in tool_calls:
+                raw_args = tc.function.arguments or '{}'
+                try:
+                    parsed_args = json.loads(raw_args)
+                except Exception:
+                    parsed_args = {}
+                result = _admin_assistant_call_tool(tc.function.name, parsed_args)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(result, ensure_ascii=False, default=str),
+                })
+
+        return jsonify({"success": False, "error": "Tool-call limit reached. Please narrow the request."}), 400
+    except Exception as e:
+        try:
+            logger.error(f"Admin stats assistant failed: {type(e).__name__}: {str(e)}")
+        except Exception:
+            pass
+        return jsonify({"success": False, "error": _admin_assistant_error_message(e)}), 500
+
+
 @app.route("/termsprivacy")
 def termsprivacy():
     return redirect(url_for('terms_privacy'), code=301)
@@ -8824,6 +15334,853 @@ def get_visit_count():
             "message": "Failed to retrieve visit count"
         }, 500
 
+
+def _collect_revision_counts_by_user() -> dict[str, int]:
+    """Count resume revisions per user from Azure ResumeRevisions table."""
+    counts: dict[str, int] = {}
+    try:
+        revision_client = get_table_client('ResumeRevisions', create_if_missing=False)
+        pager = revision_client.list_entities(select=["PartitionKey"])
+        for entity in pager:
+            uid = str(entity.get("PartitionKey") or '').strip()
+            if uid:
+                counts[uid] = counts.get(uid, 0) + 1
+    except Exception as e:
+        try:
+            logger.warning("admin dashboard: failed to count revisions: %s", str(e))
+        except Exception:
+            pass
+    return counts
+
+
+def _coerce_datetime_iso(val) -> str:
+    """Normalize Azure/datetime values to an ISO timestamp string."""
+    if val is None:
+        return ''
+    if hasattr(val, 'isoformat'):
+        try:
+            dt = val
+            if getattr(dt, 'tzinfo', None) is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        except Exception:
+            pass
+    return str(val or '').strip()
+
+
+def _login_at_from_audit_record(rec: dict) -> datetime | None:
+    """Resolve login timestamp for an audit record, recovering sub-second precision when possible."""
+    login_at = _parse_iso_datetime(_coerce_datetime_iso(rec.get('login_at')))
+    row_key = str(rec.get('row_key') or rec.get('RowKey') or '').strip()
+    if not row_key:
+        return login_at
+    match = re.match(r'^(\d{8}T\d{12})_', row_key)
+    if not match:
+        return login_at
+    try:
+        rk_dt = datetime.strptime(match.group(1), '%Y%m%dT%H%M%S%f').replace(tzinfo=timezone.utc)
+    except Exception:
+        return login_at
+    if login_at is None:
+        return rk_dt
+    # RowKey is the source of truth for login time; Azure DateTime round-trips can drop subseconds.
+    if abs((rk_dt - login_at).total_seconds()) < 1.0:
+        return rk_dt
+    return login_at
+
+
+def _format_pacific_login_time(dt: datetime, *, precise: bool = False) -> str:
+    """Format a login datetime in Pacific time for admin exports."""
+    try:
+        pacific_dt = dt.astimezone(_get_pacific_tzinfo())
+    except Exception:
+        pacific_dt = dt
+    if precise:
+        return pacific_dt.strftime('%Y-%m-%d %H:%M:%S.%f %Z')
+    return pacific_dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+
+def _format_any_datetime_pacific(val) -> str:
+    """Format a datetime value (object or ISO string) for Pacific display."""
+    iso = _coerce_datetime_iso(val)
+    if not iso:
+        return ''
+    return _format_datetime_pacific(iso)
+
+
+def _build_signup_lookup_from_csv() -> dict[str, str]:
+    """user_id -> created_at ISO from google_signups.csv (fallback for older profiles)."""
+    lookup: dict[str, str] = {}
+    try:
+        import csv
+        if not os.path.exists('google_signups.csv'):
+            return lookup
+        with open('google_signups.csv', 'r', encoding='utf-8', newline='') as f:
+            for row in csv.DictReader(f):
+                uid = str(row.get('user_id') or '').strip()
+                ts = str(row.get('timestamp_iso') or '').strip()
+                if uid and ts and uid not in lookup:
+                    lookup[uid] = ts
+    except Exception:
+        pass
+    return lookup
+
+
+def _build_last_login_lookup() -> dict[str, dict]:
+    """user_id -> latest login info from login audit (Azure table or JSON file)."""
+    lookup: dict[str, dict] = {}
+
+    sessions: list[dict] = []
+    if _azure_login_audit_enabled():
+        try:
+            sessions = _azure_login_audit_list(limit=0)
+        except Exception:
+            sessions = []
+    if not sessions:
+        try:
+            store = _load_login_audit_store()
+            raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
+            if isinstance(raw_sessions, dict):
+                sessions = [v for v in raw_sessions.values() if isinstance(v, dict)]
+        except Exception:
+            sessions = []
+
+    for rec in sessions:
+        uid = str(rec.get('user_id') or '').strip()
+        if not uid:
+            continue
+        login_at = _coerce_datetime_iso(rec.get('last_activity_at') or rec.get('login_at'))
+        if not login_at:
+            continue
+        login_dt = _parse_iso_dt(login_at)
+        prev = lookup.get(uid)
+        prev_dt = _parse_iso_dt(prev.get('login_at')) if prev else None
+        if prev is None or (login_dt and (prev_dt is None or login_dt > prev_dt)):
+            lookup[uid] = {
+                'login_at': login_at,
+                'login_method': str(rec.get('login_method') or '').strip(),
+            }
+
+    # Also scan Azure Users session rows for last_activity_at.
+    try:
+        table_client = get_users_table_client(create_if_missing=False)
+        pager = None
+        try:
+            pager = table_client.query_entities("record_type eq 'session'")
+        except Exception:
+            pager = table_client.list_entities()
+        for e in pager:
+            if str(e.get('record_type') or '') != 'session':
+                continue
+            uid = str(e.get('PartitionKey') or '').strip()
+            if not uid:
+                continue
+            activity_at = _coerce_datetime_iso(e.get('last_activity_at') or e.get('login_at'))
+            if not activity_at:
+                continue
+            activity_dt = _parse_iso_dt(activity_at)
+            prev = lookup.get(uid)
+            prev_dt = _parse_iso_dt(prev.get('login_at')) if prev else None
+            if prev is None or (activity_dt and (prev_dt is None or activity_dt > prev_dt)):
+                method = str(e.get('login_method') or '').strip()
+                if not method and prev:
+                    method = str(prev.get('login_method') or '').strip()
+                lookup[uid] = {
+                    'login_at': activity_at,
+                    'login_method': method,
+                }
+    except Exception:
+        pass
+
+    return lookup
+
+
+def _load_login_audit_sessions_for_admin() -> tuple[list[dict], bool, str | None, dict | None]:
+    """Load login audit sessions from Azure or JSON in a template-friendly shape."""
+    file_present = False
+    try:
+        file_present = os.path.exists(LOGIN_AUDIT_FILE)
+    except Exception:
+        file_present = False
+
+    source_label = None
+    store = None
+    sessions_list: list[dict] = []
+
+    if _azure_login_audit_enabled():
+        try:
+            rows = _azure_login_audit_list(limit=0)
+            for e in rows:
+                if not isinstance(e, dict):
+                    continue
+                sessions_list.append({
+                    'audit_id': str(e.get('audit_id') or ''),
+                    'user_id': str(e.get('user_id') or ''),
+                    'email': str(e.get('email') or ''),
+                    'login_at': _coerce_datetime_iso(e.get('login_at')),
+                    'last_activity_at': _coerce_datetime_iso(e.get('last_activity_at')),
+                    'logout_at': (_coerce_datetime_iso(e.get('logout_at')) or None),
+                    'duration_seconds': e.get('duration_seconds', None),
+                    'login_method': str(e.get('login_method') or '') or None,
+                    'row_key': str(e.get('RowKey') or ''),
+                })
+            source_label = f"Azure Table: {AZURE_LOGIN_AUDIT_TABLE}"
+            store = {'version': _LOGIN_AUDIT_VERSION}
+        except Exception:
+            sessions_list = []
+            source_label = None
+            store = None
+
+    if not sessions_list:
+        store = _load_login_audit_store()
+        raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
+        if not isinstance(raw_sessions, dict):
+            raw_sessions = {}
+        sessions_list = [v for v in raw_sessions.values() if isinstance(v, dict)]
+        if file_present:
+            source_label = f"login_audit.json" + (f" (v{store.get('version')})" if isinstance(store, dict) and store.get('version') else "")
+        else:
+            source_label = "login_audit.json (not created yet)"
+
+    sessions_list.sort(
+        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+        reverse=True,
+    )
+    return sessions_list, file_present, source_label, store
+
+
+def _dedupe_login_audit_sessions(sessions_list: list[dict]) -> list[dict]:
+    """Collapse duplicate login audit rows so returning-user metrics stay trustworthy."""
+    best_by_key: dict[str, dict] = {}
+
+    def _identity(rec: dict) -> str:
+        user_id = str(rec.get('user_id') or '').strip()
+        email = _normalize_email(rec.get('email') or '')
+        return user_id or email or str(rec.get('audit_id') or '').strip()
+
+    def _score(rec: dict) -> tuple[int, int, str]:
+        has_logout = 1 if str(rec.get('logout_at') or '').strip() else 0
+        duration = 0
+        try:
+            duration = int(rec.get('duration_seconds') or 0)
+        except Exception:
+            duration = 0
+        audit_id = str(rec.get('audit_id') or '')
+        return (has_logout, duration, audit_id)
+
+    for rec in sessions_list or []:
+        if not isinstance(rec, dict):
+            continue
+        login_at = _login_at_from_audit_record(rec)
+        if login_at is None:
+            continue
+        identity = _identity(rec)
+        if not identity:
+            continue
+        dedupe_key = f"{identity}|{login_at.replace(microsecond=0).isoformat()}"
+        prev = best_by_key.get(dedupe_key)
+        if prev is None or _score(rec) > _score(prev):
+            best_by_key[dedupe_key] = rec
+
+    metrics_window_seconds = max(60, int(_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES) * 60)
+    onboarding_window_seconds = max(60, int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60)
+    collapsed = sorted(
+        list(best_by_key.values()),
+        key=lambda r: (_login_at_from_audit_record(r) or datetime.min.replace(tzinfo=timezone.utc)),
+    )
+    kept: list[dict] = []
+    last_kept_at_by_identity: dict[str, datetime] = {}
+    last_kept_method_by_identity: dict[str, str] = {}
+
+    for rec in collapsed:
+        login_at = _login_at_from_audit_record(rec)
+        if login_at is None:
+            continue
+        identity = _identity(rec)
+        if not identity:
+            kept.append(rec)
+            continue
+
+        method = str(rec.get('login_method') or '').strip().lower()
+        prev_at = last_kept_at_by_identity.get(identity)
+        prev_method = last_kept_method_by_identity.get(identity, '')
+        if prev_at is not None:
+            delta = (login_at - prev_at).total_seconds()
+            if 0 <= delta < onboarding_window_seconds:
+                if method == 'password' and prev_method == 'email_verification':
+                    continue
+            if 0 <= delta < metrics_window_seconds:
+                if method == 'email_verification' and prev_method == 'email_verification':
+                    continue
+                if method and method == prev_method:
+                    continue
+
+        kept.append(rec)
+        last_kept_at_by_identity[identity] = login_at
+        last_kept_method_by_identity[identity] = method
+
+    return kept
+
+
+def _build_classified_login_events(sessions_list: list[dict], days: int | None = None) -> list[dict]:
+    """Return login events classified as new or returning, optionally filtered to recent Pacific dates."""
+    sessions_list = _dedupe_login_audit_sessions(sessions_list)
+    ordered = sorted(
+        [s for s in (sessions_list or []) if isinstance(s, dict)],
+        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+    )
+
+    seen_identities: set[str] = set()
+    seen_audit_ids: set[str] = set()
+    classified_events: list[dict] = []
+
+    pacific_today = None
+    earliest_pacific_date = None
+    if days is not None and int(days or 0) > 0:
+        try:
+            pacific_today = datetime.now(timezone.utc).astimezone(_get_pacific_tzinfo()).date()
+            earliest_pacific_date = pacific_today - timedelta(days=max(int(days) - 1, 0))
+        except Exception:
+            pacific_today = None
+            earliest_pacific_date = None
+
+    def _identity_for_session(rec: dict) -> str:
+        user_id = str(rec.get('user_id') or '').strip()
+        email = str(rec.get('email') or '').strip().lower()
+        if user_id:
+            return f"user:{user_id}"
+        if email:
+            return f"email:{email}"
+        audit_id = str(rec.get('audit_id') or '').strip()
+        return f"audit:{audit_id}" if audit_id else ""
+
+    def _is_excluded_login_metric_email(email_value: str) -> bool:
+        email_norm = _normalize_email(email_value or '')
+        if not email_norm:
+            return False
+        if email_norm in EXCLUDED_LOGIN_METRIC_EMAILS:
+            return True
+        try:
+            domain = email_norm.split('@', 1)[1].strip().lower()
+        except Exception:
+            domain = ''
+        return bool(domain and domain in EXCLUDED_LOGIN_METRIC_DOMAINS)
+
+    for rec in ordered:
+        audit_id = str(rec.get('audit_id') or '').strip()
+        if audit_id:
+            if audit_id in seen_audit_ids:
+                continue
+            seen_audit_ids.add(audit_id)
+
+        login_at = _login_at_from_audit_record(rec)
+        if login_at is None:
+            continue
+        email = _normalize_email(rec.get('email') or '')
+        if _is_excluded_login_metric_email(email):
+            continue
+
+        try:
+            pacific_dt = login_at.astimezone(_get_pacific_tzinfo())
+        except Exception:
+            pacific_dt = login_at
+        pacific_day = pacific_dt.date().isoformat()
+
+        identity = _identity_for_session(rec)
+        login_type = 'returning'
+        if identity and identity not in seen_identities:
+            seen_identities.add(identity)
+            login_type = 'new'
+
+        event = {
+            'audit_id': audit_id,
+            'user_id': str(rec.get('user_id') or '').strip(),
+            'email': email,
+            'login_at': login_at.isoformat(),
+            'login_date_pacific': pacific_day,
+            'login_time_pacific': _format_pacific_login_time(login_at, precise=True),
+            'login_time_pdt': _format_pacific_login_time(login_at, precise=True),
+            'login_time_pdt_precise': _format_pacific_login_time(login_at, precise=True),
+            'login_method': str(rec.get('login_method') or '').strip(),
+            'login_type': login_type,
+            'identity': identity,
+        }
+        if earliest_pacific_date is not None:
+            try:
+                event_date = pacific_dt.date()
+            except Exception:
+                event_date = None
+            if event_date is None or event_date < earliest_pacific_date:
+                continue
+        classified_events.append(event)
+
+    return classified_events
+
+
+def _build_login_new_vs_returning_summary(sessions_list: list[dict]) -> dict:
+    """Classify recorded login events as first-time or returning by user/email identity."""
+    classified_events = _build_classified_login_events(sessions_list)
+    total_logins = 0
+    new_user_logins = 0
+    returning_user_logins = 0
+    unique_identities: set[str] = set()
+    daily_buckets: dict[str, dict] = {}
+
+    for event in classified_events:
+        pacific_day = str(event.get('login_date_pacific') or '').strip()
+        identity = str(event.get('identity') or '').strip()
+        bucket = daily_buckets.setdefault(
+            pacific_day,
+            {
+                'date': pacific_day,
+                'total_logins': 0,
+                'new_user_logins': 0,
+                'returning_user_logins': 0,
+                'unique_identities': set(),
+            },
+        )
+
+        total_logins += 1
+        bucket['total_logins'] += 1
+        if identity:
+            unique_identities.add(identity)
+            bucket['unique_identities'].add(identity)
+        if str(event.get('login_type') or '') == 'new':
+            new_user_logins += 1
+            bucket['new_user_logins'] += 1
+        else:
+            returning_user_logins += 1
+            bucket['returning_user_logins'] += 1
+
+    daily_history = []
+    for day_key in sorted(daily_buckets.keys(), reverse=True):
+        bucket = daily_buckets.get(day_key) or {}
+        daily_history.append(
+            {
+                'date': day_key,
+                'total_logins': int(bucket.get('total_logins', 0) or 0),
+                'new_user_logins': int(bucket.get('new_user_logins', 0) or 0),
+                'returning_user_logins': int(bucket.get('returning_user_logins', 0) or 0),
+                'unique_users': len(bucket.get('unique_identities') or set()),
+            }
+        )
+
+    return {
+        'total_logins': total_logins,
+        'new_user_logins': new_user_logins,
+        'returning_user_logins': returning_user_logins,
+        'unique_users': len(unique_identities),
+        'daily_history': daily_history,
+    }
+
+
+def _resolve_user_signup_date(uid: str, profile: dict, signup_lookup: dict[str, str]) -> str:
+    """Best-effort sign-up date from Azure profile, in-memory users, or CSV."""
+    created_at = _coerce_datetime_iso(profile.get('created_at'))
+    if created_at:
+        return created_at
+    try:
+        mem_user = users.get(uid)
+        if mem_user and getattr(mem_user, 'created_at', None):
+            return _coerce_datetime_iso(mem_user.created_at)
+    except Exception:
+        pass
+    return signup_lookup.get(uid, '')
+
+
+def _resolve_user_last_login(uid: str, profile: dict, login_lookup: dict[str, dict]) -> tuple[str, str]:
+    """Best-effort last login from Azure profile or login audit/session stores."""
+    profile_login = _coerce_datetime_iso(profile.get('last_login_at'))
+    profile_method = str(profile.get('last_login_method') or '').strip()
+    audit = login_lookup.get(uid) or {}
+    audit_login = audit.get('login_at', '')
+    audit_method = audit.get('login_method', '')
+
+    profile_dt = _parse_iso_dt(profile_login)
+    audit_dt = _parse_iso_dt(audit_login)
+    if audit_dt and (profile_dt is None or audit_dt > profile_dt):
+        return audit_login, audit_method or profile_method
+    if profile_login:
+        return profile_login, profile_method or audit_method
+    return audit_login, audit_method
+
+
+def _collect_registered_users_activity_rows(table_override: str = None) -> list[dict]:
+    """Build export rows with sign-up and last-login for all registered users."""
+    users_rows, _, _ = _collect_registered_users_from_azure_users_table(table_override)
+    revision_counts = _collect_revision_counts_by_user()
+    signup_lookup = _build_signup_lookup_from_csv()
+    login_lookup = _build_last_login_lookup()
+
+    rows: list[dict] = []
+    for profile in users_rows:
+        uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+        email = str(profile.get('email') or '').strip()
+        name = str(profile.get('name') or '').strip()
+        provider = str(profile.get('provider') or '').strip()
+        plan_status = str(profile.get('plan_status') or '').strip().lower()
+        is_paid = _profile_indicates_paid(profile)
+
+        created_at = _resolve_user_signup_date(uid, profile, signup_lookup)
+        last_login_at, last_login_method = _resolve_user_last_login(uid, profile, login_lookup)
+
+        rows.append({
+            'user_id': uid,
+            'email': email,
+            'name': name,
+            'provider': provider,
+            'plan_status': plan_status or ('paid' if is_paid else 'free'),
+            'is_subscriber': 'yes' if is_paid else 'no',
+            'sign_up_date': _format_any_datetime_pacific(created_at) or created_at or '',
+            'sign_up_date_iso': created_at,
+            'last_login_date': _format_any_datetime_pacific(last_login_at) or last_login_at or '',
+            'last_login_date_iso': last_login_at,
+            'last_login_method': last_login_method,
+            'revision_count': revision_counts.get(uid, 0),
+        })
+
+    rows.sort(key=lambda r: r.get('sign_up_date_iso') or '', reverse=True)
+    return rows
+
+
+def _collect_admin_dashboard_data(table_override: str = None) -> dict:
+    """Build KPI summary and subscriber activity for admin dashboard (no full user list)."""
+    users_rows, resolved_table, _ = _collect_registered_users_from_azure_users_table(table_override)
+    revision_counts = _collect_revision_counts_by_user()
+    signup_lookup = _build_signup_lookup_from_csv()
+    login_lookup = _build_last_login_lookup()
+    stripe_index = _fetch_stripe_subscriptions_index()
+
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+
+    kpis = {
+        'total_users': 0,
+        'active_subscribers': 0,
+        'total_subscriptions_ever': 0,
+        'stripe_subscriptions': stripe_index.get('total', 0),
+        'matched_subscription_users': 0,
+        'trial_users': 0,
+        'free_users': 0,
+        'canceled_subscribers': 0,
+        'signups_7d': 0,
+        'signups_30d': 0,
+        'active_7d': 0,
+        'active_30d': 0,
+        'total_revisions': 0,
+    }
+
+    subscribers: list[dict] = []
+    azure_only_profiles: list[dict] = []
+
+    for row in users_rows:
+        uid = str(row.get('id') or row.get('PartitionKey') or '').strip()
+        email = str(row.get('email') or '').strip()
+        plan_status = str(row.get('plan_status') or '').strip().lower()
+        is_paid = _profile_indicates_paid(row)
+        ever_subscribed = _profile_ever_had_subscription(row, stripe_index)
+        loose_match = _profile_ever_had_subscription_loose(row)
+        stored_sub_id = str(row.get('stripe_subscription_id') or '').strip()
+        stored_cid = str(row.get('stripe_customer_id') or '').strip()
+
+        created_at = _resolve_user_signup_date(uid, row, signup_lookup)
+        last_login_at, _ = _resolve_user_last_login(uid, row, login_lookup)
+
+        created_dt = _parse_iso_dt(created_at)
+        last_login_dt = _parse_iso_dt(last_login_at)
+
+        kpis['total_users'] += 1
+        kpis['total_revisions'] += revision_counts.get(uid, 0)
+
+        if created_dt and created_dt >= seven_days_ago:
+            kpis['signups_7d'] += 1
+        if created_dt and created_dt >= thirty_days_ago:
+            kpis['signups_30d'] += 1
+        if last_login_dt and last_login_dt >= seven_days_ago:
+            kpis['active_7d'] += 1
+        if last_login_dt and last_login_dt >= thirty_days_ago:
+            kpis['active_30d'] += 1
+
+        if is_paid:
+            kpis['active_subscribers'] += 1
+        elif plan_status in ('trial', 'trialing'):
+            kpis['trial_users'] += 1
+        elif plan_status in ('canceled', 'cancelled', 'past_due', 'unpaid'):
+            kpis['canceled_subscribers'] += 1
+        else:
+            kpis['free_users'] += 1
+
+        if loose_match and not ever_subscribed:
+            azure_only_profiles.append({
+                'email': email,
+                'plan_status': plan_status or '—',
+                'stripe_subscription_id': stored_sub_id or '—',
+                'stripe_customer_id': stored_cid or '—',
+                'reason': 'Azure profile marked as subscribed but no matching Stripe subscription',
+            })
+
+    subscribers = _build_stripe_subscription_dashboard_rows(
+        stripe_index,
+        users_rows,
+        signup_lookup,
+        login_lookup,
+        revision_counts,
+    )
+
+    if not subscribers and not stripe_index.get('error'):
+        # Stripe unavailable: fall back to Azure profiles with a stored subscription id.
+        for row in users_rows:
+            if not str(row.get('stripe_subscription_id') or '').strip():
+                continue
+            uid = str(row.get('id') or row.get('PartitionKey') or '').strip()
+            email = str(row.get('email') or '').strip()
+            name = str(row.get('name') or '').strip()
+            plan_status = str(row.get('plan_status') or '').strip().lower()
+            is_paid = _profile_indicates_paid(row)
+            paid_until = str(row.get('paid_until') or '').strip()
+            created_at = _resolve_user_signup_date(uid, row, signup_lookup)
+            last_login_at, last_login_method = _resolve_user_last_login(uid, row, login_lookup)
+            revision_ts = row.get('revision_Timestamp') or row.get('revision_timestamp') or ''
+            revision_ts_str = _coerce_datetime_iso(revision_ts)
+            status_label, status_badge = _subscription_status_for_dashboard(row, is_paid)
+            azure_plan = _normalize_plan_id(plan_status)
+            product_purchased = _plan_id_to_product_label(azure_plan) if azure_plan else (plan_status or '—')
+            subscribers.append({
+                'id': uid or '—',
+                'email': email or '—',
+                'name': name or '—',
+                'product_purchased': product_purchased,
+                'plan_status': plan_status or '—',
+                'subscription_status': status_label,
+                'status_badge': status_badge,
+                'is_active': is_paid,
+                'stripe_subscription_id': str(row.get('stripe_subscription_id') or '').strip() or '—',
+                'stripe_customer_id': str(row.get('stripe_customer_id') or '').strip() or '—',
+                'azure_linked': True,
+                'match_source': 'azure_fallback',
+                'subscription_created_display': '—',
+                'paid_until_display': _format_paid_until(paid_until) if paid_until else '—',
+                'created_at_display': _format_any_datetime_pacific(created_at) or '—',
+                'last_login_display': _format_any_datetime_pacific(last_login_at) or '—',
+                'last_login_method': last_login_method or '—',
+                'revision_count': revision_counts.get(uid, 0),
+                'last_revision_display': _format_any_datetime_pacific(revision_ts_str) if revision_ts_str else '—',
+            })
+
+    stripe_active_count = sum(1 for s in subscribers if s.get('is_active'))
+    azure_linked_count = sum(1 for s in subscribers if s.get('azure_linked'))
+    stripe_only_count = len(subscribers) - azure_linked_count
+
+    kpis['stripe_subscriptions'] = len(subscribers)
+    kpis['matched_subscription_users'] = azure_linked_count
+    kpis['stripe_active_subscriptions'] = stripe_active_count
+
+    reconciliation = {
+        'stripe_total': stripe_index.get('total', len(subscribers)),
+        'listed_subscriptions': len(subscribers),
+        'azure_linked': azure_linked_count,
+        'stripe_only': stripe_only_count,
+        'azure_only_removed': len(azure_only_profiles),
+        'stripe_active': stripe_active_count,
+        'azure_only_profiles': azure_only_profiles[:20],
+        'stripe_error': stripe_index.get('error'),
+    }
+
+    return {
+        'kpis': kpis,
+        'subscribers': subscribers,
+        'reconciliation': reconciliation,
+        'azure_table': resolved_table,
+        'generated_at': _format_datetime_pacific(now.isoformat()),
+    }
+
+
+def _empty_admin_dashboard_data(error_message: str = '', table_name: str = 'Users') -> dict:
+    """Fallback dashboard payload so the KPI page still renders on partial failures."""
+    return {
+        'kpis': {
+            'total_users': 0,
+            'active_subscribers': 0,
+            'total_subscriptions_ever': 0,
+            'stripe_subscriptions': 0,
+            'matched_subscription_users': 0,
+            'trial_users': 0,
+            'free_users': 0,
+            'canceled_subscribers': 0,
+            'signups_7d': 0,
+            'signups_30d': 0,
+            'active_7d': 0,
+            'active_30d': 0,
+            'total_revisions': 0,
+            'stripe_active_subscriptions': 0,
+        },
+        'subscribers': [],
+        'reconciliation': {
+            'stripe_total': 0,
+            'listed_subscriptions': 0,
+            'azure_linked': 0,
+            'stripe_only': 0,
+            'azure_only_removed': 0,
+            'stripe_active': 0,
+            'azure_only_profiles': [],
+            'stripe_error': str(error_message or '').strip() or None,
+        },
+        'azure_table': str(table_name or 'Users'),
+        'generated_at': _format_datetime_pacific(datetime.now(timezone.utc).isoformat()),
+    }
+
+
+def _admin_users_activity_csv_response(table_override: str = None):
+    """Build CSV response for registered-user sign-up and login activity."""
+    import csv
+    from io import StringIO
+
+    rows = _collect_registered_users_activity_rows(table_override)
+    columns = [
+        'user_id', 'email', 'name', 'provider', 'plan_status', 'is_subscriber',
+        'sign_up_date', 'last_login_date', 'last_login_method', 'revision_count',
+    ]
+
+    buf = StringIO()
+    writer = csv.DictWriter(buf, fieldnames=columns, extrasaction='ignore')
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({col: row.get(col, '') for col in columns})
+
+    csv_data = buf.getvalue()
+    filename = f"registered_users_activity_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+def _admin_login_breakdown_csv_response(days: int = 7):
+    """Build CSV response for classified login events over the last N Pacific days."""
+    import csv
+    from io import StringIO
+
+    safe_days = max(1, int(days or 7))
+    sessions_list, _, _, _ = _load_login_audit_sessions_for_admin()
+    rows = sorted(
+        _build_classified_login_events(sessions_list, days=safe_days),
+        key=lambda r: str(r.get('login_at') or ''),
+        reverse=True,
+    )
+
+    columns = [
+        'login_date_pacific',
+        'login_time_pdt',
+        'login_time_pdt_precise',
+        'login_time_pacific',
+        'email',
+        'user_id',
+        'login_type',
+        'login_method',
+        'audit_id',
+    ]
+
+    buf = StringIO()
+    writer = csv.DictWriter(buf, fieldnames=columns, extrasaction='ignore')
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({col: row.get(col, '') for col in columns})
+
+    csv_data = buf.getvalue()
+    filename = f"login_breakdown_last_{safe_days}_days_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+@app.route("/admin/users_activity.csv")
+@app.route("/admin/dashboard/users.csv")
+@login_required
+def admin_users_activity_csv():
+    """Download all registered users with sign-up and last-login dates (admin only)."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        table_name = (request.args.get('table') or '').strip() or None
+        return _admin_users_activity_csv_response(table_name)
+    except Exception as e:
+        app.logger.error("admin_users_activity_csv error: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route("/admin/login_breakdown.csv")
+@login_required
+def admin_login_breakdown_csv():
+    """Download classified new/returning login events for the last N days (admin only)."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        days = int((request.args.get('days') or '7').strip() or '7')
+    except Exception:
+        days = 7
+    try:
+        return _admin_login_breakdown_csv_response(days=days)
+    except Exception as e:
+        app.logger.error("admin_login_breakdown_csv error: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route("/admin")
+@app.route("/admin/")
+@login_required
+def admin_index():
+    """Redirect /admin to the KPI dashboard."""
+    if not getattr(current_user, "is_admin", False):
+        flash("You do not have permission to view this page.", "danger")
+        return redirect(url_for("index"))
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/dashboard")
+@app.route("/admin/dashboard/")
+@login_required
+def admin_dashboard():
+    """Admin KPI dashboard: subscribers, signups, and login activity."""
+    if not current_user.is_authenticated:
+        flash("You need to log in to view this page.", "danger")
+        return redirect(url_for("login"))
+
+    if not getattr(current_user, "is_admin", False):
+        flash("You do not have permission to view this page.", "danger")
+        return redirect(url_for("index"))
+
+    try:
+        table_name = (request.args.get('table') or '').strip() or None
+        export = (request.args.get('export') or '').strip().lower()
+        if export in ('users_activity', 'users', 'csv'):
+            return _admin_users_activity_csv_response(table_name)
+        dashboard = _collect_admin_dashboard_data(table_name)
+        login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
+        login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
+        return render_template(
+            "admin_dashboard.html",
+            dashboard=dashboard,
+            login_summary=login_summary,
+            user=current_user,
+        )
+    except Exception as e:
+        app.logger.error("Error loading admin dashboard: %s", str(e))
+        err_text = str(e)
+        if 'admin_login_breakdown_csv' not in err_text:
+            flash(f"Error loading dashboard: {err_text}", "danger")
+        table_name = (request.args.get('table') or '').strip() or 'Users'
+        return render_template(
+            "admin_dashboard.html",
+            dashboard=_empty_admin_dashboard_data(err_text, table_name),
+            login_summary=_build_login_new_vs_returning_summary([]),
+            user=current_user,
+        )
+
+
 @app.route("/admin/stats")
 @login_required
 def admin_stats():
@@ -8842,6 +16199,8 @@ def admin_stats():
         _get_admin_csrf_token()
         # Get comprehensive analytics data
         analytics_data = analytics.get_full_analytics()
+        login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
+        login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
 
         # Registered Users are available on /admin/registered_users (Azure table: Users)
         # Load recent feedback submissions from CSV (if present)
@@ -8876,7 +16235,8 @@ def admin_stats():
         return render_template("admin_stats.html", 
                              analytics=analytics_data, 
                              user=current_user,
-                             feedback_rows=feedback_rows)
+                             feedback_rows=feedback_rows,
+                             login_summary=login_summary)
     except Exception as e:
         app.logger.error(f"Error loading statistics: {str(e)}")
         flash(f"Error loading statistics: {str(e)}", "danger")
@@ -8917,52 +16277,8 @@ def admin_login_audit():
         flash("You do not have permission to view this page.", "danger")
         return redirect(url_for("index"))
 
-    file_present = False
-    try:
-        file_present = os.path.exists(LOGIN_AUDIT_FILE)
-    except Exception:
-        file_present = False
-
-    source_label = None
-    store = None
-    sessions_list: list[dict] = []
-
-    # Prefer Azure Table Storage when available.
-    if _azure_login_audit_enabled():
-        try:
-            rows = _azure_login_audit_list(limit=0)
-            # Normalize Azure entities into the same shape used by templates.
-            for e in rows:
-                if not isinstance(e, dict):
-                    continue
-                sessions_list.append({
-                    'audit_id': str(e.get('audit_id') or ''),
-                    'user_id': str(e.get('user_id') or ''),
-                    'email': str(e.get('email') or ''),
-                    'login_at': str(e.get('login_at') or ''),
-                    'last_activity_at': str(e.get('last_activity_at') or ''),
-                    'logout_at': (str(e.get('logout_at') or '') or None),
-                    'duration_seconds': e.get('duration_seconds', None),
-                    'login_method': str(e.get('login_method') or '') or None,
-                })
-            source_label = f"Azure Table: {AZURE_LOGIN_AUDIT_TABLE}"
-            store = {'version': _LOGIN_AUDIT_VERSION}
-        except Exception:
-            sessions_list = []
-            source_label = None
-            store = None
-
-    # Fallback: JSON file store.
-    if not sessions_list:
-        store = _load_login_audit_store()
-        raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
-        if not isinstance(raw_sessions, dict):
-            raw_sessions = {}
-        sessions_list = [v for v in raw_sessions.values() if isinstance(v, dict)]
-        if file_present:
-            source_label = f"login_audit.json" + (f" (v{store.get('version')})" if isinstance(store, dict) and store.get('version') else "")
-        else:
-            source_label = "login_audit.json (not created yet)"
+    sessions_list, file_present, source_label, store = _load_login_audit_sessions_for_admin()
+    login_summary = _build_login_new_vs_returning_summary(sessions_list)
 
     sessions_list.sort(
         key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
@@ -9006,6 +16322,7 @@ def admin_login_audit():
     return render_template(
         'admin_login_audit.html',
         sessions=formatted_sessions,
+        login_summary=login_summary,
         store_version=(store.get('version') if isinstance(store, dict) else None),
         file_present=file_present,
         source_label=source_label,
@@ -9339,6 +16656,8 @@ def get_table_client(table_name: str = None, create_if_missing: bool = True):
     if connection_string:
         service = TableServiceClient.from_connection_string(conn_str=connection_string)
     else:
+        # Import lazily: azure.identity import can be slow on some Windows hosts.
+        from azure.identity import DefaultAzureCredential
         credential = DefaultAzureCredential()
         service = TableServiceClient(endpoint=f"https://{AZURE_STORAGE_ACCOUNT}.table.core.windows.net", credential=credential)
     table_client = service.get_table_client(table_name or AZURE_TABLE_NAME)
@@ -9496,6 +16815,8 @@ def _profile_indicates_paid(prof: Optional[dict]) -> bool:
     try:
         if not prof:
             return False
+        if _profile_has_active_trial_hold(prof):
+            return True
         if bool(prof.get('is_paid', False)):
             paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
             if paid_until is None:
@@ -9510,6 +16831,84 @@ def _profile_indicates_paid(prof: Optional[dict]) -> bool:
         return False
     except Exception:
         return False
+
+
+_SUBSCRIPTION_PLAN_STATUSES = frozenset({
+    'paid', 'active', 'trialing', 'trial', 'trial_7d',
+    'monthly', 'monthly_10_95', 'annual', 'annual_6_95',
+    'canceled', 'cancelled', 'past_due', 'unpaid',
+    'incomplete', 'incomplete_expired', 'paused',
+})
+
+
+def _profile_ever_had_subscription_loose(prof: Optional[dict]) -> bool:
+    """Legacy Azure-only heuristic (can over-count vs Stripe). Used for reconciliation."""
+    try:
+        if not prof:
+            return False
+        if str(prof.get('stripe_subscription_id') or '').strip():
+            return True
+        if str(prof.get('paid_until') or '').strip():
+            return True
+        plan_status = str(prof.get('plan_status') or '').strip().lower()
+        if plan_status in _SUBSCRIPTION_PLAN_STATUSES:
+            return True
+        if str(prof.get('stripe_customer_id') or '').strip() and plan_status and plan_status != 'free':
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _profile_ever_had_subscription(prof: Optional[dict], stripe_index: Optional[dict] = None) -> bool:
+    """True when profile is linked to a real Stripe subscription."""
+    try:
+        if not prof:
+            return False
+        if stripe_index is not None and _stripe_enabled() and not stripe_index.get('error'):
+            matched, _ = _match_user_to_stripe_subscriptions(prof, stripe_index)
+            return bool(matched)
+        # Fallback when Stripe API unavailable: require stored subscription id.
+        return bool(str(prof.get('stripe_subscription_id') or '').strip())
+    except Exception:
+        return False
+
+
+def _subscription_status_for_dashboard(
+    prof: Optional[dict],
+    is_paid_active: bool,
+    stripe_subs: Optional[list] = None,
+) -> tuple[str, str]:
+    """Return (display label, badge css class) for subscription table."""
+    if stripe_subs:
+        primary = stripe_subs[0]
+        label = _stripe_sub_status_label(primary)
+        status = str(getattr(primary, 'status', '') or '').strip().lower()
+        if status in ('active', 'trialing'):
+            return label, 'badge-trial' if status == 'trialing' else 'badge-subscriber'
+        if status in ('canceled', 'cancelled'):
+            return 'Canceled', 'badge-canceled'
+        if status in ('past_due', 'unpaid'):
+            return label, 'badge-canceled'
+        return label, 'badge-free'
+
+    plan_status = str((prof or {}).get('plan_status') or '').strip().lower()
+    if is_paid_active:
+        if plan_status in ('trial', 'trialing', 'trial_7d'):
+            return 'Active (Trial)', 'badge-trial'
+        return 'Active', 'badge-subscriber'
+    if plan_status in ('canceled', 'cancelled'):
+        return 'Canceled', 'badge-canceled'
+    if plan_status in ('past_due', 'unpaid'):
+        return plan_status.replace('_', ' ').title(), 'badge-canceled'
+    if plan_status in ('trial', 'trialing', 'trial_7d'):
+        return 'Trial Ended', 'badge-trial'
+    if plan_status in ('incomplete', 'incomplete_expired'):
+        return plan_status.replace('_', ' ').title(), 'badge-free'
+    if plan_status:
+        return plan_status.replace('_', ' ').title(), 'badge-free'
+    return 'Inactive', 'badge-free'
+
 
 def is_paid_user(user_obj: Optional['User']) -> bool:
     try:
@@ -9547,7 +16946,16 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
 
         prof = get_user_profile_azure(user_id) or {}
         local_paid_fallback = _profile_indicates_paid(prof)
-        customer_id = str(prof.get('stripe_customer_id') or '').strip()
+
+        try:
+            _process_trial_hold_lifecycle_for_user(user_id)
+            prof = get_user_profile_azure(user_id) or {}
+            local_paid_fallback = _profile_indicates_paid(prof)
+        except Exception:
+            pass
+
+        stored_customer_id = str(prof.get('stripe_customer_id') or '').strip()
+        customer_id = stored_customer_id
         subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
 
         try:
@@ -9571,10 +16979,11 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
         plan_status_guess = ''
         try:
             stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            best_sub_obj = None
             if best_sub_id:
-                sub = stripe.Subscription.retrieve(best_sub_id)
-                best_status = str(getattr(sub, 'status', '') or '').strip().lower()
-                cpe = getattr(sub, 'current_period_end', None)
+                best_sub_obj = stripe.Subscription.retrieve(best_sub_id, expand=['pending_setup_intent'])
+                best_status = str(getattr(best_sub_obj, 'status', '') or '').strip().lower()
+                cpe = getattr(best_sub_obj, 'current_period_end', None)
                 if cpe:
                     paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
             elif customer_id:
@@ -9593,18 +17002,19 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
                         sr = 1
                     return (sr, cpe)
 
-                if sdata:
-                    best = sorted(sdata, key=_rank, reverse=True)[0]
-                    best_sub_id = str(getattr(best, 'id', '') or '').strip()
-                    best_status = str(getattr(best, 'status', '') or '').strip().lower()
-                    cpe = getattr(best, 'current_period_end', None)
+                eligible = [s for s in sdata if _stripe_subscription_grants_access(s)]
+                if eligible:
+                    best_sub_obj = sorted(eligible, key=_rank, reverse=True)[0]
+                    best_sub_id = str(getattr(best_sub_obj, 'id', '') or '').strip()
+                    best_status = str(getattr(best_sub_obj, 'status', '') or '').strip().lower()
+                    cpe = getattr(best_sub_obj, 'current_period_end', None)
                     if cpe:
                         paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
         except Exception:
             # If Stripe is unreachable/misconfigured, don't crash gating.
             return bool(local_paid_fallback)
 
-        paid_flag = best_status in ('active', 'trialing')
+        paid_flag = bool(best_sub_obj and _stripe_subscription_grants_access(best_sub_obj))
 
         # Fallback for Payment Links / one-time checkout sessions:
         # If there is no subscription at all, we can grant temporary access based on a recent paid
@@ -9654,7 +17064,15 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
             table_client = get_users_table_client()
             entity = {"PartitionKey": user_id, "RowKey": "profile"}
             entity["email"] = email
-            if customer_id:
+            should_persist_customer_id = bool(stored_customer_id)
+            if not should_persist_customer_id and customer_id and (
+                paid_flag
+                or bool(best_sub_id)
+                or bool(plan_status_guess)
+                or bool(best_status)
+            ):
+                should_persist_customer_id = True
+            if should_persist_customer_id and customer_id:
                 entity["stripe_customer_id"] = str(customer_id)
             if best_sub_id:
                 entity["stripe_subscription_id"] = str(best_sub_id)
@@ -9704,6 +17122,15 @@ def upsert_user_profile_azure(user_obj: 'User') -> None:
             'is_admin': bool(getattr(user_obj, 'is_admin', False)),
             'provider': provider,
         }
+        if getattr(user_obj, 'password_hash', None):
+            entity['password_hash'] = user_obj.password_hash
+        entity['email_verified'] = bool(getattr(user_obj, 'email_verified', True))
+        if getattr(user_obj, 'email_verified_at', None):
+            entity['email_verified_at'] = user_obj.email_verified_at
+        if getattr(user_obj, 'email_verification_sent_at', None):
+            entity['email_verification_sent_at'] = user_obj.email_verification_sent_at
+        if getattr(user_obj, 'welcome_email_sent_at', None):
+            entity['welcome_email_sent_at'] = user_obj.welcome_email_sent_at
         table_client.upsert_entity(entity)
     except Exception as e:
         logger.error(f"Failed to upsert user profile to Azure: {str(e)}")
@@ -9756,14 +17183,183 @@ def _parse_applications(raw):
     for item in apps:
         if not isinstance(item, dict):
             continue
-        cleaned.append({
+        entry = {
             'company': str(item.get('company', '') or '')[:120],
             'role': str(item.get('role', '') or '')[:120],
             'date_applied': str(item.get('date_applied', '') or '')[:32],
             'status': str(item.get('status', '') or '')[:40],
             'link': str(item.get('link', '') or '')[:500],
-        })
+            'notes': str(item.get('notes', '') or '')[:4000],
+            'next_action': str(item.get('next_action', '') or '')[:500],
+            'follow_up_date': str(item.get('follow_up_date', '') or '')[:32],
+            'updated_at': str(item.get('updated_at', '') or '')[:32],
+        }
+        msgs = item.get('messages')
+        if isinstance(msgs, list):
+            cleaned_msgs = []
+            for m in msgs:
+                if not isinstance(m, dict):
+                    continue
+                body = str(m.get('body') or m.get('rewritten_text') or m.get('original_text') or '').strip()
+                if not body:
+                    continue
+                cleaned_msgs.append({
+                    'type': str(m.get('type') or m.get('message_type') or '')[:40],
+                    'subject': str(m.get('subject', '') or '')[:200],
+                    'body': body[:4000],
+                    'created_at': str(m.get('created_at', '') or '')[:32],
+                })
+            if cleaned_msgs:
+                entry['messages'] = cleaned_msgs[-20:]
+        cleaned.append(entry)
     return cleaned
+
+
+def _truncate_coach_text(text, max_len=12000):
+    s = str(text or '').strip()
+    if len(s) <= max_len:
+        return s
+    return s[:max_len] + "\n...[truncated]"
+
+
+def _format_revision_timestamp_for_coach(ts):
+    if not ts:
+        return ''
+    try:
+        if hasattr(ts, 'isoformat'):
+            return ts.isoformat()
+        return str(ts)
+    except Exception:
+        return str(ts or '')
+
+
+def _build_job_search_coach_context(user_id):
+    """Assemble dashboard context: latest resume revision + all tracked applications."""
+    revisions = get_user_revisions(user_id) or []
+    latest = revisions[0] if revisions else None
+
+    latest_resume = None
+    if latest:
+        feedback = latest.get('feedback') if isinstance(latest.get('feedback'), dict) else {}
+        latest_resume = {
+            'revision_id': str(latest.get('revision_id') or ''),
+            'revision_name': str(latest.get('revision_name') or '').strip() or 'Latest resume',
+            'created_at': _format_revision_timestamp_for_coach(latest.get('timestamp')),
+            'job_description': _truncate_coach_text(latest.get('job_description') or '', 6000),
+            'resume_content': _truncate_coach_text(latest.get('resume_content') or '', 12000),
+            'revision_notes': _truncate_coach_text(latest.get('notes') or '', 2000),
+            'feedback_overall_score': feedback.get('overall_score'),
+            'template_versions': [
+                str(tv.get('template_display_name') or tv.get('template_id') or '').strip()
+                for tv in (latest.get('template_versions') or [])
+                if isinstance(tv, dict) and (tv.get('template_display_name') or tv.get('template_id'))
+            ],
+        }
+
+    applications = []
+    for rev in revisions:
+        rev_name = str(rev.get('revision_name') or '').strip() or 'Untitled resume'
+        rev_id = str(rev.get('revision_id') or '')
+        for idx, app in enumerate(rev.get('applications') or []):
+            if not isinstance(app, dict):
+                continue
+            app_entry = {
+                'revision_name': rev_name,
+                'revision_id': rev_id,
+                'application_index': idx,
+                'company': str(app.get('company') or '').strip(),
+                'role': str(app.get('role') or '').strip(),
+                'date_applied': str(app.get('date_applied') or '').strip(),
+                'status': str(app.get('status') or '').strip(),
+                'follow_up_date': str(app.get('follow_up_date') or '').strip(),
+                'next_action': str(app.get('next_action') or '').strip(),
+                'link': str(app.get('link') or '').strip(),
+                'notes': _truncate_coach_text(app.get('notes') or '', 1500),
+            }
+            msgs = app.get('messages') or []
+            if isinstance(msgs, list) and msgs:
+                app_entry['saved_messages'] = [
+                    {
+                        'type': str(m.get('type') or '').strip(),
+                        'subject': str(m.get('subject') or '').strip(),
+                        'body_preview': _truncate_coach_text(m.get('body') or '', 400),
+                    }
+                    for m in msgs[-5:]
+                    if isinstance(m, dict) and (m.get('body') or '').strip()
+                ]
+            applications.append(app_entry)
+
+    return {
+        'latest_resume': latest_resume,
+        'applications': applications,
+        'application_count': len(applications),
+        'revision_count': len(revisions),
+    }
+
+
+def _format_job_search_coach_context(ctx):
+    lines = [
+        "JOB SEARCH DASHBOARD CONTEXT",
+        f"Total resume revisions: {ctx.get('revision_count', 0)}",
+        f"Total tracked applications: {ctx.get('application_count', 0)}",
+        "",
+    ]
+
+    latest = ctx.get('latest_resume')
+    if latest:
+        lines.extend([
+            "LATEST RESUME REVISION (most recent):",
+            f"- Name: {latest.get('revision_name')}",
+            f"- Revision ID: {latest.get('revision_id')}",
+            f"- Created: {latest.get('created_at') or 'unknown'}",
+        ])
+        score = latest.get('feedback_overall_score')
+        if score is not None:
+            lines.append(f"- Resume feedback score: {score}")
+        templates = latest.get('template_versions') or []
+        if templates:
+            lines.append(f"- Saved template versions: {', '.join(templates)}")
+        if latest.get('revision_notes'):
+            lines.append(f"- Revision notes: {latest.get('revision_notes')}")
+        if latest.get('job_description'):
+            lines.extend(["- Target job description:", latest.get('job_description')])
+        if latest.get('resume_content'):
+            lines.extend(["- Resume content:", latest.get('resume_content')])
+    else:
+        lines.append("LATEST RESUME REVISION: none saved yet.")
+
+    lines.append("")
+    apps = ctx.get('applications') or []
+    if apps:
+        lines.append("TRACKED JOB APPLICATIONS:")
+        for i, app in enumerate(apps, start=1):
+            lines.append(f"{i}. {app.get('company') or 'Unknown company'} — {app.get('role') or 'Unknown role'}")
+            lines.append(f"   Resume version: {app.get('revision_name')} (revision {app.get('revision_id')})")
+            if app.get('status'):
+                lines.append(f"   Status: {app.get('status')}")
+            if app.get('date_applied'):
+                lines.append(f"   Date applied: {app.get('date_applied')}")
+            if app.get('follow_up_date'):
+                lines.append(f"   Follow-up date: {app.get('follow_up_date')}")
+            if app.get('next_action'):
+                lines.append(f"   Next action: {app.get('next_action')}")
+            if app.get('link'):
+                lines.append(f"   Link: {app.get('link')}")
+            if app.get('notes'):
+                lines.append(f"   Notes: {app.get('notes')}")
+            saved = app.get('saved_messages') or []
+            for msg in saved:
+                label = msg.get('type') or 'message'
+                subject = msg.get('subject') or ''
+                preview = msg.get('body_preview') or ''
+                if subject:
+                    lines.append(f"   Saved {label} ({subject}): {preview}")
+                else:
+                    lines.append(f"   Saved {label}: {preview}")
+    else:
+        lines.append("TRACKED JOB APPLICATIONS: none yet.")
+
+    return "\n".join(lines)
 
 # Get all revisions for a user
 def get_user_revisions(user_id):
@@ -9920,7 +17516,14 @@ def my_revisions():
                 flash('Resume history is temporarily unavailable (storage not configured).', 'warning')
         except Exception:
             pass
-    return render_template('my_revisions.html', revisions=revisions, user=current_user, is_paid=is_paid_user(current_user))
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    return render_template(
+        'my_revisions.html',
+        revisions=revisions,
+        user=current_user,
+        is_paid=is_paid_user(current_user),
+        today_iso=today_iso,
+    )
 
 
 @app.route('/path/my_revisions')
@@ -9941,7 +17544,8 @@ def settings_page():
         flash('Your subscription has been canceled. You\'ll keep access until the end of your billing period.', 'success')
     prof = get_user_profile_azure(getattr(current_user, 'id', '')) or {}
     paid_until_raw = str(prof.get('paid_until') or '').strip()
-    customer_id = str(prof.get('stripe_customer_id') or '').strip()
+    stored_customer_id = str(prof.get('stripe_customer_id') or '').strip()
+    customer_id = stored_customer_id
     subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
     plan_status_raw = str(prof.get('plan_status') or '').strip()
     debug = str(request.args.get('debug') or '').strip() == '1'
@@ -9998,10 +17602,10 @@ def settings_page():
                         sr = 1
                     return (sr, cpe)
                 if sdata:
-                    best = sorted(sdata, key=_rank, reverse=True)[0]
-                    subscription_id = str(getattr(best, 'id', '') or '').strip() or subscription_id
-                    best_status = str(getattr(best, 'status', '') or '').strip().lower()
-                    if best_status in ('active', 'trialing'):
+                    eligible = [s for s in sdata if _stripe_subscription_grants_access(s)]
+                    if eligible:
+                        best = sorted(eligible, key=_rank, reverse=True)[0]
+                        subscription_id = str(getattr(best, 'id', '') or '').strip() or subscription_id
                         paid_flag = True
 
             # Backfill ids to Azure so future loads are fast/stable.
@@ -10009,7 +17613,7 @@ def settings_page():
                 try:
                     table_client = get_users_table_client()
                     entity = {"PartitionKey": str(current_user.id), "RowKey": "profile"}
-                    if customer_id:
+                    if customer_id and (stored_customer_id or subscription_id or paid_flag):
                         entity["stripe_customer_id"] = str(customer_id)
                     if subscription_id:
                         entity["stripe_subscription_id"] = str(subscription_id)
@@ -10040,7 +17644,7 @@ def settings_page():
             # If a user has already scheduled cancellation (cancel_at_period_end), keep them paid
             # through the period end, but hide the cancel button in Settings.
             try:
-                cancel_scheduled = bool(_stripe_obj_get(sub_obj, "cancel_at_period_end", False)) or bool(_stripe_obj_get(sub_obj, "cancel_at", None))
+                cancel_scheduled = _stripe_subscription_cancel_scheduled(sub_obj)
             except Exception:
                 cancel_scheduled = False
             # Always try SubscriptionItem.list to reliably get price/recurring
@@ -10687,6 +18291,38 @@ def delete_application(revision_id, idx: int):
         flash('Error removing application. Please try again.', 'danger')
     return redirect(url_for('my_revisions'))
 
+
+@app.route('/application/update/<revision_id>/<int:idx>', methods=['POST'])
+@login_required
+def update_application_notes(revision_id, idx: int):
+    """Update tracked application status, follow-up fields, and notes."""
+    try:
+        table_client = get_table_client()
+        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        apps = _parse_applications(entity.get('applications', ''))
+        if idx < 0 or idx >= len(apps):
+            flash('Application not found.', 'danger')
+            return redirect(url_for('my_revisions'))
+
+        app_item = apps[idx] if isinstance(apps[idx], dict) else {}
+        if 'status' in request.form:
+            app_item['status'] = (request.form.get('status') or '').strip()[:40]
+        if 'follow_up_date' in request.form:
+            app_item['follow_up_date'] = (request.form.get('follow_up_date') or '').strip()[:32]
+        if 'next_action' in request.form:
+            app_item['next_action'] = (request.form.get('next_action') or '').strip()[:500]
+        if 'notes' in request.form:
+            app_item['notes'] = (request.form.get('notes') or '').strip()[:4000]
+
+        app_item['updated_at'] = datetime.now(timezone.utc).isoformat()
+        apps[idx] = app_item
+        entity['applications'] = json.dumps(apps)
+        table_client.update_entity(entity, mode=UpdateMode.MERGE)
+        flash('Application updated.', 'success')
+    except Exception:
+        flash('Error updating application. Please try again.', 'danger')
+    return redirect(url_for('my_revisions'))
+
 #############################################
 # Admin: Registered Users from Azure Revisions
 #############################################
@@ -10731,6 +18367,11 @@ def registered_users_json():
     cta_sent_users = 0
     cta_converted_users = 0
     cta_conversion_events = 0
+    paid_offer_sent_total = 0
+    paid_offer_sent_users = 0
+    paid_offer_click_total = 0
+    paid_offer_apply_total = 0
+    paid_offer_applied_users = 0
     for row in users_rows:
         try:
             sent_count = int(row.get("trial_reinstate_cta_sent_count", 0) or 0)
@@ -10741,14 +18382,35 @@ def registered_users_json():
         except Exception:
             conv_count = 0
         converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        try:
+            paid_sent_count = int(row.get("paid_reinstate_offer_email_sent_count", 0) or 0)
+        except Exception:
+            paid_sent_count = 0
+        try:
+            paid_click_count = int(row.get("paid_reinstate_offer_click_count", 0) or 0)
+        except Exception:
+            paid_click_count = 0
+        try:
+            paid_apply_count = int(row.get("paid_reinstate_offer_apply_count", 0) or 0)
+        except Exception:
+            paid_apply_count = 0
         cta_sent_total += max(sent_count, 0)
         cta_conversion_events += max(conv_count, 0)
+        paid_offer_sent_total += max(paid_sent_count, 0)
+        paid_offer_click_total += max(paid_click_count, 0)
+        paid_offer_apply_total += max(paid_apply_count, 0)
         if sent_count > 0:
             cta_sent_users += 1
+        if paid_sent_count > 0:
+            paid_offer_sent_users += 1
         if converted_flag or (sent_count > 0 and conv_count > 0):
             cta_converted_users += 1
+        if paid_apply_count > 0:
+            paid_offer_applied_users += 1
     cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
     cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
+    paid_offer_click_rate = (float(paid_offer_click_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
     return jsonify({
         "table": resolved_table,
         "columns": all_keys,
@@ -10760,6 +18422,13 @@ def registered_users_json():
             "cta_conversion_events": cta_conversion_events,
             "cta_user_conversion_rate": round(cta_user_conversion_rate, 1),
             "cta_event_conversion_rate": round(cta_event_conversion_rate, 1),
+            "paid_offer_sent_total": paid_offer_sent_total,
+            "paid_offer_sent_users": paid_offer_sent_users,
+            "paid_offer_click_total": paid_offer_click_total,
+            "paid_offer_apply_total": paid_offer_apply_total,
+            "paid_offer_applied_users": paid_offer_applied_users,
+            "paid_offer_click_rate": round(paid_offer_click_rate, 1),
+            "paid_offer_apply_rate": round(paid_offer_apply_rate, 1),
         },
     })
 
@@ -10792,10 +18461,18 @@ def registered_users_view():
     cta_sent_users = 0
     cta_converted_users = 0
     cta_conversion_events = 0
+    paid_offer_sent_total = 0
+    paid_offer_sent_users = 0
+    paid_offer_click_total = 0
+    paid_offer_apply_total = 0
+    paid_offer_applied_users = 0
     for row in data:
         sent_raw = row.get("trial_reinstate_cta_sent_count", 0)
         conv_raw = row.get("trial_reinstate_conversion_count", 0)
         converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        paid_sent_raw = row.get("paid_reinstate_offer_email_sent_count", 0)
+        paid_click_raw = row.get("paid_reinstate_offer_click_count", 0)
+        paid_apply_raw = row.get("paid_reinstate_offer_apply_count", 0)
         try:
             sent_count = int(sent_raw or 0)
         except Exception:
@@ -10804,17 +18481,38 @@ def registered_users_view():
             conv_count = int(conv_raw or 0)
         except Exception:
             conv_count = 0
+        try:
+            paid_sent_count = int(paid_sent_raw or 0)
+        except Exception:
+            paid_sent_count = 0
+        try:
+            paid_click_count = int(paid_click_raw or 0)
+        except Exception:
+            paid_click_count = 0
+        try:
+            paid_apply_count = int(paid_apply_raw or 0)
+        except Exception:
+            paid_apply_count = 0
 
         cta_sent_total += max(sent_count, 0)
         cta_conversion_events += max(conv_count, 0)
+        paid_offer_sent_total += max(paid_sent_count, 0)
+        paid_offer_click_total += max(paid_click_count, 0)
+        paid_offer_apply_total += max(paid_apply_count, 0)
         if sent_count > 0:
             cta_sent_users += 1
+        if paid_sent_count > 0:
+            paid_offer_sent_users += 1
         # Converted user if explicit flag is true or they reinstated after any CTA send.
         if converted_flag or (sent_count > 0 and conv_count > 0):
             cta_converted_users += 1
+        if paid_apply_count > 0:
+            paid_offer_applied_users += 1
 
     cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
     cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
+    paid_offer_click_rate = (float(paid_offer_click_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
 
     conversion_summary = {
         "cta_sent_total": cta_sent_total,
@@ -10823,6 +18521,13 @@ def registered_users_view():
         "cta_conversion_events": cta_conversion_events,
         "cta_user_conversion_rate": round(cta_user_conversion_rate, 1),
         "cta_event_conversion_rate": round(cta_event_conversion_rate, 1),
+        "paid_offer_sent_total": paid_offer_sent_total,
+        "paid_offer_sent_users": paid_offer_sent_users,
+        "paid_offer_click_total": paid_offer_click_total,
+        "paid_offer_apply_total": paid_offer_apply_total,
+        "paid_offer_applied_users": paid_offer_applied_users,
+        "paid_offer_click_rate": round(paid_offer_click_rate, 1),
+        "paid_offer_apply_rate": round(paid_offer_apply_rate, 1),
     }
 
     return render_template(
@@ -10853,6 +18558,21 @@ def registered_users_csv():
     return Response(csv_data, mimetype='text/csv', headers={
         'Content-Disposition': f'attachment; filename=registered_users_{resolved_table}.csv'
     })
+
+
+@app.route('/admin/registered_users_activity.csv')
+@login_required
+def registered_users_activity_csv():
+    """Download sign-up and last-login activity for all registered users (admin only)."""
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        table_name = (request.args.get('table') or '').strip() or None
+        return _admin_users_activity_csv_response(table_name)
+    except Exception as e:
+        app.logger.error("registered_users_activity_csv error: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route('/admin/google_emails.json')
 @login_required
@@ -11594,6 +19314,7 @@ def newsletter_admin():
     try:
         # Get newsletter archives
         newsletter_files = []
+        email_history = []
         if os.path.exists("newsletters"):
             for filename in os.listdir("newsletters"):
                 if filename.endswith(".json"):
@@ -11621,9 +19342,12 @@ def newsletter_admin():
                 lines = f.readlines()
                 subscriber_count = len([line for line in lines[1:] if line.strip()]) if lines else 0
 
+        email_history = read_email_events(limit=500)
+
         return render_template('newsletter_admin.html', 
                              newsletters=newsletter_files, 
                              subscriber_count=subscriber_count,
+                             email_history=email_history,
                              user=current_user)
     except Exception as e:
         flash(f"Error loading newsletter dashboard: {str(e)}", "danger")

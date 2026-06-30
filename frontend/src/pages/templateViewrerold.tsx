@@ -337,7 +337,7 @@ export default function TemplateViewer() {
         // Mirror server-side idle logout UX: if the user is inactive for the configured
         // idle timeout window, return them to the main page.
         // IMPORTANT: do not poll the server here (that would keep the session alive).
-        const fallbackIdleSeconds = 45 * 60;
+        const fallbackIdleSeconds = 90 * 60;
         const idleSeconds = Math.max(
             5,
             Number.isFinite(Number(me.auth_idle_timeout_seconds))
@@ -1644,7 +1644,7 @@ export default function TemplateViewer() {
                                 {me?.is_authenticated ? (
                                     <>
                                         <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
-                                            My Account
+                                            Career Dashboard
                                         </a>
                                         <a href="/logout" className="text-white bg-red-500 px-4 py-2 rounded-xl hover:bg-red-600">
                                             Sign Out
@@ -1702,7 +1702,7 @@ export default function TemplateViewer() {
                             <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
                             {me?.is_authenticated ? (
                                 <>
-                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
+                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>Career Dashboard</a>
                                     <a className="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center" href="/logout" onClick={() => setMobileNavOpen(false)}>Sign Out</a>
                                 </>
                             ) : (

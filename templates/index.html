@@ -6,9 +6,19 @@
     <!-- section for google tag from old index page -->
 
     {% include "_clarity.html" %}
-    {% include "_gtm.html" %}
 
-  
+    <!-- Google Tag Manager -->
+    <script type="text/javascript" async=""
+        src="https://www.googletagmanager.com/gtag/js?id=AW-17389903119&amp;cx=c&amp;gtm=4e5c31"></script>
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-PD4RW42P');</script>
+    <!-- End Google Tag Manager -->
 
 
     <script async="" custom-element="amp-auto-ads" src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js">
@@ -17,30 +27,15 @@
 
 
 
-
-
-
-    <!-- Google tag (gtag.js) 
-<script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
-<script defer="">
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'AW-18159645263');
-</script>
-
--->
-
     <!-- Google tag (gtag.js) -->
-    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
 
     <script defer="">
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
 
-        gtag('config', 'AW-18159645263');
+        gtag('config', 'G-KRPLMCR73G');
     </script>
     <script async="" src="https://fundingchoicesmessages.google.com/i/pub-2029754528274185?ers=1"></script>
     <script>
@@ -56,6 +51,21 @@
                 }
             } signalGooglefcPresent();
         })();
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    registrations.forEach(function (registration) {
+                        registration.unregister().catch(function (err) {
+                            console.log('ServiceWorker unregister failed:', err);
+                        });
+                    });
+                }).catch(function (err) {
+                    console.log('ServiceWorker cleanup failed:', err);
+                });
+            });
+        }
     </script>
 
     <!-- section for google tag from old index page -->
@@ -90,7 +100,8 @@
 
     <!-- Responsive CSS -->
     <link rel="stylesheet" href="static/css/responsive.css" />
-
+    <link rel="stylesheet" href="static/css/templates-showcase.css" />
+    <link rel="stylesheet" href="static/css/dashboard-layout.css" />
 
     <!-- begin code from old index page-->
 
@@ -255,7 +266,7 @@
                                 <a href="/blog">Blog</a>
                             </li>
                             <li>
-                                <a href="#faq">FAQ</a>
+                                <a href="#">FAQ</a>
                             </li>
                         </ul>
                     </div>
@@ -263,7 +274,7 @@
                         <ul>
                             {% if user and user.is_authenticated %}
                             <li>
-                                <a href="/my_revisions">My Account</a>
+                                <a href="/my_revisions">Career Dashboard</a>
                             </li>
                             <li>
                                 <a href="/logout" class="active">Logout</a>
@@ -293,13 +304,46 @@
         <!-- hero start -->
         <section class="hero">
             <div class="container">
-                <div class="hero__item">
-                    <h2>Elevate Your <span>Resume</span> <br>with AI</h2>
-                    <p>Try our easy to use AI resume builder for instant enhancements and ATS<br> optimization, and
-                        stand out in today's competitive job market.</p>
-                    <div class="faq__bottom p-0">
-                        <a href="/get-started">Get Started <img src="static/images/hero-03.png" alt=""></a>
+                <div class="hero__item hero__item--split">
+                    <div class="hero__top">
+                        <div class="hero__content">
+                            <h2>Elevate Your <span>Resume</span> <br>with AI</h2>
+                            <p>Try our easy to use AI resume builder for instant enhancements and ATS<br> optimization,
+                                and
+                                stand out in today's competitive job market.</p>
+                            <div class="faq__bottom p-0 d-none d-md-block">
+                                <a href="/get-started">Get Started <img src="static/images/hero-03.png" alt=""></a>
+                            </div>
+                        </div>
+
+                        <div class="hero-animation-container">
+                            <div class="animation-scene scene-delay-0">
+                                <img src="/static/images/animation/resume-preview1_back.png" alt="Resume Template"
+                                    class="layer-bg">
+                                <img src="/static/images/animation/resume-preview1.png" alt="Floating Element"
+                                    class="layer-fg">
+                            </div>
+
+                            <div class="animation-scene scene-delay-1">
+                                <img src="/static/images/animation/resume-preview2_back.png" alt="Resume Template"
+                                    class="layer-bg">
+                                <img src="/static/images/animation/resume-preview2.png" alt="Floating Element"
+                                    class="layer-fg">
+                            </div>
+
+                            <div class="animation-scene scene-delay-2">
+                                <img src="/static/images/animation/resume-preview3_back.png" alt="Resume Template"
+                                    class="layer-bg">
+                                <img src="/static/images/animation/resume-preview3.png" alt="Floating Element"
+                                    class="layer-fg">
+                            </div>
+                        </div>
+
+                        <div class="faq__bottom p-0 d-block d-md-none hero-cta-mobile">
+                            <a href="/get-started">Get Started <img src="static/images/hero-03.png" alt=""></a>
+                        </div>
                     </div>
+
                     <div class="hero__item-image">
                         <img src="static/images/hero-01.png" alt="">
                     </div>
@@ -335,7 +379,7 @@
                         <a href="/blog">Blog</a>
                     </li>
                     <li>
-                        <a href="#faq">FAQ</a>
+                        <a href="#">FAQ</a>
                     </li>
                 </ul>
             </div>
@@ -343,7 +387,7 @@
                 <ul>
                     {% if user and user.is_authenticated %}
                     <li>
-                        <a href="/my_revisions">My Account</a>
+                        <a href="/my_revisions">Career Dashboard</a>
                     </li>
                     <li>
                         <a href="/logout" class="active">Logout</a>
@@ -364,6 +408,102 @@
 
     <!-- main-content start -->
     <main class="main-content">
+
+        <!-- templates showcase start -->
+        <section class="templates-showcase">
+            <div class="container">
+
+                <div class="section-title">
+                    <h6><span><img src="static/images/resume-01.png" alt="">Resume Templates</span></h6>
+                    <h2>Professional Templates That Will <span>Get You Hired</span></h2>
+                    <p>Choose from ATS-friendly designs crafted for every industry. Pick a layout, fill in your details,
+                        and download a polished resume in minutes.</p>
+                </div>
+
+                <div class="templates-showcase__viewport">
+                    <button type="button" class="templates-showcase__nav templates-showcase__nav--prev"
+                        aria-label="Previous template">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+
+                    <div class="templates-showcase__scroller" id="templatesScroller">
+                        <div class="templates-showcase__track" id="templatesTrack" role="list"
+                            aria-label="Resume templates">
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Professional</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/professional.jpg" alt="Professional resume template"
+                                        loading="lazy" decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Bold Professional</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/BoldProfessional.jpg"
+                                        alt="Bold Professional resume template" loading="lazy" decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Contemporary</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/traditional.jpg" alt="Contemporary resume template"
+                                        loading="lazy" decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Modern</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/modern.jpg" alt="Modern resume template" loading="lazy"
+                                        decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Stylish</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/stylish.jpg" alt="Stylish resume template" loading="lazy"
+                                        decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Creative</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/creative.jpg" alt="Creative resume template" loading="lazy"
+                                        decoding="async">
+                                </div>
+                            </a>
+                            <a href="/get-started" class="templates-showcase__card" role="listitem">
+                                <div class="templates-showcase__header">
+                                    <h3>Classic</h3>
+                                </div>
+                                <div class="templates-showcase__preview">
+                                    <img src="static/images/classic.jpg" alt="Classic resume template" loading="lazy"
+                                        decoding="async">
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <button type="button" class="templates-showcase__nav templates-showcase__nav--next"
+                        aria-label="Next template">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+        <!-- templates showcase end -->
 
         <!-- resume start -->
         <section class="resume">
@@ -391,7 +531,7 @@
                         <h2>Keyword Optimization</h2>
                         <p>We optimize your resume using relevant industry keywords and align it with common roles. When
                             a job description is provided, we further tailor the content to match its language and
-                            priorities, helping your resume pass ATS and stand out to employers.</p>
+                            priorities—helping your resume pass ATS and stand out to employers.</p>
                     </div>
 
                     <div class="resume__item">
@@ -406,12 +546,81 @@
         </section>
         <!-- resume end -->
 
-        <!-- work start -->
-        <section class="work">
+        <!-- dashboard start -->
+        <section class="dashboard">
+            <div class="container">
+
+                <div class="section-title">
+                    <h6>
+                        <span>
+                            <img src="static/images/resume-01.png" alt="">
+                            Career Dashboard
+                        </span>
+                    </h6>
+
+                    <h2>
+                        Track Every <span>Application</span> in One Place
+                    </h2>
+
+                    <p>
+                        Your Career Dashboard keeps every job you apply to organized—from the company and role
+                        to your resume version and application status. Add a position in seconds and never lose
+                        track of where you stand in your search.
+                    </p>
+                </div>
+
+                <div class="dashboard__content">
+                    <div class="dashboard__features">
+                        <div class="dashboard__feature">
+                            <i class="fas fa-plus-circle"></i>
+                            <div>
+                                <h3>Add Applications Fast</h3>
+                                <p>Log a new role with the company, position title, and status in just a few clicks.</p>
+                            </div>
+                        </div>
+                        <div class="dashboard__feature">
+                            <i class="fas fa-list-check"></i>
+                            <div>
+                                <h3>Stay on Top of Every Stage</h3>
+                                <p>See at a glance which applications are applied, interviewing, or awaiting a response.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="dashboard__feature">
+                            <i class="fas fa-file-lines"></i>
+                            <div>
+                                <h3>Link Resumes to Roles</h3>
+                                <p>Connect each application to the tailored resume you used, so you're always prepared.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard__video">
+                        <video id="myVideo" autoplay loop muted playsinline>
+                            <source src="/static/videos/intro.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+
+                <div class="dashboard__cta text-center">
+                    <a href="/my_revisions" class="dashboard__btn">
+                        Open Your Career Dashboard
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+            </div>
+        </section>
+        <!-- dashboard end -->
+
+        <!-- How it works start -->
+        <section class="work" id="how-it-works">
             <div class="container">
                 <div class="section-title">
                     <h6><span><img src="static/images/resume-01.png" alt="">Our Process</span></h6>
-                    <h2>How it <span>Works</span></h2>
+                    <h2>How it <span>Works</span></h2>
                 </div>
                 <div class="work__item">
                     <div class="work__item-content">
@@ -442,42 +651,73 @@
                             optimization and choose from various templates available.</p>
                     </div>
                     <div class="work__item-image">
-                        <img src="static/images/work-03.png" alt="">
+                        <img src="static/images/work-03.webp" alt="">
                     </div>
                 </div>
             </div>
         </section>
-        <!-- work end -->
+        <!-- How it works end -->
 
-        <!-- review start-->
         <section class="review">
             <div class="container">
+
                 <div class="section-title">
-                    <h6><span><img src="static/images/resume-01.png" alt="">Testimonials</span></h6>
-                    <h2>What Our <span>Users</span> Say</h2>
-                    <p>Join the thousands of professionals who have enhanced their resumes and accelerated their
-                        careers.</p>
+                    <h6>
+                        <span>
+                            <img src="static/images/resume-01.png" alt="">
+                            Testimonials
+                        </span>
+                    </h6>
+
+                    <h2>
+                        What Our <span>Users</span> Say
+                    </h2>
+
+                    <p>
+                        Join thousands of professionals building stronger resumes with AI.
+                    </p>
                 </div>
+
                 <div class="review__wrapper">
-                    <div class="review__item">
 
-                        <p>“Super helpful for making my resume look more professional in minutes.”</p>
-                        <h4><img src="static/images/review-01.png" alt="">Arthur Lopez</h4>
-                    </div>
                     <div class="review__item">
-
-                        <p>“I didn’t know where to start, but this made the whole process much easier.”</p>
-                        <h4><img src="static/images/review-02.png" alt="">Jay Thomas</h4>
+                        <p>Super helpful for making my resume look more professional in minutes.</p>
+                        <div class="review__user">
+                            <img src="static/images/review-01.png" alt="">
+                            <div>
+                                <h4>Arthur Lopez</h4>
+                                <span>UI Designer</span>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="review__item">
-
-                        <p>“It helped me turn a basic resume into something I felt good submitting.”</p>
-                        <h4><img src="static/images/review-03.png" alt="">Emily Roger</h4>
+                        <p>I didn't know where to start, but this made the entire process easier.</p>
+                        <div class="review__user">
+                            <img src="static/images/review-02.png" alt="">
+                            <div>
+                                <h4>Jay Thomas</h4>
+                                <span>Marketing Lead</span>
+                            </div>
+                        </div>
                     </div>
+
+                    <div class="review__item">
+                        <p>It transformed my basic resume into something I felt confident submitting.</p>
+                        <div class="review__user">
+                            <img src="static/images/review-03.png" alt="">
+                            <div>
+                                <h4>Emily Roger</h4>
+                                <span>Software Engineer</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
+
             </div>
         </section>
-        <!--review end -->
+
 
         <!-- blog start -->
         <section class="blog">
@@ -490,39 +730,36 @@
                 </div>
                 <div class="blog__wrapper">
                     <div class="blog__item">
-                        <a href="/blog/toptenmistakes">
+                        <a href="#">
                             <img src="static/images/blog-01.png" alt="">
                         </a>
                         <h6>10 Min Read</h6>
                         <h2>
-                            <a href="/blog/toptenmistakes">Top 10 Resume Mistakes <img src="static/images/blog-04.png"
-                                    alt=""></a>
+                            <a href="#">Top 10 Resume Mistakes <img src="static/images/blog-04.png" alt=""></a>
                         </h2>
                         <p>Avoid common pitfalls in 2025 and make your resume stand out from the competition with these
                             expert insights.</p>
 
                     </div>
                     <div class="blog__item">
-                        <a href="/blog/tailorresumejob">
+                        <a href="#">
                             <img src="static/images/blog-02.png" alt="">
                         </a>
                         <h6>13 Min Read</h6>
                         <h2>
-                            <a href="/blog/tailorresumejob">Tailor Your Resume <img src="static/images/blog-04.png"
-                                    alt=""></a>
+                            <a href="#">Tailor Your Resume <img src="static/images/blog-04.png" alt=""></a>
                         </h2>
                         <p>Learn how to customize your resume for each application effectively and increase your
                             interview chances.</p>
 
                     </div>
                     <div class="blog__item">
-                        <a href="/blog/ats-optimization">
+                        <a href="#">
                             <img src="static/images/blog-03.png" alt="">
                         </a>
                         <h6>15 Min Read</h6>
                         <h2>
-                            <a href="/blog/ats-optimization">Pass the ATS Bots <img src="static/images/blog-04.png"
-                                    alt=""></a>
+                            <a href="#">Pass the ATS Bots <img src="static/images/blog-04.png" alt=""></a>
                         </h2>
                         <p>Ensure your resume clears automated filters used by most employers and reaches human
                             recruiters.</p>
@@ -534,7 +771,7 @@
         <!-- blog end -->
 
         <!-- faq start -->
-        <section id="faq" class="faq">
+        <section class="faq">
             <div class="container">
                 <div class="section-title">
                     <h6><span><img src="static/images/resume-01.png" alt="">FAQs</span></h6>
@@ -661,7 +898,7 @@
                     </div>
                 </div>
                 <div class="faq__bottom">
-                    <h2>Still Have Questions?</h2>
+                    <h2>Still Have Question?</h2>
                     <p>We're here to help! Feel free to reach out if you need any assistance with your resume
                         enhancement.</p>
                     <a href="/contact">Contact Support <img src="static/images/faq-01.png" alt=""></a>
@@ -716,13 +953,6 @@
                                     rel="noopener noreferrer" class="inline-flex items-center justify-center h-12">
                                     <img src="https://startupfa.me/badges/featured-badge.webp"
                                         alt="Resumatic AI - Featured on Startup Fame" width="100" height="30" />
-                                </a>
-                            </li>
-                            <li class="launchigniter-badge">
-                                <a href="https://launchigniter.com/product/resumatic-ai?ref=badge-resumatic-ai"
-                                    target="_blank" rel="noopener noreferrer">
-                                    <img src="https://launchigniter.com/api/badge/resumatic-ai?theme=light"
-                                        alt="Featured on LaunchIgniter" width="212" height="55" />
                                 </a>
                             </li>
                         </ul>
@@ -796,6 +1026,180 @@
         <span class="pluse"></span>
         <span class="pluse2"></span>
     </a>
+    <script>
+
+        const video = document.getElementById("myVideo");
+        if (video) {
+            video.playbackRate = 2.0;
+            video.addEventListener("play", () => {
+                video.playbackRate = 2.0;
+            });
+        }
+
+        (function () {
+            const track = document.getElementById('templatesTrack');
+            const scroller = document.getElementById('templatesScroller');
+            const prevBtn = document.querySelector('.templates-showcase__nav--prev');
+            const nextBtn = document.querySelector('.templates-showcase__nav--next');
+            const viewport = document.querySelector('.templates-showcase__viewport');
+            if (!track || !prevBtn || !nextBtn) return;
+
+            const isMobile = () => window.matchMedia('(max-width: 767px)').matches;
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            const CARD_COUNT = 7;
+            const MIDDLE_START = CARD_COUNT;
+
+            const originals = Array.from(track.querySelectorAll('.templates-showcase__card'));
+            if (!originals.length) return;
+
+            if (isMobile()) {
+                const mobileScroller = scroller || viewport;
+                if (mobileScroller) {
+                    const mobileStep = () => Math.max(140, Math.round(mobileScroller.clientWidth * 0.75));
+                    prevBtn.addEventListener('click', () => {
+                        mobileScroller.scrollBy({ left: -mobileStep(), behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+                    });
+                    nextBtn.addEventListener('click', () => {
+                        mobileScroller.scrollBy({ left: mobileStep(), behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+                    });
+                }
+                return;
+            }
+
+            originals.forEach((card) => {
+                const clone = card.cloneNode(true);
+                clone.setAttribute('aria-hidden', 'true');
+                clone.removeAttribute('role');
+                track.appendChild(clone);
+            });
+
+            [...originals].reverse().forEach((card) => {
+                const clone = card.cloneNode(true);
+                clone.setAttribute('aria-hidden', 'true');
+                clone.removeAttribute('role');
+                track.insertBefore(clone, track.firstChild);
+            });
+
+            const gap = () => parseFloat(getComputedStyle(track).gap) || 24;
+            const step = () => originals[0].offsetWidth + gap();
+            const physicalPos = (index) => index * step();
+            const TRANSITION_MS = 450;
+            let physicalIndex = MIDDLE_START;
+            let logicalIndex = 0;
+            let isTransitioning = false;
+            const SWIPE_THRESHOLD = 40;
+
+            const setPosition = (index, animate) => {
+                const shouldAnimate = animate && !prefersReducedMotion;
+                track.style.transition = shouldAnimate
+                    ? `transform ${TRANSITION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`
+                    : 'none';
+                track.style.transform = `translate3d(${-physicalPos(index)}px, 0, 0)`;
+            };
+
+            const waitForTransition = () => new Promise((resolve) => {
+                if (!track.style.transition || track.style.transition === 'none') {
+                    resolve();
+                    return;
+                }
+
+                let finished = false;
+                const done = () => {
+                    if (finished) return;
+                    finished = true;
+                    track.removeEventListener('transitionend', onEnd);
+                    resolve();
+                };
+
+                const onEnd = (event) => {
+                    if (event.target !== track || event.propertyName !== 'transform') return;
+                    done();
+                };
+
+                track.addEventListener('transitionend', onEnd);
+                setTimeout(done, TRANSITION_MS + 80);
+            });
+
+            const init = () => {
+                logicalIndex = 0;
+                physicalIndex = MIDDLE_START;
+                setPosition(physicalIndex, false);
+            };
+
+            const goNext = async () => {
+                if (isTransitioning) return;
+                isTransitioning = true;
+
+                physicalIndex += 1;
+                logicalIndex = (logicalIndex + 1) % CARD_COUNT;
+                setPosition(physicalIndex, true);
+                await waitForTransition();
+
+                if (physicalIndex >= MIDDLE_START + CARD_COUNT) {
+                    physicalIndex = MIDDLE_START + logicalIndex;
+                    setPosition(physicalIndex, false);
+                }
+
+                isTransitioning = false;
+            };
+
+            const goPrev = async () => {
+                if (isTransitioning) return;
+                isTransitioning = true;
+
+                physicalIndex -= 1;
+                logicalIndex = (logicalIndex - 1 + CARD_COUNT) % CARD_COUNT;
+                setPosition(physicalIndex, true);
+                await waitForTransition();
+
+                if (physicalIndex < MIDDLE_START) {
+                    physicalIndex = MIDDLE_START + logicalIndex;
+                    setPosition(physicalIndex, false);
+                }
+
+                isTransitioning = false;
+            };
+
+            nextBtn.addEventListener('click', goNext);
+            prevBtn.addEventListener('click', goPrev);
+
+            let touchStartX = 0;
+            let touchDeltaX = 0;
+
+            track.addEventListener('touchstart', (event) => {
+                if (!isMobile() || event.touches.length !== 1) return;
+                touchStartX = event.touches[0].clientX;
+                touchDeltaX = 0;
+            }, { passive: true });
+
+            track.addEventListener('touchmove', (event) => {
+                if (!isMobile() || event.touches.length !== 1) return;
+                touchDeltaX = event.touches[0].clientX - touchStartX;
+            }, { passive: true });
+
+            track.addEventListener('touchend', () => {
+                if (!isMobile()) return;
+                if (Math.abs(touchDeltaX) < SWIPE_THRESHOLD) return;
+
+                if (touchDeltaX < 0) {
+                    goNext();
+                } else {
+                    goPrev();
+                }
+
+                touchStartX = 0;
+                touchDeltaX = 0;
+            }, { passive: true });
+
+            window.addEventListener('resize', () => {
+                setPosition(physicalIndex, false);
+            });
+
+            init();
+        })();
+
+    </script>
 
 </body>
 

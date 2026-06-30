@@ -4,7 +4,7 @@
 <script defer src="/static/js/script.js"></script>
 
 <head>
-{% include "_gtm.html" %}
+    {% include "_gtm.html" %}
 
     <!-- Google tag (gtag.js) 
 <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
@@ -80,113 +80,721 @@
             div.classList.toggle('hidden');
             if (!div.classList.contains('hidden')) {
                 const input = div.querySelector('input[name="revision_name"]');
-                if (input) {
-                    try { input.focus(); } catch (e) { }
+            }
+        }
+
+        var jobMessageContext = {
+            type: 'follow_up',
+            company: '',
+            role: '',
+            status: '',
+            notes: '',
+            revisionId: '',
+            appIndex: ''
+        };
+
+        function getJobMessagePlaceholder(type, company, role) {
+            const companyName = company || 'the company';
+            const roleName = role || 'the role';
+            if (type === 'pre_interview') {
+                return `Write or paste the message you want to send before your interview for ${roleName} at ${companyName}.`;
+            }
+            if (type === 'thank_you') {
+                return `Write or paste your thank-you note after interviewing for ${roleName} at ${companyName}.`;
+            }
+            return `Write or paste your follow-up message for ${roleName} at ${companyName}.`;
+        }
+
+        function openJobMessageModal(type, company, role, statusValue, notes, revisionId, appIndex) {
+            const modal = document.getElementById('jobMessageModal');
+            const title = document.getElementById('jobMessageTitle');
+            const context = document.getElementById('jobMessageContext');
+            const subject = document.getElementById('jobMessageSubject');
+            const original = document.getElementById('jobMessageOriginal');
+            const rewritten = document.getElementById('jobMessageRewrite');
+            if (!modal || !title || !subject || !original || !rewritten) return;
+
+            const labels = {
+                pre_interview: 'Polish a pre-interview message',
+                thank_you: 'Polish a post-interview thank-you note',
+                follow_up: 'Polish a follow-up message'
+            };
+            const status = document.getElementById('jobMessageCopyStatus');
+            const error = document.getElementById('jobMessageError');
+            jobMessageContext = {
+                type: type || 'follow_up',
+                company: company || '',
+                role: role || '',
+                status: statusValue || '',
+                notes: notes || '',
+                revisionId: revisionId || '',
+                appIndex: appIndex || ''
+            };
+            title.textContent = labels[type] || 'Job search message';
+            if (context) {
+                const contextBits = [company, role, statusValue].filter(Boolean);
+                context.textContent = contextBits.length ? contextBits.join(' · ') : 'Add your message below and let AI help polish it.';
+            }
+            subject.value = '';
+            original.value = '';
+            original.placeholder = getJobMessagePlaceholder(type, company, role);
+            rewritten.value = '';
+            if (status) status.textContent = '';
+            if (error) error.textContent = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            original.focus();
+        }
+
+        function closeJobMessageModal() {
+            const modal = document.getElementById('jobMessageModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function copyTextToClipboard(text, onSuccess, onFallback) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () {
+                    if (onSuccess) onSuccess();
+                }).catch(function () {
+                    if (onFallback) onFallback();
+                });
+            } else if (onFallback) {
+                onFallback();
+            }
+        }
+
+        function attachSavedMessageCopyHandlers() {
+            const buttons = document.querySelectorAll('[data-copy-message-target]');
+            for (let i = 0; i < buttons.length; i++) {
+                buttons[i].addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const target = document.getElementById(this.getAttribute('data-copy-message-target') || '');
+                    if (!target) return;
+                    const originalLabel = this.getAttribute('aria-label') || 'Copy message';
+                    copyTextToClipboard(
+                        target.textContent.trim(),
+                        () => {
+                            this.innerHTML = '<i class="fas fa-check"></i>';
+                            this.setAttribute('aria-label', 'Copied');
+                            window.setTimeout(() => {
+                                this.innerHTML = '<i class="fas fa-copy"></i>';
+                                this.setAttribute('aria-label', originalLabel);
+                            }, 1400);
+                        },
+                        () => {
+                            this.setAttribute('title', 'Select and copy manually');
+                        }
+                    );
+                });
+            }
+        }
+
+        function copyCurrentJobMessage(button, source) {
+            const subject = document.getElementById('jobMessageSubject');
+            const original = document.getElementById('jobMessageOriginal');
+            const rewritten = document.getElementById('jobMessageRewrite');
+            const status = document.getElementById('jobMessageCopyStatus');
+            const error = document.getElementById('jobMessageError');
+            if (!subject || !original || !rewritten) return;
+            const message = source === 'original'
+                ? original.value.trim()
+                : ((rewritten.value || original.value || '').trim());
+            if (!message) {
+                if (error) error.textContent = source === 'original'
+                    ? 'Write a message before copying it.'
+                    : 'Write or rewrite a message before copying it.';
+                return;
+            }
+            const text = subject.value.trim() ? `Subject: ${subject.value.trim()}\n\n${message}` : message;
+            const originalLabel = button ? (button.getAttribute('aria-label') || 'Copy message') : 'Copy message';
+            copyTextToClipboard(
+                text,
+                () => {
+                    if (status) status.textContent = 'Copied';
+                    if (button) {
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.setAttribute('aria-label', 'Copied');
+                        window.setTimeout(() => {
+                            button.innerHTML = '<i class="fas fa-copy"></i>';
+                            button.setAttribute('aria-label', originalLabel);
+                        }, 1400);
+                    }
+                },
+                () => {
+                    if (status) status.textContent = 'Select and copy manually';
+                }
+            );
+        }
+
+        async function rewriteJobMessage() {
+            const subject = document.getElementById('jobMessageSubject');
+            const original = document.getElementById('jobMessageOriginal');
+            const rewritten = document.getElementById('jobMessageRewrite');
+            const error = document.getElementById('jobMessageError');
+            const status = document.getElementById('jobMessageCopyStatus');
+            const rewriteBtn = document.getElementById('jobMessageRewriteButton');
+            if (!original || !rewritten) return;
+
+            const text = original.value.trim();
+            if (!text) {
+                if (error) error.textContent = 'Write or paste your message before asking AI to rewrite it.';
+                return;
+            }
+
+            if (error) error.textContent = '';
+            if (status) status.textContent = '';
+            if (rewriteBtn) {
+                rewriteBtn.disabled = true;
+                rewriteBtn.textContent = 'Rewriting...';
+            }
+
+            try {
+                const response = await fetch('/api/ai/job-message-rewrite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message_type: jobMessageContext.type,
+                        text: text,
+                        meta: {
+                            subject: subject ? subject.value.trim() : '',
+                            company: jobMessageContext.company,
+                            role: jobMessageContext.role,
+                            status: jobMessageContext.status,
+                            notes: jobMessageContext.notes
+                        }
+                    })
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'AI rewrite failed');
+                }
+                rewritten.value = data.text || '';
+                if (status) status.textContent = 'Rewrite ready';
+            } catch (err) {
+                if (error) error.textContent = err.message || 'AI rewrite failed. Please try again.';
+            } finally {
+                if (rewriteBtn) {
+                    rewriteBtn.disabled = false;
+                    rewriteBtn.textContent = 'AI rewrite';
                 }
             }
         }
 
-        function cancelRename(revisionId) {
-            const div = document.getElementById(`rename-${revisionId}`);
-            if (!div) return;
-            div.classList.add('hidden');
+        async function saveJobMessage() {
+            const subject = document.getElementById('jobMessageSubject');
+            const original = document.getElementById('jobMessageOriginal');
+            const rewritten = document.getElementById('jobMessageRewrite');
+            const error = document.getElementById('jobMessageError');
+            const status = document.getElementById('jobMessageCopyStatus');
+            const saveBtn = document.getElementById('jobMessageSaveButton');
+            if (!subject || !original || !rewritten) return;
+
+            const originalText = original.value.trim();
+            const rewrittenText = rewritten.value.trim();
+            const body = rewrittenText || originalText;
+            if (!body) {
+                if (error) error.textContent = 'Write or rewrite a message before saving it.';
+                return;
+            }
+            if (!jobMessageContext.revisionId || jobMessageContext.appIndex === '') {
+                if (error) error.textContent = 'This message is not connected to an application.';
+                return;
+            }
+
+            if (error) error.textContent = '';
+            if (status) status.textContent = '';
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            try {
+                const response = await fetch(`/application/message/save/${encodeURIComponent(jobMessageContext.revisionId)}/${encodeURIComponent(jobMessageContext.appIndex)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message_type: jobMessageContext.type,
+                        subject: subject.value.trim(),
+                        original_text: originalText,
+                        rewritten_text: rewrittenText,
+                        body: body
+                    })
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Unable to save message');
+                }
+                if (status) status.textContent = 'Saved. Refresh to see it in history.';
+            } catch (err) {
+                if (error) error.textContent = err.message || 'Unable to save message. Please try again.';
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save to hub';
+                }
+            }
         }
 
-        // Submit rename without reloading the page (fallback to normal form submit on error)
-        function attachRenameAjax() {
-            document.querySelectorAll('form.js-rename-form').forEach((form) => {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
+        function attachJobMessageHandlers() {
+            const buttons = document.querySelectorAll('[data-job-message-type]');
+            for (let i = 0; i < buttons.length; i++) {
+                buttons[i].addEventListener('click', function () {
+                    openJobMessageModal(
+                        this.getAttribute('data-job-message-type') || 'follow_up',
+                        this.getAttribute('data-company') || '',
+                        this.getAttribute('data-role') || '',
+                        this.getAttribute('data-status') || '',
+                        this.getAttribute('data-notes') || '',
+                        this.getAttribute('data-revision-id') || '',
+                        this.getAttribute('data-app-index') || ''
+                    );
+                });
+            }
+        }
 
-                    const revisionId = form.getAttribute('data-revision-id') || '';
-                    const titleEl = revisionId ? document.getElementById(`revision-title-${revisionId}`) : null;
+        function getApplicationGroupRows(section, groupId) {
+            const safeGroupId = (window.CSS && typeof window.CSS.escape === 'function')
+                ? window.CSS.escape(groupId)
+                : String(groupId).replace(/"/g, '\\"');
+            return section.querySelectorAll('[data-application-group="' + safeGroupId + '"]');
+        }
 
-                    try {
-                        const formData = new FormData(form);
-                        const body = new URLSearchParams();
-                        for (const [k, v] of formData.entries()) {
-                            body.append(k, String(v));
+        function syncApplicationTableHeaders(section) {
+            if (!section) return;
+            const table = section.querySelector('.application-table');
+            if (!table) return;
+            const anyExpanded = section.querySelector(
+                '[data-application-summary="1"][data-application-expanded="1"]:not(.hidden)'
+            );
+            table.setAttribute('data-show-column-headers', anyExpanded ? '1' : '0');
+        }
+
+        function setApplicationGroupExpanded(section, summaryRow, expanded) {
+            if (!section || !summaryRow) return;
+            const groupId = summaryRow.getAttribute('data-application-group') || '';
+            const rows = getApplicationGroupRows(section, groupId);
+            summaryRow.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            summaryRow.setAttribute('data-application-expanded', expanded ? '1' : '0');
+            const chevronIcon = summaryRow.querySelector('[data-application-chevron] i');
+            if (chevronIcon) {
+                chevronIcon.classList.toggle('rotate-180', expanded);
+            }
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i].getAttribute('data-application-detail') === '1') {
+                    rows[i].classList.toggle('hidden', !expanded || summaryRow.classList.contains('hidden'));
+                }
+            }
+            syncApplicationTableHeaders(section);
+        }
+
+        function attachApplicationAccordions() {
+            const sections = document.querySelectorAll('[data-application-section]');
+            for (let i = 0; i < sections.length; i++) {
+                const section = sections[i];
+                const rows = section.querySelectorAll('tr[data-application-group]');
+                const groupedRows = {};
+
+                for (let j = 0; j < rows.length; j++) {
+                    const groupId = rows[j].getAttribute('data-application-group') || '';
+                    if (!groupedRows[groupId]) groupedRows[groupId] = [];
+                    groupedRows[groupId].push(rows[j]);
+                }
+
+                const groupIds = Object.keys(groupedRows);
+                for (let j = 0; j < groupIds.length; j++) {
+                    const groupRows = groupedRows[groupIds[j]];
+                    if (!groupRows.length) continue;
+
+                    const summaryRow = groupRows[0];
+                    summaryRow.setAttribute('data-application-summary', '1');
+                    summaryRow.setAttribute('data-application-expanded', '0');
+                    summaryRow.setAttribute('aria-expanded', 'false');
+                    summaryRow.setAttribute('role', 'button');
+                    summaryRow.setAttribute('tabindex', '0');
+                    summaryRow.classList.add('cursor-pointer');
+
+                    const summaryCell = summaryRow.querySelector('td[colspan]');
+                    if (summaryCell && !summaryRow.querySelector('[data-application-chevron]')) {
+                        const flexRow = summaryCell.querySelector('div');
+                        if (flexRow) {
+                            const chevron = document.createElement('span');
+                            chevron.setAttribute('data-application-chevron', '1');
+                            chevron.className = 'inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2 py-0.5 font-semibold text-slate-500';
+                            chevron.innerHTML = '<span>Details</span><i class="fas fa-chevron-down text-[10px] transition-transform"></i>';
+                            flexRow.appendChild(chevron);
                         }
+                    }
 
-                        const resp = await fetch(form.action, {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body
-                        });
+                    for (let k = 1; k < groupRows.length; k++) {
+                        groupRows[k].setAttribute('data-application-detail', '1');
+                    }
 
-                        const data = await resp.json();
-                        if (!resp.ok || !data || !data.ok) {
-                            throw new Error((data && data.error) || 'Rename failed');
+                    setApplicationGroupExpanded(section, summaryRow, false);
+
+                    if (summaryRow.getAttribute('data-accordion-bound') === '1') continue;
+                    summaryRow.setAttribute('data-accordion-bound', '1');
+
+                    const toggleGroup = function () {
+                        const expanded = summaryRow.getAttribute('data-application-expanded') === '1';
+                        setApplicationGroupExpanded(section, summaryRow, !expanded);
+                    };
+
+                    summaryRow.addEventListener('click', function () {
+                        toggleGroup();
+                    });
+                    summaryRow.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            toggleGroup();
                         }
+                    });
+                }
+                syncApplicationTableHeaders(section);
+            }
+        }
 
-                        const input = form.querySelector('input[name="revision_name"]');
-                        const newName = (input && typeof input.value === 'string') ? input.value.trim() : '';
-                        if (titleEl) {
-                            const fallbackName = (titleEl.getAttribute('data-fallback-name') || titleEl.textContent || '').trim();
-                            titleEl.textContent = newName || fallbackName;
+        function attachApplicationFilters() {
+            const sections = document.querySelectorAll('[data-application-section]');
+            for (let i = 0; i < sections.length; i++) {
+                const section = sections[i];
+                const buttons = section.querySelectorAll('[data-application-filter]');
+                const summaryRows = section.querySelectorAll('[data-application-summary="1"]');
+                for (let j = 0; j < buttons.length; j++) {
+                    buttons[j].addEventListener('click', function () {
+                        const filter = this.getAttribute('data-application-filter') || 'all';
+                        for (let b = 0; b < buttons.length; b++) {
+                            const active = buttons[b] === this;
+                            buttons[b].classList.toggle('bg-slate-900', active);
+                            buttons[b].classList.toggle('text-white', active);
+                            buttons[b].classList.toggle('border', !active);
+                            buttons[b].classList.toggle('border-slate-200', !active);
+                            buttons[b].classList.toggle('bg-white', !active);
+                            buttons[b].classList.toggle('text-slate-700', !active);
                         }
+                        for (let r = 0; r < summaryRows.length; r++) {
+                            const summaryRow = summaryRows[r];
+                            const status = summaryRow.getAttribute('data-application-status') || '';
+                            const due = summaryRow.getAttribute('data-followup-due') === '1';
+                            const visible = filter === 'all'
+                                || status === filter
+                                || (filter === 'followups_due' && due);
+                            summaryRow.classList.toggle('hidden', !visible);
+                            const expanded = summaryRow.getAttribute('data-application-expanded') === '1';
+                            setApplicationGroupExpanded(section, summaryRow, visible && expanded);
+                        }
+                    });
+                }
+            }
+        }
 
-                        if (revisionId) cancelRename(revisionId);
-                    } catch (err) {
-                        // Preserve the previous behavior if something goes wrong
-                        try { form.submit(); } catch (e2) { }
+        function attachAutoStatusForms() {
+            const selects = document.querySelectorAll('[data-auto-submit-status]');
+            for (let i = 0; i < selects.length; i++) {
+                selects[i].addEventListener('change', function () {
+                    const form = this.closest('form');
+                    if (form) {
+                        saveApplicationScrollPosition();
+                        form.submit();
                     }
                 });
-            });
+            }
         }
 
-        function convertToLocalTime() {
-            // Convert date-only elements (for stats)
-            document.querySelectorAll('.local-date').forEach(element => {
-                const utcDate = element.getAttribute('data-utc-date');
-                if (utcDate && utcDate.trim()) {
-                    try {
-                        const date = new Date(utcDate);
-                        if (!isNaN(date.getTime())) {
-                            const localDate = date.toLocaleDateString('en-US', {
-                                month: 'numeric',
-                                day: 'numeric',
-                                year: 'numeric'
-                            });
-                            element.textContent = localDate;
-                        }
-                    } catch (e) {
-                        console.log('Error parsing date:', utcDate);
-                    }
-                }
-            });
+        function saveApplicationScrollPosition() {
+            try {
+                sessionStorage.setItem('jobHubScrollY', String(window.scrollY || window.pageYOffset || 0));
+            } catch (e) { /* ignore */ }
+        }
 
-            // Convert full datetime elements (for revision entries)
-            document.querySelectorAll('.local-datetime').forEach(element => {
-                const utcDate = element.getAttribute('data-utc-date');
-                if (utcDate && utcDate.trim()) {
-                    try {
-                        const date = new Date(utcDate);
-                        if (!isNaN(date.getTime())) {
-                            const localDateTime = date.toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            }) + ' at ' + date.toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
-                            });
-                            element.textContent = localDateTime;
-                        }
-                    } catch (e) {
-                        console.log('Error parsing datetime:', utcDate);
-                    }
+        function restoreApplicationScrollPosition() {
+            try {
+                const saved = sessionStorage.getItem('jobHubScrollY');
+                if (!saved) return;
+                sessionStorage.removeItem('jobHubScrollY');
+                const y = parseInt(saved, 10);
+                if (!isNaN(y)) {
+                    window.setTimeout(function () {
+                        window.scrollTo(0, y);
+                    }, 0);
                 }
-            });
+            } catch (e) { /* ignore */ }
+        }
+
+        function attachScrollPreservingForms() {
+            const forms = document.querySelectorAll('[data-preserve-scroll]');
+            for (let i = 0; i < forms.length; i++) {
+                forms[i].addEventListener('submit', saveApplicationScrollPosition);
+            }
+        }
+
+        var jobCoachMessages = [];
+        var jobCoachBusy = false;
+        const JOB_COACH_API_URL = '/api/ai/job-search-coach';
+        const SCOUT_AVATAR_URL = {{ url_for('static', filename = 'images/scout-avatar.png') | tojson }};
+
+        function escapeJobCoachHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function inlineJobCoachMarkdown(text) {
+            let s = escapeJobCoachHtml(text);
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            s = s.replace(/`([^`]+)`/g, '<code class="rounded bg-slate-100 px-1 py-0.5 text-[0.85em] font-mono">$1</code>');
+            return s;
+        }
+
+        function formatJobCoachMarkdown(text) {
+            const lines = String(text || '').split('\n');
+            const out = [];
+            let inUl = false;
+            let inOl = false;
+
+            function closeLists() {
+                if (inUl) {
+                    out.push('</ul>');
+                    inUl = false;
+                }
+                if (inOl) {
+                    out.push('</ol>');
+                    inOl = false;
+                }
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+                const trimmed = lines[i].trim();
+                const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+                const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+                const numbered = trimmed.match(/^\d+\.\s+(.+)$/);
+
+                if (heading) {
+                    closeLists();
+                    out.push('<p class="font-semibold mt-2 mb-1">' + inlineJobCoachMarkdown(heading[1]) + '</p>');
+                    continue;
+                }
+                if (bullet) {
+                    if (inOl) {
+                        out.push('</ol>');
+                        inOl = false;
+                    }
+                    if (!inUl) {
+                        out.push('<ul class="my-1 list-disc pl-5 space-y-0.5">');
+                        inUl = true;
+                    }
+                    out.push('<li>' + inlineJobCoachMarkdown(bullet[1]) + '</li>');
+                    continue;
+                }
+                if (numbered) {
+                    if (inUl) {
+                        out.push('</ul>');
+                        inUl = false;
+                    }
+                    if (!inOl) {
+                        out.push('<ol class="my-1 list-decimal pl-5 space-y-0.5">');
+                        inOl = true;
+                    }
+                    out.push('<li>' + inlineJobCoachMarkdown(numbered[1]) + '</li>');
+                    continue;
+                }
+
+                closeLists();
+                if (!trimmed) {
+                    out.push('<div class="h-1"></div>');
+                } else {
+                    out.push('<p class="mb-1 last:mb-0">' + inlineJobCoachMarkdown(trimmed) + '</p>');
+                }
+            }
+
+            closeLists();
+            return out.join('');
+        }
+
+        function jobCoachScoutAvatarHtml() {
+            return '<span class="job-coach-scout-avatar" aria-hidden="true">' +
+                '<img src="' + SCOUT_AVATAR_URL + '" alt="" width="32" height="32" loading="lazy" decoding="async">' +
+                '</span>';
+        }
+
+        function renderJobCoachMessageBody(msg) {
+            const role = msg.role === 'assistant' ? 'assistant' : (msg.role === 'system' ? 'system' : 'user');
+            if (role === 'assistant') {
+                return '<div class="job-coach-markdown">' + formatJobCoachMarkdown(msg.content) + '</div>';
+            }
+            return escapeJobCoachHtml(msg.content);
+        }
+
+        function renderJobCoachMessages() {
+            const container = document.getElementById('jobCoachMessages');
+            if (!container) return;
+            if (!jobCoachMessages.length) {
+                container.innerHTML =
+                    '<div class="flex items-start gap-2">' +
+                    jobCoachScoutAvatarHtml() +
+                    '<div class="job-coach-bubble job-coach-bubble-system rounded-2xl px-3 py-2.5 text-sm space-y-2">' +
+                    '<p class="mb-0">Hi! I\'m <strong>Scout</strong>, your job search coach.</p>' +
+                    '<p class="mb-0">Successful job seekers keep their applications, resume versions, recruiter conversations, and follow-ups organized in one place.</p>' +
+                    '<p class="mb-0">This dashboard serves as your central job search record. Because I can access your latest resume and tracked applications, I can provide personalized guidance based on your actual job search activity.</p>' +
+                    '<p class="mb-0 font-semibold">How can I help today?</p>' +
+                    '</div></div>';
+                return;
+            }
+            container.innerHTML = jobCoachMessages.map(function (msg) {
+                const role = msg.role === 'assistant' ? 'assistant' : (msg.role === 'system' ? 'system' : 'user');
+                const bubble =
+                    '<div class="job-coach-bubble job-coach-bubble-' + role + ' rounded-2xl px-3 py-2 text-sm shadow-sm">' +
+                    renderJobCoachMessageBody(msg) + '</div>';
+                if (role === 'assistant') {
+                    return '<div class="flex items-start gap-2">' + jobCoachScoutAvatarHtml() + bubble + '</div>';
+                }
+                return bubble;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function setJobCoachBusy(isBusy) {
+            jobCoachBusy = !!isBusy;
+            const sendBtn = document.getElementById('jobCoachSendButton');
+            const input = document.getElementById('jobCoachInput');
+            const status = document.getElementById('jobCoachStatus');
+            if (sendBtn) {
+                sendBtn.disabled = jobCoachBusy;
+                sendBtn.textContent = jobCoachBusy ? 'Thinking...' : 'Send';
+            }
+            if (input) input.disabled = jobCoachBusy;
+            if (status && jobCoachBusy) status.textContent = 'Job Search Coach is thinking...';
+            else if (status && !jobCoachBusy) status.textContent = '';
+        }
+
+        function toggleJobCoachPanel(forceOpen) {
+            const panel = document.getElementById('jobCoachPanel');
+            const launcher = document.getElementById('jobCoachLauncher');
+            if (!panel || !launcher) return;
+            const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !shouldOpen);
+            launcher.classList.toggle('hidden', shouldOpen);
+            if (shouldOpen) {
+                renderJobCoachMessages();
+                const input = document.getElementById('jobCoachInput');
+                if (input) window.setTimeout(function () { input.focus(); }, 50);
+            }
+        }
+
+        async function sendJobCoachMessage(presetText) {
+            const input = document.getElementById('jobCoachInput');
+            const error = document.getElementById('jobCoachError');
+            if (!input || jobCoachBusy) return;
+            const text = String(presetText || input.value || '').trim();
+            if (!text) return;
+
+            if (error) error.textContent = '';
+            jobCoachMessages.push({ role: 'user', content: text });
+            input.value = '';
+            renderJobCoachMessages();
+            setJobCoachBusy(true);
+
+            try {
+                const response = await fetch(JOB_COACH_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    redirect: 'manual',
+                    body: JSON.stringify({ messages: jobCoachMessages })
+                });
+                const raw = await response.text();
+                let data = {};
+                try {
+                    data = raw ? JSON.parse(raw) : {};
+                } catch (parseErr) {
+                    data = {};
+                }
+
+                if (response.type === 'opaqueredirect' || response.status === 302 || response.status === 301) {
+                    throw new Error('Your session may have expired. Please sign in again and retry.');
+                }
+
+                if (!response.ok || !data.success) {
+                    let msg = (data && data.error) ? String(data.error) : '';
+                    if (!msg) {
+                        if (response.status === 404) {
+                            msg = 'Coach API not found. Restart the server or deploy the latest code.';
+                        } else if (response.status === 401) {
+                            msg = 'Please sign in again to use the Job Search Coach.';
+                        } else if (response.status === 403) {
+                            msg = 'Please verify your email to use the Job Search Coach.';
+                        } else if (raw && raw.trim().startsWith('<')) {
+                            msg = 'Unexpected server response. Try signing in again or restarting the app.';
+                        } else {
+                            msg = 'Coach request failed (HTTP ' + response.status + ').';
+                        }
+                    }
+                    throw new Error(msg);
+                }
+                jobCoachMessages.push({ role: 'assistant', content: data.reply || '' });
+                renderJobCoachMessages();
+            } catch (err) {
+                if (error) error.textContent = err.message || 'Unable to reach Job Search Coach.';
+            } finally {
+                setJobCoachBusy(false);
+            }
+        }
+
+        function resetJobCoachChat() {
+            jobCoachMessages = [];
+            const error = document.getElementById('jobCoachError');
+            if (error) error.textContent = '';
+            renderJobCoachMessages();
+        }
+
+        function attachJobCoachHandlers() {
+            const launcher = document.getElementById('jobCoachLauncher');
+            const closeBtn = document.getElementById('jobCoachCloseButton');
+            const sendBtn = document.getElementById('jobCoachSendButton');
+            const resetBtn = document.getElementById('jobCoachResetButton');
+            const input = document.getElementById('jobCoachInput');
+            const prompts = document.querySelectorAll('[data-job-coach-prompt]');
+
+            if (launcher) launcher.addEventListener('click', function () { toggleJobCoachPanel(true); });
+            if (closeBtn) closeBtn.addEventListener('click', function () { toggleJobCoachPanel(false); });
+            if (resetBtn) resetBtn.addEventListener('click', resetJobCoachChat);
+            if (sendBtn) sendBtn.addEventListener('click', function () { sendJobCoachMessage(); });
+            if (input) {
+                input.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        sendJobCoachMessage();
+                    }
+                });
+            }
+            for (let i = 0; i < prompts.length; i++) {
+                prompts[i].addEventListener('click', function () {
+                    sendJobCoachMessage(this.getAttribute('data-job-coach-prompt') || '');
+                });
+            }
+            renderJobCoachMessages();
+            toggleJobCoachPanel(true);
         }
 
         // Convert timestamps + attach handlers when page loads
-        document.addEventListener('DOMContentLoaded', convertToLocalTime);
-        document.addEventListener('DOMContentLoaded', attachRenameAjax);
+        document.addEventListener('DOMContentLoaded', function () {
+            restoreApplicationScrollPosition();
+            if (typeof convertToLocalTime === 'function') convertToLocalTime();
+            if (typeof attachRenameAjax === 'function') attachRenameAjax();
+            attachJobMessageHandlers();
+            attachSavedMessageCopyHandlers();
+            attachApplicationAccordions();
+            attachApplicationFilters();
+            attachAutoStatusForms();
+            attachScrollPreservingForms();
+            attachJobCoachHandlers();
+        });
 
         // (Template PDF download button removed from my_revisions.)
     </script>
@@ -242,11 +850,252 @@
         .nav-link:hover::after {
             width: 100%;
         }
+
+        .application-table thead {
+            display: none;
+        }
+
+        .application-table[data-show-column-headers="1"] thead {
+            display: table-header-group;
+        }
+
+        @media (max-width: 640px) {
+            .application-table {
+                min-width: 0;
+            }
+
+            .application-table thead {
+                display: none !important;
+            }
+
+            .application-table,
+            .application-table tbody,
+            .application-table tr,
+            .application-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .application-table tr {
+                border-top: 1px solid #e2e8f0;
+            }
+
+            .application-table td:not([colspan]) {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 1rem;
+                padding: 0.55rem 0.75rem;
+                white-space: normal;
+            }
+
+            .application-table td:not([colspan])::before {
+                content: attr(data-label);
+                flex-shrink: 0;
+                font-weight: 700;
+                color: #64748b;
+            }
+
+            .application-table td[colspan] {
+                padding: 0.75rem;
+            }
+
+            [data-application-filters]>button {
+                flex-shrink: 0;
+            }
+
+            .application-table .application-message-actions {
+                justify-content: flex-end;
+            }
+        }
+
+        #jobCoachPanel {
+            width: min(100vw - 1.5rem, 24rem);
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+        }
+
+        @media screen and (max-width: 767px) {
+            #jobCoachPanel {
+                width: min(100vw - 1.5rem, 12rem);
+                max-height: min(40vh, 360px);
+            }
+        }
+
+        #jobCoachMessages {
+            scrollbar-width: thin;
+        }
+
+        .job-coach-bubble {
+            max-width: 92%;
+            word-break: break-word;
+        }
+
+        .job-coach-bubble-user {
+            white-space: pre-wrap;
+        }
+
+        .job-coach-markdown p:last-child,
+        .job-coach-markdown ul:last-child,
+        .job-coach-markdown ol:last-child {
+            margin-bottom: 0;
+        }
+
+        .job-coach-markdown strong {
+            font-weight: 700;
+        }
+
+        .job-coach-bubble-user {
+            margin-left: auto;
+            background: #059669;
+            color: #fff;
+        }
+
+        .job-coach-bubble-assistant {
+            background: #fff;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+
+        .job-coach-bubble-system {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            max-width: 100%;
+        }
+
+        .job-coach-scout-avatar {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 2px solid #059669;
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+        }
+
+        .job-coach-scout-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .job-coach-scout-header-icon {
+            flex-shrink: 0;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 2px solid rgba(52, 211, 153, 0.55);
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+        }
+
+        .job-coach-scout-header-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .job-coach-launcher-avatar {
+            flex-shrink: 0;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 2px solid #34d399;
+        }
+
+        .job-coach-launcher-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
     </style>
 </head>
 
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen font-sans pt-20"
     style="background-image: url('/static/images/bg13.png'); background-size: cover; background-repeat: no-repeat; background-attachment: fixed;">
+
+    <!-- Job Search Message Modal -->
+    <div id="jobMessageModal" class="fixed inset-0 bg-black/60 z-[9999] hidden items-center justify-center p-3 sm:p-4">
+        <div
+            class="bg-white w-full max-w-2xl max-h-[calc(100vh-2rem)] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="flex flex-shrink-0 items-center justify-between px-5 py-3 border-b">
+                <div>
+                    <h3 id="jobMessageTitle" class="font-semibold text-lg text-gray-800">Job search message</h3>
+                    <p id="jobMessageContext" class="text-xs text-gray-500">Write your message, then let AI polish it.
+                    </p>
+                </div>
+                <button type="button" onclick="closeJobMessageModal()" class="text-gray-500 hover:text-gray-800"
+                    aria-label="Close">&times;</button>
+            </div>
+            <div class="p-5 space-y-3 overflow-y-auto">
+                <div>
+                    <label for="jobMessageSubject" class="block text-sm font-medium text-gray-800 mb-1">Subject
+                        <span class="text-gray-400 font-normal">(optional)</span></label>
+                    <input id="jobMessageSubject" placeholder="Optional email subject"
+                        class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <div class="mb-1 flex items-center justify-between gap-3">
+                        <label for="jobMessageOriginal" class="block text-sm font-medium text-gray-800">Your
+                            message</label>
+                        <button type="button" onclick="copyCurrentJobMessage(this, 'original')"
+                            class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                            aria-label="Copy original message" title="Copy original message">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <textarea id="jobMessageOriginal"
+                        class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows="4"></textarea>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Start with your own words. AI will preserve your meaning and polish the tone.
+                    </p>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <button id="jobMessageRewriteButton" type="button" onclick="rewriteJobMessage()"
+                        class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                        AI rewrite
+                    </button>
+                    <span id="jobMessageError" class="text-xs font-semibold text-red-600"></span>
+                </div>
+                <div>
+                    <div class="mb-1 flex items-center justify-between gap-3">
+                        <label for="jobMessageRewrite" class="block text-sm font-medium text-gray-800">AI-polished
+                            version</label>
+                        <button type="button" onclick="copyCurrentJobMessage(this)"
+                            class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                            aria-label="Copy current message" title="Copy current message">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <textarea id="jobMessageRewrite"
+                        class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows="5"
+                        placeholder="Your rewritten message will appear here. You can edit it before copying."></textarea>
+                </div>
+                <p class="text-xs text-gray-500">
+                    Tip: add a detail from the interview or job posting before rewriting for a more specific result.
+                </p>
+            </div>
+            <div
+                class="flex-shrink-0 px-5 py-3 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span id="jobMessageCopyStatus" class="text-xs font-semibold text-emerald-700"></span>
+                <div class="flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeJobMessageModal()"
+                        class="px-4 py-2 text-gray-700 hover:text-gray-900">Close</button>
+                    <button id="jobMessageSaveButton" type="button" onclick="saveJobMessage()"
+                        class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">Save
+                        to hub</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Download Feedback Modal -->
     <div id="downloadFeedbackModal" class="fixed inset-0 bg-black/60 z-[9999] hidden items-center justify-center p-4">
@@ -338,7 +1187,7 @@
             {% if user and user.is_authenticated %}
             <a class="block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
                 href="/my_revisions">
-                My Account
+                Career Dashboard
             </a>
             <a class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2"
                 href="/settings">
@@ -381,6 +1230,9 @@
                         <a class="nav-link text-gray-600 hover:text-primary transition-colors"
                             href="/contact">Contact</a>
                         {% if user and user.is_authenticated %}
+                        <a href="/my_revisions" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            Career Dashboard
+                        </a>
                         <a href="/settings" aria-label="Settings" title="Settings"
                             class="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
                             Settings
@@ -404,25 +1256,26 @@
     </header>
 
     <!-- Header Section -->
-    <div class="bg-white/90 backdrop-blur-sm shadow-sm sticky top-20 z-10">
+    <div class="bg-white/90 backdrop-blur-sm shadow-sm">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center space-x-3">
 
                     <div>
-                        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">
+                        <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight text-gray-900">
                             {% if user and (user.id|string).startswith('email_') and not (user.name and
                             user.name.strip()) %}
-                            <span class="text-gray-900">Job Search Hub</span>
+                            <span class="text-gray-900">Job Search Command Center</span>
                             {% else %}
                             <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-600">
                                 {% if user and user.name and user.name.strip() %}{{ user.name.split()[0] }}'s{% else
                                 %}My{% endif %}
                             </span>
-                            <span class="text-gray-900">Job Search Hub</span>
+                            <span class="text-gray-900">Job Search Command Center</span>
                             {% endif %}
                         </h1>
-                        <p class="text-sm text-gray-600"></p>
+                        <p class="text-sm text-gray-600">Keep every resume version, application, status, and next step
+                            in one place.</p>
                     </div>
                 </div>
 
@@ -436,6 +1289,10 @@
     {% if messages %}
     <div class="max-w-5xl mx-auto px-6 mt-4">
         {% for category, message in messages %}
+        {% set message_text = message|string %}
+        {% set is_application_update_success = category == 'success' and message_text.startswith('Application ') and
+        'updated' in message_text %}
+        {% if not is_application_update_success %}
         <div
             class="mb-4 p-4 rounded-lg {% if category == 'success' %}bg-green-100 border border-green-400 text-green-700{% else %}bg-red-100 border border-red-400 text-red-700{% endif %}">
             <div class="flex items-center">
@@ -444,402 +1301,818 @@
                 {{ message }}
             </div>
         </div>
+        {% endif %}
         {% endfor %}
     </div>
     {% endif %}
     {% endwith %}
 
-    <div class="max-w-5xl mx-auto p-6">
-
-        <!-- Mission + CTAs -->
-        <div
-            class="mb-6 bg-gradient-to-r from-indigo-50/70 via-white/90 to-emerald-50/70 backdrop-blur-sm border border-gray-200 rounded-2xl p-5 shadow-sm">
-            <div class="grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-3 items-center">
-                <div>
-                    <div
-                        class="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-indigo-100/70 border border-indigo-200 text-indigo-800 text-base font-semibold">
-                        <i class="fas fa-bullseye text-2xl"></i>
-                        Tailor to the job description
-                    </div>
-
-                    <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mt-2 leading-tight tracking-tight">
-                        Tailored resumes win interviews
-                    </h2>
-                    <p class="text-sm text-gray-700 mt-2 leading-relaxed max-w-xl">
-                        Generate a role-specific resume in seconds, then track which version you used for each
-                        application.
-                    </p>
-                    <a href="/blog/tailorresumejob"
-                        class="inline-flex items-center gap-2 mt-2 text-indigo-700 hover:text-indigo-900 font-semibold hover:underline underline-offset-4">
-                        Learn why tailoring works
-                        <i class="fas fa-arrow-right text-xs"></i>
-                    </a>
-
-                    <div class="mt-3 flex flex-col sm:flex-row gap-2">
-                        <a href="{{ url_for('upload') }}"
-                            class="inline-flex w-full sm:w-auto items-center justify-center px-6 py-3 btn-primary text-white rounded-xl shadow-lg hover:shadow-xl border border-white/20 ring-1 ring-black/5 transition-all duration-200 font-semibold text-base cursor-pointer select-none hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
-                            <i class="fas fa-bolt mr-2"></i>
-                            Create customized resume
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Cute JD -> Tailored Resume animation -->
-                <div class="hidden lg:block">
-                    <div class="w-full max-w-[520px] ml-auto">
-                        <img src="/static/images/jd-to-tailored-resume.svg"
-                            alt="Job description to tailored resume illustration" loading="lazy" decoding="async"
-                            width="720" height="260" class="w-full h-auto" />
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% if revisions %} <!-- Stats Section -->
-        <div class="mb-6">
-            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="text-center">
-                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-check-circle text-green-600 text-lg"></i>
-                        </div>
-                        <div class="text-xl font-bold text-gray-800">{{ revisions|length }}</div>
-                        <div class="text-sm text-gray-600">Total Revisions</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-clock text-blue-600 text-lg"></i>
-                        </div>
-                        <div class="text-xl font-bold text-gray-800">
-                            {% if revisions %}
-                            <span class="local-date"
-                                data-utc-date="{{ revisions[0].timestamp.isoformat() if revisions[0].timestamp else '' }}">
-                                {{ revisions[0].timestamp.strftime('%m/%d/%Y') if revisions[0].timestamp else 'N/A' }}
-                            </span>
-                            {% else %}
-                            N/A
-                            {% endif %}
-                        </div>
-                        <div class="text-sm text-gray-600">Latest Revision</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-sticky-note text-amber-600 text-lg"></i>
-                        </div>
-                        <div class="text-xl font-bold text-gray-800">
-                            {{ revisions|selectattr('has_applications')|list|length }}
-                        </div>
-                        <div class="text-sm text-gray-600">Applications tracked</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Revisions List -->
-        <div class="space-y-4">
-            {% for rev in revisions %}
+    <div class="max-w-5xl mx-auto px-3 py-4 sm:p-6">
+        {% set pipeline = namespace(total=0, applied=0, interviewing=0, offer=0, rejected=0, no_response=0,
+        followups_due=0) %}
+        {% if revisions %}
+        {% for rev in revisions %}
+        {% for app in rev.applications or [] %}
+        {% set pipeline.total = pipeline.total + 1 %}
+        {% set app_status = (app.status or '')|lower %}
+        {% if app_status == 'applied' %}
+        {% set pipeline.applied = pipeline.applied + 1 %}
+        {% elif app_status == 'interviewing' %}
+        {% set pipeline.interviewing = pipeline.interviewing + 1 %}
+        {% elif app_status == 'offer' %}
+        {% set pipeline.offer = pipeline.offer + 1 %}
+        {% elif app_status == 'rejected' %}
+        {% set pipeline.rejected = pipeline.rejected + 1 %}
+        {% elif app_status == 'no response' %}
+        {% set pipeline.no_response = pipeline.no_response + 1 %}
+        {% endif %}
+        {% if app.follow_up_date and app.follow_up_date <= today_iso and app_status not in ['offer', 'rejected' ] %} {%
+            set pipeline.followups_due=pipeline.followups_due + 1 %} {% endif %} {% endfor %} {% endfor %} {% endif %}
+            {% set tracked_application_count=pipeline.total %} <!-- Mission + CTAs -->
             <div
-                class="{{ 'bg-white/90' if loop.index0 is even else 'bg-gray-200/90' }} backdrop-blur-sm rounded-xl shadow-lg card-hover rev-card overflow-hidden">
-                <div class="p-6">
-                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <!-- Left side - Info -->
-                        <div class="flex items-start space-x-4">
-                            <a href="/view_revision/{{ rev.revision_id }}" aria-label="View analysis"
-                                class="flex-shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                class="mb-6 bg-gradient-to-r from-indigo-50/70 via-white/90 to-emerald-50/70 backdrop-blur-sm border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start">
+                    <div>
+                        <div
+                            class="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-indigo-100/70 border border-indigo-200 text-indigo-800 text-sm sm:text-base font-semibold">
+                            <i class="fas fa-briefcase text-2xl"></i>
+                            Run your job search like a campaign
+                        </div>
+
+                        <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mt-2 leading-tight tracking-tight">
+                            Take Complete Control of Your Job Search
+                        </h2>
+                        <p class="text-sm text-gray-700 mt-2 leading-relaxed max-w-2xl">
+                            Most job seekers track applications in spreadsheets, notes apps, and browser tabs. Your Job
+                            Search Hub keeps each role connected to the exact resume you used, the application status,
+                            interview notes, and next steps.
+                        </p>
+                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-check-circle mt-0.5 text-emerald-600"></i>
+                                <span>Know exactly what you sent to each company.</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-check-circle mt-0.5 text-emerald-600"></i>
+                                <span>Keep recruiter names, notes, and next steps together.</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-check-circle mt-0.5 text-emerald-600"></i>
+                                <span>Track status without juggling spreadsheets.</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-check-circle mt-0.5 text-emerald-600"></i>
+                                <span>Draft pre-interview, thank-you, and follow-up messages.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-xl bg-indigo-700 p-4 sm:p-5 text-white shadow-lg">
+                        {% if tracked_application_count == 0 %}
+                        <div class="w-11 h-11 rounded-lg bg-white/15 flex items-center justify-center mb-3">
+                            <i class="fas fa-route text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold">Start tracking your first application</h3>
+                        <p class="mt-2 text-sm text-indigo-100 leading-relaxed">
+                            Add one application here and see how it feels when the role, resume version, status, and
+                            notes
+                            live together.
+                        </p>
+                        {% else %}
+                        <div class="w-11 h-11 rounded-lg bg-white/15 flex items-center justify-center mb-3">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold">Keep your pipeline current</h3>
+                        <p class="mt-2 text-sm text-indigo-100 leading-relaxed">
+                            Update statuses and notes as recruiters reply, interviews get scheduled, and follow-ups
+                            become
+                            due.
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if revisions %} <!-- Stats Section -->
+            <div class="mb-6">
+                <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-4 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/80 p-4">
+                            <div
+                                class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-gray-800">{{ revisions|length }}</div>
+                                <div class="text-sm text-gray-600">Total Revisions</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/80 p-4">
+                            <div
+                                class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-clock text-blue-600 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-gray-800">
+                                    {% if revisions %}
+                                    <span class="local-date"
+                                        data-utc-date="{{ revisions[0].timestamp.isoformat() if revisions[0].timestamp else '' }}">
+                                        {{ revisions[0].timestamp.strftime('%m/%d/%Y') if revisions[0].timestamp else
+                                        'N/A' }}
+                                    </span>
+                                    {% else %}
+                                    N/A
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-gray-600">Latest Revision</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-white/80 p-4">
+                            <div
+                                class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-sticky-note text-amber-600 text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="text-xl font-bold text-gray-800">{{ tracked_application_count }}</div>
+                                <div class="text-sm text-gray-600">Applications tracked</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                            <div class="rounded-xl bg-indigo-50 p-3 text-center">
                                 <div
-                                    class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center hover:opacity-95 transition-opacity">
-                                    <i class="fas fa-file-alt text-white text-lg"></i>
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-paper-plane text-indigo-600 text-base"></i>
                                 </div>
-                            </a>
-                            <div class="flex-1">
-                                <div class="flex items-center space-x-3 mb-2">
-                                    {% set seq_num = (revisions|length - loop.index0) %}
-                                    {% set fallback_name = ('Resume ' ~ seq_num) %}
-                                    {% set display_name = (rev.revision_name or fallback_name) %}
-                                    <h3 class="text-lg font-semibold text-gray-800">
-                                        <a href="/view_revision/{{ rev.revision_id }}"
-                                            id="revision-title-{{ rev.revision_id }}"
-                                            data-fallback-name="{{ fallback_name | e }}"
-                                            class="hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
-                                            {{ display_name | e }}
-                                        </a>
-                                    </h3>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.applied }}</div>
+                                <div class="text-xs text-gray-600">Applied</div>
+                            </div>
+                            <div class="rounded-xl bg-purple-50 p-3 text-center">
+                                <div
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-comments text-purple-600 text-base"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.interviewing }}</div>
+                                <div class="text-xs text-gray-600">Interviewing</div>
+                            </div>
+                            <div class="rounded-xl bg-emerald-50 p-3 text-center">
+                                <div
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-trophy text-emerald-600 text-base"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.offer }}</div>
+                                <div class="text-xs text-gray-600">Offers</div>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 p-3 text-center">
+                                <div
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-hourglass-half text-slate-600 text-base"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.no_response }}</div>
+                                <div class="text-xs text-gray-600">No response</div>
+                            </div>
+                            <div class="rounded-xl bg-orange-50 p-3 text-center">
+                                <div
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-bell text-orange-600 text-base"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.followups_due }}</div>
+                                <div class="text-xs text-gray-600">Follow-ups due</div>
+                            </div>
+                            <div class="rounded-xl bg-rose-50 p-3 text-center">
+                                <div
+                                    class="w-9 h-9 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <i class="fas fa-times-circle text-rose-600 text-base"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-800">{{ pipeline.rejected }}</div>
+                                <div class="text-xs text-gray-600">Rejected</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                                    <button type="button" onclick="toggleRename('{{ rev.revision_id }}')"
-                                        class="text-xs font-semibold text-gray-500 hover:text-gray-700 hover:underline underline-offset-2">
-                                        rename
-                                    </button>
-                                </div>
-                                <div id="rename-{{ rev.revision_id }}" class="hidden mb-2">
-                                    <form action="update_revision_name/{{ rev.revision_id }}" method="POST"
-                                        class="flex items-center gap-2 js-rename-form"
-                                        data-revision-id="{{ rev.revision_id | e }}">
-                                        <input type="hidden" name="revision_id" value="{{ rev.revision_id | e }}" />
-                                        <input type="text" name="revision_name"
-                                            value="{{ (rev.revision_name or '') | e }}" maxlength="80"
-                                            placeholder="{{ display_name | e }}"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
-                                        <button type="submit"
-                                            class="px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap">
-                                            Save
-                                        </button>
-                                        <button type="button" onclick="cancelRename('{{ rev.revision_id }}')"
-                                            class="px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">
-                                            Cancel
-                                        </button>
-                                    </form>
-                                </div>
-                                <div class="flex flex-col sm:flex-row sm:items-center text-sm text-gray-600">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-calendar-alt mr-2 text-gray-400"></i>
-                                        {% if rev.timestamp %}
-                                        <span class="local-datetime" data-utc-date="{{ rev.timestamp.isoformat() }}"
-                                            title="Time shown in your local timezone">
-                                            {{ rev.timestamp.strftime('%B %d, %Y at %I:%M %p') }}
-                                        </span>
-                                        {% else %}
-                                        <span class="text-gray-500">Unknown date</span>
-                                        {% endif %}
+            <!-- Revisions List -->
+            <div class="space-y-4">
+                {% for rev in revisions %}
+                <div
+                    class="relative {{ 'bg-white' if loop.index0 is even else 'bg-slate-300' }} border border-slate-400 backdrop-blur-sm rounded-xl shadow-lg card-hover rev-card overflow-hidden">
+                    <a href="/view_revision/{{ rev.revision_id }}"
+                        class="absolute right-4 top-4 z-10 hidden items-center gap-3 md:inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                        <img src="{{ url_for('static', filename='images/gauge1.png') }}" alt="Analysis"
+                            class="h-12 w-12 object-contain drop-shadow-md" />
+                        <span
+                            class="rounded-full border border-sky-200 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md transition-colors hover:border-sky-300 hover:bg-white">
+                            View comprehensive analysis
+                        </span>
+                    </a>
+                    <div class="p-6">
+                        <div class="flex flex-col gap-4 md:pr-44 lg:pr-52">
+                            <!-- Left side - Info -->
+                            <div class="flex items-start space-x-4">
+                                <a href="/view_revision/{{ rev.revision_id }}" aria-label="View analysis"
+                                    class="flex-shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                                    <div
+                                        class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center hover:opacity-95 transition-opacity">
+                                        <i class="fas fa-file-alt text-white text-lg"></i>
                                     </div>
-                                </div>
+                                </a>
+                                <div class="flex-1">
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+                                        {% set seq_num = (revisions|length - loop.index0) %}
+                                        {% set fallback_name = ('Resume ' ~ seq_num) %}
+                                        {% set display_name = (rev.revision_name or fallback_name) %}
+                                        <h3 class="text-lg font-semibold text-gray-800">
+                                            <a href="/view_revision/{{ rev.revision_id }}"
+                                                id="revision-title-{{ rev.revision_id }}"
+                                                data-fallback-name="{{ fallback_name | e }}"
+                                                class="hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                                                {{ display_name | e }}
+                                            </a>
+                                        </h3>
 
-                                {% if rev.job_description and rev.job_description.strip() %}
-                                <div class="mt-2">
-                                    <button type="button" onclick="toggleJobDesc('{{ rev.revision_id }}')"
-                                        class="inline-flex items-center gap-2 text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:underline underline-offset-2">
-                                        <span
-                                            class="inline-flex items-center px-2 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700">
-                                            <i class="fas fa-bullseye mr-1"></i> Tailored to job
-                                        </span>
-                                        <span>View job description</span>
-                                    </button>
-                                    <div id="jobdesc-{{ rev.revision_id }}" class="hidden mt-2">
-                                        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                                            <p class="text-xs text-indigo-900 whitespace-pre-wrap">{{
-                                                rev.job_description }}</p>
+                                        <button type="button" onclick="toggleRename('{{ rev.revision_id }}')"
+                                            class="text-xs font-semibold text-gray-500 hover:text-gray-700 hover:underline underline-offset-2">
+                                            rename
+                                        </button>
+
+                                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                                            <i class="fas fa-calendar-alt text-gray-400"></i>
+                                            {% if rev.timestamp %}
+                                            <span class="local-datetime whitespace-nowrap"
+                                                data-utc-date="{{ rev.timestamp.isoformat() }}"
+                                                title="Time shown in your local timezone">
+                                                {{ rev.timestamp.strftime('%B %d, %Y at %I:%M %p') }}
+                                            </span>
+                                            {% else %}
+                                            <span class="text-gray-500">Unknown date</span>
+                                            {% endif %}
                                         </div>
                                     </div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
 
-                        <!-- Right side - Actions -->
-                        <div class="flex flex-col gap-2">
-                            <div>
-                                <a href="/view_revision/{{ rev.revision_id }}"
-                                    class="inline-flex w-full items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium">
-                                    <i class="fas fa-eye mr-2"></i>
-                                    View Analysis
-                                </a>
-                            </div>
-                            {% if rev.template_versions and rev.template_versions|length > 0 %}
-                            <div class="mt-2 pt-2 border-t border-gray-200 flex flex-col gap-2">
-                                {% set _tpl_label = {
-                                'minimalSidebar': 'Stylish',
-                                'classicRose': 'Classic',
-                                'creative2': 'Creative',
-                                'boldProfessional': 'Bold Professional'
-                                } %}
-                                {% for tv in rev.template_versions %}
-                                <a href="{{ url_for('edit_revision_template', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
-                                    class="inline-flex w-full items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium">
-                                    <i class="fas fa-pen-to-square mr-2"></i>
-                                    {{ _tpl_label.get(tv.template_id, tv.template_display_name) }} Version
-                                </a>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                                    <a href="/view_revision/{{ rev.revision_id }}"
+                                        class="mt-2 inline-flex items-center gap-3 md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                                        <img src="{{ url_for('static', filename='images/gauge1.png') }}" alt="Analysis"
+                                            class="h-10 w-10 object-contain drop-shadow-md" />
+                                        <span
+                                            class="rounded-full border border-sky-200 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md transition-colors hover:border-sky-300 hover:bg-white">
+                                            View comprehensive analysis
+                                        </span>
+                                    </a>
 
-                    <!-- Tracking Section -->
-                    <div class="mt-4 pt-4 border-t border-gray-200">
-                        <div class="mb-4">
-                            <form action="/update_notes/{{ rev.revision_id }}" method="POST" class="space-y-2">
-                                <label class="block text-xs font-semibold text-gray-700">
-                                    <i class="fas fa-sticky-note mr-1 text-amber-500"></i>
-                                    Interview notes
-                                </label>
-                                <textarea name="notes"
-                                    placeholder="Interview notes (e.g., recruiter name, screening questions, next steps, follow-up reminders, interview prep)"
-                                    class="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                    rows="3">{{ rev.notes }}</textarea>
-                                <div class="flex justify-end">
-                                    <button type="submit"
-                                        class="px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-                                        <i class="fas fa-save mr-1"></i>
-                                        Save notes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                                    <div id="rename-{{ rev.revision_id }}" class="hidden mb-2">
+                                        <form action="update_revision_name/{{ rev.revision_id }}" method="POST"
+                                            class="flex items-center gap-2 js-rename-form"
+                                            data-revision-id="{{ rev.revision_id | e }}">
+                                            <input type="hidden" name="revision_id" value="{{ rev.revision_id | e }}" />
+                                            <input type="text" name="revision_name"
+                                                value="{{ (rev.revision_name or '') | e }}" maxlength="80"
+                                                placeholder="{{ display_name | e }}"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                                            <button type="submit"
+                                                class="px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap">
+                                                Save
+                                            </button>
+                                            <button type="button" onclick="cancelRename('{{ rev.revision_id }}')"
+                                                class="px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    </div>
 
-                        <!-- Structured applications -->
-                        <div class="mb-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <div class="text-xs font-semibold text-gray-700">Applications</div>
-                                <button type="button" onclick="toggleAppForm('{{ rev.revision_id }}')"
-                                    class="text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:underline underline-offset-2">
-                                    <i class="fas fa-plus mr-1"></i>Add submitted job application
-                                </button>
-                            </div>
-
-                            {% if rev.applications and rev.applications|length > 0 %}
-                            <div class="overflow-x-auto border border-gray-200 rounded-lg bg-white">
-                                <table class="min-w-full text-xs">
-                                    <thead class="bg-gray-50">
-                                        <tr class="text-left text-gray-600">
-                                            <th class="px-3 py-2 font-semibold">Company</th>
-                                            <th class="px-3 py-2 font-semibold">Role</th>
-                                            <th class="px-3 py-2 font-semibold">Date</th>
-                                            <th class="px-3 py-2 font-semibold">Status</th>
-                                            <th class="px-3 py-2 font-semibold">Link</th>
-                                            <th class="px-3 py-2 font-semibold"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-                                        {% for a in rev.applications %}
-                                        <tr class="text-gray-700">
-                                            <td class="px-3 py-2 whitespace-nowrap">{{ a.company or '-' }}</td>
-                                            <td class="px-3 py-2 whitespace-nowrap">{{ a.role or '-' }}</td>
-                                            <td class="px-3 py-2 whitespace-nowrap">{{ a.date_applied or '-' }}</td>
-                                            <td class="px-3 py-2 whitespace-nowrap">{{ a.status or '-' }}</td>
-                                            <td class="px-3 py-2">
-                                                {% if a.link %}
-                                                <a href="{{ a.link }}" target="_blank" rel="noopener"
-                                                    class="text-blue-600 hover:text-blue-800 hover:underline underline-offset-2">
-                                                    Open
-                                                </a>
-                                                {% else %}
-                                                -
-                                                {% endif %}
-                                            </td>
-                                            <td class="px-3 py-2 text-right">
-                                                <form method="POST"
-                                                    action="/application/delete/{{ rev.revision_id }}/{{ loop.index0 }}">
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-800 hover:underline underline-offset-2 font-semibold">
-                                                        Remove
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
+                                    {% if rev.template_versions and rev.template_versions|length > 0 %}
+                                    <div class="mt-3 flex flex-wrap gap-3">
+                                        {% set _tpl_label = {
+                                        'elegant': 'Elegant',
+                                        'minimalSidebar': 'Stylish',
+                                        'classicRose': 'Classic',
+                                        'creative2': 'Creative',
+                                        'boldProfessional': 'Bold Professional'
+                                        } %}
+                                        {% set _tpl_preview_asset = {
+                                        'professional': 'images/template_previews/professional.jpg',
+                                        'elegant': 'images/template_previews/classic.jpg',
+                                        'classicRose': 'images/template_previews/classic.jpg',
+                                        'creative': 'images/template_previews/creative.jpg',
+                                        'creative2': 'images/template_previews/creative.jpg',
+                                        'boldProfessional': 'images/template_previews/boldprofessional.jpg',
+                                        'traditional': 'images/template_previews/contemporary.jpg',
+                                        'contemporary': 'images/template_previews/contemporary.jpg',
+                                        'modern': 'images/template_previews/modern.jpg',
+                                        'executive': 'images/template_previews/executive.jpg',
+                                        'minimalSidebar': 'images/template_previews/stylish.jpg',
+                                        'stylish': 'images/template_previews/stylish.jpg'
+                                        } %}
+                                        {% for tv in rev.template_versions %}
+                                        {% set preview = tv.template_preview or {} %}
+                                        {% set template_id = tv.template_id or '' %}
+                                        {% set template_label = _tpl_label.get(template_id, tv.template_display_name) %}
+                                        {% set preview_asset = _tpl_preview_asset.get(template_id,
+                                        'images/template_previews/professional.jpg') %}
+                                        <a href="{{ url_for('edit_revision_template', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
+                                            class="group block w-[160px] flex-shrink-0 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-left shadow-sm transition-colors duration-200 hover:border-indigo-300 hover:bg-indigo-50">
+                                            <div
+                                                class="mx-auto w-full overflow-hidden rounded-lg border border-indigo-100 bg-white shadow-sm">
+                                                <div
+                                                    class="relative flex h-[120px] items-center justify-center overflow-hidden bg-white p-2">
+                                                    <div class="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm"
+                                                        aria-hidden="true">
+                                                        <i class="fas fa-pen-to-square text-[11px]"></i>
+                                                    </div>
+                                                    <img src="{{ url_for('static', filename=preview_asset) }}"
+                                                        alt="{{ template_label }} thumbnail"
+                                                        class="max-h-full max-w-full object-contain" loading="lazy" />
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 text-center">
+                                                <div class="text-sm font-semibold text-indigo-900 truncate">{{
+                                                    template_label }}</div>
+                                                <div class="text-[11px] text-indigo-700">Click to edit this version
+                                                </div>
+                                            </div>
+                                        </a>
                                         {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {% else %}
-                            <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                No applications tracked yet.
-                            </div>
-                            {% endif %}
+                                    </div>
+                                    {% endif %}
 
-                            <div id="appform-{{ rev.revision_id }}" class="hidden mt-3">
-                                <form method="POST" action="/application/add/{{ rev.revision_id }}"
-                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-semibold text-indigo-900 mb-1">Company</label>
-                                        <input name="company"
-                                            class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
-                                            placeholder="e.g., Google" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Role</label>
-                                        <input name="role"
-                                            class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
-                                            placeholder="e.g., Data Scientist" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Date
-                                            applied</label>
-                                        <input type="date" name="date_applied"
-                                            class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm" />
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-[11px] font-semibold text-indigo-900 mb-1">Status</label>
-                                        <select name="status"
-                                            class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm">
-                                            <option value="">Select…</option>
-                                            <option>Applied</option>
-                                            <option>Interviewing</option>
-                                            <option>Offer</option>
-                                            <option>Rejected</option>
-                                            <option>No response</option>
-                                        </select>
-                                    </div>
-                                    <div class="sm:col-span-2">
-                                        <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Link</label>
-                                        <input type="url" name="link"
-                                            class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
-                                            placeholder="Job posting / application link (optional)" />
-                                    </div>
-                                    <div class="sm:col-span-2 flex items-center justify-end gap-2">
-                                        <button type="button" onclick="toggleAppForm('{{ rev.revision_id }}')"
-                                            class="px-3 py-2 text-sm rounded-lg bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100">
-                                            Cancel
+                                    {% if rev.job_description and rev.job_description.strip() %}
+                                    <div class="mt-2">
+                                        <button type="button" onclick="toggleJobDesc('{{ rev.revision_id }}')"
+                                            class="inline-flex items-center gap-2 text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:underline underline-offset-2">
+                                            <span
+                                                class="inline-flex items-center px-2 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700">
+                                                <i class="fas fa-bullseye mr-1"></i> Tailored to job
+                                            </span>
+                                            <span>View job description</span>
                                         </button>
+                                        <div id="jobdesc-{{ rev.revision_id }}" class="hidden mt-2">
+                                            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                                                <p class="text-xs text-indigo-900 whitespace-pre-wrap">{{
+                                                    rev.job_description }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tracking Section -->
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <div class="mb-4">
+                                <form action="/update_notes/{{ rev.revision_id }}" method="POST" class="space-y-2">
+                                    <label class="block text-xs font-semibold text-gray-700">
+                                        <i class="fas fa-sticky-note mr-1 text-amber-500"></i>
+                                        Additional notes
+                                    </label>
+                                    <textarea name="notes"
+                                        placeholder="General notes about this resume version (e.g., strategy, target roles, reminders, positioning)"
+                                        class="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                        rows="3">{{ rev.notes }}</textarea>
+                                    <div class="flex justify-end">
                                         <button type="submit"
-                                            class="px-3 py-2 text-sm rounded-lg bg-indigo-700 text-white hover:bg-indigo-800">
-                                            Save application
+                                            class="px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                                            <i class="fas fa-save mr-1"></i>
+                                            Save notes
                                         </button>
                                     </div>
                                 </form>
                             </div>
+
+                            <!-- Structured applications -->
+                            <div class="mb-3" data-application-section>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="text-xs font-semibold text-gray-700">Applications</div>
+                                    <button type="button" onclick="toggleAppForm('{{ rev.revision_id }}')"
+                                        class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 hover:text-indigo-900">
+                                        <i class="fas fa-plus mr-1"></i>Add New Job Application
+                                    </button>
+                                </div>
+
+                                {% if rev.applications and rev.applications|length > 0 %}
+                                <div class="mb-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+                                    data-application-filters>
+                                    <button type="button" data-application-filter="all"
+                                        class="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">All</button>
+                                    <button type="button" data-application-filter="applied"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Applied</button>
+                                    <button type="button" data-application-filter="interviewing"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Interviewing</button>
+                                    <button type="button" data-application-filter="no response"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">No
+                                        response</button>
+                                    <button type="button" data-application-filter="followups_due"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Follow-ups
+                                        due</button>
+                                    <button type="button" data-application-filter="offer"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Offers</button>
+                                    <button type="button" data-application-filter="rejected"
+                                        class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Rejected</button>
+                                </div>
+                                <div class="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+                                    <table class="application-table min-w-full text-xs">
+                                        <tbody>
+                                            {% for a in rev.applications %}
+                                            {% set app_idx = loop.index0 %}
+                                            {% set app_status_key = (a.status or '')|lower %}
+                                            {% set app_is_followup_due = a.follow_up_date and a.follow_up_date <=
+                                                today_iso and app_status_key not in ['offer', 'rejected' ] %} {% set
+                                                app_group_id=rev.revision_id ~ '-' ~ app_idx %} <tr
+                                                data-application-group="{{ app_group_id | e }}"
+                                                data-application-status="{{ app_status_key | e }}"
+                                                data-followup-due="{{ '1' if app_is_followup_due else '0' }}"
+                                                class="border-t-4 border-indigo-200 {{ 'bg-indigo-50' if app_idx is even else 'bg-emerald-50' }}">
+                                                <td colspan="8" class="px-3 py-2">
+                                                    <div
+                                                        class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                                                        <div class="flex min-w-0 items-center gap-2 overflow-hidden">
+                                                            <span
+                                                                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[11px] font-bold text-indigo-700 shadow-sm">
+                                                                {{ app_idx + 1 }}
+                                                            </span>
+                                                            <span class="truncate text-sm font-bold text-slate-900">
+                                                                {{ a.company or 'Company not set' }}
+                                                            </span>
+                                                            <span class="text-xs text-slate-500">·</span>
+                                                            <span class="truncate text-sm font-semibold text-slate-700">
+                                                                {{ a.role or 'Role not set' }}
+                                                            </span>
+                                                        </div>
+                                                        <div
+                                                            class="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 lg:justify-end">
+                                                            {% if a.status %}
+                                                            <span
+                                                                class="rounded-full border border-white/70 bg-white/80 px-2 py-0.5 font-semibold">
+                                                                {{ a.status }}
+                                                            </span>
+                                                            {% endif %}
+                                                            {% if a.follow_up_date %}
+                                                            <span
+                                                                class="rounded-full border border-white/70 bg-white/80 px-2 py-0.5 font-semibold {{ 'text-orange-700' if a.follow_up_date <= today_iso and (a.status or '')|lower not in ['offer', 'rejected'] else '' }}">
+                                                                Follow-up: {{ a.follow_up_date }}
+                                                            </span>
+                                                            {% endif %}
+                                                            {% if a.next_action %}
+                                                            <span
+                                                                class="rounded-full border border-white/70 bg-white/80 px-2 py-0.5 font-semibold text-slate-700">
+                                                                Next: {{ a.next_action }}
+                                                            </span>
+                                                            {% endif %}
+                                                            {% if a.updated_at %}
+                                                            <span
+                                                                class="rounded-full border border-white/70 bg-white/80 px-2 py-0.5 font-semibold text-slate-500">
+                                                                Updated: {{ a.updated_at[:10] }}
+                                                            </span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                </tr>
+                                                <tr data-application-group="{{ app_group_id | e }}"
+                                                    data-application-status="{{ app_status_key | e }}"
+                                                    data-followup-due="{{ '1' if app_is_followup_due else '0' }}"
+                                                    class="border-t border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Company</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Role</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Date</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Status</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Follow-up</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Link</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Messages</td>
+                                                    <td class="px-3 py-2 hidden sm:table-cell">Action</td>
+                                                </tr>
+                                                <tr data-application-group="{{ app_group_id | e }}"
+                                                    data-application-status="{{ app_status_key | e }}"
+                                                    data-followup-due="{{ '1' if app_is_followup_due else '0' }}"
+                                                    class="border-t border-slate-200 bg-white text-gray-700">
+                                                    <td data-label="Company" class="px-3 py-2 whitespace-nowrap">{{
+                                                        a.company or '-' }}</td>
+                                                    <td data-label="Role" class="px-3 py-2 whitespace-nowrap">{{ a.role
+                                                        or '-' }}</td>
+                                                    <td data-label="Date" class="px-3 py-2 whitespace-nowrap">{{
+                                                        a.date_applied or '-' }}
+                                                    </td>
+                                                    <td data-label="Status" class="px-3 py-2 whitespace-nowrap">{{
+                                                        a.status or '-' }}</td>
+                                                    <td data-label="Follow-up" class="px-3 py-2 whitespace-nowrap">
+                                                        {% if a.follow_up_date %}
+                                                        <span
+                                                            class="{{ 'font-semibold text-orange-700' if a.follow_up_date <= today_iso and (a.status or '')|lower not in ['offer', 'rejected'] else '' }}">
+                                                            {{ a.follow_up_date }}
+                                                        </span>
+                                                        {% else %}
+                                                        -
+                                                        {% endif %}
+                                                    </td>
+                                                    <td data-label="Link" class="px-3 py-2">
+                                                        {% if a.link %}
+                                                        <a href="{{ a.link }}" target="_blank" rel="noopener"
+                                                            class="text-blue-600 hover:text-blue-800 hover:underline underline-offset-2">
+                                                            job posting link
+                                                        </a>
+                                                        {% else %}
+                                                        -
+                                                        {% endif %}
+                                                    </td>
+                                                    <td data-label="Messages" class="px-3 py-2">
+                                                        <div class="application-message-actions flex flex-wrap gap-1.5">
+                                                            <button type="button" data-job-message-type="pre_interview"
+                                                                data-revision-id="{{ rev.revision_id | e }}"
+                                                                data-app-index="{{ app_idx }}"
+                                                                data-company="{{ (a.company or '')|e }}"
+                                                                data-role="{{ (a.role or '')|e }}"
+                                                                data-status="{{ (a.status or '')|e }}"
+                                                                data-notes="{{ (a.notes or '')|e }}"
+                                                                class="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100">
+                                                                Pre-interview
+                                                            </button>
+                                                            <button type="button" data-job-message-type="thank_you"
+                                                                data-revision-id="{{ rev.revision_id | e }}"
+                                                                data-app-index="{{ app_idx }}"
+                                                                data-company="{{ (a.company or '')|e }}"
+                                                                data-role="{{ (a.role or '')|e }}"
+                                                                data-status="{{ (a.status or '')|e }}"
+                                                                data-notes="{{ (a.notes or '')|e }}"
+                                                                class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
+                                                                Thank-you
+                                                            </button>
+                                                            <button type="button" data-job-message-type="follow_up"
+                                                                data-revision-id="{{ rev.revision_id | e }}"
+                                                                data-app-index="{{ app_idx }}"
+                                                                data-company="{{ (a.company or '')|e }}"
+                                                                data-role="{{ (a.role or '')|e }}"
+                                                                data-status="{{ (a.status or '')|e }}"
+                                                                data-notes="{{ (a.notes or '')|e }}"
+                                                                class="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100">
+                                                                Follow-up
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td data-label="Action" class="px-3 py-2 text-right">
+                                                        <form method="POST"
+                                                            action="/application/delete/{{ rev.revision_id }}/{{ loop.index0 }}">
+                                                            <button type="submit"
+                                                                class="text-red-600 hover:text-red-800 hover:underline underline-offset-2 font-semibold">
+                                                                Delete Application
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                <tr data-application-group="{{ app_group_id | e }}"
+                                                    data-application-status="{{ app_status_key | e }}"
+                                                    data-followup-due="{{ '1' if app_is_followup_due else '0' }}"
+                                                    class="{{ 'bg-indigo-50/40' if app_idx is even else 'bg-emerald-50/40' }} text-gray-700">
+                                                    <td colspan="8" class="px-3 py-3">
+                                                        <form method="POST"
+                                                            action="{{ url_for('update_application_notes', revision_id=rev.revision_id, idx=app_idx) }}"
+                                                            data-preserve-scroll
+                                                            class="mb-3 rounded-lg border border-slate-200 bg-white p-3">
+                                                            <div>
+                                                                <label
+                                                                    class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                                                    Status
+                                                                </label>
+                                                                <select name="status" data-auto-submit-status
+                                                                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                                    <option value="" {% if not a.status %}selected{%
+                                                                        endif %}>Select…</option>
+                                                                    <option value="Applied" {% if a.status=='Applied'
+                                                                        %}selected{% endif %}>Applied</option>
+                                                                    <option value="Interviewing" {% if
+                                                                        a.status=='Interviewing' %}selected{% endif %}>
+                                                                        Interviewing</option>
+                                                                    <option value="Offer" {% if a.status=='Offer'
+                                                                        %}selected{% endif %}>Offer</option>
+                                                                    <option value="Rejected" {% if a.status=='Rejected'
+                                                                        %}selected{% endif %}>Rejected</option>
+                                                                    <option value="No response" {% if
+                                                                        a.status=='No response' %}selected{% endif %}>No
+                                                                        response</option>
+                                                                </select>
+                                                            </div>
+                                                        </form>
+                                                        <form method="POST"
+                                                            action="{{ url_for('update_application_notes', revision_id=rev.revision_id, idx=app_idx) }}"
+                                                            data-preserve-scroll class="space-y-2">
+                                                            <label
+                                                                class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                                Follow-up date
+                                                            </label>
+                                                            <input type="date" name="follow_up_date"
+                                                                value="{{ a.follow_up_date or '' }}"
+                                                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                                            <label
+                                                                class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                                Next action
+                                                            </label>
+                                                            <input name="next_action" value="{{ a.next_action or '' }}"
+                                                                placeholder="e.g., Send follow-up Friday, prepare STAR stories, email recruiter"
+                                                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                                            <label
+                                                                class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                                Application notes
+                                                            </label>
+                                                            <textarea name="notes"
+                                                                placeholder="Interview details, recruiter names, screening questions, follow-up reminders, next steps"
+                                                                class="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                rows="2">{{ a.notes }}</textarea>
+                                                            <div class="flex justify-end">
+                                                                <button type="submit"
+                                                                    class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+                                                                    Save application details
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                {% if a.messages and a.messages|length > 0 %}
+                                                <tr data-application-group="{{ app_group_id | e }}"
+                                                    data-application-status="{{ app_status_key | e }}"
+                                                    data-followup-due="{{ '1' if app_is_followup_due else '0' }}"
+                                                    class="{{ 'bg-indigo-50/40' if app_idx is even else 'bg-emerald-50/40' }} text-gray-700">
+                                                    <td colspan="8" class="px-3 py-3">
+                                                        <div class="space-y-2">
+                                                            <div
+                                                                class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                                Saved messages
+                                                            </div>
+                                                            {% for msg in a.messages|reverse %}
+                                                            {% set msg_label = {
+                                                            'pre_interview': 'Pre-interview',
+                                                            'thank_you': 'Thank-you',
+                                                            'follow_up': 'Follow-up'
+                                                            }.get(msg.type, 'Message') %}
+                                                            {% set message_id = 'saved-msg-' ~ rev.revision_id ~ '-' ~
+                                                            app_idx ~ '-' ~ loop.index0 %}
+                                                            <details
+                                                                class="rounded-lg border border-slate-200 bg-white p-3">
+                                                                <summary
+                                                                    class="flex cursor-pointer items-center justify-between gap-3 text-xs font-semibold text-slate-800">
+                                                                    <span>
+                                                                        {{ msg_label }}
+                                                                        {% if msg.subject %} - {{ msg.subject }}{% endif
+                                                                        %}
+                                                                        {% if msg.created_at %} - {{ msg.created_at[:10]
+                                                                        }}{% endif %}
+                                                                    </span>
+                                                                    <button type="button"
+                                                                        data-copy-message-target="{{ message_id | e }}"
+                                                                        class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                                                                        aria-label="Copy message" title="Copy message">
+                                                                        <i class="fas fa-copy"></i>
+                                                                    </button>
+                                                                </summary>
+                                                                <div id="{{ message_id | e }}"
+                                                                    class="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">
+                                                                    {{ msg.body }}</div>
+                                                            </details>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% endif %}
+                                                {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                    No applications tracked yet. Add the company, role, status, and link so this resume
+                                    version becomes part of your search pipeline.
+                                </div>
+                                {% endif %}
+
+                                <div id="appform-{{ rev.revision_id }}" class="hidden mt-3">
+                                    <form method="POST" action="/application/add/{{ rev.revision_id }}"
+                                        class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Company</label>
+                                            <input name="company"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
+                                                placeholder="e.g., Google" />
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Role</label>
+                                            <input name="role"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
+                                                placeholder="e.g., Data Scientist" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Date
+                                                applied</label>
+                                            <input type="date" name="date_applied"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Status</label>
+                                            <select name="status"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm">
+                                                <option value="">Select…</option>
+                                                <option>Applied</option>
+                                                <option>Interviewing</option>
+                                                <option>Offer</option>
+                                                <option>Rejected</option>
+                                                <option>No response</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Follow-up
+                                                date</label>
+                                            <input type="date" name="follow_up_date"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm" />
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Link</label>
+                                            <input type="text" name="link"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
+                                                placeholder="Job posting link, e.g., linkedin.com/jobs/view/..." />
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Next
+                                                action</label>
+                                            <input name="next_action"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
+                                                placeholder="e.g., Send follow-up Friday, prepare STAR stories, email recruiter" />
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label
+                                                class="block text-[11px] font-semibold text-indigo-900 mb-1">Application
+                                                notes</label>
+                                            <textarea name="notes"
+                                                class="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm"
+                                                rows="3"
+                                                placeholder="Interview details, recruiter names, screening questions, follow-up reminders, next steps"></textarea>
+                                        </div>
+                                        <div class="sm:col-span-2 flex items-center justify-end gap-2">
+                                            <button type="button" onclick="toggleAppForm('{{ rev.revision_id }}')"
+                                                class="px-3 py-2 text-sm rounded-lg bg-white border border-indigo-200 text-indigo-900 hover:bg-indigo-100">
+                                                Cancel
+                                            </button>
+                                            <button type="submit"
+                                                class="px-3 py-2 text-sm rounded-lg bg-indigo-700 text-white hover:bg-indigo-800">
+                                                Save application
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+
                         </div>
-
-
                     </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
 
-        <!-- Call to Action -->
-        <div class="mt-8 text-center">
-            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-6 text-white">
+            <!-- Call to Action -->
+            <div class="mt-8 text-center">
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-6 text-white">
 
-                <a href="{{ url_for('upload') }}"
-                    class="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
-                    <i class="fas fa-plus mr-2"></i>
-                    Create a new customized resume
-                </a>
-            </div>
-        </div>
-
-        {% else %}
-        <!-- Empty State -->
-        <div class="text-center py-16">
-            <div class="max-w-md mx-auto">
-                <div
-                    class="w-24 h-24 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <i class="fas fa-file-alt text-white text-3xl"></i>
-                </div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-4">
-                    {% if user and user.name and user.name.strip() %}{{ user.name.split()[0] }}, you have{% else %}You
-                    have{% endif %} no revisions yet
-                </h2>
-                <p class="text-gray-600 mb-8 leading-relaxed">
-                    {% if user and user.name and user.name.strip() %}{{ user.name.split()[0] }}, you{% else %}You{%
-                    endif %} haven't created any resume revisions yet. Start by uploading your resume and let our AI
-                    help you
-                    improve it!
-                </p>
-                <div class="space-y-4">
                     <a href="{{ url_for('upload') }}"
-                        class="inline-flex items-center px-6 py-3 btn-primary text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200">
-                        <i class="fas fa-upload mr-2"></i>
-                        Submit resume
+                        class="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        Create a new customized resume
                     </a>
-                    <div class="text-sm text-gray-500">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Get instant AI-powered feedback and improvements
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-16">
+                <div class="max-w-md mx-auto">
+                    <div
+                        class="w-24 h-24 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-file-alt text-white text-3xl"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4">
+                        {% if user and user.name and user.name.strip() %}{{ user.name.split()[0] }}, start{% else
+                        %}Start{%
+                        endif %} your Job Search Hub
+                    </h2>
+                    <p class="text-gray-600 mb-8 leading-relaxed">
+                        Upload your resume, tailor it to a specific job, and keep that opportunity connected to the
+                        resume
+                        version, application status, notes, and follow-up details.
+                    </p>
+                    <div class="space-y-4">
+                        <a href="{{ url_for('get_started') }}"
+                            class="inline-flex items-center px-6 py-3 btn-primary text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200">
+                            <i class="fas fa-upload mr-2"></i>
+                            Create your first tracked resume
+                        </a>
+                        <div class="text-sm text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Replace scattered job-search notes with one organized campaign hub
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
     </div>
 
     <!-- Review CTA -->
@@ -1010,6 +2283,66 @@
             // (DOCX download removed)
         })();
     </script>
+
+    <!-- Job Search Coach -->
+    <button id="jobCoachLauncher" type="button"
+        class="hidden fixed bottom-5 right-5 z-[70] inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+        aria-label="Open Job Search Coach">
+        <span class="job-coach-launcher-avatar" aria-hidden="true">
+            <img src="{{ url_for('static', filename='images/scout-avatar.png') }}" alt="" width="28" height="28"
+                loading="lazy" decoding="async">
+        </span>
+        Job Search Coach
+    </button>
+
+    <div id="jobCoachPanel"
+        class="fixed bottom-5 right-5 z-[70] flex max-h-[min(80vh,720px)] flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl ring-1 ring-slate-900/10">
+        <div
+            class="flex items-start justify-between gap-3 border-b border-slate-700 bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-3 text-white">
+            <div class="flex items-center gap-2.5">
+                <span class="job-coach-scout-header-icon" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='images/scout-avatar.png') }}" alt="" width="40" height="40"
+                        loading="lazy" decoding="async">
+                </span>
+                <div>
+                    <h3 class="text-sm font-bold">Job Search Coach</h3>
+                    <p class="text-xs text-slate-300">Your job search advisor</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="jobCoachResetButton" type="button"
+                    class="rounded-full border border-white/30 px-2 py-1 text-[11px] font-semibold text-white hover:bg-white/10"
+                    title="Start a new conversation">New chat</button>
+                <button id="jobCoachCloseButton" type="button"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full text-white hover:bg-white/10"
+                    aria-label="Close Job Search Coach">&times;</button>
+            </div>
+        </div>
+
+        <div id="jobCoachMessages" class="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-3 py-3"></div>
+
+        <div class="border-t border-slate-200 bg-slate-50 px-3 py-3">
+            <div class="mb-2 flex flex-wrap gap-2">
+                <button type="button" data-job-coach-prompt="What should I focus on this week?"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100">Weekly
+                    focus</button>
+                <button type="button" data-job-coach-prompt="Which applications need follow-up soon?"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100">Follow-ups</button>
+                <button type="button" data-job-coach-prompt="Help me prepare for my next interview."
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100">Interview
+                    prep</button>
+            </div>
+            <div class="flex items-end gap-2">
+                <textarea id="jobCoachInput" rows="2"
+                    placeholder="Ask your Job Search Coach about applications, follow-ups, or interview prep..."
+                    class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                <button id="jobCoachSendButton" type="button"
+                    class="inline-flex h-11 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">Send</button>
+            </div>
+            <p id="jobCoachStatus" class="mt-1 text-[11px] font-medium text-emerald-700"></p>
+            <p id="jobCoachError" class="mt-1 text-[11px] font-semibold text-red-600"></p>
+        </div>
+    </div>
 
 </body>
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 28" role="img" aria-label="Discover">
+  <rect width="44" height="28" rx="3" fill="#F8F6F0" stroke="#D1D5DB" stroke-width="0.5"/>
+  <text x="5" y="17.5" font-family="Arial, Helvetica, sans-serif" font-size="6.8" font-weight="700" fill="#231F20" letter-spacing="0.2">DISCOVER</text>
+  <circle cx="33.5" cy="14" r="5.2" fill="#F47216"/>
+  <circle cx="33.5" cy="14" r="2.2" fill="#F8F6F0"/>
+  <path fill="#F9A533" d="M39.5 22.2 43.5 27.5H39.8l-2.4-3.6z"/>
+</svg>

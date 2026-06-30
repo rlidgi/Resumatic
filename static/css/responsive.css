@@ -25,12 +25,11 @@ large Screen - Others
     /*=== resume start ===*/
 
     .resume__item {
-        padding-left: 24px;
-        padding-right: 24px;
+        padding: 22px 18px;
     }
 
     .resume__item h2 {
-        font-size: 20px;
+        font-size: 19px;
     }
 
     .resume__item p {
@@ -79,6 +78,34 @@ Small Screen - Tablate
         font-size: 46px;
     }
 
+    .hero__top {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+
+    .hero__item--split,
+    .hero__item--split .hero__content,
+    .hero__item--split h2,
+    .hero__item--split p {
+        text-align: center;
+    }
+
+    .hero__content {
+        max-width: none;
+        padding-left: 0;
+    }
+
+    .hero__item--split .hero-animation-container {
+        margin: 0 auto;
+        max-width: 330px;
+        height: 330px;
+    }
+
+    .hero__item--split .hero__item-image {
+        padding-top: 50px;
+        display: none;
+    }
+
     /*=== resume start ===*/
 
     .resume {
@@ -95,22 +122,22 @@ Small Screen - Tablate
     }
 
     .resume__item {
-        padding: 30px 20px;
+        padding: 24px 18px;
     }
 
     .resume__item h2 {
-        font-size: 22px;
+        font-size: 20px;
     }
 
     /*=== work start ===*/
 
     .work .section-title {
-        margin-bottom: 50px;
+        margin-bottom: 36px;
     }
 
     .work__item {
-        grid-column-gap: 30px;
-        grid-row-gap: 100px;
+        grid-column-gap: 24px;
+        grid-row-gap: 56px;
     }
 
     .work__item-content {
@@ -118,11 +145,26 @@ Small Screen - Tablate
     }
 
     .work__item-content h2 {
-        font-size: 28px;
+        font-size: 26px;
     }
 
     .work__item-content p {
-        font-size: 18px;
+        font-size: 16px;
+    }
+
+    .work__item-image {
+        max-width: 340px;
+    }
+
+    /*=== dashboard start ===*/
+
+    .dashboard__content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .dashboard__features {
+        gap: 16px;
     }
 
     /*=== review start ===*/
@@ -198,22 +240,69 @@ Small Screen - Mobile
     /*=== hero start ===*/
 
     .hero {
-        padding-top: 43px;
+        padding-top: 24px;
+        overflow-x: hidden;
     }
 
     .hero::after {
-        width: 100%;
-        height: 45px;
-        left: 0;
-        bottom: -10px;
+        display: none;
     }
 
     .hero__item h2 {
-        font-size: 32px;
+        font-size: 24px;
+    }
+
+    .hero__top {
+        grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+        gap: 16px;
+        align-items: start;
+    }
+
+    .hero__content {
+        max-width: 100%;
+        padding-left: 0;
+        padding-right: 6px;
+        text-align: left;
+    }
+
+    .hero__item--split,
+    .hero__item--split .hero__content,
+    .hero__item--split h2,
+    .hero__item--split p {
+        text-align: left;
+    }
+
+    .hero__item--split .hero__item-image {
+        padding-top: 50px;
+    }
+
+    .hero-cta-mobile {
+        grid-column: 2;
+        justify-self: end;
+        margin-top: 6px;
+    }
+
+    .hero__item--split .hero-animation-container {
+        margin: 0 0 0 auto;
+        width: clamp(190px, 48vw, 250px);
+        max-width: clamp(190px, 48vw, 250px);
+        height: clamp(190px, 48vw, 250px);
+        min-width: 190px;
+        overflow: visible;
+    }
+
+    @media screen and (max-height: 740px) {
+        .hero__item--split .hero-animation-container {
+            width: 165px;
+            max-width: 165px;
+            height: 165px;
+            min-width: 165px;
+        }
     }
 
     .hero__item-image {
         padding-top: 50px;
+        display: none;
     }
 
     /*=== resume start ===*/
@@ -240,7 +329,7 @@ Small Screen - Mobile
     }
 
     .resume__item {
-        padding: 30px 20px;
+        padding: 24px 18px;
     }
 
     .resume__item p {
@@ -250,24 +339,53 @@ Small Screen - Mobile
     /*=== work start ===*/
 
     .work {
-        padding-top: 70px;
+        padding-top: 56px;
     }
 
     .work .section-title {
-        margin-bottom: 30px;
+        margin-bottom: 24px;
     }
 
     .work__item {
         grid-template-columns: repeat(1, 1fr);
-        grid-row-gap: 40px;
+        grid-row-gap: 32px;
     }
 
     .work__item-content h2 {
-        font-size: 28px;
+        font-size: 24px;
     }
 
     .work__item-content p {
-        font-size: 18px;
+        font-size: 16px;
+    }
+
+    .work__item-image {
+        max-width: 300px;
+    }
+
+    /*=== dashboard start ===*/
+
+    .dashboard {
+        padding: 70px 0 80px;
+    }
+
+    .dashboard__content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 28px;
+    }
+
+    .dashboard__features {
+        gap: 16px;
+    }
+
+    .dashboard__feature {
+        padding: 20px;
+    }
+
+    .dashboard__video {
+        margin-bottom: 28px;
+        border-radius: 16px;
     }
 
     /*=== review start ===*/

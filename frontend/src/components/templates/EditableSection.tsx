@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Grip, Sparkles } from 'lucide-react';
+import { Grip, Sparkles, Trash2 } from 'lucide-react';
 
 type AiAssistField = 'summary' | 'experience_description' | 'project_description' | 'custom_section';
 
@@ -31,9 +31,10 @@ interface EditableSectionProps {
     children: React.ReactNode;
     editMode: boolean;
     sectionTitle?: string;
+    onRemoveSection?: (id: string) => void;
 }
 
-export function EditableSection({ id, children, editMode, sectionTitle }: EditableSectionProps) {
+export function EditableSection({ id, children, editMode, sectionTitle, onRemoveSection }: EditableSectionProps) {
     const {
         attributes,
         listeners,
@@ -63,7 +64,7 @@ export function EditableSection({ id, children, editMode, sectionTitle }: Editab
         >
             {/* Drag handle - absolutely positioned outside the content flow */}
             <div
-                className="absolute -left-8 top-0 opacity-100 transition-opacity z-20"
+                className="absolute -left-8 top-0 opacity-100 transition-opacity z-20 flex flex-col items-center gap-2"
                 style={{ width: '32px' }}
             >
                 <button
@@ -71,9 +72,19 @@ export function EditableSection({ id, children, editMode, sectionTitle }: Editab
                     {...listeners}
                     className="p-1 hover:bg-indigo-100 rounded cursor-grab active:cursor-grabbing touch-none border border-indigo-200 bg-white shadow-sm"
                     aria-label={`Drag to reorder ${sectionTitle || 'section'}`}
+                    title="Drag section to re-position"
                     type="button"
                 >
                     <Grip className="w-4 h-4 text-indigo-600" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onRemoveSection?.(id)}
+                    className="p-1 hover:bg-red-100 rounded border border-red-200 bg-white shadow-sm text-red-600 transition-colors"
+                    aria-label={`Delete ${sectionTitle || 'section'}`}
+                    title="Delete section"
+                >
+                    <Trash2 className="w-4 h-4" />
                 </button>
             </div>
 

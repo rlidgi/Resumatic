@@ -473,7 +473,7 @@ export default function ClassicRoseTemplate({
                                     )}
                                 </span>
                                 {" "}
-                                <span style={{ color: 'var(--tv-primary)' }}>
+                                <span style={{ color: 'var(--tv-primary-dark)' }}>
                                     {editMode ? (
                                         <EditableText value={lastName} onChange={(v) => {
                                             updateField('name', [firstName, v].filter(Boolean).join(" "));
@@ -742,7 +742,7 @@ function Section({ title, children, editMode, onTitleChange, sectionKey }: { tit
             data-tv-section-key={sectionKey}
             tabIndex={sectionKey ? -1 : undefined}
         >
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-center mb-2" style={{ color: 'var(--tv-primary)' }}>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-center mb-2" style={{ color: 'var(--tv-primary-dark)' }}>
                 {editMode ? (
                     <EditableText value={title} onChange={(v) => onTitleChange?.(v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-center" />
                 ) : (

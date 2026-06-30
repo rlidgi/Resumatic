@@ -243,6 +243,8 @@ export default function TemplateViewer() {
     const ridParam = String(qs.get('rid') || '').trim();
     const embedParam = String(qs.get('embed') || '').trim().toLowerCase();
     const isEmbed = embedParam === '1' || embedParam === 'true';
+    const thumbParam = String(qs.get('thumb') || '').trim().toLowerCase();
+    const isThumbnail = thumbParam === '1' || thumbParam === 'true';
     const allowTranslateParam = String(qs.get('allowTranslate') || '').trim().toLowerCase();
     const allowEmbedTranslate = allowTranslateParam === '1' || allowTranslateParam === 'true';
     const embedFlushParam = String(qs.get('flush') || '').trim().toLowerCase();
@@ -368,6 +370,7 @@ export default function TemplateViewer() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [downloadingPdf, setDownloadingPdf] = useState(false);
+    const [redirectingToPlans, setRedirectingToPlans] = useState(false);
     const [sourceRevisionId, setSourceRevisionId] = useState<string>('');
     const [downloadOnlyStatus, setDownloadOnlyStatus] = useState<'idle' | 'starting' | 'done' | 'failed'>('idle');
     const [downloadOnlyError, setDownloadOnlyError] = useState<string>('');
@@ -399,6 +402,61 @@ export default function TemplateViewer() {
     const pdfPreviewMeasureInnerRef = useRef<HTMLDivElement | null>(null);
     const autoDownloadTriggeredRef = useRef(false);
     const editAutoAppliedRef = useRef(false);
+
+    useEffect(() => {
+        const root = embedRootRef.current;
+        if (!root) return;
+
+        const resumeSelector = '.pdfPreviewPage, .pdfPreviewTarget, .pdfPreviewViewport, .tv-style-root';
+
+        const targetInResume = (target: EventTarget | null) => {
+            if (!(target instanceof Node)) return false;
+            const el = target instanceof Element ? target : target.parentElement;
+            if (!el || !root.contains(el)) return false;
+            return Boolean(el.closest(resumeSelector));
+        };
+
+        const allowResumeInteraction = (target: EventTarget | null) => {
+            if (!(target instanceof Element)) return false;
+            return Boolean(
+                target.closest('[contenteditable="true"]') ||
+                target.closest('input, textarea, select') ||
+                target.closest('button, a, [role="button"]')
+            );
+        };
+
+        const blockResumeClipboard = (e: Event) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        const onContextMenu = (e: MouseEvent) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        const onDragStart = (e: DragEvent) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        root.addEventListener('copy', blockResumeClipboard);
+        root.addEventListener('cut', blockResumeClipboard);
+        root.addEventListener('selectstart', blockResumeClipboard);
+        root.addEventListener('contextmenu', onContextMenu);
+        root.addEventListener('dragstart', onDragStart);
+
+        return () => {
+            root.removeEventListener('copy', blockResumeClipboard);
+            root.removeEventListener('cut', blockResumeClipboard);
+            root.removeEventListener('selectstart', blockResumeClipboard);
+            root.removeEventListener('contextmenu', onContextMenu);
+            root.removeEventListener('dragstart', onDragStart);
+        };
+    }, []);
 
     const [editSaving, setEditSaving] = useState(false);
     const [editSaveError, setEditSaveError] = useState<string | null>(null);
@@ -2508,6 +2566,67 @@ export default function TemplateViewer() {
         </div>
     );
 
+    if (isThumbnail) {
+        return (
+            <div className="bg-white overflow-hidden">
+                <div
+                    className="origin-top-left"
+                    style={{
+                        width: '816px',
+                        transform: 'scale(0.62)',
+                        transformOrigin: 'top left',
+                    }}
+                >
+                    <div id="templatePrintRoot" className={inlineEditMode ? 'tv-inline-edit' : undefined}>
+                        <div
+                            id="templatePrintContent"
+                            className="tv-style-root"
+                            style={{
+                                // @ts-ignore
+                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                // @ts-ignore
+                                ['--tv-font-scale']: String(styleSettings.fontScale),
+                                // @ts-ignore
+                                ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                // @ts-ignore
+                                ['--tv-accent']: safeAccent,
+                                // @ts-ignore
+                                ['--tv-accent-40']: safeAccent40,
+                                // @ts-ignore
+                                ['--tv-accent-60']: safeAccent60,
+                                // @ts-ignore
+                                ['--tv-accent-light']: safeAccentLight,
+                                // @ts-ignore
+                                ['--tv-accent-dark']: safeAccentDark,
+                                // @ts-ignore
+                                ['--tv-primary']: safePrimary,
+                                // @ts-ignore
+                                ['--tv-primary-light']: safePrimaryLight,
+                                // @ts-ignore
+                                ['--tv-primary-dark']: safePrimaryDark,
+                                // @ts-ignore
+                                ['--tv-secondary']: safeSecondary,
+                                // @ts-ignore
+                                ['--tv-secondary-light']: safeSecondaryLight,
+                                // @ts-ignore
+                                ['--tv-secondary-dark']: safeSecondaryDark,
+                            }}
+                        >
+                            <TemplateComponent
+                                content={previewContent}
+                                editMode={false}
+                                sectionOrder={sectionOrder}
+                                onSectionOrderChange={setSectionOrder}
+                                hiddenSectionKeys={hiddenSectionKeys}
+                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             ref={embedRootRef}
@@ -2571,10 +2690,10 @@ export default function TemplateViewer() {
 
             {!isEmbed && (
                 <>
-                    <header className="border-b bg-white">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                    <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
                             <a href="/" className="inline-flex items-center gap-3">
-                                <img src="/static/images/logo23_small.webp" alt="Resumatic AI" className="h-16 w-auto object-contain" width={96} height={96} loading="lazy" />
+                                <img src="/static/images/logo23_small.webp" alt="Resumatic AI" className="h-8 w-auto object-contain" width={96} height={96} loading="lazy" />
                             </a>
 
                             <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
@@ -2584,7 +2703,7 @@ export default function TemplateViewer() {
                                 {me?.is_authenticated ? (
                                     <>
                                         <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
-                                            My Account
+                                            Career Dashboard
                                         </a>
                                         <a href="/logout" className="text-white bg-red-500 px-4 py-2 rounded-xl hover:bg-red-600">
                                             Sign Out
@@ -2642,7 +2761,7 @@ export default function TemplateViewer() {
                             <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
                             {me?.is_authenticated ? (
                                 <>
-                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
+                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>Career Dashboard</a>
                                     <a className="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center" href="/logout" onClick={() => setMobileNavOpen(false)}>Sign Out</a>
                                 </>
                             ) : (
@@ -2754,6 +2873,24 @@ export default function TemplateViewer() {
                   #templatePrintRoot.tv-inline-edit .tv-style-root a {
                     pointer-events: none !important;
                     cursor: default !important;
+                  }
+
+                  /* Disable copying resume preview content */
+                  #templateViewerPage .pdfPreviewPage,
+                  #templateViewerPage .pdfPreviewPage *,
+                  #templateViewerPage .pdfPreviewTarget,
+                  #templateViewerPage .pdfPreviewTarget *,
+                  #templateViewerPage .pdfPreviewViewport .tv-style-root,
+                  #templateViewerPage .pdfPreviewViewport .tv-style-root * {
+                    -webkit-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                  }
+                  #templateViewerPage .tv-inline-edit [contenteditable="true"],
+                  #templateViewerPage .tv-inline-edit input,
+                  #templateViewerPage .tv-inline-edit textarea {
+                    -webkit-user-select: text;
+                    user-select: text;
                   }
 
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
@@ -2935,12 +3072,14 @@ export default function TemplateViewer() {
                                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
                                     <button
                                         type="button"
-                                        className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        disabled={downloadingPdf}
+                                        className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        disabled={downloadingPdf || redirectingToPlans}
                                         onClick={async () => {
                                             if (me && !me.is_paid) {
+                                                if (redirectingToPlans) return;
+                                                setRedirectingToPlans(true);
                                                 const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                await persistStyleSettingsBestEffort();
+                                                persistStyleSettingsBestEffort();
                                                 window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
                                                 return;
                                             }
@@ -2956,7 +3095,7 @@ export default function TemplateViewer() {
                                                 });
                                         }}
                                     >
-                                        {downloadingPdf ? 'Preparing…' : 'Download PDF'}
+                                        {redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
                                     </button>
                                     <button
                                         type="button"
@@ -3022,10 +3161,12 @@ export default function TemplateViewer() {
                                                     type="button"
                                                     onClick={async () => {
                                                         if (downloadingPdf) return;
+                                                        if (redirectingToPlans) return;
                                                         if (!me) return;
                                                         if (!me?.is_paid) {
+                                                            setRedirectingToPlans(true);
                                                             const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                            await persistStyleSettingsBestEffort();
+                                                            persistStyleSettingsBestEffort();
                                                             window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
                                                             return;
                                                         }
@@ -3036,10 +3177,10 @@ export default function TemplateViewer() {
                                                             alert(`PDF download failed (${e?.message || 'unknown error'}).`);
                                                         }
                                                     }}
-                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                    disabled={downloadingPdf || !me}
+                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                    disabled={downloadingPdf || redirectingToPlans || !me}
                                                 >
-                                                    {!me ? 'Loading…' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
+                                                    {!me ? 'Loading…' : (redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF'))}
                                                 </button>
                                             </div>
                                         )}
@@ -3375,7 +3516,7 @@ export default function TemplateViewer() {
                                                                                 <Sparkles className="w-3 h-3" />
                                                                                 <span>Assist with AI</span>
                                                                             </span>
-                                                                            <span className="break-words">AI rewriting is available directly on supported fields in the preview.</span>
+                                                                            <span className="break-words">AI rewriting is available directly on supported fields in the editor.</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>

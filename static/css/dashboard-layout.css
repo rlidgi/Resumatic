@@ -1,0 +1,43 @@
+/* Dashboard section: cards left, video right */
+
+.dashboard__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 40px;
+  align-items: center;
+  max-width: 1140px;
+  margin: 0 auto 40px;
+}
+
+.dashboard__features {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: none;
+  margin: 0;
+  grid-template-columns: unset;
+}
+
+.dashboard__video {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+}
+
+@media screen and (max-width: 991px) {
+  .dashboard__content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .dashboard__features {
+    gap: 16px;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .dashboard__content {
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+}

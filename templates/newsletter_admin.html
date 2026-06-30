@@ -340,9 +340,77 @@
             </div>
         </div>
 
+        <div class="mt-8 bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900">
+                        <i class="fas fa-envelope-open-text mr-2 text-gray-500"></i>
+                        Automatic Email History
+                    </h2>
+                    <p class="text-sm text-gray-500 mt-1">Latest sent and failed email events across automated flows</p>
+                </div>
+                <div class="text-sm text-gray-500">Showing {{ email_history|length }} latest records</div>
+            </div>
+
+            {% if email_history %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for email_event in email_history %}
+                        <tr class="hover:bg-gray-50 align-top">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ (email_event.timestamp or '')[:19].replace('T', ' ') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ (email_event.email_type or 'unknown').replace('_', ' ').title() }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ email_event.recipient or 'Unknown' }}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-700 max-w-md">
+                                <div class="truncate" title="{{ email_event.subject or '' }}">
+                                    {{ email_event.subject or 'No subject' }}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ (email_event.source or 'system').replace('_', ' ').title() }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if email_event.status == 'sent' %}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Sent</span>
+                                {% else %}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800" title="{{ email_event.error or '' }}">
+                                    {{ (email_event.status or 'failed').title() }}
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="px-6 py-12 text-center">
+                <i class="fas fa-envelope text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Email History Yet</h3>
+                <p class="text-gray-500">Automatic email records will appear here after sends begin being logged.</p>
+            </div>
+            {% endif %}
+        </div>
+
         <!-- Back Navigation -->
         <div class="mt-8">
-            <a href="/admin/stats" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+            <a href="/admin/dashboard" class="inline-flex items-center text-blue-600 hover:text-blue-800">
                 <i class="fas fa-arrow-left mr-2"></i>
                 Back to Admin Dashboard
             </a>

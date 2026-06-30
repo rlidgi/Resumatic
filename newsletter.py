@@ -17,8 +17,8 @@ from email import encoders
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 from dataclasses import dataclass
-from openai import OpenAI
 from jinja2 import Template
+from email_audit import record_email_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +39,10 @@ class NewsletterGenerator:
     """Generates newsletter content using OpenAI"""
     
     def __init__(self):
+        # Import lazily to avoid slowing or blocking overall app startup
+        # when newsletter functionality is not being used.
+        from openai import OpenAI
+
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -666,10 +670,31 @@ class NewsletterSender:
                     server.send_message(msg)
                     sent_count += 1
                     logger.info(f"Newsletter sent to {email}")
+                    try:
+                        record_email_event(
+                            email_type="newsletter",
+                            recipient=email,
+                            subject=subject,
+                            status="sent",
+                            source="admin_newsletter",
+                        )
+                    except Exception:
+                        pass
                     
                 except Exception as e:
                     logger.error(f"Failed to send newsletter to {email}: {str(e)}")
                     failed_count += 1
+                    try:
+                        record_email_event(
+                            email_type="newsletter",
+                            recipient=email,
+                            subject=subject,
+                            status="failed",
+                            source="admin_newsletter",
+                            error=str(e),
+                        )
+                    except Exception:
+                        pass
             
             server.quit()
             

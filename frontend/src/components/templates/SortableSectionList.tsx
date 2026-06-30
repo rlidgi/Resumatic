@@ -321,6 +321,7 @@ function SortableSectionListDnd({
                             id={row.key}
                             editMode={editMode}
                             sectionTitle={row.title}
+                            onRemoveSection={removeSectionKey}
                         >
                             {row.content}
                         </EditableSection>
@@ -337,7 +338,7 @@ function SortableSectionListDnd({
                         pointerEvents: activeKey ? 'auto' : 'none',
                     }}
                     className={
-                        'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] md:w-[160px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity border-red-400 bg-red-50 text-red-700 ' +
+                        'fixed right-0 top-0 bottom-0 z-[9998] w-[80px] md:w-[256px] rounded-l-2xl border-2 border-dashed px-2 py-4 flex items-stretch justify-center transition-opacity border-red-400 bg-red-50 text-red-700 ' +
                         ((isOver || manualTrashHover)
                             ? 'border-red-600 bg-red-100 text-red-800'
                             : '')
