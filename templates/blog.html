@@ -3,7 +3,7 @@
 
 <head>
     {% include "_clarity.html" %}
-
+    {% include "_gtm.html" %}
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <meta property="fb:app_id" content="2405626099815308" />
@@ -46,13 +46,28 @@
     <meta name="theme-color" content="#4F46E5" />
     <meta name="msapplication-TileColor" content="#4F46E5" />
 
+
+    <!-- Google tag (gtag.js) 
+<script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+<script defer="">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18159645263');
+</script>
+
+-->
+
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
-    <script>
+    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+
+    <script defer="">
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-        gtag('config', 'G-KRPLMCR73G');
+
+        gtag('config', 'AW-18159645263');
     </script>
 
     <!-- Bootstrap CSS -->
@@ -146,8 +161,7 @@
                     </a>
                 </div>
                 <div class="hidden md:flex items-center space-x-8">
-                    <a class="text-gray-600 hover:text-primary transition-colors" href="/#features">Features</a>
-                    <a class="text-gray-600 hover:text-primary transition-colors" href="/#how-it-works">How it Works</a>
+
                     <a class="text-primary font-semibold" href="/blog">Blog</a>
                     <a class="text-gray-600 hover:text-primary transition-colors" href="/about">About</a>
                     <a class="text-gray-600 hover:text-primary transition-colors" href="/">
@@ -156,7 +170,7 @@
                     <a class="text-gray-600 hover:text-primary transition-colors" href="/#faq">FAQ</a>
                     {% if user %}
                     <a href="/my_revisions" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                        <i class="fas fa-user mr-2"></i>My Account
+                        <i class="fas fa-user mr-2"></i>Career Dashboard
                     </a>
                     <a href="/logout" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                         Logout
@@ -194,7 +208,7 @@
             {% if user %}
             <a href="/my_revisions"
                 class="block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center">
-                <i class="fas fa-user mr-2"></i>My Account
+                <i class="fas fa-user mr-2"></i>Career Dashboard
             </a>
             <a href="/settings"
                 class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2">
@@ -409,8 +423,7 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-900 mb-4">Quick Links</h3>
                     <ul class="space-y-2">
-                        <li><a class="text-gray-500 hover:text-gray-900" href="/#features">Features</a></li>
-                        <li><a class="text-gray-500 hover:text-gray-900" href="/#how-it-works">How it Works</a></li>
+
                         <li><a class="text-gray-500 hover:text-gray-900" href="/blog">Blog</a></li>
                         <li><a class="text-gray-500 hover:text-gray-900" href="/#faq">FAQ</a></li>
 

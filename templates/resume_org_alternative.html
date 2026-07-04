@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    {% include "_gtm.html" %}
+    {% include "_clarity.html" %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Looking for a Resume.org alternative? ResumaticAI offers a transparent, user-friendly, free resume builder with PDF download and no forced subscription flow.">
+    <meta name="robots" content="index,follow">
+    <title>Resume.org Alternative | Free Resume Builder | ResumaticAI</title>
+    <link rel="canonical" href="https://resumaticai.com/resume-org-alternative">
+    <meta property="og:title" content="Resume.org Alternative | ResumaticAI">
+    <meta property="og:description" content="A transparent, user-friendly resume builder alternative for users looking for a free experience.">
+    <meta property="og:url" content="https://resumaticai.com/resume-org-alternative">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://resumaticai.com/static/images/logo23_small.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Resume.org Alternative | ResumaticAI">
+    <meta name="twitter:description" content="Looking for a free Resume.org alternative? Try a transparent and user-friendly option with ResumaticAI.">
+    <meta name="twitter:image" content="https://resumaticai.com/static/images/logo23_small.webp">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --alt-bg: #f5f7ff;
+            --alt-text: #0f172a;
+            --alt-muted: #475569;
+            --alt-primary: #0f766e;
+            --alt-primary-dark: #0d5f59;
+            --alt-card: #ffffff;
+            --alt-border: #d9e1f2;
+            --alt-accent: #e6fffb;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Manrope", sans-serif;
+            color: var(--alt-text);
+            background: radial-gradient(1200px 500px at 70% -10%, #d6fff7 0%, #f7fbff 35%, #ffffff 85%);
+        }
+
+        .alt-container {
+            width: min(1120px, 92%);
+            margin: 0 auto;
+        }
+
+        .alt-nav {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(6px);
+            border-bottom: 1px solid #eef2ff;
+        }
+
+        .alt-nav__row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+        }
+
+        .alt-logo img { height: 32px; width: auto; }
+
+        .alt-nav__links {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-weight: 600;
+        }
+
+        .alt-nav__links a {
+            color: var(--alt-muted);
+            text-decoration: none;
+        }
+
+        .alt-btn {
+            display: inline-block;
+            text-decoration: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-weight: 700;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .alt-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 7px 18px rgba(15, 118, 110, 0.18);
+        }
+
+        .alt-btn--primary {
+            background: var(--alt-primary);
+            color: #fff;
+        }
+
+        .alt-btn--ghost {
+            color: var(--alt-primary);
+            border: 1px solid #8bcac3;
+            background: #fff;
+        }
+
+        .alt-hero {
+            padding: 72px 0 44px;
+        }
+
+        .alt-hero__grid {
+            display: grid;
+            grid-template-columns: 1.08fr 0.92fr;
+            gap: 28px;
+            align-items: center;
+        }
+
+        .alt-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--alt-accent);
+            border: 1px solid #c3f3ea;
+            color: #115e59;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 3.6vw, 3.5rem);
+            line-height: 1.08;
+            margin: 16px 0 14px;
+        }
+
+        .alt-sub {
+            color: #334155;
+            font-size: clamp(1rem, 1.8vw, 1.3rem);
+            max-width: 62ch;
+        }
+
+        .alt-cta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .alt-panel {
+            background: linear-gradient(165deg, #0f2a3f 0%, #17436a 100%);
+            color: #fff;
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 20px 44px rgba(17, 24, 39, 0.2);
+        }
+
+        .alt-panel h2 {
+            margin: 0 0 10px;
+            font-size: 1.1rem;
+            color: #9ff4e9;
+        }
+
+        .alt-panel ul {
+            margin: 0;
+            padding-left: 20px;
+            line-height: 1.7;
+        }
+
+        .alt-section {
+            padding: 30px 0;
+        }
+
+        .alt-cards {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .alt-card {
+            background: var(--alt-card);
+            border: 1px solid var(--alt-border);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .alt-card i {
+            color: var(--alt-primary);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .alt-card h3 {
+            margin: 0 0 6px;
+            font-size: 1.02rem;
+        }
+
+        .alt-card p {
+            margin: 0;
+            color: var(--alt-muted);
+            line-height: 1.5;
+        }
+
+        .alt-steps {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .alt-step {
+            background: #fff;
+            border: 1px solid #dbe8ff;
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .alt-step .num {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            color: var(--alt-primary-dark);
+        }
+
+        .alt-step p {
+            margin: 8px 0 0;
+            color: #334155;
+        }
+
+        .alt-faq {
+            margin-top: 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .alt-faq .item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        .alt-faq .q {
+            margin: 0 0 6px;
+            font-weight: 700;
+        }
+
+        .alt-faq .a {
+            margin: 0;
+            color: #475569;
+        }
+
+        .alt-footer {
+            padding: 34px 0 48px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        @media (max-width: 920px) {
+            .alt-hero__grid,
+            .alt-cards,
+            .alt-steps {
+                grid-template-columns: 1fr;
+            }
+
+            .alt-nav__links {
+                display: none;
+            }
+
+            .alt-hero { padding-top: 50px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="alt-nav">
+        <div class="alt-container alt-nav__row">
+            <a class="alt-logo" href="/">
+                <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="ResumaticAI logo">
+            </a>
+            <div class="alt-nav__links">
+                <a href="/resume/templates">Templates</a>
+                <a href="/blog">Blog</a>
+                <a href="/plans">Pricing</a>
+                <a href="/create-resume" class="alt-btn alt-btn--primary">Build Resume</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <section class="alt-hero">
+            <div class="alt-container alt-hero__grid">
+                <div>
+                    <span class="alt-chip"><i class="fa-solid fa-circle-check"></i> Transparent Alternative</span>
+                    <h1>Looking for a Free Alternative to Resume.org?</h1>
+                    <p class="alt-sub">
+                        If the recent redirect changed the experience you expected, ResumaticAI is a clear, user-friendly option focused on free resume creation and straightforward downloads.
+                    </p>
+                    <div class="alt-cta">
+                        <a href="/create-resume" class="alt-btn alt-btn--primary">Start Free Resume</a>
+                        <a href="/plans/template-pdf" class="alt-btn alt-btn--ghost">See How PDF Export Works</a>
+                    </div>
+                </div>
+                <aside class="alt-panel">
+                    <h2>Why users pick this page</h2>
+                    <ul>
+                        <li>Clear expectations before you start</li>
+                        <li>No confusing paywall surprise at the final step</li>
+                        <li>Fast workflow built for job seekers, not upsell loops</li>
+                    </ul>
+                </aside>
+            </div>
+        </section>
+
+        <section class="alt-section">
+            <div class="alt-container">
+                <h2>What you get with ResumaticAI</h2>
+                <div class="alt-cards">
+                    <article class="alt-card">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <h3>Free Resume Builder</h3>
+                        <p>Create a polished resume with guided sections and ATS-friendly structure.</p>
+                    </article>
+                    <article class="alt-card">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <h3>Free PDF Download</h3>
+                        <p>Export your resume in PDF format without forcing a subscription decision first.</p>
+                    </article>
+                    <article class="alt-card">
+                        <i class="fa-solid fa-eye"></i>
+                        <h3>Transparent Experience</h3>
+                        <p>Clear, user-focused flow that tells you what is free and how it works.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="alt-section">
+            <div class="alt-container">
+                <h2>Simple 3-step flow</h2>
+                <div class="alt-steps">
+                    <div class="alt-step">
+                        <div class="num">STEP 1</div>
+                        <p>Choose a template and start your resume in minutes.</p>
+                    </div>
+                    <div class="alt-step">
+                        <div class="num">STEP 2</div>
+                        <p>Add your experience, skills, and impact with guided prompts.</p>
+                    </div>
+                    <div class="alt-step">
+                        <div class="num">STEP 3</div>
+                        <p>Download your resume PDF and apply with confidence.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="alt-section">
+            <div class="alt-container">
+                <h2>Frequently asked questions</h2>
+                <div class="alt-faq">
+                    <div class="item">
+                        <p class="q">Is this page affiliated with Resume.org?</p>
+                        <p class="a">No. This page is simply for people searching for an alternative experience.</p>
+                    </div>
+                    <div class="item">
+                        <p class="q">Do I need a subscription to create my resume?</p>
+                        <p class="a">No forced subscription is required to begin building your resume.</p>
+                    </div>
+                    <div class="item">
+                        <p class="q">Can I download a PDF version?</p>
+                        <p class="a">Yes, you can export a PDF from the resume builder workflow.</p>
+                    </div>
+                </div>
+                <div class="alt-cta">
+                    <a href="/create-resume" class="alt-btn alt-btn--primary">Build My Resume</a>
+                    <a href="/resume/templates" class="alt-btn alt-btn--ghost">Browse Templates</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="alt-footer">
+        <div class="alt-container">
+            <div>ResumaticAI • Built for clarity, speed, and user-first resume creation.</div>
+        </div>
+    </footer>
+</body>
+</html>

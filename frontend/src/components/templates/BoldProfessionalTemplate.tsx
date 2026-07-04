@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { parseResumeContent } from "../../utils/resumeUtils";
 import { RenderMaybeBullets } from "./RenderMaybeBullets";
 import CustomSectionsRenderer from "./CustomSectionsRenderer";
-import { EditableText } from "./EditableSection";
-import AddSectionButton from "./AddSectionButton";
+import { AiAssistEditableText, EditableText } from "./EditableSection";
 import SortableSectionList, { type SortableSectionRow } from "./SortableSectionList";
 
 export default function BoldProfessionalTemplate({
@@ -78,8 +77,108 @@ export default function BoldProfessionalTemplate({
                 ? [...prev.certifications]
                 : normalizeCerts(prev?.certifications);
             const current = certs[index] || {};
-            certs[index] = typeof current === 'string' ? { title: value } : { ...(current || {}), [field]: value };
+            if (typeof current === 'string') {
+                const currentTitle = String(current || '').trim();
+                if (field === 'title' || field === 'name' || field === 'certification') {
+                    certs[index] = value;
+                } else {
+                    certs[index] = { title: currentTitle, [field]: value };
+                }
+            } else {
+                certs[index] = { ...(current || {}), [field]: value };
+            }
             const next = { ...(prev || {}), certifications: certs };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeExperienceItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.experience) ? prev.experience : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), experience: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeProjectItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.projects) ? prev.projects : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), projects: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeEducationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.education) ? prev.education : [];
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), education: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const removeCertificationItem = useCallback((index: number) => {
+        setEditedData((prev: any) => {
+            const current = Array.isArray(prev?.certifications)
+                ? prev.certifications
+                : normalizeCerts(prev?.certifications);
+            const updated = current.filter((_: any, i: number) => i !== index);
+            const next = { ...(prev || {}), certifications: updated };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const updateLanguageItem = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const list = normalizeList(prev?.languages);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...(prev || {}), languages: cleaned };
+            emit(next);
+            return next;
+        });
+    }, [emit]);
+
+    const updateSkillName = useCallback((index: number, value: string) => {
+        setEditedData((prev: any) => {
+            const priorSkills = Array.isArray(prev?.skills) ? prev.skills.map(String) : normalizeList(prev?.skills);
+            const nextSkills = [...priorSkills];
+            const previousName = String(nextSkills[index] || '').trim();
+            const nextName = String(value || '');
+            const trimmedNextName = nextName.trim();
+            nextSkills[index] = nextName;
+
+            const nextRatings = (prev?.skill_ratings && typeof prev.skill_ratings === 'object')
+                ? { ...prev.skill_ratings }
+                : {};
+
+            if (previousName && previousName !== trimmedNextName && Object.prototype.hasOwnProperty.call(nextRatings, previousName)) {
+                if (trimmedNextName) nextRatings[trimmedNextName] = nextRatings[previousName];
+                delete nextRatings[previousName];
+            }
+
+            setLocalRatings((current) => {
+                const updated = { ...(current || {}) };
+                if (previousName && previousName !== trimmedNextName && Object.prototype.hasOwnProperty.call(updated, previousName)) {
+                    if (trimmedNextName) updated[trimmedNextName] = updated[previousName];
+                    delete updated[previousName];
+                }
+                return updated;
+            });
+
+            const next = {
+                ...(prev || {}),
+                skills: nextSkills,
+                skill_ratings: nextRatings,
+            };
             emit(next);
             return next;
         });
@@ -142,7 +241,7 @@ export default function BoldProfessionalTemplate({
                     items: [
                         {
                             title: 'Header',
-                            content: '• Bullet 1\n• Bullet 2',
+                            content: '- Bullet 1\n- Bullet 2',
                         },
                     ],
                 },
@@ -185,7 +284,8 @@ export default function BoldProfessionalTemplate({
     const experience = Array.isArray(data.experience) ? data.experience : [];
     const projects = Array.isArray(data.projects) ? data.projects : [];
     const education = Array.isArray(data.education) ? data.education : [];
-    const certifications = Array.isArray(data.certifications) ? data.certifications : normalizeCerts(data.certifications);
+    const certifications = normalizeCerts(data.certifications);
+    const languages = normalizeList(data.languages);
     const customSections = Array.isArray(data.custom_sections) ? data.custom_sections : [];
 
     const bodyRows: SortableSectionRow[] = useMemo(() => {
@@ -202,12 +302,15 @@ export default function BoldProfessionalTemplate({
                         onTitleChange={(v) => updateSectionHeading('summary', v)}
                     >
                         {editMode ? (
-                            <EditableText
+                            <AiAssistEditableText
                                 value={String(data.summary || '')}
                                 onChange={(v) => updateField('summary', v)}
                                 editMode={editMode}
+                                aiField="summary"
+                                aiMeta={{ template: 'boldProfessional', section: 'summary' }}
                                 liveUpdate
                                 layoutSafe
+                                wrapperClassName="pt-6"
                                 as="div"
                                 className="text-sm leading-relaxed text-black/80"
                                 multiline
@@ -232,7 +335,24 @@ export default function BoldProfessionalTemplate({
                     >
                         <div className="space-y-5">
                             {experience.map((exp: any, idx: number) => (
-                                <WorkItem key={idx} exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeExperienceItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove experience entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <WorkItem exp={exp} editMode={editMode} idx={idx} onUpdate={updateExperience} />
+                                </div>
                             ))}
                         </div>
                     </Section>
@@ -252,7 +372,22 @@ export default function BoldProfessionalTemplate({
                     >
                         <div className="space-y-5">
                             {projects.map((proj: any, idx: number) => (
-                                <div key={idx}>
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeProjectItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove project entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     <div className="flex items-baseline justify-between gap-4">
                                         {editMode ? (
                                             <EditableText
@@ -285,10 +420,10 @@ export default function BoldProfessionalTemplate({
                                             <div className="text-sm text-black/70">{String(proj.technologies)}</div>
                                         )
                                     ) : null}
-                                    {proj.description ? (
+                                    {(editMode || proj.description) ? (
                                         <div className="mt-2">
                                             {editMode ? (
-                                                <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm leading-relaxed text-black/80" multiline />
+                                                <AiAssistEditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} aiField="project_description" aiMeta={{ template: 'boldProfessional', index: idx, title: String(proj.title || proj.name || 'Project') }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" className="text-sm leading-relaxed text-black/80" multiline />
                                             ) : (
                                                 <RenderMaybeBullets
                                                     text={String(proj.description)}
@@ -323,6 +458,7 @@ export default function BoldProfessionalTemplate({
                                     name={s.name}
                                     level={s.level}
                                     editable={editMode}
+                                    onNameChange={(value) => updateSkillName(idx, value)}
                                     onSetCount={(count) => {
                                         const next = { ...(localRatings || {}) };
                                         next[s.name] = count; // store as 1..8
@@ -356,22 +492,74 @@ export default function BoldProfessionalTemplate({
                     >
                         <ul className="list-disc pl-5 text-sm text-black/80 space-y-2">
                             {certifications.slice(0, 6).map((c: any, idx: number) => (
-                                <li key={idx}>
+                                <li key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeCertificationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove certification entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
                                     {editMode ? (
                                         <>
-                                            <EditableText value={String(c.title || c.name || c).trim()} onChange={(v) => updateCertification(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                                            <span className="text-black/70"> — </span>
-                                            <EditableText value={String(c.issuer || '')} onChange={(v) => updateCertification(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" />
+                                            <EditableText value={getCertTitle(c)} placeholder="Certification" onChange={(v) => updateCertification(idx, 'title', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
+                                            <span className="text-black/70"> - </span>
+                                            <EditableText value={getCertIssuer(c)} placeholder="Issuer" onChange={(v) => updateCertification(idx, 'issuer', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" />
                                         </>
                                     ) : (
                                         <>
-                                            {String(c.title || c.name || c).trim()}
-                                            {c.issuer ? <span className="text-black/70"> — {String(c.issuer)}</span> : null}
+                                            {getCertTitle(c)}
+                                            {getCertIssuer(c) ? <span className="text-black/70"> - {getCertIssuer(c)}</span> : null}
                                         </>
                                     )}
                                 </li>
                             ))}
                         </ul>
+                    </Section>
+                ),
+            });
+        }
+
+        if (languages.length > 0 || showEmpty) {
+            rows.push({
+                key: 'languages',
+                title: getHeading('languages', 'Languages'),
+                content: (
+                    <Section
+                        title={getHeading('languages', 'Languages')}
+                        editMode={editMode}
+                        onTitleChange={(v) => updateSectionHeading('languages', v)}
+                    >
+                        {languages.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-black/80">
+                                {languages.map((l, idx) => (
+                                    editMode ? (
+                                        <EditableText
+                                            key={idx}
+                                            value={String(l)}
+                                            onChange={(v) => updateLanguageItem(idx, v)}
+                                            editMode={editMode}
+                                            liveUpdate
+                                            layoutSafe
+                                            as="span"
+                                            className="inline"
+                                        />
+                                    ) : (
+                                        <span key={idx}>{String(l)}</span>
+                                    )
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-black/60">Add languages to populate this section.</div>
+                        )}
                     </Section>
                 ),
             });
@@ -389,7 +577,24 @@ export default function BoldProfessionalTemplate({
                     >
                         <div className="space-y-3">
                             {education.map((edu: any, idx: number) => (
-                                <EduItem key={idx} edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                                <div key={idx} className="relative group">
+                                    {editMode ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                removeEducationItem(idx);
+                                            }}
+                                            className="absolute right-0 -top-2 z-20 px-2 py-1 rounded bg-white border border-red-200 text-[11px] font-semibold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            aria-label="Remove education entry"
+                                            title="Remove entry"
+                                        >
+                                            Remove
+                                        </button>
+                                    ) : null}
+                                    <EduItem edu={edu} editMode={editMode} idx={idx} onUpdate={updateEducation} />
+                                </div>
                             ))}
                         </div>
                     </Section>
@@ -434,10 +639,12 @@ export default function BoldProfessionalTemplate({
         emit,
         experience,
         getHeading,
+        languages,
         localRatings,
         projects,
         showEmpty,
         skillPairs,
+        updateSkillName,
         updateCertification,
         updateCustomBody,
         updateCustomHeading,
@@ -447,12 +654,18 @@ export default function BoldProfessionalTemplate({
         updateField,
         updateProject,
         updateSectionHeading,
+        removeCertificationItem,
+        removeEducationItem,
+        removeExperienceItem,
+        removeProjectItem,
     ]);
 
     return (
-        <div className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
-            {editMode ? (<AddSectionButton onClick={addSection} className="p-4 pb-0" />) : null}
-            <div className="px-10 pt-9 pb-6">
+        <div data-template="boldprofessional" className="bg-white rounded-lg shadow-lg ring-1 ring-black/5 overflow-hidden max-w-4xl mx-auto font-sans">
+            <div
+                className="px-10 pt-9 pb-6 border-b"
+                style={{ borderColor: 'var(--tv-primary-dark)' }}
+            >
                 <div className="flex items-center gap-5">
                     <div className="w-14 h-14 border-2 border-black grid place-items-center font-extrabold tracking-wide text-xl leading-none">
                         {initials}
@@ -473,7 +686,7 @@ export default function BoldProfessionalTemplate({
                                 first
                             )}
                         </div>
-                        <div className="text-4xl font-extrabold tracking-tight uppercase text-[#f36b1c]">
+                        <div className="text-4xl font-extrabold tracking-tight uppercase" style={{ color: 'var(--tv-primary)' }}>
                             {editMode ? (
                                 <EditableText
                                     value={last}
@@ -492,7 +705,9 @@ export default function BoldProfessionalTemplate({
                 </div>
 
                 {(editMode || contactParts.length > 0) && (
-                    <div className="mt-6 bg-black text-white text-sm px-4 py-2 font-semibold">
+                    <div
+                        className="mt-6 text-black text-sm px-4 py-2 font-semibold"
+                    >
                         {editMode ? (
                             <>
                                 <EditableText value={String(data.location || '')} onChange={(v) => updateField('location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
@@ -508,7 +723,7 @@ export default function BoldProfessionalTemplate({
                 )}
             </div>
 
-            <div className={`px-10 pb-10 ${editMode ? 'pl-16' : ''}`}>
+            <div className={`px-10 pt-6 pb-10 ${editMode ? 'pl-16' : ''}`}>
                 <SortableSectionList
                     rows={bodyRows}
                     editMode={!!editMode}
@@ -522,7 +737,25 @@ export default function BoldProfessionalTemplate({
     );
 }
 
-function Section({ title, children, editMode, onTitleChange }: { title: string; children: React.ReactNode; editMode?: boolean; onTitleChange?: (value: string) => void }) {
+function Section({
+    title,
+    children,
+    panelTone = 'none',
+    editMode,
+    onTitleChange,
+}: {
+    title: string;
+    children: React.ReactNode;
+    panelTone?: 'none' | 'secondary' | 'secondary-dark';
+    editMode?: boolean;
+    onTitleChange?: (value: string) => void;
+}) {
+    const panelColor = panelTone === 'secondary-dark'
+        ? 'var(--tv-secondary-dark)'
+        : panelTone === 'secondary'
+            ? 'var(--tv-secondary)'
+            : 'transparent';
+
     return (
         <section className="mb-7 last:mb-0">
             <div className="flex items-end justify-between gap-4">
@@ -542,8 +775,14 @@ function Section({ title, children, editMode, onTitleChange }: { title: string; 
                     )}
                 </h2>
             </div>
-            <div className="h-px bg-[#f36b1c] mt-2 mb-3" />
-            {children}
+            <div className="h-1.5 mt-2 mb-3" style={{ backgroundColor: 'var(--tv-accent)' }} />
+            {panelTone === 'none' ? (
+                children
+            ) : (
+                <div className="rounded-md px-4 py-3" style={{ backgroundColor: panelColor }}>
+                    {children}
+                </div>
+            )}
         </section>
     );
 }
@@ -573,21 +812,21 @@ function WorkItem({ exp, editMode, idx, onUpdate }: { exp: any; editMode: boolea
                     {editMode ? (
                         <>
                             <EditableText value={String(company)} placeholder="Company" onChange={(v) => onUpdate(idx, 'company', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
-                            <span className="font-semibold text-black/70"> – </span>
+                            <span className="font-semibold text-black/70"> - </span>
                             <EditableText value={String(location)} placeholder="Location" onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline font-semibold text-black/70" />
                         </>
                     ) : (
                         <>
                             {String(company)}
-                            {location ? <span className="font-semibold text-black/70"> – {String(location)}</span> : null}
+                            {location ? <span className="font-semibold text-black/70"> - {String(location)}</span> : null}
                         </>
                     )}
                 </div>
             )}
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
-                        <EditableText value={String(exp.description)} placeholder="Add bullets or a short description" onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm leading-relaxed text-black/80" multiline />
+                        <AiAssistEditableText value={String(exp.description)} placeholder="Add bullets or a short description" onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} aiField="experience_description" aiMeta={{ template: 'boldProfessional', index: idx, role: String(role), company: String(company) }} liveUpdate layoutSafe wrapperClassName="pt-6" as="div" className="text-sm leading-relaxed text-black/80" multiline />
                     ) : (
                         <RenderMaybeBullets
                             text={exp.description}
@@ -605,11 +844,13 @@ function SkillRow({
     name,
     level,
     editable,
+    onNameChange,
     onSetCount,
 }: {
     name: string;
     level: number;
     editable: boolean;
+    onNameChange: (value: string) => void;
     onSetCount: (count: number) => void;
 }) {
     // "level" is expected in [0..8] from saved ratings, or [0..1] from guessLevel fallback.
@@ -617,11 +858,34 @@ function SkillRow({
     const count = Math.max(0, Math.min(8, Math.round(normalized * 8)));
     return (
         <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-black/85">{name}</div>
+            <div className="min-w-0 flex-1 text-sm font-semibold text-black/85">
+                {editable ? (
+                    <EditableText
+                        value={String(name || '')}
+                        onChange={onNameChange}
+                        editMode={editable}
+                        liveUpdate
+                        layoutSafe
+                        as="div"
+                        className="text-sm font-semibold text-black/85"
+                    />
+                ) : (
+                    name
+                )}
+            </div>
             <div className="flex items-center gap-1">
                 {Array.from({ length: 8 }).map((_, idx) => (
-                    <span
+                    <button
                         key={idx}
+                        type="button"
+                        onMouseDown={editable ? (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        } : undefined}
+                        onPointerDown={editable ? (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        } : undefined}
                         onClick={
                             editable
                                 ? (e) => {
@@ -632,7 +896,9 @@ function SkillRow({
                                 : undefined
                         }
                         title={editable ? `Set ${name} level to ${idx + 1}/8` : undefined}
-                        className={`w-2.5 h-2.5 ${idx < count ? "bg-[#f36b1c]" : "bg-[#f2b38b]"} ${editable ? "cursor-pointer ring-1 ring-black/10 hover:ring-black/40" : ""}`}
+                        aria-label={editable ? `Set ${name} level to ${idx + 1} out of 8` : undefined}
+                        className={`w-2.5 h-2.5 shrink-0 ${editable ? "cursor-pointer ring-1 ring-black/10 hover:ring-black/40" : ""}`}
+                        style={{ backgroundColor: idx < count ? 'var(--tv-accent)' : 'var(--tv-secondary-dark)' }}
                     />
                 ))}
             </div>
@@ -656,11 +922,11 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                         <EditableText value={String(degree || school || 'Education')} onChange={(v) => onUpdate(idx, 'degree', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline font-semibold" />
                         {field ? <span className="text-black/70">: </span> : null}
                         {field ? <EditableText value={String(field)} onChange={(v) => onUpdate(idx, 'field', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
-                        {school && degree ? <span className="text-black/70"> — </span> : null}
-                        {school && degree ? <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
-                        {location ? <span className="text-black/70"> • </span> : null}
+                        {(school || editMode) ? <span className="text-black/70"> - </span> : null}
+                        {(school || editMode) ? <EditableText value={String(school)} onChange={(v) => onUpdate(idx, 'institution', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" placeholder="Institution" /> : null}
+                        {location ? <span className="text-black/70"> | </span> : null}
                         {location ? <EditableText value={String(location)} onChange={(v) => onUpdate(idx, 'location', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline text-black/70" /> : null}
-                        {gpa ? <span className="text-black/70"> • </span> : null}
+                        {gpa ? <span className="text-black/70"> | </span> : null}
                         {gpa ? (
                             <span className="text-black/70">
                                 GPA: <EditableText value={String(gpa)} onChange={(v) => onUpdate(idx, 'gpa', v)} editMode={editMode} liveUpdate layoutSafe as="span" className="inline" />
@@ -671,9 +937,9 @@ function EduItem({ edu, editMode, idx, onUpdate }: { edu: any; editMode: boolean
                     <>
                         <span className="font-semibold">{String(degree || school || "Education")}</span>
                         {field ? <span className="text-black/70">: {String(field)}</span> : null}
-                        {school && degree ? <span className="text-black/70"> — {String(school)}</span> : null}
-                        {location ? <span className="text-black/70"> • {String(location)}</span> : null}
-                        {gpa ? <span className="text-black/70"> • GPA: {String(gpa)}</span> : null}
+                        {school && degree ? <span className="text-black/70"> - {String(school)}</span> : null}
+                        {location ? <span className="text-black/70"> | {String(location)}</span> : null}
+                        {gpa ? <span className="text-black/70"> | GPA: {String(gpa)}</span> : null}
                     </>
                 )}
             </div>
@@ -713,7 +979,7 @@ function normalizeList(value: any): string[] {
     if (Array.isArray(value)) return value.map((v) => String(v)).filter(Boolean);
     if (typeof value === "string") {
         return value
-            .split(/[,•]|\\n/g)
+            .split(/[,\u2022]|\\n/g)
             .map((s) => s.trim())
             .filter(Boolean);
     }
@@ -721,11 +987,44 @@ function normalizeList(value: any): string[] {
 }
 
 function normalizeCerts(value: any): any[] {
-    if (Array.isArray(value)) return value;
+    if (Array.isArray(value)) {
+        return value.map((entry) => {
+            if (typeof entry === "string") return entry;
+            if (!entry || typeof entry !== "object") return "";
+            return {
+                ...entry,
+                title: toPlainText((entry as any).title ?? (entry as any).name ?? (entry as any).certification),
+                name: toPlainText((entry as any).name),
+                certification: toPlainText((entry as any).certification),
+                issuer: toPlainText((entry as any).issuer),
+                year: toPlainText((entry as any).year),
+            };
+        });
+    }
     if (typeof value === "string") {
         return normalizeList(value).map((t) => ({ title: t }));
     }
     return [];
 }
+
+function toPlainText(value: any): string {
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return "";
+}
+
+function getCertTitle(cert: any): string {
+    if (typeof cert === "string") return cert;
+    if (!cert || typeof cert !== "object") return "";
+    return toPlainText(cert.title ?? cert.name ?? cert.certification);
+}
+
+function getCertIssuer(cert: any): string {
+    if (!cert || typeof cert !== "object") return "";
+    return toPlainText(cert.issuer);
+}
+
+
+
 
 

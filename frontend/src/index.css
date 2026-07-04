@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Tailwind v4 fonts are driven by CSS variables (e.g. `.font-sans { font-family: var(--font-sans) }`).
+   Ensure `font-sans` is Inter-first so browser rendering and server-side PDF rendering match across OSes. */
+:root {
+	--font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+}
+
+html,
+body {
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+}
+
 /* ContentEditable placeholder support (used by EditableText) */
 [contenteditable].editable-text--placeholder:empty::before {
 	content: attr(data-placeholder);
@@ -9,5 +20,6 @@
 }
 
 [contenteditable].editable-text--placeholder:focus:empty::before {
-	content: '';
+	content: attr(data-placeholder);
+	color: rgba(100, 116, 139, 0.55);
 }

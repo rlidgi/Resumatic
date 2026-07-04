@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% include "_gtm.html" %}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings - Resumatic</title>
@@ -16,10 +17,7 @@
     <div class="max-w-5xl mx-auto px-6 py-10">
         <div class="flex items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-                    <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI"
-                        class="w-[2.4rem] h-[2.4rem] object-contain" loading="lazy" />
-                </div>
+
                 <div>
                     <h1 class="text-2xl font-extrabold tracking-tight">Settings</h1>
                     <p class="text-sm text-gray-600">Account, plan, and preferences</p>
@@ -59,10 +57,6 @@
                     <div class="flex items-center justify-between gap-4">
                         <dt class="text-gray-500">Email</dt>
                         <dd class="font-semibold text-gray-900 break-all">{{ email or '' }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between gap-4">
-                        <dt class="text-gray-500">Name</dt>
-                        <dd class="font-semibold text-gray-900">{{ name or '' }}</dd>
                     </div>
                 </dl>
             </div>
@@ -116,12 +110,12 @@
 
                         {% if is_paid %}
                         {% if cancel_scheduled %}
-                        <div
-                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 font-semibold">
-                            Cancellation scheduled
-                        </div>
+                        <a href="/billing/cancel"
+                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+                            Reinstate subscription
+                        </a>
                         <p class="text-xs text-gray-500">
-                            Your plan will end at the end of your billing period.
+                            Your plan is scheduled to end at the end of the current billing period.
                         </p>
                         {% else %}
                         <a href="/billing/cancel"

@@ -9,6 +9,106 @@
       "logout_at": "2026-03-06T01:54:27.236692+00:00",
       "duration_seconds": 133,
       "login_method": "google_oauth"
+    },
+    "8c37b1aa68cb419b81a51e17c437f29e": {
+      "audit_id": "8c37b1aa68cb419b81a51e17c437f29e",
+      "user_id": "email_3c006337fd1e4df7",
+      "email": "admin@resumaticai.com",
+      "login_at": "2026-06-04T04:08:17.552268+00:00",
+      "last_activity_at": "2026-06-04T04:08:17.552268+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "66cd6c4b6cff43479c1b20633c0d2c4c": {
+      "audit_id": "66cd6c4b6cff43479c1b20633c0d2c4c",
+      "user_id": "email_3c006337fd1e4df7",
+      "email": "admin@resumaticai.com",
+      "login_at": "2026-06-04T04:08:34.092084+00:00",
+      "last_activity_at": "2026-06-04T04:09:13.894214+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "0176965e4ddf4e8a91b7e736e12558af": {
+      "audit_id": "0176965e4ddf4e8a91b7e736e12558af",
+      "user_id": "email_3c006337fd1e4df7",
+      "email": "admin@resumaticai.com",
+      "login_at": "2026-06-04T04:09:22.338495+00:00",
+      "last_activity_at": "2026-06-04T04:11:05.607979+00:00",
+      "logout_at": "2026-06-04T04:11:05.607979+00:00",
+      "duration_seconds": 103,
+      "login_method": "password"
+    },
+    "686bc047624f481697dfd3b3075ad067": {
+      "audit_id": "686bc047624f481697dfd3b3075ad067",
+      "user_id": "email_3c006337fd1e4df7",
+      "email": "admin@resumaticai.com",
+      "login_at": "2026-06-04T04:11:44.032864+00:00",
+      "last_activity_at": "2026-06-04T04:12:14.008340+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "930b828f2ef342569fa96100c38eb861": {
+      "audit_id": "930b828f2ef342569fa96100c38eb861",
+      "user_id": "email_9d75db9a",
+      "email": "test_0503e48e@example.com",
+      "login_at": "2026-06-23T00:22:08.518540+00:00",
+      "last_activity_at": "2026-06-23T00:22:29.240666+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "e8b8b37f5d1b45c78b252ace30078fc6": {
+      "audit_id": "e8b8b37f5d1b45c78b252ace30078fc6",
+      "user_id": "email_e6a6623e",
+      "email": "test_7dfe5a0e@example.com",
+      "login_at": "2026-06-23T00:28:09.922966+00:00",
+      "last_activity_at": "2026-06-23T00:28:34.280354+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "ff773bb56a594efda3235d640cdd2bb6": {
+      "audit_id": "ff773bb56a594efda3235d640cdd2bb6",
+      "user_id": "email_679d967c",
+      "email": "test_8ce6e7d7@example.com",
+      "login_at": "2026-06-23T00:48:23.177046+00:00",
+      "last_activity_at": "2026-06-23T00:48:45.107533+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "password"
+    },
+    "168e9b2ab3b04fb7a31d911891a80090": {
+      "audit_id": "168e9b2ab3b04fb7a31d911891a80090",
+      "user_id": "email_964dfe86e6824179",
+      "email": "test23@resumaticai.com",
+      "login_at": "2026-06-26T07:48:02.392620+00:00",
+      "last_activity_at": "2026-06-26T07:48:02.392620+00:00",
+      "logout_at": null,
+      "duration_seconds": null,
+      "login_method": "email_verification"
+    },
+    "e8690d2158814a5888c48d52c0bfba6e": {
+      "audit_id": "e8690d2158814a5888c48d52c0bfba6e",
+      "user_id": "email_964dfe86e6824179",
+      "email": "test23@resumaticai.com",
+      "login_at": "2026-06-26T07:48:10.307209+00:00",
+      "last_activity_at": "2026-06-26T07:48:32.061398+00:00",
+      "logout_at": "2026-06-26T07:48:32.061398+00:00",
+      "duration_seconds": 21,
+      "login_method": "email_verification"
+    },
+    "febfc0c82b174819822fe280f0f22fb4": {
+      "audit_id": "febfc0c82b174819822fe280f0f22fb4",
+      "user_id": "email_964dfe86e6824179",
+      "email": "test23@resumaticai.com",
+      "login_at": "2026-06-26T07:48:57.862567+00:00",
+      "last_activity_at": "2026-06-26T08:30:46.326209+00:00",
+      "logout_at": "2026-06-26T08:30:46.326209+00:00",
+      "duration_seconds": 2508,
+      "login_method": "email_verification"
     }
   }
 }

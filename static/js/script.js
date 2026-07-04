@@ -184,18 +184,22 @@ function initWorkTogetherAnimations() {
   workObserver.observe(workTogetherSection);
 }
 
-// Service Worker registration - Defer to after page load
+// Clean up any stale service workers - Defer to after page load
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // Delay service worker registration to reduce main-thread work
+      // Delay cleanup slightly to avoid competing with first paint
       setTimeout(() => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(registration => {
-            console.log('SW registered: ', registration);
+        navigator.serviceWorker.getRegistrations()
+          .then(registrations => {
+            registrations.forEach(registration => {
+              registration.unregister().catch(registrationError => {
+                console.log('SW unregister failed: ', registrationError);
+              });
+            });
           })
-          .catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
+          .catch(cleanupError => {
+            console.log('SW cleanup failed: ', cleanupError);
           });
       }, 2000); // Wait 2 seconds after page load
     });
@@ -275,5 +279,4 @@ if (document.readyState === 'loading') {
 } else {
   preloadCriticalResources();
 }
-
 

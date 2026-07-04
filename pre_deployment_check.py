@@ -12,9 +12,7 @@ import json
 def check_critical_files():
     """Check if critical files exist and are readable"""
     critical_files = [
-        "counter.json",
-        "users_data.json", 
-        "users_data_local.json"
+        "counter.json"
     ]
     
     print("🔍 Checking critical files...")

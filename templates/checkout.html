@@ -1,22 +1,44 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
     {% include "_clarity.html" %}
+    {% include "_gtm.html" %}
 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Checkout | Resumatic AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .checkout-faq details {
+            border: 1px solid rgba(31, 41, 55, .12);
+            border-radius: 14px;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, .85);
+        }
+
+        .checkout-faq summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .checkout-faq details p {
+            margin: 10px 0 0;
+            color: #6B7280;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+    </style>
 </head>
 
 <body class="bg-gradient-to-br from-gray-50 via-white to-indigo-50 min-h-screen">
     <header class="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-3">
-                <img src="{{ url_for('static', filename='images/logo23_small.png') }}" alt="Resumatic AI"
-                    class="w-10 h-10 object-contain" />
-                <div class="font-semibold text-gray-900">Resumatic AI</div>
+            <a href="/" id="checkout-logo-link" class="flex items-center gap-3">
+                <img src="{{ url_for('static', filename='images/logo233_small.png') }}" alt="Resumatic AI"
+                    class="h-12 sm:h-14 w-auto max-w-[180px] object-contain" />
+
             </a>
             <div class="text-sm text-gray-600">
                 Signed in as <span class="font-semibold text-gray-900">{{ user.email or user.name }}</span>
@@ -44,13 +66,50 @@
                     class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-semibold">
                     Secure checkout
                 </div>
-                <h1 class="mt-3 text-2xl font-extrabold text-gray-900">Confirm your plan</h1>
+                <h1 class="mt-3 text-2xl font-extrabold text-gray-900">
+                    {% if use_trial_hold_checkout %}{{ checkout_name or (trial_hold_days ~ ' days free trial ' ~
+                    (trial_zero_label or '$0.00')) }}{% else %}Confirm your plan{% endif %}
+                </h1>
+                {% if use_rbi_embedded_checkout %}
+                <p class="mt-2 text-gray-600">
+                    {% if plan.id == 'trial_10d_email' %}
+                    Start your 10-day free trial by saving a card. Indian cards require bank authentication (3DS) to
+                    register
+                    the RBI e-mandate for recurring billing after the trial ends.
+                    {% elif plan.id == 'trial_7d' %}
+                    Start your {{ trial_hold_days }}-day trial by saving a card. Indian cards require bank
+                    authentication (3DS) to register
+                    the RBI e-mandate for recurring billing after the trial ends.
+                    {% else %}
+                    Add your card to start your subscription. Indian cards require bank authentication (3DS) to register
+                    the RBI e-mandate for recurring billing.
+                    {% endif %}
+                </p>
+                {% elif use_trial_hold_checkout %}
+                {% if checkout_description %}
+                <p class="mt-3 text-base sm:text-lg text-gray-700 leading-relaxed font-medium">
+                    {{ checkout_description }}
+                </p>
+                {% endif %}
+                {% else %}
                 <p class="mt-2 text-gray-600">
                     This is a placeholder checkout to make plan links functional.
                     For production, connect Stripe Checkout + webhooks.
                 </p>
+                {% endif %}
 
                 <div class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    {% if use_trial_hold_checkout %}
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <div class="text-sm font-semibold text-gray-900">Due today</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-extrabold text-gray-900">{{ trial_zero_label or '$0.00' }}</div>
+                            <div class="text-xs text-gray-500">{{ trial_hold_days }}-day free trial</div>
+                        </div>
+                    </div>
+                    {% else %}
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-sm font-semibold text-gray-900">{{ plan.label }}</div>
@@ -58,8 +117,601 @@
                         </div>
                         <div class="text-sm font-bold text-gray-900">{{ plan.price }}</div>
                     </div>
+                    {% endif %}
                 </div>
 
+                {% if stripe_enabled and use_rbi_embedded_checkout %}
+                <p class="mt-2 text-sm text-gray-500">
+                    Add your card below, then click the button to start your trial. You will not be charged until the
+                    trial ends unless you cancel.
+                </p>
+                <div class="mt-6" id="stripe-checkout-container">
+                    <input type="hidden" id="plan-id" value="{{ plan.id }}" />
+                    <div id="payment-element" class="p-4 bg-white rounded-lg border border-gray-200"></div>
+                    <div class="checkout-trust-strip mt-3 max-w-[300px] mx-auto text-center">
+                        <img src="{{ url_for('static', filename='images/stripe.jpg') }}" alt="Powered by Stripe"
+                            class="block w-auto max-w-[140px] h-auto max-h-8 object-contain mx-auto" loading="lazy"
+                            width="140" height="32" />
+                        <img src="{{ url_for('static', filename='images/checkout-trust-badges-v2.png') }}"
+                            alt="This site is SSL secured. Comodo Secure. 100% satisfaction guarantee. Secure SSL encryption."
+                            class="block w-full h-auto max-h-[4.5rem] object-contain mx-auto mt-3" loading="lazy"
+                            width="300" height="143" />
+                        <p class="mt-2 text-xs text-gray-600">After 7 days, your subscription will automatically be renewed at $10.95, to be billed every month. You can cancel online or by email at anytime.</p>
+                    </div>
+                    <div id="payment-errors" class="text-sm text-red-600 mt-2"></div>
+                    <button id="pay-button"
+                        class="mt-4 w-full inline-flex items-center justify-center px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 shadow-sm disabled:opacity-60">
+                        {% if plan.id == 'trial_10d_email' %}Start 10-day free trial{% elif plan.id == 'trial_7d' %}Save
+                        card &amp; start trial{% elif plan.id == 'annual_6_95'
+                        %}Subscribe annually{% else %}Subscribe now{% endif %}
+                    </button>
+                    <a href="/plans"
+                        class="mt-3 block text-center text-sm text-gray-600 hover:text-gray-900 hover:underline underline-offset-2">Back
+                        to plans</a>
+                </div>
+                <script src="https://js.stripe.com/v3/"></script>
+                <script>
+                    (function () {
+                        const publishableKey = "{{ stripe_publishable_key }}";
+                        const payButton = document.getElementById('pay-button');
+                        const paymentElementContainer = document.getElementById('payment-element');
+                        const paymentErrors = document.getElementById('payment-errors');
+                        const planId = document.getElementById('plan-id').value;
+                        const requireBillingAddress = planId === 'trial_7d' || planId === 'trial_10d_email';
+                        let stripe = null;
+                        let elements = null;
+                        let subscriptionId = '';
+                        let checkoutReady = false;
+                        let checkoutLoading = false;
+                        const finalButtonLabel = "{% if plan.id == 'trial_10d_email' %}Start 10-day free trial{% elif plan.id == 'trial_7d' %}Save card and start trial{% elif plan.id == 'annual_6_95' %}Subscribe annually{% else %}Subscribe now{% endif %}";
+
+                        if (!publishableKey) {
+                            paymentErrors.textContent = 'Payment setup is not configured (missing Stripe publishable key). Please contact support.';
+                            payButton.disabled = true;
+                            return;
+                        }
+
+                        stripe = Stripe(publishableKey);
+
+                        async function initializeCheckout() {
+                            if (checkoutLoading || checkoutReady) {
+                                return checkoutReady;
+                            }
+                            checkoutLoading = true;
+                            payButton.disabled = true;
+                            payButton.textContent = 'Loading Form...';
+                            paymentErrors.textContent = '';
+                            try {
+                                const resp = await fetch('/stripe/create-subscription', {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ plan_id: planId })
+                                });
+                                const data = await resp.json();
+                                if (!resp.ok) {
+                                    paymentErrors.textContent = data.message || data.error || 'Failed to initialize subscription.';
+                                    payButton.disabled = false;
+                                    payButton.textContent = payButton.getAttribute('data-init-label') || 'Continue';
+                                    checkoutLoading = false;
+                                    return false;
+                                }
+
+                                const clientSecret = data.pending_setup_intent_client_secret;
+                                subscriptionId = data.subscription_id;
+                                if (!clientSecret) {
+                                    paymentErrors.textContent = 'Missing payment setup. Please refresh and try again.';
+                                    payButton.disabled = false;
+                                    payButton.textContent = payButton.getAttribute('data-init-label') || 'Continue';
+                                    checkoutLoading = false;
+                                    return false;
+                                }
+
+                                elements = stripe.elements({ clientSecret });
+                                const paymentElementOptions = requireBillingAddress
+                                    ? { fields: { billingDetails: 'auto' } }
+                                    : {};
+                                const paymentElement = elements.create('payment', paymentElementOptions);
+                                paymentElementContainer.classList.remove('hidden');
+                                await paymentElement.mount('#payment-element');
+                                checkoutReady = true;
+                                payButton.disabled = false;
+                                payButton.textContent = finalButtonLabel;
+                                checkoutLoading = false;
+                                return true;
+                            } catch (err) {
+                                paymentErrors.textContent = (err && err.message) ? err.message : 'Unable to load payment form.';
+                                payButton.disabled = false;
+                                payButton.textContent = payButton.getAttribute('data-init-label') || 'Continue';
+                                checkoutLoading = false;
+                                return false;
+                            }
+                        }
+
+                        payButton.setAttribute('data-init-label', payButton.textContent.trim());
+                        payButton.addEventListener('click', async function (e) {
+                            e.preventDefault();
+                            if (!checkoutReady || !elements || !subscriptionId) {
+                                paymentErrors.textContent = 'Payment form is still loading. Please wait a moment.';
+                                return;
+                            }
+                            payButton.disabled = true;
+                            payButton.textContent = 'Confirming...';
+                            paymentErrors.textContent = '';
+
+                            const returnUrl = window.location.origin
+                                + '/checkout/subscription-confirm?subscription_id='
+                                + encodeURIComponent(subscriptionId);
+
+                            const result = await stripe.confirmSetup({
+                                elements,
+                                confirmParams: {
+                                    return_url: returnUrl,
+                                    payment_method_data: {
+                                        billing_details: { email: '{{ user.email or "" }}' }
+                                    }
+                                }
+                            });
+
+                            if (result.error) {
+                                paymentErrors.textContent = result.error.message || 'Card setup failed.';
+                                payButton.disabled = false;
+                                payButton.textContent = finalButtonLabel;
+                                return;
+                            }
+
+                            const completeResp = await fetch('/stripe/complete-subscription', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ subscription_id: subscriptionId })
+                            });
+                            const completeData = await completeResp.json();
+                            if (!completeResp.ok) {
+                                paymentErrors.textContent = completeData.message || completeData.error || 'Subscription finalization failed.';
+                                payButton.disabled = false;
+                                payButton.textContent = finalButtonLabel;
+                                return;
+                            }
+
+                            window.location.href = '/my_revisions?checkout=success';
+                        });
+
+                        initializeCheckout();
+                    })();
+                </script>
+                {% elif stripe_enabled and use_trial_hold_checkout %}
+                <p class="mt-4 text-sm text-gray-600">
+                    Enter your card below. Stripe secures your payment details and we never store your card number.
+                </p>
+                <div class="mt-4" id="stripe-checkout-container">
+                    <input type="hidden" id="trial-plan-id" value="{{ plan.id }}" />
+                    <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                        <div id="payment-element" class="p-4"></div>
+                    </div>
+                    <div class="checkout-trust-strip mt-3 max-w-[300px] mx-auto text-center">
+                        <img src="{{ url_for('static', filename='images/stripe.jpg') }}" alt="Powered by Stripe"
+                            class="block w-auto max-w-[140px] h-auto max-h-8 object-contain mx-auto" loading="lazy"
+                            width="140" height="32" />
+                        <img src="{{ url_for('static', filename='images/checkout-trust-badges-v2.png') }}"
+                            alt="This site is SSL secured. Comodo Secure. 100% satisfaction guarantee. Secure SSL encryption."
+                            class="block w-full h-auto max-h-[4.5rem] object-contain mx-auto mt-3" loading="lazy"
+                            width="300" height="143" />
+                        <p class="mt-2 text-xs text-gray-600">After 7 days, your subscription will automatically be renewed at $10.95, to be billed every month. You can cancel online or by email at anytime.</p>
+                    </div>
+                    <div id="payment-errors" class="text-sm text-red-600 mt-2"></div>
+                    <div id="offer-message" class="text-sm text-green-700 mt-2 hidden"></div>
+                    <button id="pay-button" type="button" disabled
+                        class="mt-4 w-full inline-flex items-center justify-center px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 shadow-sm disabled:opacity-60">
+                        Loading secure payment form...
+                    </button>
+                    <a href="/plans" id="back-to-plans-link"
+                        class="mt-3 block text-center text-sm text-gray-600 hover:text-gray-900 hover:underline underline-offset-2">Back
+                        to plans</a>
+                </div>
+                <div id="exit-offer-modal"
+                    class="hidden fixed inset-0 z-50 px-4 py-6 sm:px-6 bg-slate-950/55 backdrop-blur-sm">
+                    <div class="flex min-h-full items-center justify-center">
+                        <div
+                            class="w-full max-w-md overflow-hidden rounded-3xl border border-amber-200 bg-white shadow-2xl">
+                            <div
+                                class="bg-gradient-to-r from-amber-100 via-rose-50 to-white px-6 py-5 border-b border-amber-100">
+                                <div
+                                    class="inline-flex items-center rounded-full bg-amber-500 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                                    Limited offer
+                                </div>
+                                <h3 class="mt-3 text-2xl font-extrabold text-slate-900">Wait, don't leave your job
+                                    search half-built</h3>
+                                <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                                    Keep your {{ trial_hold_days }}-day trial. If you do not cancel before end of trial,
+                                    your first paid month is <span
+                                        class="inline-block text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">$6.49</span>.
+                                </p>
+                            </div>
+                            <div class="px-6 py-5">
+                                <div
+                                    class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                                    Full trial access now. Discount applies only to month one.
+                                </div>
+                                <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                    <div class="text-sm font-semibold text-slate-900">Why stay?</div>
+                                    <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                                        Tailor resumes faster and stay on top of applications with the <span
+                                            class="font-semibold text-slate-900">Job Search Command Center</span>.
+                                    </p>
+                                </div>
+                                <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                                    <button id="exit-offer-accept" type="button"
+                                        class="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                                        Wait, keep my trial and claim $6.49
+                                    </button>
+                                </div>
+                                <button id="exit-offer-close" type="button"
+                                    class="mt-3 w-full text-center text-sm text-slate-500 transition hover:text-slate-700">
+                                    Not now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <script src="https://js.stripe.com/v3/"></script>
+                <script>
+                    (function () {
+                        const publishableKey = "{{ stripe_publishable_key }}";
+                        const payButton = document.getElementById('pay-button');
+                        const paymentElementContainer = document.getElementById('payment-element');
+                        const paymentErrors = document.getElementById('payment-errors');
+                        const offerMessage = document.getElementById('offer-message');
+                        const backToPlansLink = document.getElementById('back-to-plans-link');
+                        const checkoutLogoLink = document.getElementById('checkout-logo-link');
+                        const exitOfferModal = document.getElementById('exit-offer-modal');
+                        const exitOfferAccept = document.getElementById('exit-offer-accept');
+                        const exitOfferClose = document.getElementById('exit-offer-close');
+                        let stripe = null;
+                        let elements = null;
+                        let paymentElement = null;
+                        let paymentIntentId = '';
+                        let checkoutReady = false;
+                        let checkoutLoading = false;
+                        let paymentFormComplete = false;
+                        let paymentAuthorizing = false;
+                        const loadingButtonLabel = 'Loading secure payment form...';
+                        const finalButtonLabel = 'Get access';
+                        const missingPaymentMethodMessage =
+                            'A payment method is required. If the trial is not canceled within the {{ trial_hold_days }}-day trial period, the plan will convert to a monthly plan at {{ amount_label or "$10.95" }} per month.';
+                        let exitOfferClaimed = false;
+                        let exitOfferBypass = false;
+                        let exitOfferResolver = null;
+
+                        function setPayButtonLoading() {
+                            if (!payButton) {
+                                return;
+                            }
+                            payButton.style.display = 'inline-flex';
+                            payButton.disabled = true;
+                            payButton.textContent = loadingButtonLabel;
+                        }
+
+                        function showPayButton(label) {
+                            if (!payButton) {
+                                return;
+                            }
+                            payButton.style.display = 'inline-flex';
+                            if (label === 'Try again') {
+                                payButton.textContent = 'Try again';
+                                payButton.disabled = false;
+                                return;
+                            }
+                            payButton.textContent = finalButtonLabel;
+                            payButton.disabled = !paymentFormComplete || paymentAuthorizing;
+                        }
+
+                        function bindPaymentElementChange(paymentEl) {
+                            paymentEl.on('change', function (event) {
+                                paymentFormComplete = !!event.complete;
+                                if (!paymentAuthorizing) {
+                                    showPayButton(finalButtonLabel);
+                                }
+                                if (paymentFormComplete) {
+                                    paymentErrors.textContent = '';
+                                }
+                            });
+                        }
+
+                        function waitForPaymentElementReady(paymentElement) {
+                            return new Promise(function (resolve) {
+                                let finished = false;
+                                function finish() {
+                                    if (finished) {
+                                        return;
+                                    }
+                                    finished = true;
+                                    resolve();
+                                }
+                                paymentElement.on('ready', finish);
+                                paymentElement.on('loaderror', finish);
+                                window.setTimeout(finish, 20000);
+                            });
+                        }
+
+                        if (!publishableKey) {
+                            paymentErrors.textContent = 'Payment setup is not configured (missing Stripe publishable key). Please contact support.';
+                            if (payButton) {
+                                payButton.style.display = 'none';
+                            }
+                            return;
+                        }
+
+                        stripe = Stripe(publishableKey);
+                        setPayButtonLoading();
+
+                        function openExitOfferModal() {
+                            if (!exitOfferModal) {
+                                return Promise.resolve('decline');
+                            }
+                            exitOfferModal.classList.remove('hidden');
+                            document.body.classList.add('overflow-hidden');
+                            return new Promise(function (resolve) {
+                                exitOfferResolver = resolve;
+                            });
+                        }
+
+                        function closeExitOfferModal(choice) {
+                            if (exitOfferModal) {
+                                exitOfferModal.classList.add('hidden');
+                            }
+                            document.body.classList.remove('overflow-hidden');
+                            if (exitOfferResolver) {
+                                const resolve = exitOfferResolver;
+                                exitOfferResolver = null;
+                                resolve(choice);
+                            }
+                        }
+
+                        async function claimExitOffer() {
+                            const resp = await fetch('/api/billing/claim-trial-exit-offer', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ source: 'trial_checkout_exit' })
+                            });
+                            const data = await resp.json().catch(function () { return {}; });
+                            if (!resp.ok || !data.success) {
+                                throw new Error(data.error || 'Unable to apply the offer right now.');
+                            }
+                            exitOfferClaimed = true;
+                            if (offerMessage) {
+                                offerMessage.textContent = data.message || 'Offer applied.';
+                                offerMessage.classList.remove('hidden');
+                            }
+                            return data;
+                        }
+
+                        async function maybeHandleExitOffer(onLeave) {
+                            if (exitOfferBypass || exitOfferClaimed) {
+                                onLeave();
+                                return;
+                            }
+                            const choice = await openExitOfferModal();
+                            if (choice === 'accept') {
+                                try {
+                                    const data = await claimExitOffer();
+                                    if (offerMessage) {
+                                        offerMessage.textContent = data.message || 'Offer applied.';
+                                        offerMessage.classList.remove('hidden');
+                                    }
+                                } catch (err) {
+                                    paymentErrors.textContent = (err && err.message) ? err.message : 'Unable to apply the offer right now.';
+                                }
+                                return;
+                            }
+                            exitOfferBypass = true;
+                            onLeave();
+                        }
+
+                        function attachExitOfferGuard(linkEl) {
+                            if (!linkEl) {
+                                return;
+                            }
+                            linkEl.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                void maybeHandleExitOffer(function () {
+                                    window.location.href = linkEl.href;
+                                });
+                            });
+                        }
+
+                        attachExitOfferGuard(backToPlansLink);
+                        attachExitOfferGuard(checkoutLogoLink);
+
+                        if (exitOfferAccept) {
+                            exitOfferAccept.addEventListener('click', function () {
+                                closeExitOfferModal('accept');
+                            });
+                        }
+
+                        if (exitOfferClose) {
+                            exitOfferClose.addEventListener('click', function () {
+                                closeExitOfferModal('leave');
+                            });
+                        }
+
+                        if (exitOfferModal) {
+                            exitOfferModal.addEventListener('click', function (e) {
+                                if (e.target === exitOfferModal) {
+                                    closeExitOfferModal('leave');
+                                }
+                            });
+                        }
+
+                        document.addEventListener('keydown', function (e) {
+                            if (e.key === 'Escape' && exitOfferModal && !exitOfferModal.classList.contains('hidden')) {
+                                closeExitOfferModal('leave');
+                            }
+                        });
+
+                        if (window.history && window.history.pushState) {
+                            window.history.pushState({ trialExitOfferGuard: true }, '', window.location.href);
+                            window.addEventListener('popstate', function () {
+                                if (exitOfferBypass) {
+                                    return;
+                                }
+                                window.history.pushState({ trialExitOfferGuard: true }, '', window.location.href);
+                                void maybeHandleExitOffer(function () {
+                                    exitOfferBypass = true;
+                                    window.history.back();
+                                });
+                            });
+                        }
+
+                        async function initializeCheckout() {
+                            if (checkoutLoading || checkoutReady) {
+                                return checkoutReady;
+                            }
+                            elements = null;
+                            paymentElement = null;
+                            paymentIntentId = '';
+                            paymentFormComplete = false;
+                            paymentAuthorizing = false;
+                            checkoutLoading = true;
+                            setPayButtonLoading();
+                            paymentErrors.textContent = '';
+                            try {
+                                const resp = await fetch('/stripe/create-trial-hold', {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        plan_id: (document.getElementById('trial-plan-id') || {}).value || 'trial_7d'
+                                    })
+                                });
+                                const data = await resp.json();
+                                if (!resp.ok) {
+                                    paymentErrors.textContent = data.message || data.error || 'Failed to initialize trial checkout.';
+                                    showPayButton('Try again');
+                                    checkoutLoading = false;
+                                    return false;
+                                }
+
+                                const clientSecret = data.clientSecret;
+                                paymentIntentId = data.paymentIntentId || '';
+                                if (!clientSecret) {
+                                    paymentErrors.textContent = 'Missing payment authorization. Please refresh and try again.';
+                                    showPayButton('Try again');
+                                    checkoutLoading = false;
+                                    return false;
+                                }
+
+                                elements = stripe.elements({ clientSecret });
+                                const paymentElementOptions = {
+                                    fields: { billingDetails: 'auto' }
+                                };
+                                if (((document.getElementById('trial-plan-id') || {}).value || '') === 'trial_7d') {
+                                    paymentElementOptions.terms = { card: 'never' };
+                                }
+                                paymentElement = elements.create('payment', paymentElementOptions);
+                                bindPaymentElementChange(paymentElement);
+                                const paymentReady = waitForPaymentElementReady(paymentElement);
+                                paymentElementContainer.classList.remove('hidden');
+                                await paymentElement.mount('#payment-element');
+                                await paymentReady;
+                                checkoutReady = true;
+                                paymentFormComplete = false;
+                                showPayButton(finalButtonLabel);
+                                checkoutLoading = false;
+                                return true;
+                            } catch (err) {
+                                paymentErrors.textContent = (err && err.message) ? err.message : 'Unable to load payment form.';
+                                showPayButton('Try again');
+                                checkoutLoading = false;
+                                return false;
+                            }
+                        }
+
+                        if (payButton) {
+                            payButton.addEventListener('click', async function (e) {
+                            e.preventDefault();
+                            if (!checkoutReady || !elements) {
+                                checkoutReady = false;
+                                checkoutLoading = false;
+                                await initializeCheckout();
+                                return;
+                            }
+                            if (!paymentFormComplete) {
+                                paymentErrors.textContent = missingPaymentMethodMessage;
+                                return;
+                            }
+                            paymentAuthorizing = true;
+                            payButton.disabled = true;
+                            payButton.textContent = 'Authorizing card...';
+                            paymentErrors.textContent = '';
+
+                            const submitResult = await elements.submit();
+                            if (submitResult.error) {
+                                paymentErrors.textContent = missingPaymentMethodMessage;
+                                paymentAuthorizing = false;
+                                showPayButton(finalButtonLabel);
+                                return;
+                            }
+
+                            const result = await stripe.confirmPayment({
+                                elements,
+                                redirect: 'if_required',
+                                confirmParams: {
+                                    payment_method_data: {
+                                        billing_details: { email: '{{ user.email or "" }}' }
+                                    }
+                                }
+                            });
+
+                            if (result.error) {
+                                const errType = String((result.error.type || '')).toLowerCase();
+                                paymentErrors.textContent = errType === 'validation_error'
+                                    ? missingPaymentMethodMessage
+                                    : (result.error.message || 'Card authorization failed.');
+                                paymentAuthorizing = false;
+                                showPayButton(finalButtonLabel);
+                                return;
+                            }
+
+                            const pi = result.paymentIntent;
+                            const piId = (pi && pi.id) ? pi.id : paymentIntentId;
+                            if (!piId) {
+                                paymentErrors.textContent = 'Authorization completed but payment details are missing.';
+                                paymentAuthorizing = false;
+                                showPayButton(finalButtonLabel);
+                                return;
+                            }
+
+                            if (pi && pi.status !== 'requires_capture' && pi.status !== 'succeeded') {
+                                paymentErrors.textContent = 'Your card was not authorized. Please try another card.';
+                                paymentAuthorizing = false;
+                                showPayButton(finalButtonLabel);
+                                return;
+                            }
+
+                            const activateResp = await fetch('/stripe/activate-trial-hold', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ paymentIntentId: piId })
+                            });
+                            const activateData = await activateResp.json();
+                            if (!activateResp.ok) {
+                                paymentErrors.textContent = activateData.message || activateData.error || 'Trial activation failed.';
+                                paymentAuthorizing = false;
+                                showPayButton(finalButtonLabel);
+                                return;
+                            }
+
+                            window.location.href = '/my_revisions?checkout=success';
+                        });
+                        }
+
+                        initializeCheckout();
+                    })();
+                </script>
+                {% else %}
                 <form class="mt-6" method="POST" action="/checkout/complete">
                     <input type="hidden" name="plan" value="{{ plan.id }}" />
                     <button type="submit"
@@ -71,23 +723,65 @@
                         Back to plans
                     </a>
                 </form>
+                {% endif %}
             </section>
 
             <aside class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 h-fit">
-                <h2 class="text-sm font-semibold text-gray-900">What you’ll get</h2>
+                <h2 class="text-sm font-semibold text-gray-900">What you'll get</h2>
                 <ul class="mt-3 space-y-2 text-sm text-gray-700">
-                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">✓</span> Unlimited resume
+                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">&#10003;</span> Unlimited
+                        resume
                         revisions</li>
-                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">✓</span> PDF downloads in
+                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">&#10003;</span> PDF
+                        downloads in
                         templates</li>
-                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">✓</span> Job Search Hub
+                    <li class="flex items-start gap-2"><span class="text-green-600 font-bold">&#10003;</span> Job Search
+                        Hub
                         dashboard</li>
                 </ul>
+                {% if use_rbi_embedded_checkout %}
+                <p class="mt-4 text-xs text-gray-500">
+                    Your bank may send pre-debit notifications before recurring charges. Charges above &#8377;15,000 may
+                    require additional authentication per RBI rules.
+                </p>
+                {% elif use_trial_hold_checkout %}
+                {% else %}
                 <p class="mt-4 text-xs text-gray-500">
                     Note: This page currently simulates subscription activation by updating your user profile.
                 </p>
+                {% endif %}
             </aside>
         </div>
+
+        <section class="checkout-faq mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 class="text-lg font-bold text-gray-900">FAQ</h2>
+            <div class="grid gap-3 mt-4">
+                <details>
+                    <summary>What happens after the {{ trial_hold_days }}-day trial?</summary>
+                    <p>
+                        If you don’t cancel before day {{ trial_capture_day }}, your card authorization is captured as
+                        your first month’s payment. Cancel on day {{ trial_hold_days }} for a full refund if you were
+                        charged. Otherwise your subscription renews monthly unless canceled. You can change or cancel
+                        anytime in your account settings.
+                    </p>
+                </details>
+                <details>
+                    <summary>Can I switch plans later?</summary>
+                    <p>Yes, you can upgrade or switch billing options anytime.</p>
+                </details>
+                <details>
+                    <summary>Is payment secure?</summary>
+                    <p>Use a trusted processor (Stripe/PayPal) and serve everything over HTTPS.</p>
+                </details>
+                <details>
+                    <summary>Do you offer a satisfaction guarantee?</summary>
+                    <p>
+                        Yes, if you’re not satisfied, contact support and we’ll help you get it resolved. If it’s
+                        still not a fit, we’ll refund your most recent payment.
+                    </p>
+                </details>
+            </div>
+        </section>
     </main>
 </body>
 

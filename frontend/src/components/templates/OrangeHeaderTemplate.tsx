@@ -316,7 +316,7 @@ export default function OrangeHeaderTemplate({
                                             <div className="text-sm text-black/70">{String(proj.technologies)}</div>
                                         )
                                     ) : null}
-                                    {proj.description ? (
+                                    {(editMode || proj.description) ? (
                                         <div className="mt-2">
                                             {editMode ? (
                                                 <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm leading-relaxed text-black/80" multiline />
@@ -497,7 +497,7 @@ function WorkItem({ exp, editMode, idx, onUpdate }: { exp: any; editMode: boolea
                     )}
                 </div>
             )}
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
                         <EditableText value={String(exp.description)} onChange={(v) => onUpdate(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-sm leading-relaxed text-black/80" multiline />
@@ -632,5 +632,6 @@ function normalizeCerts(value: any): any[] {
     }
     return [];
 }
+
 
 

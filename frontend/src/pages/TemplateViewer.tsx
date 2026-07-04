@@ -1,22 +1,156 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import ProfessionalTemplate from '../components/templates/ProfessionalTemplate';
 import ExecutiveTemplate from '../components/templates/ExecutiveTemplate';
 import Creative2Template from '../components/templates/Creative2Template';
 import ClassicRoseTemplate from '../components/templates/ClassicRoseTemplate';
 import BoldProfessionalTemplate from '../components/templates/BoldProfessionalTemplate';
-import TraditionalTemplate from '../components/templates/TraditionalTemplate';
+import ContemporaryTemplate from '../components/templates/ContemporaryTemplate';
 import ModernTemplate from '../components/templates/ModernTemplate';
-import CleanTemplate from '../components/templates/CleanTemplate';
-import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, AlertTriangle } from 'lucide-react';
+import StylishTemplate from '../components/templates/StylishTemplate';
+import { TemplateAiAssistProvider } from '../components/templates/EditableSection';
+import { Type, AlignLeft, Rows, RotateCcw, Lightbulb, Edit3, Grip, Wand2, Sparkles, AlertTriangle, Languages } from 'lucide-react';
+import { mixWithBlack, mixWithWhite, normalizeHexColor } from '../utils/accentColor';
+import {
+    PREVIEW_TRANSLATE_NONE_VALUE,
+    PREVIEW_TRANSLATE_OPTIONS,
+    PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE,
+} from '../constants/previewTranslateLanguages';
+
+type TemplateViewerStyleSettings = {
+    fontScale: number;
+    paragraphGapPx: number;
+    spacingScale: number;
+};
+
+type TemplateViewerLayoutSettings = {
+    sectionOrderByTemplate: Record<string, string[]>;
+    hiddenSectionKeysByTemplate: Record<string, string[]>;
+};
+
+const DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS: TemplateViewerStyleSettings = {
+    fontScale: 1,
+    paragraphGapPx: 0,
+    spacingScale: 1,
+};
+
+const PROFESSIONAL_BACKGROUND_TONES: Array<{ name: string; value: string }> = [
+    { name: 'Soft Slate', value: '#B4C5DD' },
+    { name: 'Mist Gray', value: '#D2D4D9' },
+    { name: 'Warm Stone', value: '#cbbcae' },
+    { name: 'Steel Mist', value: '#A8B7CF' },
+    { name: 'Sage Mist', value: '#b9c8bc' },
+    { name: 'Powder Blue', value: '#B6D7F2' },
+    { name: 'Cloud Lilac', value: '#c7bbcf' },
+];
+
+function clampNumber(value: any, lo: number, hi: number, fallback: number): number {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(hi, Math.max(lo, n));
+}
+
+function normalizeTemplateViewerStyleSettings(raw: any): TemplateViewerStyleSettings | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const fontScale = clampNumber(raw.fontScale, 0.6, 1.4, DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS.fontScale);
+    const paragraphGapPx = clampNumber(raw.paragraphGapPx, -40, 200, DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS.paragraphGapPx);
+    const spacingScale = clampNumber(raw.spacingScale, 0, 5, DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS.spacingScale);
+    return { fontScale, paragraphGapPx, spacingScale };
+}
+
+function withTemplateViewerStyleSettings(resume: any, settings: TemplateViewerStyleSettings): any {
+    if (!resume || typeof resume !== 'object') return resume;
+    const baseStyle = (resume.style && typeof resume.style === 'object') ? resume.style : {};
+    return {
+        ...(resume || {}),
+        style: {
+            ...(baseStyle || {}),
+            templateViewerSettings: {
+                fontScale: settings.fontScale,
+                paragraphGapPx: settings.paragraphGapPx,
+                spacingScale: settings.spacingScale,
+            },
+        },
+    };
+}
+
+function normalizeTemplateViewerLayoutSettings(raw: any): TemplateViewerLayoutSettings | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const normalizeMap = (v: any): Record<string, string[]> => {
+        if (!v || typeof v !== 'object') return {};
+        const out: Record<string, string[]> = {};
+        for (const [k, arr] of Object.entries(v)) {
+            const key = String(k || '');
+            if (!key) continue;
+            const list = Array.isArray(arr) ? (arr as any[]).map((x) => String(x)).filter(Boolean) : [];
+            out[key] = list;
+        }
+        return out;
+    };
+
+    return {
+        sectionOrderByTemplate: normalizeMap((raw as any).sectionOrderByTemplate),
+        hiddenSectionKeysByTemplate: normalizeMap((raw as any).hiddenSectionKeysByTemplate),
+    };
+}
+
+function withTemplateViewerLayoutPatch(
+    resume: any,
+    templateKeyRaw: any,
+    patch: { sectionOrder?: string[]; hiddenSectionKeys?: string[] }
+): any {
+    if (!resume || typeof resume !== 'object') return resume;
+
+    const templateKey = String(templateKeyRaw || '');
+    if (!templateKey) return resume;
+
+    const baseStyle = (resume.style && typeof resume.style === 'object') ? resume.style : {};
+    const baseLayout = (baseStyle as any).templateViewerLayout;
+    const normalizedBase = normalizeTemplateViewerLayoutSettings(baseLayout) || {
+        sectionOrderByTemplate: {},
+        hiddenSectionKeysByTemplate: {},
+    };
+
+    const nextSectionOrderByTemplate = {
+        ...(normalizedBase.sectionOrderByTemplate || {}),
+    };
+    const nextHiddenSectionKeysByTemplate = {
+        ...(normalizedBase.hiddenSectionKeysByTemplate || {}),
+    };
+
+    if ('sectionOrder' in patch) {
+        nextSectionOrderByTemplate[templateKey] = Array.isArray(patch.sectionOrder)
+            ? patch.sectionOrder.map((x) => String(x)).filter(Boolean)
+            : [];
+    }
+    if ('hiddenSectionKeys' in patch) {
+        nextHiddenSectionKeysByTemplate[templateKey] = Array.isArray(patch.hiddenSectionKeys)
+            ? patch.hiddenSectionKeys.map((x) => String(x)).filter(Boolean)
+            : [];
+    }
+
+    return {
+        ...(resume || {}),
+        style: {
+            ...(baseStyle || {}),
+            templateViewerLayout: {
+                sectionOrderByTemplate: nextSectionOrderByTemplate,
+                hiddenSectionKeysByTemplate: nextHiddenSectionKeysByTemplate,
+            },
+        },
+    };
+}
 
 const TEMPLATE_DISPLAY_NAMES: Record<string, string> = {
     classicrose: 'Classic',
     classic_rose: 'Classic',
-    minimalsidebar: 'Clean',
-    minimal_sidebar: 'Clean',
+    minimalsidebar: 'Stylish',
+    minimal_sidebar: 'Stylish',
     creative2: 'Creative',
     creative_2: 'Creative',
+    traditional: 'Contemporary',
+    bluelineclassic: 'Contemporary',
 };
 
 function formatTemplateDisplayName(raw?: string): string {
@@ -53,6 +187,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
         case 'elegant':
         case 'lavenderclassic':
         case 'classicrose':
+        case 'classic':
             return 12;
 
         case 'creative':
@@ -66,6 +201,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
 
         case 'traditional':
         case 'bluelineclassic':
+        case 'contemporary':
             return 12;
 
         case 'modern':
@@ -73,6 +209,7 @@ function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
             return 18;
 
         case 'minimalsidebar':
+        case 'stylish':
             return 10;
 
         default:
@@ -85,6 +222,19 @@ export default function TemplateViewer() {
     const location = useLocation();
     const isDownloadOnly = location.pathname.includes('/template-download/');
 
+    const templateKey = String(templateName || '').trim().toLowerCase();
+
+    // Debug helper: when enabled, make PDF outputs draw a visible top-edge marker so we can
+    // distinguish real layout whitespace from the PDF viewer's page border.
+    const pdfDebugEnabled = (() => {
+        try {
+            const params = new URLSearchParams(location.search || '');
+            return params.get('pdfdebug') === '1';
+        } catch {
+            return false;
+        }
+    })();
+
     const templateDisplayName = formatTemplateDisplayName(templateName);
 
     const qs = new URLSearchParams(location.search || '');
@@ -93,6 +243,24 @@ export default function TemplateViewer() {
     const ridParam = String(qs.get('rid') || '').trim();
     const embedParam = String(qs.get('embed') || '').trim().toLowerCase();
     const isEmbed = embedParam === '1' || embedParam === 'true';
+    const thumbParam = String(qs.get('thumb') || '').trim().toLowerCase();
+    const isThumbnail = thumbParam === '1' || thumbParam === 'true';
+    const allowTranslateParam = String(qs.get('allowTranslate') || '').trim().toLowerCase();
+    const allowEmbedTranslate = allowTranslateParam === '1' || allowTranslateParam === 'true';
+    const embedFlushParam = String(qs.get('flush') || '').trim().toLowerCase();
+    const isEmbedFlush = embedFlushParam === '1' || embedFlushParam === 'true';
+    const firstPageOnlyParam = String(qs.get('firstpage') || '').trim().toLowerCase();
+    /** Plans-page iframe: show only page 1 and scale as a single page (no multi-page stack). */
+    const embedFirstPageOnly = isEmbed && (firstPageOnlyParam === '1' || firstPageOnlyParam === 'true');
+
+    /** Optional zoom for embedded previews (e.g. create-resume pane). Default 1; capped for safety. */
+    const embedZoomRaw = String(qs.get('embedZoom') || '').trim();
+    const embedZoomMultiplier = React.useMemo(() => {
+        if (!isEmbed) return 1;
+        const n = parseFloat(embedZoomRaw);
+        if (!Number.isFinite(n) || n <= 0) return 1;
+        return Math.min(1.85, Math.max(1, n));
+    }, [isEmbed, embedZoomRaw]);
 
     // Embed mode is rendered inside an iframe (create-resume wizard preview).
     // Avoid "phantom" root scrollbars by disabling html/body scrolling and using
@@ -134,9 +302,10 @@ export default function TemplateViewer() {
             // Ignore tiny overflows caused by subpixel rounding / transforms.
             const scrollable = delta > 8;
 
-            // Only allow vertical scrolling when needed.
-            // This prevents "always-on" scrollbars for short content.
-            root.style.overflowY = scrollable ? 'auto' : 'hidden';
+            // Always allow vertical scrolling in embed mode.
+            // Some layouts (notably scaled PDF previews) can temporarily confuse scrollHeight measurements;
+            // forcing overflowY=auto prevents accidental clipping where only the top of the page is visible.
+            root.style.overflowY = 'auto';
             root.style.overscrollBehaviorY = 'contain';
 
             root.classList.toggle(HIDE_CLASS, !scrollable);
@@ -201,6 +370,7 @@ export default function TemplateViewer() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [downloadingPdf, setDownloadingPdf] = useState(false);
+    const [redirectingToPlans, setRedirectingToPlans] = useState(false);
     const [sourceRevisionId, setSourceRevisionId] = useState<string>('');
     const [downloadOnlyStatus, setDownloadOnlyStatus] = useState<'idle' | 'starting' | 'done' | 'failed'>('idle');
     const [downloadOnlyError, setDownloadOnlyError] = useState<string>('');
@@ -215,10 +385,17 @@ export default function TemplateViewer() {
         paragraphGapPx: 0,
         spacingScale: 1,
     });
+    const [accentColor, setAccentColor] = useState<string>('');
+    const [primaryColor, setPrimaryColor] = useState<string>('');
+    const [secondaryColor, setSecondaryColor] = useState<string>('');
+    const accentInitRef = useRef(false);
+    const primaryInitRef = useRef(false);
+    const secondaryInitRef = useRef(false);
+    const accentSaveTimerRef = useRef<number | null>(null);
     const [pdfPreviewPageScale, setPdfPreviewPageScale] = useState(1);
     const [pdfPreviewContentScale, setPdfPreviewContentScale] = useState(1);
     const [pdfPreviewPages, setPdfPreviewPages] = useState(1);
-    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1056);
+    const [pdfPreviewLastPageHeightPx, setPdfPreviewLastPageHeightPx] = useState(1064);
     const [pdfPreviewSnapshotHtml, setPdfPreviewSnapshotHtml] = useState<string>('');
     const embedRootRef = useRef<HTMLDivElement | null>(null);
     const pdfPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -226,21 +403,67 @@ export default function TemplateViewer() {
     const autoDownloadTriggeredRef = useRef(false);
     const editAutoAppliedRef = useRef(false);
 
+    useEffect(() => {
+        const root = embedRootRef.current;
+        if (!root) return;
+
+        const resumeSelector = '.pdfPreviewPage, .pdfPreviewTarget, .pdfPreviewViewport, .tv-style-root';
+
+        const targetInResume = (target: EventTarget | null) => {
+            if (!(target instanceof Node)) return false;
+            const el = target instanceof Element ? target : target.parentElement;
+            if (!el || !root.contains(el)) return false;
+            return Boolean(el.closest(resumeSelector));
+        };
+
+        const allowResumeInteraction = (target: EventTarget | null) => {
+            if (!(target instanceof Element)) return false;
+            return Boolean(
+                target.closest('[contenteditable="true"]') ||
+                target.closest('input, textarea, select') ||
+                target.closest('button, a, [role="button"]')
+            );
+        };
+
+        const blockResumeClipboard = (e: Event) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        const onContextMenu = (e: MouseEvent) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        const onDragStart = (e: DragEvent) => {
+            if (!targetInResume(e.target)) return;
+            if (allowResumeInteraction(e.target)) return;
+            e.preventDefault();
+        };
+
+        root.addEventListener('copy', blockResumeClipboard);
+        root.addEventListener('cut', blockResumeClipboard);
+        root.addEventListener('selectstart', blockResumeClipboard);
+        root.addEventListener('contextmenu', onContextMenu);
+        root.addEventListener('dragstart', onDragStart);
+
+        return () => {
+            root.removeEventListener('copy', blockResumeClipboard);
+            root.removeEventListener('cut', blockResumeClipboard);
+            root.removeEventListener('selectstart', blockResumeClipboard);
+            root.removeEventListener('contextmenu', onContextMenu);
+            root.removeEventListener('dragstart', onDragStart);
+        };
+    }, []);
+
     const [editSaving, setEditSaving] = useState(false);
     const [editSaveError, setEditSaveError] = useState<string | null>(null);
     const [editSaveSuccess, setEditSaveSuccess] = useState(false);
     const [editSaveHubMessage, setEditSaveHubMessage] = useState<string | null>(null);
-    const [editingExperienceIndex, setEditingExperienceIndex] = useState<number | null>(null);
-    const [showAllWorkHistoryDescriptions, setShowAllWorkHistoryDescriptions] = useState(false);
-    const [editingProjectIndex, setEditingProjectIndex] = useState<number | null>(null);
-    const [showAllProjectDescriptions, setShowAllProjectDescriptions] = useState(false);
-
-    // AI edit assistance (summary + experience + projects + custom sections)
+    // AI edit assistance
     const [aiEditError, setAiEditError] = useState<string | null>(null);
-    const [aiBusySummary, setAiBusySummary] = useState(false);
-    const [aiBusyExperience, setAiBusyExperience] = useState<Record<number, boolean>>({});
-    const [aiBusyProjects, setAiBusyProjects] = useState<Record<number, boolean>>({});
-    const [aiBusyCustom, setAiBusyCustom] = useState<Record<string, boolean>>({});
 
     // Download feedback modal (shown after printing/export)
     const [downloadFeedbackOpen, setDownloadFeedbackOpen] = useState(false);
@@ -259,22 +482,433 @@ export default function TemplateViewer() {
     const [inlineEditMode, setInlineEditMode] = useState(false);
     const [sectionOrderByTemplate, setSectionOrderByTemplate] = useState<Record<string, string[]>>({});
     const sectionOrder = sectionOrderByTemplate[String(templateName || '')] || [];
+    const [pendingAddedSectionKey, setPendingAddedSectionKey] = useState<string | null>(null);
+    const [pendingPreviewAddTick, setPendingPreviewAddTick] = useState(0);
     const setSectionOrder = React.useCallback((order: string[]) => {
-        setSectionOrderByTemplate((prev) => ({
-            ...(prev || {}),
-            [String(templateName || '')]: Array.isArray(order) ? order : [],
-        }));
-    }, [templateName]);
+        const nextOrder = Array.isArray(order) ? order : [];
+        const templateKey = String(templateName || '');
+
+        // Persist layout into the editable draft so it is included in Save Changes
+        // and so later style auto-saves don't accidentally wipe it.
+        if (templateKey) {
+            if (inlineEditMode) {
+                setInlineEditChanges((prev: any) => {
+                    const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                    const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                    const mergedResume = { ...(resumeData || {}), ...(prev || {}), style: { ...baseStyle, ...prevStyle } };
+                    const patched = withTemplateViewerLayoutPatch(mergedResume, templateKey, { sectionOrder: nextOrder });
+                    return {
+                        ...(prev || {}),
+                        style: {
+                            ...((patched?.style && typeof patched.style === 'object') ? patched.style : {}),
+                        },
+                    };
+                });
+            } else {
+                setResumeData((prev: any) => withTemplateViewerLayoutPatch(prev, templateKey, { sectionOrder: nextOrder }));
+            }
+        }
+
+        setSectionOrderByTemplate((prev) => {
+            const prevOrder = Array.isArray(prev?.[templateKey]) ? prev[templateKey] : [];
+            const addedKeys = nextOrder.filter((key) => !prevOrder.includes(key));
+            const addedCustomKeys = addedKeys.filter((key) => String(key).startsWith('custom_'));
+            if (prevOrder.length > 0 && addedCustomKeys.length > 0) {
+                setPendingAddedSectionKey(addedCustomKeys[addedCustomKeys.length - 1]);
+            }
+            return {
+                ...(prev || {}),
+                [templateKey]: nextOrder,
+            };
+        });
+    }, [inlineEditMode, resumeData, templateName]);
 
     const [hiddenSectionKeysByTemplate, setHiddenSectionKeysByTemplate] = useState<Record<string, string[]>>({});
     const hiddenSectionKeys = hiddenSectionKeysByTemplate[String(templateName || '')] || [];
     const setHiddenSectionKeys = React.useCallback((keys: string[]) => {
+        const nextKeys = Array.isArray(keys) ? keys : [];
+        const templateKey = String(templateName || '');
+
+        if (templateKey) {
+            if (inlineEditMode) {
+                setInlineEditChanges((prev: any) => {
+                    const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                    const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                    const mergedResume = { ...(resumeData || {}), ...(prev || {}), style: { ...baseStyle, ...prevStyle } };
+                    const patched = withTemplateViewerLayoutPatch(mergedResume, templateKey, { hiddenSectionKeys: nextKeys });
+                    return {
+                        ...(prev || {}),
+                        style: {
+                            ...((patched?.style && typeof patched.style === 'object') ? patched.style : {}),
+                        },
+                    };
+                });
+            } else {
+                setResumeData((prev: any) => withTemplateViewerLayoutPatch(prev, templateKey, { hiddenSectionKeys: nextKeys }));
+            }
+        }
+
         setHiddenSectionKeysByTemplate((prev) => ({
             ...(prev || {}),
-            [String(templateName || '')]: Array.isArray(keys) ? keys : [],
+            ...(templateKey ? { [templateKey]: nextKeys } : {}),
         }));
-    }, [templateName]);
+    }, [inlineEditMode, resumeData, templateName]);
     const [inlineEditChanges, setInlineEditChanges] = useState<any>({});
+
+    useEffect(() => {
+        const handlePreviewAddButtonClick = () => setPendingPreviewAddTick((prev) => prev + 1);
+        window.addEventListener('tv:add-section-button-click', handlePreviewAddButtonClick as EventListener);
+        return () => {
+            window.removeEventListener('tv:add-section-button-click', handlePreviewAddButtonClick as EventListener);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!inlineEditMode || !pendingAddedSectionKey) return;
+
+        let cancelled = false;
+        let attempts = 0;
+        let timeoutId: number | null = null;
+
+        const findScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+            let current = node?.parentElement || null;
+            while (current) {
+                const style = window.getComputedStyle(current);
+                const overflowY = style.overflowY || '';
+                if ((overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight + 4) {
+                    return current;
+                }
+                current = current.parentElement;
+            }
+            return null;
+        };
+
+        const scrollTargetIntoView = (target: HTMLElement) => {
+            const scrollParent =
+                findScrollParent(target) ||
+                findScrollParent(pdfPreviewContainerRef.current) ||
+                pdfPreviewContainerRef.current;
+
+            if (scrollParent && scrollParent.scrollHeight > scrollParent.clientHeight + 4) {
+                const parentRect = scrollParent.getBoundingClientRect();
+                const targetRect = target.getBoundingClientRect();
+                const topPadding = Math.max(40, parentRect.height * 0.18);
+                const nextTop = scrollParent.scrollTop + (targetRect.top - parentRect.top) - topPadding;
+                scrollParent.scrollTo({
+                    top: Math.max(0, nextTop),
+                    behavior: 'smooth',
+                });
+                return;
+            }
+
+            const targetRect = target.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            const topPadding = Math.max(40, viewportHeight * 0.18);
+            const nextTop = window.scrollY + targetRect.top - topPadding;
+            window.scrollTo({
+                top: Math.max(0, nextTop),
+                behavior: 'smooth',
+            });
+        };
+
+        const focusNewSection = () => {
+            if (cancelled) return;
+
+            const escapedKey = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+                ? CSS.escape(pendingAddedSectionKey)
+                : pendingAddedSectionKey.replace(/"/g, '\\"');
+            const visiblePreviewRoot =
+                pdfPreviewContainerRef.current?.querySelector<HTMLElement>('[data-tv-preview="true"]') ||
+                document.querySelector<HTMLElement>('[data-tv-preview="true"]');
+            const section =
+                visiblePreviewRoot?.querySelector<HTMLElement>(`[data-tv-section-key="${escapedKey}"]`) ||
+                null;
+
+            if (!section) {
+                attempts += 1;
+                if (attempts < 12) {
+                    timeoutId = window.setTimeout(focusNewSection, 50);
+                }
+                return;
+            }
+
+            const editableTargets = Array.from(
+                section.querySelectorAll<HTMLElement>('[contenteditable="true"], input, textarea, select')
+            );
+            const preferredTarget = editableTargets[editableTargets.length - 1] || section;
+            scrollTargetIntoView(preferredTarget);
+
+            section.classList.add('ring-4', 'ring-indigo-300', 'ring-offset-2');
+
+            window.setTimeout(() => {
+                if (cancelled) return;
+                preferredTarget.focus();
+                window.setTimeout(() => section.classList.remove('ring-4', 'ring-indigo-300', 'ring-offset-2'), 1200);
+                setPendingAddedSectionKey(null);
+            }, 220);
+        };
+
+        timeoutId = window.setTimeout(focusNewSection, 0);
+
+        return () => {
+            cancelled = true;
+            if (timeoutId !== null) window.clearTimeout(timeoutId);
+        };
+    }, [inlineEditMode, pendingAddedSectionKey]);
+
+    const mergeResumeDraft = React.useCallback((baseResume: any, draftChanges: any) => {
+        const base = (baseResume && typeof baseResume === 'object') ? baseResume : {};
+        const draft = (draftChanges && typeof draftChanges === 'object') ? draftChanges : {};
+        return {
+            ...base,
+            ...draft,
+            style: {
+                ...((base?.style && typeof base.style === 'object') ? base.style : {}),
+                ...((draft?.style && typeof draft.style === 'object') ? draft.style : {}),
+            },
+        };
+    }, []);
+
+    const getCustomSectionCount = React.useCallback((resumeLike: any): number => {
+        const customSections = resumeLike?.custom_sections;
+        return Array.isArray(customSections) ? customSections.length : 0;
+    }, []);
+
+    const draftResume = React.useMemo(() => mergeResumeDraft(resumeData, inlineEditChanges), [inlineEditChanges, mergeResumeDraft, resumeData]);
+
+    const draftResumeJsonStable = React.useMemo(() => JSON.stringify(draftResume ?? {}), [draftResume]);
+
+    const [previewTargetLang, setPreviewTargetLang] = useState(PREVIEW_TRANSLATE_NONE_VALUE);
+    const [translatedResume, setTranslatedResume] = useState<any | null>(null);
+    const [translateLoading, setTranslateLoading] = useState(false);
+    const [translateError, setTranslateError] = useState<string | null>(null);
+
+    const previewLangActive = React.useMemo(
+        () => (
+            Boolean(previewTargetLang) &&
+            previewTargetLang !== PREVIEW_TRANSLATE_NONE_VALUE &&
+            previewTargetLang !== PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE
+        ),
+        [previewTargetLang],
+    );
+
+    // Safety: if the reset option ever lands in state (e.g. due to browser quirks),
+    // immediately normalize back to the default "Translate" value.
+    useEffect(() => {
+        if (previewTargetLang !== PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE) return;
+        setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+        setTranslatedResume(null);
+        setTranslateError(null);
+        setTranslateLoading(false);
+    }, [previewTargetLang]);
+
+    const displayResume = React.useMemo(() => {
+        if (!previewLangActive) return draftResume;
+        return translatedResume ?? draftResume;
+    }, [previewLangActive, translatedResume, draftResume]);
+
+    const previewContentKey = React.useMemo(() => JSON.stringify(displayResume ?? {}), [displayResume]);
+
+    useEffect(() => {
+        if (inlineEditMode) {
+            setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+            setTranslatedResume(null);
+            setTranslateError(null);
+        }
+    }, [inlineEditMode]);
+
+    useEffect(() => {
+        if (!previewLangActive) {
+            setTranslatedResume(null);
+            setTranslateError(null);
+            setTranslateLoading(false);
+            return;
+        }
+        let cancelled = false;
+        const timer = window.setTimeout(async () => {
+            setTranslateLoading(true);
+            setTranslateError(null);
+            try {
+                const res = await fetch('/api/translate-resume', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        resume: draftResume,
+                        target: previewTargetLang,
+                        template: String(templateName || 'professional'),
+                    }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.success) {
+                    throw new Error(String(data?.error || `Translation failed (${res.status})`));
+                }
+                if (!cancelled) setTranslatedResume(data.resume);
+            } catch (e: any) {
+                if (!cancelled) {
+                    setTranslatedResume(null);
+                    setTranslateError(e?.message || 'Translation failed.');
+                }
+            } finally {
+                if (!cancelled) setTranslateLoading(false);
+            }
+        }, 450);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+            // If the user switches back to English while a request is in flight,
+            // don't leave the UI stuck in a loading state.
+            setTranslateLoading(false);
+        };
+    }, [previewTargetLang, draftResumeJsonStable]);
+
+    const previousDraftCustomCountRef = useRef(0);
+    useEffect(() => {
+        const nextCustomCount = getCustomSectionCount(draftResume);
+        const prevCustomCount = previousDraftCustomCountRef.current;
+
+        if (pendingPreviewAddTick > 0 && nextCustomCount > prevCustomCount) {
+            setPendingAddedSectionKey(`custom_${nextCustomCount - 1}`);
+            setPendingPreviewAddTick(0);
+        }
+
+        previousDraftCustomCountRef.current = nextCustomCount;
+    }, [draftResume, getCustomSectionCount, pendingPreviewAddTick]);
+
+    const handleTemplateContentChange = React.useCallback((changes: any) => {
+        setInlineEditChanges((prev: any) => {
+            const mergedPrev = mergeResumeDraft(resumeData, prev);
+            const mergedNext = mergeResumeDraft(resumeData, {
+                ...(prev || {}),
+                ...(changes || {}),
+            });
+
+            const prevCustomCount = getCustomSectionCount(mergedPrev);
+            const nextCustomCount = getCustomSectionCount(mergedNext);
+            if (nextCustomCount > prevCustomCount) {
+                setPendingAddedSectionKey(`custom_${nextCustomCount - 1}`);
+            }
+
+            return { ...(prev || {}), ...(changes || {}) };
+        });
+    }, [getCustomSectionCount, mergeResumeDraft, resumeData]);
+
+    const defaultAccent = React.useMemo(() => normalizeHexColor(getTemplateDefaultAccent(templateName)) || '#243c6b', [templateName]);
+    // Keep a derived default text tone around for templates that want it.
+    const defaultText = React.useMemo(() => mixWithBlack(defaultAccent, 0.45), [defaultAccent]);
+
+    const backgroundColorControlSupported = ![
+        // Background setting has no effect for these templates, so hide it.
+        'boldprofessional',
+        'orangeheader',
+        'traditional',
+        'bluelineclassic',
+        'creative2',
+        'popart',
+    ].includes(templateKey);
+
+    // Only 1 user-facing color control exists (Background) when supported by the template.
+    // Keep the primary/accent tone pinned to the template default accent (not the dark text tone).
+    // Bold Professional relies on --tv-primary being orange for the accent text/borders.
+    const safePrimary = React.useMemo(() => defaultAccent, [defaultAccent]);
+
+    const safeAccent = safePrimary;
+    const safeAccent40 = React.useMemo(() => `${safeAccent}40`, [safeAccent]);
+    const safeAccent60 = React.useMemo(() => `${safeAccent}60`, [safeAccent]);
+    const safeAccentLight = React.useMemo(() => mixWithWhite(safeAccent, 0.65), [safeAccent]);
+    const safeAccentDark = React.useMemo(() => mixWithBlack(safeAccent, 0.45), [safeAccent]);
+
+    const derivedSecondaryFromAccent = React.useMemo(() => mixWithWhite(safeAccent, 0.85), [safeAccent]);
+    const safeSecondary = React.useMemo(() => (
+        normalizeHexColor(secondaryColor) ||
+        normalizeHexColor(resumeData?.style?.secondaryColor) ||
+        derivedSecondaryFromAccent
+    ), [secondaryColor, resumeData, derivedSecondaryFromAccent]);
+
+    const safePrimaryLight = React.useMemo(() => mixWithWhite(safePrimary, 0.65), [safePrimary]);
+    const safePrimaryDark = React.useMemo(() => mixWithBlack(safePrimary, 0.35), [safePrimary]);
+    const safeSecondaryLight = React.useMemo(() => mixWithWhite(safeSecondary, 0.6), [safeSecondary]);
+    const safeSecondaryDark = React.useMemo(() => mixWithBlack(safeSecondary, 0.24), [safeSecondary]);
+
+    const persistTemplateStylePatch = React.useCallback((stylePatch: Record<string, any>) => {
+        if (!stylePatch || typeof stylePatch !== 'object') return;
+
+        // In inline edit mode, avoid mutating resumeData (it would update `content` and
+        // can reset template internal state / wipe unsaved edits).
+        if (inlineEditMode) {
+            setInlineEditChanges((prev: any) => {
+                const prevStyle = (prev?.style && typeof prev.style === 'object') ? prev.style : {};
+                const baseStyle = (resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {};
+                return {
+                    ...(prev || {}),
+                    style: {
+                        ...baseStyle,
+                        ...prevStyle,
+                        ...stylePatch,
+                    },
+                };
+            });
+            return;
+        }
+
+        if (!resumeData) return;
+        const nextResume = {
+            ...(resumeData || {}),
+            style: {
+                ...((resumeData?.style && typeof resumeData.style === 'object') ? resumeData.style : {}),
+                ...stylePatch,
+            },
+        };
+        const nextResumeWithSettings = withTemplateViewerStyleSettings(nextResume, styleSettings);
+        setResumeData(nextResumeWithSettings);
+
+        if (accentSaveTimerRef.current) window.clearTimeout(accentSaveTimerRef.current);
+        accentSaveTimerRef.current = window.setTimeout(() => {
+            (async () => {
+                try {
+                    const res = await fetch('/api/template-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ resume: nextResumeWithSettings, source_revision_id: sourceRevisionId }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data?.success) {
+                        console.warn('Style save failed:', data?.error || `HTTP ${res.status}`);
+                    }
+                } catch (e) {
+                    console.warn('Style save failed:', e);
+                }
+            })();
+        }, 600);
+    }, [inlineEditMode, resumeData, sourceRevisionId, styleSettings]);
+
+    const handleAccentColorChange = React.useCallback((next: string) => {
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+
+        setAccentColor(normalized);
+
+        persistTemplateStylePatch({ accentColor: normalized });
+    }, [persistTemplateStylePatch]);
+
+    const handlePrimaryColorChange = React.useCallback((next: string) => {
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+        // Primary is the user-facing "Text color".
+        setPrimaryColor(normalized);
+        // Keep legacy state in sync (even though we don't expose or persist it as independent).
+        setAccentColor(normalized);
+        persistTemplateStylePatch({ primaryColor: normalized });
+    }, [persistTemplateStylePatch]);
+
+    const handleSecondaryColorChange = React.useCallback((next: string) => {
+        if (!backgroundColorControlSupported) return;
+        const normalized = normalizeHexColor(next);
+        if (!normalized) return;
+        setSecondaryColor(normalized);
+        persistTemplateStylePatch({ secondaryColor: normalized });
+    }, [backgroundColorControlSupported, persistTemplateStylePatch]);
 
     // Top navigation (hamburger on mobile)
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -325,27 +959,10 @@ export default function TemplateViewer() {
         };
     }, []);
 
-    // Debug logging
-    useEffect(() => {
-        console.log('TemplateViewer: inlineEditMode changed to:', inlineEditMode);
-        console.log('TemplateViewer: sectionOrder:', sectionOrder);
-    }, [inlineEditMode, sectionOrder]);
-
-    console.log('TemplateViewer: Template name:', templateName);
-
     const downloadOnlyReturnToHub = React.useCallback(() => {
         const ret = new URLSearchParams(window.location.search || '').get('return') || '';
         window.location.href = ret || '/my_revisions';
     }, []);
-
-    useEffect(() => {
-        if (inlineEditMode) {
-            setShowAllWorkHistoryDescriptions(false);
-            setEditingExperienceIndex(null);
-            setShowAllProjectDescriptions(false);
-            setEditingProjectIndex(null);
-        }
-    }, [inlineEditMode]);
 
     useEffect(() => {
         let cancelled = false;
@@ -353,7 +970,7 @@ export default function TemplateViewer() {
             fetch('/api/me', { credentials: 'same-origin' })
                 .then(r => r.json())
                 .then(data => { if (!cancelled) setMe(data); })
-                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 2, revisions_used: 0 }); });
+                .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 1, revisions_used: 0 }); });
         };
         loadMe();
 
@@ -450,12 +1067,26 @@ export default function TemplateViewer() {
             const ss = String(settings.spacingScale);
 
             const printCss = `
-          #printTarget, #printTarget .tv-style-root {
+                    html, body, #printTarget, #printTarget .tv-style-root {
             --tv-font-scale: ${fs};
             --tv-paragraph-gap: ${pg};
             --tv-space-scale: ${ss};
+                        --tv-accent: ${safeAccent};
+                        --tv-accent-40: ${safeAccent40};
+                        --tv-accent-60: ${safeAccent60};
+                        --tv-accent-light: ${safeAccentLight};
+                        --tv-accent-dark: ${safeAccentDark};
+                        --tv-primary: ${safePrimary};
+                        --tv-primary-light: ${safePrimaryLight};
+                        --tv-primary-dark: ${safePrimaryDark};
+                        --tv-secondary: ${safeSecondary};
+                        --tv-secondary-light: ${safeSecondaryLight};
+                        --tv-secondary-dark: ${safeSecondaryDark};
           }
-                    @page { size: letter; margin: 8mm 0mm !important; }
+                                                    /* Bottom margin on ALL pages; top margin only from page 2 onward.
+                                                         Keep left/right at 0 so full-bleed sidebars/headers can still reach the page edge. */
+                                                    @page { size: letter; margin: 0.5in 0in 0.5in 0in !important; }
+                                                    @page:first { margin-top: 0in !important; }
           html, body {
             width: ${pageWidthPx}px;
             margin: 0 !important;
@@ -465,6 +1096,75 @@ export default function TemplateViewer() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+
+                    /* Per-page vertical background fills (repeats on every printed page via position:fixed).
+                         This fixes the "vertical color stops at end of content" issue on the last page. */
+                    body { position: relative !important; }
+                    body::after {
+                        content: "";
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        z-index: 0;
+                        pointer-events: none;
+                        background: transparent;
+                    }
+                    #printPage { position: relative; z-index: 1; }
+                    body[data-pdf-template="clean"]::after {
+                        background: linear-gradient(to right,
+                            var(--tv-secondary) 0%,
+                            var(--tv-secondary) 33.333%,
+                            #ffffff 33.333%,
+                            #ffffff 100%
+                        );
+                    }
+                    body[data-pdf-template="classicrose"]::after {
+                        background: linear-gradient(to right,
+                            var(--tv-secondary) 0%,
+                            var(--tv-secondary) 33.333%,
+                            #ffffff 33.333%,
+                            #ffffff 100%
+                        );
+                    }
+                    body[data-pdf-template="modern"]::after {
+                        background: linear-gradient(to right,
+                            #ffffff 0%,
+                            #ffffff 60%,
+                            var(--tv-secondary) 60%,
+                            var(--tv-secondary) 100%
+                        );
+                    }
+                    body[data-pdf-template="creative2"]::after {
+                        background: #ffffff;
+                    }
+
+                    /* Allow the per-page background gradient to show through inside the resume.
+                       Many templates render an opaque white "card" wrapper (bg-white) which would otherwise
+                       hide the page-level background fills. */
+                    #printTarget [data-template="clean"],
+                    #printTarget [data-template="classicrose"],
+                    #printTarget [data-template="modern"] {
+                        background: transparent !important;
+                    }
+                    /* Creative2: keep an opaque card background in PDF/print to avoid edge shading artifacts */
+                    #printTarget [data-template="creative2"].creative2-template {
+                        background: #ffffff !important;
+                    }
+                                        ${pdfDebugEnabled ? `
+                    /* Debug marker: magenta bar at absolute page top */
+                    body::before {
+                        content: "";
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 10px;
+                        background: #ff00ff !important;
+                        z-index: 2147483647;
+                    }
+                    ` : ``}
           #printPage {
             position: relative;
             width: ${pageWidthPx}px;
@@ -478,26 +1178,61 @@ export default function TemplateViewer() {
             box-sizing: border-box !important;
             padding: ${printPadPx}px !important;
           }
-                    /* Many templates have an outer wrapper with top padding/margin (e.g., Tailwind p-8 or pt-9).
-                         That spacing only applies at the start of the document, making page 1 look like it
-                         has a larger top margin than page 2+. Strip only the TOP spacing from the first wrapper
-                         and rely on @page margin for consistent per-page top whitespace. */
-                    #printTarget > *:first-child {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
+                                        /* Prevent first-child top-margin collapse (can look like a top strip in PDFs) */
+                                        #printTarget { display: flow-root !important; }
+                                        #printTarget .tv-style-root { display: flow-root !important; }
+                                        /* PDF seam fix: remove wrapper rounding/overflow clipping only in print context */
+                                        #printTarget > * { border-radius: 0 !important; overflow: visible !important; }
+                                        #printTarget .tv-style-root > * { border-radius: 0 !important; overflow: visible !important; }
+
+                                        /* Chromium print seam fix: sometimes a ~1px white line appears at the very top edge
+                                           above a colored header background when printing/saving as PDF. Nudge the header up
+                                           by 1px in the print-only iframe to cover the rasterization seam. */
+                                        /* Apply generally to the top-most resume block so ALL templates are protected. */
+                                        #printTarget .tv-style-root > *:first-child {
+                                            margin-top: -1px !important;
+                                        }
+
+                                        /* Back-compat: keep the older template-specific selector too. */
+                                        #printTarget [data-template="professional"] > div:first-child {
+                                            margin-top: -1px !important;
+                                        }
+                    /* NOTE: Do NOT strip first-page top padding/margins. Requirement: page 1 top must remain unchanged.
+                       Page 2+ top breathing room is handled via @page margin-top. */
+
+
+          /* Prevent individual resume entries from being split across pages */
+          #printTarget section,
+          #printTarget .space-y-4 > div,
+          #printTarget .space-y-5 > div,
+          #printTarget .space-y-3 > div,
+          #printTarget .space-y-2 > div,
+          #printTarget .creative2-item {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          /* Two-column templates: convert grid to block flow for proper pagination */
+          #printTarget .grid.grid-cols-12 { display: block !important; }
+          #printTarget .grid.grid-cols-12::after { content: ""; display: block; clear: both; }
+          #printTarget .grid.grid-cols-12 > .col-span-7 { float: left !important; width: 58% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-5 { float: right !important; width: 40% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-4 { float: left !important; width: 33% !important; }
+          #printTarget .grid.grid-cols-12 > .col-span-8 { float: right !important; width: 65% !important; }
+
+                    /* Full-height vertical backgrounds:
+                         - The float-based pagination shim above breaks equal-height columns, so templates with
+                             colored sidebars need a grid override in print/PDF.
+                         - Keep this narrowly scoped to avoid re-introducing grid fragmentation issues elsewhere. */
+                    #printTarget [data-template="clean"] .grid.grid-cols-12 {
+                        display: grid !important;
+                        grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+                        min-height: 10.5in !important;
                     }
-                    #printTarget > *:first-child > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    #printTarget > *:first-child > :first-of-type > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    #printTarget > *:first-child > :first-of-type > :first-of-type > :first-of-type {
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
+                    #printTarget [data-template="clean"] .grid.grid-cols-12::after { content: none !important; display: none !important; }
+                    #printTarget [data-template="clean"] .grid.grid-cols-12 > * { float: none !important; width: auto !important; }
+
+                    /* Creative2 vertical accent container: extend to page bottom for one-page resumes */
+                    #printTarget [data-template="creative2"].creative2-template > div.relative { min-height: 10.5in !important; }
           /* Fill the printable canvas edge-to-edge (strip outer "card" gutters like mx-auto/max-w-*) */
           #printTarget > * {
             width: ${availW}px !important;
@@ -702,6 +1437,13 @@ export default function TemplateViewer() {
                     const target = doc.getElementById('printTarget') as HTMLElement | null;
                     const child = target?.firstElementChild as HTMLElement | null;
                     if (target && child) {
+                        // Detect which template is being printed so we can apply the correct per-page background.
+                        const tmplEl = (child.matches && child.matches('[data-template]'))
+                            ? child
+                            : (child.querySelector ? (child.querySelector('[data-template]') as HTMLElement | null) : null);
+                        const tmpl = String(tmplEl?.getAttribute('data-template') || '').trim();
+                        if (tmpl) doc.body.setAttribute('data-pdf-template', tmpl);
+
                         // Ensure layout is up to date after CSS overrides.
                         const contentW = Math.max(1, child.scrollWidth || child.getBoundingClientRect().width);
                         const contentH = Math.max(1, child.scrollHeight || child.getBoundingClientRect().height);
@@ -749,17 +1491,66 @@ export default function TemplateViewer() {
 
     async function downloadPdfAsFile() {
         if (downloadingPdf) return;
+        if (previewLangActive && translateLoading) {
+            alert('Wait for the preview to finish translating, then download the PDF.');
+            return;
+        }
+        if (previewLangActive && !translatedResume) {
+            alert('Translation is not ready yet. Try again in a moment, or pick the language again.');
+            return;
+        }
         setDownloadingPdf(true);
+
+        const draftMerged = mergeResumeDraft(resumeData, inlineEditChanges);
+        const useTranslatedPdf = Boolean(previewLangActive && translatedResume);
+        const pdfBaseResume = useTranslatedPdf ? translatedResume : draftMerged;
+        const buildSessionResumePayload = (base: any) =>
+            withTemplateViewerStyleSettings(
+                withTemplateViewerLayoutPatch(base, templateKey, { sectionOrder, hiddenSectionKeys }),
+                styleSettings,
+            );
+
         try {
-            const filename = `resume-${String(templateName || 'resume')}.pdf`;
+            let pdfSnapshotToken = '';
+            if (useTranslatedPdf) {
+                const snapRes = await fetch('/api/template-pdf/snapshot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        resume: buildSessionResumePayload(pdfBaseResume),
+                        template: templateName,
+                    }),
+                });
+                const snapData = await snapRes.json().catch(() => ({}));
+                if (!snapRes.ok || !snapData?.success || !snapData?.token) {
+                    throw new Error(String(snapData?.error || `Could not prepare translated PDF (HTTP ${snapRes.status})`));
+                }
+                pdfSnapshotToken = String(snapData.token || '').trim();
+            }
+
+            const baseName = `resume-${String(templateName || 'resume')}`;
+            let filename = `${baseName}.pdf`;
+            // In local dev, PDF viewers can keep showing an already-open file tab even after you
+            // "re-download" the same filename. Use a unique filename to make changes obvious.
+            try {
+                const host = String(window.location.hostname || '').toLowerCase();
+                const isLocal = host === 'localhost' || host === '127.0.0.1';
+                if (isLocal) filename = `${baseName}-${Date.now()}.pdf`;
+            } catch {
+                // ignore
+            }
             const safeTemplate = String(templateName || 'professional');
             const qs = new URLSearchParams({
                 fontScale: String(styleSettings.fontScale),
                 paragraphGapPx: String(styleSettings.paragraphGapPx),
                 spacingScale: String(styleSettings.spacingScale),
             });
+            // Debug mode is opt-in via ?pdfdebug=1.
+            if (pdfDebugEnabled) qs.set('debug', '1');
             // Cache-bust: browsers/proxies sometimes cache GET PDFs even when content changes.
             qs.set('_ts', String(Date.now()));
+            if (pdfSnapshotToken) qs.set('pdfSnapshot', pdfSnapshotToken);
             const pdfEndpointUrl = `/api/template-pdf/${encodeURIComponent(safeTemplate)}?${qs.toString()}`;
             const controller = new AbortController();
             const timeoutMs = 120_000;
@@ -813,19 +1604,45 @@ export default function TemplateViewer() {
         }
     }
 
-    const loadTemplateData = React.useCallback(async () => {
-        console.log('TemplateViewer: Fetching template data...');
+    async function persistStyleSettingsBestEffort() {
         try {
-            const res = await fetch('/api/template-data');
-            console.log('TemplateViewer: Response status:', res.status);
+            if (!resumeData) return;
+            const payloadResumeWithSettings = withTemplateViewerStyleSettings(resumeData, styleSettings);
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => {
+                try {
+                    controller.abort();
+                } catch {
+                    // ignore
+                }
+            }, 3000);
+            const res = await fetch('/api/template-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                keepalive: true,
+                signal: controller.signal,
+                body: JSON.stringify({ resume: payloadResumeWithSettings, source_revision_id: sourceRevisionId }),
+            });
+            window.clearTimeout(timeoutId);
+            if (!res.ok) {
+                // Keep redirect behavior, but log for diagnosis.
+                console.warn('Pre-redirect style save failed:', res.status);
+            }
+        } catch {
+            // Ignore; redirect should still proceed.
+        }
+    }
+
+    const loadTemplateData = React.useCallback(async () => {
+        try {
+            const qs = location.search || '';
+            const res = await fetch(`/api/template-data${qs}`, { credentials: 'same-origin' });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.error || `HTTP error! status: ${res.status}`);
             }
             const data = await res.json();
-            console.log('TemplateViewer: Received data:', data);
-            console.log('TemplateViewer: Resume data type:', typeof data.resume);
-            console.log('TemplateViewer: Resume data:', JSON.stringify(data.resume, null, 2));
             if (data.success) {
                 const urlRid = new URLSearchParams(window.location.search || '').get('rid') || '';
                 const apiRid = String(data.source_revision_id || '').trim();
@@ -835,6 +1652,26 @@ export default function TemplateViewer() {
                 if (!data.resume || Object.keys(data.resume).length === 0) {
                     setError('Resume data is empty. The resume may not have been parsed correctly.');
                 } else {
+                    // Hydrate layout settings immediately so print/PDF paths don't briefly render
+                    // default order before effects run.
+                    const templateKey = String(templateName || '');
+                    const savedLayout = normalizeTemplateViewerLayoutSettings(data.resume?.style?.templateViewerLayout);
+                    if (savedLayout && templateKey) {
+                        const savedOrder = savedLayout.sectionOrderByTemplate?.[templateKey];
+                        const savedHidden = savedLayout.hiddenSectionKeysByTemplate?.[templateKey];
+                        if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+                            setSectionOrderByTemplate((prev) => ({
+                                ...(prev || {}),
+                                [templateKey]: savedOrder,
+                            }));
+                        }
+                        if (Array.isArray(savedHidden) && savedHidden.length > 0) {
+                            setHiddenSectionKeysByTemplate((prev) => ({
+                                ...(prev || {}),
+                                [templateKey]: savedHidden,
+                            }));
+                        }
+                    }
                     setResumeData(data.resume);
                 }
             } else {
@@ -846,11 +1683,124 @@ export default function TemplateViewer() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [templateName, location.search]);
 
     useEffect(() => {
         loadTemplateData();
     }, [loadTemplateData]);
+
+    // Create-resume / embedded preview: parent updates session via POST then asks us to refetch
+    // without reloading the iframe (stable src + postMessage).
+    useLayoutEffect(() => {
+        if (!isEmbed) return;
+        const onMessage = (ev: MessageEvent) => {
+            if (ev.origin !== window.location.origin) return;
+            const d = ev.data as { type?: string } | null;
+            if (!d || typeof d !== 'object') return;
+            if (d.type !== 'RESUMATIC_TEMPLATE_SESSION_REFRESH') return;
+            void loadTemplateData();
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [isEmbed, loadTemplateData]);
+
+    const styleSettingsInitRef = useRef(false);
+    useEffect(() => {
+        // Allow re-hydration on template changes.
+        styleSettingsInitRef.current = false;
+        setStyleSettings(DEFAULT_TEMPLATE_VIEWER_STYLE_SETTINGS);
+    }, [templateName]);
+
+    const layoutSettingsInitRef = useRef(false);
+    useEffect(() => {
+        layoutSettingsInitRef.current = false;
+        // Keep per-template state, but clear current template values on change to avoid
+        // leaking a previous template's order into a new one before hydration.
+        setSectionOrderByTemplate({});
+        setHiddenSectionKeysByTemplate({});
+    }, [templateName]);
+
+    useEffect(() => {
+        if (!resumeData) return;
+        if (styleSettingsInitRef.current) return;
+
+        const saved = normalizeTemplateViewerStyleSettings(resumeData?.style?.templateViewerSettings);
+        if (saved) {
+            setStyleSettings(saved);
+        }
+        styleSettingsInitRef.current = true;
+    }, [resumeData, templateName]);
+
+    useEffect(() => {
+        if (!resumeData) return;
+        if (layoutSettingsInitRef.current) return;
+
+        const templateKey = String(templateName || '');
+        const saved = normalizeTemplateViewerLayoutSettings(resumeData?.style?.templateViewerLayout);
+        if (saved && templateKey) {
+            const savedOrder = saved.sectionOrderByTemplate?.[templateKey];
+            const savedHidden = saved.hiddenSectionKeysByTemplate?.[templateKey];
+
+            if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+                setSectionOrderByTemplate((prev) => ({
+                    ...(prev || {}),
+                    [templateKey]: savedOrder,
+                }));
+            }
+            if (Array.isArray(savedHidden) && savedHidden.length > 0) {
+                setHiddenSectionKeysByTemplate((prev) => ({
+                    ...(prev || {}),
+                    [templateKey]: savedHidden,
+                }));
+            }
+        }
+
+        layoutSettingsInitRef.current = true;
+    }, [resumeData, templateName]);
+
+    useEffect(() => {
+        if (!resumeData) return;
+
+        const fromAccent = normalizeHexColor(resumeData?.style?.accentColor);
+        const fromPrimary = normalizeHexColor(resumeData?.style?.primaryColor);
+        const fromSecondary = normalizeHexColor(resumeData?.style?.secondaryColor);
+
+        // Legacy migration: if an older resume saved only accentColor, treat it as the new Text color.
+        const effectivePrimary = fromPrimary || fromAccent;
+
+        if (!accentInitRef.current) {
+            // Accent is derived from Text; keep internal state aligned so any dependent code stays consistent.
+            setAccentColor(effectivePrimary || defaultAccent);
+            accentInitRef.current = true;
+        }
+
+        if (!primaryInitRef.current) {
+            setPrimaryColor(effectivePrimary || '');
+            primaryInitRef.current = true;
+        } else {
+            if (effectivePrimary && effectivePrimary !== normalizeHexColor(primaryColor)) {
+                setPrimaryColor(effectivePrimary);
+            }
+        }
+
+        if (!secondaryInitRef.current) {
+            setSecondaryColor(fromSecondary || '');
+            secondaryInitRef.current = true;
+        } else {
+            if (fromSecondary && fromSecondary !== normalizeHexColor(secondaryColor)) {
+                setSecondaryColor(fromSecondary);
+            }
+        }
+    }, [resumeData, defaultAccent, accentColor, primaryColor, secondaryColor]);
+
+    useEffect(() => {
+        return () => {
+            if (accentSaveTimerRef.current != null) {
+                window.clearTimeout(accentSaveTimerRef.current);
+                accentSaveTimerRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (editAutoAppliedRef.current) return;
@@ -931,210 +1881,187 @@ export default function TemplateViewer() {
         window.setTimeout(attemptDownload, 100);
     }, [resumeData, loading, error, isDownloadOnly]);
 
-    async function saveEditedResume(resumeOverride?: any) {
-        const payloadResume = resumeOverride ?? resumeData;
-        if (!payloadResume) return;
-        setEditSaving(true);
-        setEditSaveError(null);
-        setEditSaveSuccess(false);
-        setEditSaveHubMessage(null);
-        try {
-            const res = await fetch('/api/template-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ resume: payloadResume, source_revision_id: sourceRevisionId }),
+    const saveEditedResume = React.useCallback(
+        async (
+            resumeOverride?: any,
+            afterSuccess?: (payloadResumeWithSettings: any) => void,
+            opts?: { quiet?: boolean },
+        ) => {
+            const payloadResume = resumeOverride ?? resumeData;
+            if (!payloadResume) return;
+            const templateKey = String(templateName || '');
+            const payloadResumeWithLayout = withTemplateViewerLayoutPatch(payloadResume, templateKey, {
+                sectionOrder,
+                hiddenSectionKeys,
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data?.success) {
-                throw new Error(data?.error || `Failed to save (HTTP ${res.status})`);
+            const payloadResumeWithSettings = withTemplateViewerStyleSettings(payloadResumeWithLayout, styleSettings);
+            const quiet = Boolean(opts?.quiet);
+            if (!quiet) {
+                setEditSaving(true);
             }
-            setEditSaveSuccess(true);
-            window.setTimeout(() => setEditSaveSuccess(false), 2000);
+            setEditSaveError(null);
+            if (!quiet) {
+                setEditSaveSuccess(false);
+                setEditSaveHubMessage(null);
+            }
+            try {
+                const res = await fetch('/api/template-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ resume: payloadResumeWithSettings, source_revision_id: sourceRevisionId }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.success) {
+                    throw new Error(data?.error || `Failed to save (HTTP ${res.status})`);
+                }
+                afterSuccess?.(payloadResumeWithSettings);
+                if (!quiet) {
+                    setEditSaveSuccess(true);
+                    window.setTimeout(() => setEditSaveSuccess(false), 2000);
 
-            if (data?.persisted_to_hub) {
-                setEditSaveHubMessage('Saved to Job Search Hub.');
-                window.setTimeout(() => setEditSaveHubMessage(null), 5000);
-            } else if (typeof data?.persist_reason === 'string' && data.persist_reason) {
-                const reason = String(data.persist_reason);
-                if (reason === 'missing_source_revision_id') {
-                    setEditSaveHubMessage('Saved here, but not linked to a Hub revision (open from Job Search Hub / View Analysis first).');
-                } else if (reason === 'revision_not_found') {
-                    setEditSaveHubMessage('Saved here, but the Hub revision could not be found (try refreshing Job Search Hub and saving again).');
-                } else if (reason === 'snapshot_too_large') {
-                    setEditSaveHubMessage('Saved here, but the snapshot is too large to store for Hub editing.');
-                } else if (reason === 'not_authenticated') {
-                    setEditSaveHubMessage('Saved here, but you must be logged in to save to Job Search Hub.');
-                } else {
-                    setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                    if (data?.persisted_to_hub) {
+                        setEditSaveHubMessage('Saved to Job Search Hub.');
+                        window.setTimeout(() => setEditSaveHubMessage(null), 5000);
+                    } else if (typeof data?.persist_reason === 'string' && data.persist_reason) {
+                        const reason = String(data.persist_reason);
+                        if (reason === 'missing_source_revision_id') {
+                            setEditSaveHubMessage(
+                                'Saved here, but not linked to a Hub revision (open from Job Search Hub / View Analysis first).',
+                            );
+                        } else if (reason === 'revision_not_found') {
+                            setEditSaveHubMessage(
+                                'Saved here, but the Hub revision could not be found (try refreshing Job Search Hub and saving again).',
+                            );
+                        } else if (reason === 'snapshot_too_large') {
+                            setEditSaveHubMessage('Saved here, but the snapshot is too large to store for Hub editing.');
+                        } else if (reason === 'not_authenticated') {
+                            setEditSaveHubMessage('Saved here, but you must be logged in to save to Job Search Hub.');
+                        } else {
+                            setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                        }
+                        try {
+                            alert(`Saved locally, but NOT saved to Job Search Hub. Reason: ${reason}`);
+                        } catch (_) {
+                            // ignore
+                        }
+                        window.setTimeout(() => setEditSaveHubMessage(null), 8000);
+                    } else {
+                        setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
+                        try {
+                            alert('Saved locally, but NOT saved to Job Search Hub.');
+                        } catch (_) {
+                            // ignore
+                        }
+                        window.setTimeout(() => setEditSaveHubMessage(null), 8000);
+                    }
                 }
-                try {
-                    alert(`Saved locally, but NOT saved to Job Search Hub. Reason: ${reason}`);
-                } catch (_) {
-                    // ignore
+            } catch (e: any) {
+                setEditSaveError(e?.message || 'Failed to save changes.');
+            } finally {
+                if (!quiet) {
+                    setEditSaving(false);
                 }
-                window.setTimeout(() => setEditSaveHubMessage(null), 8000);
-            } else {
-                setEditSaveHubMessage('Saved here, but not persisted to Job Search Hub.');
-                try {
-                    alert('Saved locally, but NOT saved to Job Search Hub.');
-                } catch (_) {
-                    // ignore
-                }
-                window.setTimeout(() => setEditSaveHubMessage(null), 8000);
             }
-        } catch (e: any) {
-            setEditSaveError(e?.message || 'Failed to save changes.');
-        } finally {
-            setEditSaving(false);
+        },
+        [resumeData, templateName, sectionOrder, hiddenSectionKeys, styleSettings, sourceRevisionId],
+    );
+
+    // Preview translation is intentionally non-destructive: it should not overwrite the
+    // underlying resume data. Users can return to the original English version by selecting
+    // "English (default)" in the language selector.
+
+    const updateDraftResume = React.useCallback((updater: (prev: any) => any) => {
+        if (inlineEditMode) {
+            setInlineEditChanges((prevDraft: any) => {
+                const mergedPrev = mergeResumeDraft(resumeData, prevDraft);
+                const nextMerged = updater(mergedPrev);
+                return { ...(nextMerged || {}) };
+            });
+            return;
         }
-    }
 
-    const setField = (key: string, value: any) => {
-        setResumeData((prev: any) => ({ ...(prev || {}), [key]: value }));
-    };
+        setResumeData((prev: any) => updater(prev));
+    }, [inlineEditMode, mergeResumeDraft, resumeData]);
 
-    const getSectionLabel = (key: string, fallback: string): string => {
-        const h = resumeData?.section_headings?.[key];
-        const s = String(h ?? '').trim();
-        return s ? s : fallback;
-    };
+    const ensureSectionVisible = React.useCallback((sectionKey: string) => {
+        const nextHidden = (Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).filter((k) => String(k) !== sectionKey);
+        setHiddenSectionKeys(nextHidden);
 
-    const normalizeList = (v: any): string[] => {
-        if (!v) return [];
-        if (Array.isArray(v)) return v.map((x) => String(x ?? '').trim()).filter(Boolean);
-        return String(v)
-            .split(/\n|,|•/g)
-            .map((s) => s.trim())
-            .filter(Boolean);
-    };
+        if (Array.isArray(sectionOrder) && sectionOrder.length > 0 && !sectionOrder.includes(sectionKey)) {
+            setSectionOrder([...sectionOrder, sectionKey]);
+        }
+    }, [hiddenSectionKeys, sectionOrder, setHiddenSectionKeys, setSectionOrder]);
 
-    const experienceList: any[] = Array.isArray(resumeData?.experience) ? resumeData.experience : [];
-    const updateExperienceDescription = (idx: number, nextDescription: string) => {
-        setResumeData((prev: any) => {
-            const prevExp: any[] = Array.isArray(prev?.experience) ? prev.experience : [];
-            const nextExp = prevExp.map((e, i) => (i === idx ? { ...(e || {}), description: nextDescription } : e));
-            return { ...(prev || {}), experience: nextExp };
+    const resolvePreviewSectionKey = React.useCallback((sectionKey: string) => {
+        if (sectionKey === 'experience' && (templateKey === 'traditional' || templateKey === 'bluelineclassic')) {
+            return 'work';
+        }
+        return sectionKey;
+    }, [templateKey]);
+
+    const addExperienceItem = () => {
+        const previewSectionKey = resolvePreviewSectionKey('experience');
+        ensureSectionVisible(previewSectionKey);
+        setPendingAddedSectionKey(previewSectionKey);
+        updateDraftResume((prev: any) => {
+            const prevArr: any[] = Array.isArray(prev?.experience) ? prev.experience : [];
+            const nextArr = [...prevArr, { title: '', company: '', duration: '', description: '' }];
+            return { ...(prev || {}), experience: nextArr };
         });
     };
 
-    const linksList: any[] = Array.isArray(resumeData?.links) ? resumeData.links : [];
-    const updateLinkField = (idx: number, field: 'label' | 'url', value: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.links) ? prev.links : [];
-            const nextArr = prevArr.map((l, i) => {
-                if (i !== idx) return l;
-                const cur = (l && typeof l === 'object') ? l : {};
-                if (field === 'label') return { ...(cur || {}), label: value };
-                // Keep compatibility with templates that read url||href.
-                return { ...(cur || {}), url: value };
-            });
-            return { ...(prev || {}), links: nextArr };
-        });
-    };
-
-    const educationList: any[] = Array.isArray(resumeData?.education) ? resumeData.education : [];
     const addEducationItem = () => {
-        setResumeData((prev: any) => {
+        ensureSectionVisible('education');
+        setPendingAddedSectionKey('education');
+        updateDraftResume((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
             const nextArr = [...prevArr, { degree: '', year: '', institution: '', gpa: '' }];
             return { ...(prev || {}), education: nextArr };
         });
     };
-    const updateEducationField = (idx: number, field: string, value: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.education) ? prev.education : [];
-            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
-            return { ...(prev || {}), education: nextArr };
-        });
-    };
 
-    const projectsList: any[] = Array.isArray(resumeData?.projects) ? resumeData.projects : [];
     const addProjectItem = () => {
-        setResumeData((prev: any) => {
+        ensureSectionVisible('projects');
+        setPendingAddedSectionKey('projects');
+        updateDraftResume((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
-            const nextArr = [...prevArr, { title: '', technologies: '', link: '', description: '' }];
-            return { ...(prev || {}), projects: nextArr };
-        });
-    };
-    const updateProjectField = (idx: number, field: string, value: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.projects) ? prev.projects : [];
-            const nextArr = prevArr.map((e, i) => (i === idx ? { ...(e || {}), [field]: value } : e));
+            const nextArr = [...prevArr, { title: '', dates: '', technologies: '', link: '', description: '' }];
             return { ...(prev || {}), projects: nextArr };
         });
     };
 
-    const certificationsList: any[] = Array.isArray(resumeData?.certifications) ? resumeData.certifications : [];
     const addCertificationItem = () => {
-        // If the user previously hid (deleted) the Certifications section via the template UI,
-        // adding a certification should make it visible again.
-        const nextHidden = (Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).filter((k) => String(k) !== 'certifications');
-        setHiddenSectionKeys(nextHidden);
-
-        if (Array.isArray(sectionOrder) && sectionOrder.length > 0 && !sectionOrder.includes('certifications')) {
-            setSectionOrder([...sectionOrder, 'certifications']);
-        }
-
-        setResumeData((prev: any) => {
+        ensureSectionVisible('certifications');
+        setPendingAddedSectionKey('certifications');
+        updateDraftResume((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
-            const nextArr = [...prevArr, { name: '', issuer: '', year: '' }];
-            return { ...(prev || {}), certifications: nextArr };
-        });
-    };
-    const updateCertification = (idx: number, patch: any) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.certifications) ? prev.certifications : [];
-            const nextArr = prevArr.map((c, i) => {
-                if (i !== idx) return c;
-                if (typeof c === 'string') return String(patch ?? '');
-                return { ...(c || {}), ...(patch || {}) };
-            });
+            const normalizedTemplateKey = String(templateKey || '').toLowerCase().replace(/[_-]/g, '');
+            const nextItem = (normalizedTemplateKey === 'boldprofessional' || normalizedTemplateKey === 'orangeheader')
+                ? ''
+                : { name: '', issuer: '', year: '' };
+            const nextArr = [...prevArr, nextItem];
             return { ...(prev || {}), certifications: nextArr };
         });
     };
 
-    const customSectionsList: any[] = Array.isArray(resumeData?.custom_sections) ? resumeData.custom_sections : [];
     const addCustomSection = () => {
-        setResumeData((prev: any) => {
+        const nextCustomIndex = Array.isArray(draftResume?.custom_sections) ? draftResume.custom_sections.length : 0;
+        setPendingAddedSectionKey(`custom_${nextCustomIndex}`);
+        updateDraftResume((prev: any) => {
             const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = [...prevArr, { heading: '', content: '' }];
+            const nextArr = [...prevArr, {
+                heading: 'New Section',
+                items: [
+                    {
+                        title: 'Header',
+                        content: '- First bullet point\n- Second bullet point',
+                    },
+                ],
+            }];
             return { ...(prev || {}), custom_sections: nextArr };
         });
     };
-    const updateCustomSectionHeading = (sectionIndex: number, heading: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => (i === sectionIndex ? { ...(sec || {}), heading } : sec));
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-    const updateCustomSectionBody = (sectionIndex: number, value: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => {
-                if (i !== sectionIndex) return sec;
-                // Prefer writing to `content` (templates read content/text/body)
-                return { ...(sec || {}), content: value };
-            });
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-    const updateCustomSectionItem = (sectionIndex: number, itemIndex: number, field: string, value: string) => {
-        setResumeData((prev: any) => {
-            const prevArr: any[] = Array.isArray(prev?.custom_sections) ? prev.custom_sections : [];
-            const nextArr = prevArr.map((sec, i) => {
-                if (i !== sectionIndex) return sec;
-                const cur = (sec && typeof sec === 'object') ? sec : {};
-                const items = Array.isArray(cur.items) ? [...cur.items] : [];
-                const curItem = (items[itemIndex] && typeof items[itemIndex] === 'object') ? items[itemIndex] : {};
-                items[itemIndex] = { ...(curItem || {}), [field]: value };
-                return { ...(cur || {}), items };
-            });
-            return { ...(prev || {}), custom_sections: nextArr };
-        });
-    };
-
     async function aiRewriteResumeField(args: {
         field: 'summary' | 'experience_description' | 'project_description' | 'custom_section';
         text: string;
@@ -1160,37 +2087,35 @@ export default function TemplateViewer() {
         return out;
     }
 
-    // Always default customization settings on page load / template change.
-    // (No persistence via cookies/localStorage.)
-    useEffect(() => {
-        setStyleSettings({ fontScale: 1, paragraphGapPx: 0, spacingScale: 1 });
-    }, [templateName]);
+    // Display settings are persisted in the saved resume snapshot (resume.style.templateViewerSettings).
 
     // PDF preview sizing:
     // - "Page scale" fits the Letter page into the preview area visually
     // - "Content scale" matches the Save-as-PDF fit logic (width-fit)
     useEffect(() => {
         const PAGE_W = 816;
-        // Keep the content viewport at true Letter height (11in * 96dpi).
-        // Then grow the *page frame* to include the visual top/bottom padding.
-        const CONTENT_H = 1056;
-        // Match server-side Playwright PDF margins: 0.32in top/bottom, 0in left/right.
-        // (0.32in * 96dpi = 30.72px)
-        const PAD_TOP = 31;
-        const PAD_BOTTOM = 31;
-        // Extra visual canvas height (frame only). Does not increase the content viewport.
-        // Extra visual canvas height (frame only). Can be negative to reduce frame height
-        // while keeping the fixed 1056px content viewport unchanged.
+        // Match the PDF content area with a safety margin.
+        // Letter = 1056px @96dpi. We add top/bottom margins in the actual PDFs.
+        // Keep a small safety buffer (12px) to absorb font rendering differences.
+        const PAGE_H = 1056;
+        const SAFETY_PX = 12;
+        // Requirement: page 1 top unchanged, but bottom margin applies to all pages.
+        // Simulate that in the preview with different top padding for page 1 vs page 2+.
+        const PAD_TOP_FIRST = 0;
+        const PAD_TOP_REST = 48; // 0.5in
+        const PAD_BOTTOM = 48; // 0.5in
+        const VIEW_H_FIRST = Math.max(1, PAGE_H - PAD_TOP_FIRST - PAD_BOTTOM - SAFETY_PX);
+        const VIEW_H_REST = Math.max(1, PAGE_H - PAD_TOP_REST - PAD_BOTTOM - SAFETY_PX);
         const EXTRA_FRAME_PX = 20;
-        const PAGE_H = CONTENT_H + PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX;
-        const VIEW_H = CONTENT_H;
+        const PAGE_FRAME_H_FIRST = VIEW_H_FIRST + PAD_TOP_FIRST + PAD_BOTTOM + EXTRA_FRAME_PX;
+        const PAGE_FRAME_H_REST = VIEW_H_REST + PAD_TOP_REST + PAD_BOTTOM + EXTRA_FRAME_PX;
         const container = pdfPreviewContainerRef.current;
         const inner = pdfPreviewMeasureInnerRef.current;
         if (!container || !inner) return;
 
         const compute = () => {
-            // Account for the preview container padding (p-4 => 16px on each side)
-            const containerW = Math.max(1, container.clientWidth - 32);
+            // Account for the preview container padding (p-4 => 16px on each side). Embed (wizard iframe) has p-0.
+            const containerW = Math.max(1, container.clientWidth - (isEmbed ? 0 : 32));
             // Measure unscaled template content and compute the same shrink-to-fit as the print iframe
             const contentW = Math.max(1, inner.scrollWidth || inner.getBoundingClientRect().width);
             const contentH = Math.max(1, inner.scrollHeight || inner.getBoundingClientRect().height);
@@ -1198,65 +2123,108 @@ export default function TemplateViewer() {
             const s = Math.min(1, scaleW);
             setPdfPreviewContentScale(s);
 
-            // Build a snapshot with explicit per-section "push to next page" spacers.
-            // This keeps section blocks from being split by the preview's page windowing,
-            // so the on-screen preview matches the generated PDF's page breaks more closely.
+            // Build a snapshot with explicit "push to next page" spacers.
+            // This prevents resume blocks from being visually cut at page boundaries in the
+            // preview, simulating Chromium's break-inside:avoid behavior in the PDF.
+            //
+            // Strategy:
+            //  1. Find all block-level resume elements (sections, individual entries)
+            //  2. Skip elements inside CSS grid containers (two-column layouts) — spacers
+            //     in one column would desync the other column
+            //  3. For each eligible element, if it would be split by a page boundary AND fits
+            //     on a single page, insert a spacer to push it to the next page
             let extraSpacerPx = 0;
             if (!inlineEditMode) {
                 try {
                     const innerRect = inner.getBoundingClientRect();
-                    const liveSections = Array.from(inner.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
 
-                    // Decide which sections need a spacer before them.
-                    // Use scaled coordinates because the preview windowing operates in scaled px.
-                    const spacerByKey = new Map<string, number>();
+                    // Select breakable blocks: <section> elements, individual resume item
+                    // containers (.mb-4, .mb-3 children in space-y-* wrappers), and
+                    // Creative2 items. These are the elements that break-inside:avoid
+                    // protects in the actual PDF.
+                    const BREAKABLE_SELECTOR = [
+                        'section',                                    // ModernTemplate sections
+                        '.space-y-4 > div', '.space-y-5 > div',     // Individual entries (experience, education, projects)
+                        '.space-y-3 > div', '.space-y-2 > div',
+                        '.creative2-item',                           // Creative2 individual items
+                        '.mb-4.last\\:mb-0', '.mb-3.last\\:mb-0',   // Direct item containers
+                    ].join(', ');
+
+                    const allCandidates = Array.from(inner.querySelectorAll(BREAKABLE_SELECTOR)) as HTMLElement[];
+
+                    // Filter out elements inside CSS grid containers — spacers in one grid
+                    // column would push content down without affecting the other column.
+                    const isInsideGrid = (el: HTMLElement): boolean => {
+                        let p = el.parentElement;
+                        while (p && p !== inner) {
+                            const d = window.getComputedStyle(p).display;
+                            if (d === 'grid' || d === 'inline-grid') return true;
+                            p = p.parentElement;
+                        }
+                        return false;
+                    };
+                    const breakables = allCandidates.filter((el) => !isInsideGrid(el));
+
+                    // Tag each live element with a unique index so we can match it to the
+                    // cloned snapshot DOM later.
+                    breakables.forEach((el, i) => el.setAttribute('data-tv-brk-idx', String(i)));
+
+                    const spacerByIdx = new Map<number, number>();
                     let shift = 0;
-                    for (const sec of liveSections) {
-                        const key = String(sec.getAttribute('data-tv-section-key') || '').trim();
-                        if (!key) continue;
-
-                        const r = sec.getBoundingClientRect();
+                    for (let i = 0; i < breakables.length; i++) {
+                        const el = breakables[i];
+                        const r = el.getBoundingClientRect();
                         const topUnscaled = Math.max(0, r.top - innerRect.top);
                         const hUnscaled = Math.max(1, r.height);
 
                         const top = (topUnscaled * s) + shift;
                         const h = hUnscaled * s;
-                        if (h >= (VIEW_H - 1)) {
-                            // Too tall to keep together; allow it to span pages.
-                            continue;
-                        }
-                        const pageIdx = Math.floor(top / VIEW_H);
-                        const within = top - (pageIdx * VIEW_H);
-                        const remaining = VIEW_H - within;
-                        // If this section would be split, push it to the next page.
+                        // Too tall to keep together — allow it to span pages
+                        const maxViewH = Math.max(VIEW_H_FIRST, VIEW_H_REST);
+                        if (h >= (maxViewH - 1)) continue;
+
+                        // Find which page this element starts on with variable per-page view heights.
+                        const pageStartY = (pageIdx: number): number => (pageIdx <= 0 ? 0 : (VIEW_H_FIRST + (pageIdx - 1) * VIEW_H_REST));
+                        const pageViewH = (pageIdx: number): number => (pageIdx <= 0 ? VIEW_H_FIRST : VIEW_H_REST);
+                        const findPageIdx = (yPos: number): number => {
+                            if (yPos < VIEW_H_FIRST) return 0;
+                            return 1 + Math.floor((yPos - VIEW_H_FIRST) / VIEW_H_REST);
+                        };
+
+                        const pageIdx = findPageIdx(top);
+                        const within = top - pageStartY(pageIdx);
+                        const remaining = pageViewH(pageIdx) - within;
+                        // Element would be split across pages — push it to the next page
                         if (remaining > 0.5 && remaining < (h - 0.5)) {
                             const spacer = Math.max(1, Math.ceil(remaining));
-                            spacerByKey.set(key, spacer);
+                            spacerByIdx.set(i, spacer);
                             shift += spacer;
                         }
                     }
                     extraSpacerPx = shift;
+
+                    // Clean up temporary attributes
+                    breakables.forEach((el) => el.removeAttribute('data-tv-brk-idx'));
 
                     const rawHtml = inner.outerHTML || '';
                     if (rawHtml) {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(rawHtml, 'text/html');
                         const root = doc.body.firstElementChild as HTMLElement | null;
-                        if (root && spacerByKey.size > 0) {
-                            const nodes = Array.from(root.querySelectorAll('[data-tv-section="true"]')) as HTMLElement[];
+                        if (root && spacerByIdx.size > 0) {
                             const denom = Math.max(0.0001, s);
-                            for (const node of nodes) {
-                                const key = String(node.getAttribute('data-tv-section-key') || '').trim();
-                                const spacerH = spacerByKey.get(key);
+                            // Re-select the same elements in the snapshot DOM using the temp index
+                            const snapshotEls = Array.from(root.querySelectorAll('[data-tv-brk-idx]')) as HTMLElement[];
+                            for (const node of snapshotEls) {
+                                const idx = parseInt(node.getAttribute('data-tv-brk-idx') || '', 10);
+                                node.removeAttribute('data-tv-brk-idx');
+                                const spacerH = spacerByIdx.get(idx);
                                 if (!spacerH) continue;
                                 const spacer = doc.createElement('div');
                                 spacer.setAttribute('data-tv-preview-spacer', 'true');
                                 spacer.style.display = 'block';
                                 spacer.style.width = '100%';
-                                // IMPORTANT:
-                                // - `spacerH` is in *scaled* preview pixels (because VIEW_H is in the same units as our translateY stride).
-                                // - The snapshot HTML is later scaled by `pdfPreviewContentScale`.
-                                // Convert back to *unscaled* px so the visual spacer height becomes `spacerH` after scaling.
+                                // Convert scaled px back to unscaled px for the snapshot
                                 spacer.style.height = `${Math.max(1, Math.ceil(spacerH / denom))}px`;
                                 node.parentNode?.insertBefore(spacer, node);
                             }
@@ -1278,32 +2246,89 @@ export default function TemplateViewer() {
             // - In view mode, tolerate a couple pixels of measurement jitter to avoid phantom extra pages.
             // - In inline edit mode, prefer being conservative (never undercount pages) to avoid clipping/cropping.
             const EPS_PX = inlineEditMode ? 0 : 2;
-            const pages =
-                scaledH <= (VIEW_H + EPS_PX)
-                    ? 1
-                    : Math.max(1, Math.ceil((scaledH - EPS_PX) / VIEW_H));
+            const pages = (() => {
+                if (scaledH <= (VIEW_H_FIRST + EPS_PX)) return 1;
+                const remaining = Math.max(0, scaledH - VIEW_H_FIRST);
+                return 1 + Math.max(1, Math.ceil((remaining - EPS_PX) / VIEW_H_REST));
+            })();
             setPdfPreviewPages(pages);
+
+            const layoutPages = embedFirstPageOnly ? 1 : pages;
 
             // Prefer filling available width. If there are exactly 2 pages, scale so both pages can sit side-by-side.
             const twoUpGapPx = 24; // matches Tailwind gap-6 (1.5rem)
             // In edit mode we render a continuous scroll (no page split / 2-up), so always scale to a single page width.
-            const pagesForLayout = inlineEditMode ? 1 : pages;
+            const pagesForLayout = inlineEditMode ? 1 : layoutPages;
             const totalW = pagesForLayout === 2 ? ((PAGE_W * 2) + twoUpGapPx) : PAGE_W;
             // Add a tiny safety margin to avoid accidental horizontal scroll due to rounding/subpixel layout.
-            const pageScale = Math.min(1, (containerW / totalW) * 0.995);
-            setPdfPreviewPageScale(pageScale);
+            const fitScaleRaw = (containerW / totalW) * (isEmbedFlush ? 1 : 0.995);
+            const fitScale = (isEmbed && isEmbedFlush)
+                ? Math.max(0.1, fitScaleRaw)
+                : Math.min(1, fitScaleRaw);
+            // Normal mode deterrence: keep the preview fairly small even on wide screens.
+            // (Edit mode remains full-size for usability.)
+            const NORMAL_MODE_MAX_SCALE = 0.56;
 
             // Shrink the last "page frame" to the actual remaining content height to avoid a trailing bottom edge/shadow line.
-            // In inline edit mode, content height can change frequently (expand/collapse while typing), so keep full page
-            // height to avoid clipping/cropping if measurements lag behind.
-            if (inlineEditMode) {
-                setPdfPreviewLastPageHeightPx(PAGE_H);
+            // (Must run before pageScale in embed: height-fit uses the same model as the paged layout.)
+            const keepFullLastPageFrame = ['clean', 'creative2'].includes(String(templateName || '').toLowerCase());
+            const lastPageFramePx = (() => {
+                if (inlineEditMode) return PAGE_FRAME_H_FIRST;
+                if (layoutPages <= 1) return PAGE_FRAME_H_FIRST;
+                if (keepFullLastPageFrame) return PAGE_FRAME_H_REST;
+                const remainderAfterFirst = Math.max(0, scaledH - VIEW_H_FIRST);
+                const pagesAfterFirst = Math.max(1, Math.ceil(remainderAfterFirst / VIEW_H_REST));
+                const remainderContent = Math.max(1, remainderAfterFirst - (pagesAfterFirst - 1) * VIEW_H_REST);
+                return Math.min(
+                    PAGE_FRAME_H_REST,
+                    (PAD_TOP_REST + PAD_BOTTOM + EXTRA_FRAME_PX + Math.ceil(remainderContent)),
+                );
+            })();
+
+            // Embed (create-resume wizard iframe): also scale down so the full preview height fits the iframe — width-only
+            // fit was leaving a one-page "letter" preview taller than the pane and forcing a .tv-embed scrollbar.
+            const GAP_PX = 24; // matches space-y-6 in the paged preview
+            const unzoomedPreviewHeightPx = (() => {
+                if (inlineEditMode) {
+                    return Math.max(1, scaledH + 32);
+                }
+                if (layoutPages === 1) {
+                    return PAGE_FRAME_H_FIRST;
+                }
+                if (layoutPages === 2) {
+                    // 2-up row: a single page row height
+                    return PAGE_FRAME_H_FIRST;
+                }
+                let h = PAGE_FRAME_H_FIRST;
+                for (let i = 1; i < layoutPages; i++) {
+                    h += GAP_PX;
+                    h += (i < layoutPages - 1) ? PAGE_FRAME_H_REST : lastPageFramePx;
+                }
+                return h;
+            })();
+            const EMBED_HEIGHT_PAD = 12;
+            const availableViewportH = Math.max(1, (typeof window !== 'undefined' ? window.innerHeight : 0) - EMBED_HEIGHT_PAD);
+            const heightFitScaleRaw = (availableViewportH / Math.max(1, unzoomedPreviewHeightPx)) * 0.99;
+            const heightFitScale =
+                isEmbed
+                    ? ((isEmbedFlush ? Math.max(0.1, heightFitScaleRaw) : Math.min(1, heightFitScaleRaw)))
+                    : 1;
+            const pageScale = (!isEmbed && !inlineEditMode)
+                ? Math.min(fitScale, NORMAL_MODE_MAX_SCALE)
+                : (isEmbed
+                    ? (isEmbedFlush ? fitScale : Math.min(fitScale, heightFitScale, 1))
+                    : fitScale);
+            const pageScaleZoomed =
+                isEmbed && embedZoomMultiplier > 1
+                    ? Math.min(pageScale * embedZoomMultiplier, 1.85)
+                    : pageScale;
+            setPdfPreviewPageScale(pageScaleZoomed);
+
+            // In inline edit mode, content height can change frequently; keep a full first-page frame to avoid a thin strip.
+            if (inlineEditMode || layoutPages <= 1) {
+                setPdfPreviewLastPageHeightPx(PAGE_FRAME_H_FIRST);
             } else {
-                // Keep full-height pages for intermediate pages.
-                const pagesForHeight = Math.max(1, Math.ceil(scaledH / VIEW_H));
-                const remainderContent = Math.max(1, scaledH - (pagesForHeight - 1) * VIEW_H);
-                const lastFrame = Math.min(PAGE_H, (PAD_TOP + PAD_BOTTOM + EXTRA_FRAME_PX + Math.ceil(remainderContent)));
-                setPdfPreviewLastPageHeightPx(lastFrame);
+                setPdfPreviewLastPageHeightPx(lastPageFramePx);
             }
         };
 
@@ -1320,14 +2345,39 @@ export default function TemplateViewer() {
         } else {
             window.addEventListener('resize', compute);
         }
+        // Iframe / viewport height does not always trigger ResizeObserver on the preview node.
+        let winResize = false;
+        if (isEmbed && ro) {
+            window.addEventListener('resize', compute);
+            winResize = true;
+        }
 
         return () => {
             window.clearTimeout(t1);
             window.clearTimeout(t2);
             if (ro) ro.disconnect();
             else window.removeEventListener('resize', compute);
+            if (winResize) window.removeEventListener('resize', compute);
         };
-    }, [templateName, resumeData, styleSettings, inlineEditMode]);
+    }, [templateName, resumeData, previewContentKey, styleSettings, inlineEditMode, isEmbed, isEmbedFlush, embedFirstPageOnly, embedZoomMultiplier]);
+
+    // Best-effort zoom deterrence: prevent ctrl/meta+wheel zoom while the pointer is over the preview.
+    // (Cannot reliably block browser zoom or OS-level capture globally.)
+    useEffect(() => {
+        const container = pdfPreviewContainerRef.current;
+        if (!container) return;
+        if (isEmbed) return;
+
+        const onWheel = (e: WheelEvent) => {
+            if (inlineEditMode) return;
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+            }
+        };
+
+        container.addEventListener('wheel', onWheel, { passive: false });
+        return () => container.removeEventListener('wheel', onWheel as EventListener);
+    }, [inlineEditMode, isEmbed]);
 
     if (loading) {
         return (
@@ -1375,10 +2425,8 @@ export default function TemplateViewer() {
         );
     }
 
-    // Convert structured data to JSON string for templates
-    // The templates expect a JSON string that parseResumeContent can parse
-    const content = JSON.stringify(resumeData);
-    console.log('TemplateViewer: Content being passed to template:', content.substring(0, 200) + '...');
+    // Preview uses optional translated copy; offscreen PDF root matches visible preview (including translation).
+    const previewContent = JSON.stringify(displayResume);
 
     // Render appropriate template based on templateName
     let TemplateComponent;
@@ -1406,6 +2454,8 @@ export default function TemplateViewer() {
         case 'lavenderClassic':
         case 'lavender-classic':
         case 'lavender_classic':
+        // Resume builder / UI label "Classic"
+        case 'classic':
             TemplateComponent = ClassicRoseTemplate;
             break;
         case 'creative':
@@ -1441,7 +2491,9 @@ export default function TemplateViewer() {
         case 'blueLineClassic':
         case 'blue-line-classic':
         case 'blue_line_classic':
-            TemplateComponent = TraditionalTemplate;
+        // Resume builder / UI label "Contemporary"
+        case 'contemporary':
+            TemplateComponent = ContemporaryTemplate;
             break;
         case 'modern':
         case 'cleansidebar':
@@ -1454,7 +2506,9 @@ export default function TemplateViewer() {
         case 'minimalsidebar':
         case 'minimal-sidebar':
         case 'minimal_sidebar':
-            TemplateComponent = CleanTemplate;
+        // Resume builder / UI label "Stylish"
+        case 'stylish':
+            TemplateComponent = StylishTemplate;
             break;
         default:
             return (
@@ -1475,16 +2529,119 @@ export default function TemplateViewer() {
 
     const isTimelineBlue = templateName === 'executive' || templateName === 'timelineblue' || templateName === 'timelineBlue' || templateName === 'timeline-blue' || templateName === 'timeline_blue';
 
+    const previewLanguageToolbar = (
+        <div className="flex flex-col items-stretch gap-1">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-sm">
+                <Languages className="w-4 h-4 text-gray-500 shrink-0" aria-hidden />
+                <select
+                    className="min-w-0 flex-1 text-sm text-gray-800 bg-transparent border-0 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={previewTargetLang}
+                    onChange={(e) => {
+                        const next = String(e.target.value || '');
+                        if (next === PREVIEW_TRANSLATE_RESET_TO_ENGLISH_VALUE) {
+                            setPreviewTargetLang(PREVIEW_TRANSLATE_NONE_VALUE);
+                            setTranslatedResume(null);
+                            setTranslateError(null);
+                            return;
+                        }
+                        setPreviewTargetLang(next);
+                    }}
+                    disabled={inlineEditMode || translateLoading}
+                    aria-label="Translate"
+                    title={inlineEditMode ? 'Exit edit mode to translate the preview' : 'Translate preview text using Google Translate'}
+                >
+                    {PREVIEW_TRANSLATE_OPTIONS.map((o) => (
+                        <option key={o.code ? o.code : 'original'} value={o.code}>
+                            {o.label}
+                        </option>
+                    ))}
+                </select>
+                {translateLoading ? (
+                    <span className="text-xs text-indigo-600 whitespace-nowrap">Translating…</span>
+                ) : null}
+            </div>
+            {translateError ? (
+                <div className="text-xs text-red-600 max-w-xs">{translateError}</div>
+            ) : null}
+        </div>
+    );
+
+    if (isThumbnail) {
+        return (
+            <div className="bg-white overflow-hidden">
+                <div
+                    className="origin-top-left"
+                    style={{
+                        width: '816px',
+                        transform: 'scale(0.62)',
+                        transformOrigin: 'top left',
+                    }}
+                >
+                    <div id="templatePrintRoot" className={inlineEditMode ? 'tv-inline-edit' : undefined}>
+                        <div
+                            id="templatePrintContent"
+                            className="tv-style-root"
+                            style={{
+                                // @ts-ignore
+                                ['--tv-paragraph-gap']: `${styleSettings.paragraphGapPx}px`,
+                                // @ts-ignore
+                                ['--tv-font-scale']: String(styleSettings.fontScale),
+                                // @ts-ignore
+                                ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                // @ts-ignore
+                                ['--tv-accent']: safeAccent,
+                                // @ts-ignore
+                                ['--tv-accent-40']: safeAccent40,
+                                // @ts-ignore
+                                ['--tv-accent-60']: safeAccent60,
+                                // @ts-ignore
+                                ['--tv-accent-light']: safeAccentLight,
+                                // @ts-ignore
+                                ['--tv-accent-dark']: safeAccentDark,
+                                // @ts-ignore
+                                ['--tv-primary']: safePrimary,
+                                // @ts-ignore
+                                ['--tv-primary-light']: safePrimaryLight,
+                                // @ts-ignore
+                                ['--tv-primary-dark']: safePrimaryDark,
+                                // @ts-ignore
+                                ['--tv-secondary']: safeSecondary,
+                                // @ts-ignore
+                                ['--tv-secondary-light']: safeSecondaryLight,
+                                // @ts-ignore
+                                ['--tv-secondary-dark']: safeSecondaryDark,
+                            }}
+                        >
+                            <TemplateComponent
+                                content={previewContent}
+                                editMode={false}
+                                sectionOrder={sectionOrder}
+                                onSectionOrderChange={setSectionOrder}
+                                hiddenSectionKeys={hiddenSectionKeys}
+                                onHiddenSectionKeysChange={setHiddenSectionKeys}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             ref={embedRootRef}
-            className={isEmbed ? 'tv-embed bg-transparent overflow-x-hidden overflow-y-hidden h-screen' : 'min-h-screen bg-gray-100'}
+            id="templateViewerPage"
+            className={
+                isEmbed
+                    ? `tv-embed bg-gray-100 ${embedZoomMultiplier > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden h-screen`
+                    : 'min-h-screen bg-gray-100'
+            }
         >
             {/* Offscreen export root (used by server-side Playwright PDF generation)
                NOTE: keep this out of the document's scrollable overflow area to avoid
                spurious scrollbars (especially in iframe embed mode). */}
             <div style={{ position: 'fixed', left: '-100000px', top: 0, width: '816px', opacity: 0, pointerEvents: 'none' }}>
-                <div id="templatePrintRoot">
+                <div id="templatePrintRoot" className={inlineEditMode ? 'tv-inline-edit' : undefined}>
                     <div
                         id="templatePrintContent"
                         className="tv-style-root"
@@ -1495,10 +2652,32 @@ export default function TemplateViewer() {
                             ['--tv-font-scale']: String(styleSettings.fontScale),
                             // @ts-ignore
                             ['--tv-space-scale']: String(styleSettings.spacingScale),
+                            // @ts-ignore
+                            ['--tv-accent']: safeAccent,
+                            // @ts-ignore
+                            ['--tv-accent-40']: safeAccent40,
+                            // @ts-ignore
+                            ['--tv-accent-60']: safeAccent60,
+                            // @ts-ignore
+                            ['--tv-accent-light']: safeAccentLight,
+                            // @ts-ignore
+                            ['--tv-accent-dark']: safeAccentDark,
+                            // @ts-ignore
+                            ['--tv-primary']: safePrimary,
+                            // @ts-ignore
+                            ['--tv-primary-light']: safePrimaryLight,
+                            // @ts-ignore
+                            ['--tv-primary-dark']: safePrimaryDark,
+                            // @ts-ignore
+                            ['--tv-secondary']: safeSecondary,
+                            // @ts-ignore
+                            ['--tv-secondary-light']: safeSecondaryLight,
+                            // @ts-ignore
+                            ['--tv-secondary-dark']: safeSecondaryDark,
                         }}
                     >
                         <TemplateComponent
-                            content={content}
+                            content={previewContent}
                             editMode={false}
                             sectionOrder={sectionOrder}
                             onSectionOrderChange={setSectionOrder}
@@ -1511,10 +2690,10 @@ export default function TemplateViewer() {
 
             {!isEmbed && (
                 <>
-                    <header className="border-b bg-white">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                    <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
                             <a href="/" className="inline-flex items-center gap-3">
-                                <img src="/static/images/logo23_small.webp" alt="Resumatic AI" className="h-16 w-auto object-contain" width={96} height={96} loading="lazy" />
+                                <img src="/static/images/logo23_small.webp" alt="Resumatic AI" className="h-8 w-auto object-contain" width={96} height={96} loading="lazy" />
                             </a>
 
                             <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
@@ -1524,7 +2703,7 @@ export default function TemplateViewer() {
                                 {me?.is_authenticated ? (
                                     <>
                                         <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
-                                            My Account
+                                            Career Dashboard
                                         </a>
                                         <a href="/logout" className="text-white bg-red-500 px-4 py-2 rounded-xl hover:bg-red-600">
                                             Sign Out
@@ -1582,7 +2761,7 @@ export default function TemplateViewer() {
                             <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
                             {me?.is_authenticated ? (
                                 <>
-                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>My Account</a>
+                                    <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>Career Dashboard</a>
                                     <a className="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center" href="/logout" onClick={() => setMobileNavOpen(false)}>Sign Out</a>
                                 </>
                             ) : (
@@ -1594,6 +2773,11 @@ export default function TemplateViewer() {
             )}
 
             <main className={isEmbed ? '' : 'py-8 px-4'}>
+                {isEmbed && !isDownloadOnly && !embedFirstPageOnly && allowEmbedTranslate ? (
+                    <div className="flex justify-end px-2 pt-2 pb-1 border-b border-gray-200 bg-gray-100 shrink-0">
+                        {previewLanguageToolbar}
+                    </div>
+                ) : null}
                 <div className={isEmbed ? '' : 'max-w-7xl mx-auto'}>
                     <style>{`
                   /* Mobile should match desktop: make key md:* utilities behave like desktop even on small viewports. */
@@ -1602,6 +2786,20 @@ export default function TemplateViewer() {
                   #templatePrintRoot .md\\:flex-shrink-0 { flex-shrink: 0 !important; }
                   #templatePrintRoot .md\\:text-base { font-size: 1rem !important; line-height: 1.5rem !important; }
                   #templatePrintRoot .md\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+
+                  /* Strip first-child top padding on the offscreen print root (matches PDF export) */
+                  #templatePrintRoot .tv-style-root > *:first-child {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
 
                   /* Resume customization: apply only inside the resume root */
                   /* Paragraph gap: apply even when a template only renders single <p> blocks */
@@ -1671,15 +2869,55 @@ export default function TemplateViewer() {
                   #templatePrintRoot .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
                   #templatePrintRoot .tv-style-root .pb-0 { padding-bottom: 0 !important; }
 
+                  /* In Template Viewer edit mode, disable link click-through for all templates */
+                  #templatePrintRoot.tv-inline-edit .tv-style-root a {
+                    pointer-events: none !important;
+                    cursor: default !important;
+                  }
+
+                  /* Disable copying resume preview content */
+                  #templateViewerPage .pdfPreviewPage,
+                  #templateViewerPage .pdfPreviewPage *,
+                  #templateViewerPage .pdfPreviewTarget,
+                  #templateViewerPage .pdfPreviewTarget *,
+                  #templateViewerPage .pdfPreviewViewport .tv-style-root,
+                  #templateViewerPage .pdfPreviewViewport .tv-style-root * {
+                    -webkit-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                  }
+                  #templateViewerPage .tv-inline-edit [contenteditable="true"],
+                  #templateViewerPage .tv-inline-edit input,
+                  #templateViewerPage .tv-inline-edit textarea {
+                    -webkit-user-select: text;
+                    user-select: text;
+                  }
+
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
                   .pdfPreviewPage {
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1138px);
-                    background: #fff;
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
+                                        background: var(--pdf-page-bg, #fff);
                     position: relative;
                                         overflow: hidden;
                     box-shadow: 0 12px 30px rgba(0,0,0,0.12);
                   }
+
+                                    /* Full-height vertical backgrounds in preview (last-page aesthetics):
+                                         match the PDF intent where sidebars/vertical accents fill the page even if text ends early. */
+                                    /* IMPORTANT: Do not force min-height on layout containers here.
+                                       It creates a visible blank gap after the last content block.
+                                       Instead, rely on the page-level background gradient (pdfPreviewPage)
+                                       and make the template wrapper transparent so the gradient shows through. */
+                                    .pdfPreviewViewport [data-template="clean"],
+                                    .pdfPreviewViewport [data-template="classicrose"],
+                                    .pdfPreviewViewport [data-template="modern"] {
+                                        background: transparent !important;
+                                    }
+                                    /* Creative2: keep an opaque card background in preview to match the on-screen template */
+                                    .pdfPreviewViewport [data-template="creative2"].creative2-template {
+                                        background: #ffffff !important;
+                                    }
                                     /* Continuous edit-mode preview: no forced page height or clipping */
                                     .pdfPreviewPageContinuous {
                                         height: auto !important;
@@ -1690,16 +2928,23 @@ export default function TemplateViewer() {
                                     .pdfPreviewPageLast {
                                         box-shadow: none !important;
                                     }
+                  /* Embedded wizard iframe: no floating “page card” chrome */
+                  .pdfPreviewPageEmbed {
+                    box-shadow: none !important;
+                  }
                   .pdfPreviewTarget {
                     position: relative;
                     top: 0;
                     left: 0;
                     width: 816px;
-                                                                                                                                                                height: var(--pdf-page-h, 1138px);
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
                                         overflow: hidden;
                                         contain: paint;
-                                                                                --pdf-pad-top: 31px;
-                                                                                --pdf-pad-bottom: 31px;
+                                                                                                                                                                --pdf-pad-top-first: 0px;
+                                                                                                                                                                --pdf-pad-top-rest: 48px;
+                                                                                                                                                                --pdf-pad-bottom: 48px;
+                                                                                                                                                                --pdf-view-h-first: 996px;
+                                                                                                                                                                --pdf-view-h-rest: 948px;
                   }
                                     /* Remove template outer "card" shadow/ring in preview (clipped shadows can look like an end marker). */
                                     .pdfPreviewTarget .tv-style-root > * {
@@ -1709,8 +2954,8 @@ export default function TemplateViewer() {
                                                                                 position: absolute;
                                                                                 left: 0;
                                                                                 right: 0;
-                                                                                top: var(--pdf-pad-top);
-                                                                                height: 1056px;
+                                                                            top: var(--pdf-pad-top);
+                                                                            height: var(--pdf-view-h);
                                                                                 overflow: hidden;
                                                                         }
                                     .pdfPreviewTargetContinuous {
@@ -1734,6 +2979,11 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .md\\:flex-row { flex-direction: row !important; }
                   .pdfPreviewTarget .md\\:w-\\[300px\\] { width: 300px !important; }
                   .pdfPreviewTarget .md\\:flex-shrink-0 { flex-shrink: 0 !important; }
+
+                        /* NOTE: Do NOT strip first-page top padding/margins. Requirement: page 1 top must remain unchanged.
+                            Page 2+ top breathing room is handled via the simulated page padding in the viewport. */
+
+
 
                   /* Apply Customize variables in the preview too */
                   .pdfPreviewTarget .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
@@ -1796,6 +3046,10 @@ export default function TemplateViewer() {
                   .pdfPreviewTarget .tv-style-root .pb-3 { padding-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
                   .pdfPreviewTarget .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
                   .pdfPreviewTarget .tv-style-root .pb-0 { padding-bottom: 0 !important; }
+
+                        /* Prevent free users from using browser print-to-PDF as an export path.
+                            NOTE: this is scoped to the main page root so it does NOT affect the hidden print iframe. */
+                        ${(!me?.is_paid) ? `@media print { #templateViewerPage { display: none !important; } }` : ''}
                 `}</style>
 
                     {!isEmbed && isDownloadOnly && (
@@ -1809,15 +3063,6 @@ export default function TemplateViewer() {
                                     {downloadOnlyStatus === 'failed' && 'Auto-download did not start.'}
                                 </div>
 
-                                <div className="mt-3 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
-                                    <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
-                                        <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                                    </span>
-                                    <p>
-                                        Note, pdf download may not exactly match the screen display due to different screen display settings. Download the PDF to determine optimal settings.
-                                    </p>
-                                </div>
-
                                 {downloadOnlyStatus === 'failed' && downloadOnlyError && (
                                     <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                                         {downloadOnlyError}
@@ -1827,12 +3072,15 @@ export default function TemplateViewer() {
                                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
                                     <button
                                         type="button"
-                                        className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                        disabled={downloadingPdf}
-                                        onClick={() => {
+                                        className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        disabled={downloadingPdf || redirectingToPlans}
+                                        onClick={async () => {
                                             if (me && !me.is_paid) {
+                                                if (redirectingToPlans) return;
+                                                setRedirectingToPlans(true);
                                                 const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                window.location.href = `/plans?next=${encodeURIComponent(next)}&reason=pdf`;
+                                                persistStyleSettingsBestEffort();
+                                                window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
                                                 return;
                                             }
                                             setDownloadOnlyStatus('starting');
@@ -1847,7 +3095,7 @@ export default function TemplateViewer() {
                                                 });
                                         }}
                                     >
-                                        {downloadingPdf ? 'Preparing…' : 'Download PDF'}
+                                        {redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
                                     </button>
                                     <button
                                         type="button"
@@ -1868,6 +3116,7 @@ export default function TemplateViewer() {
                                 <h1 className="text-2xl font-bold text-gray-800 break-words">{templateDisplayName || templateName} Template</h1>
                                 <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
                                     <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                                        {previewLanguageToolbar}
                                         {/* Edit Mode now available for ALL templates */}
                                         <button
                                             onClick={() => setInlineEditMode(!inlineEditMode)}
@@ -1883,7 +3132,8 @@ export default function TemplateViewer() {
                                             <button
                                                 type="button"
                                                 onClick={async () => {
-                                                    const merged = { ...(resumeData || {}), ...(inlineEditChanges || {}) };
+                                                    const mergedBase = mergeResumeDraft(resumeData, inlineEditChanges);
+                                                    const merged = withTemplateViewerStyleSettings(mergedBase, styleSettings);
                                                     setResumeData(merged);
                                                     await saveEditedResume(merged);
                                                     setInlineEditChanges({});
@@ -1901,19 +3151,23 @@ export default function TemplateViewer() {
                                             <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-sm flex items-start gap-2">
                                                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
                                                 <span>
-                                                    Click "Exit Edit mode" for <span className="text-indigo-600 font-medium">PDF download</span>.
+                                                    Click "Exit Edit Mode" for <span className="text-indigo-600 font-medium">PDF download</span>.
                                                 </span>
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-2">
+
                                                 <button
                                                     type="button"
                                                     onClick={async () => {
                                                         if (downloadingPdf) return;
+                                                        if (redirectingToPlans) return;
                                                         if (!me) return;
                                                         if (!me?.is_paid) {
+                                                            setRedirectingToPlans(true);
                                                             const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                            window.location.href = `/plans?next=${encodeURIComponent(next)}&reason=pdf`;
+                                                            persistStyleSettingsBestEffort();
+                                                            window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
                                                             return;
                                                         }
                                                         try {
@@ -1923,10 +3177,10 @@ export default function TemplateViewer() {
                                                             alert(`PDF download failed (${e?.message || 'unknown error'}).`);
                                                         }
                                                     }}
-                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${downloadingPdf ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                    disabled={downloadingPdf || !me}
+                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                    disabled={downloadingPdf || redirectingToPlans || !me}
                                                 >
-                                                    {!me ? 'Loading…' : (downloadingPdf ? 'Preparing…' : 'Download PDF')}
+                                                    {!me ? 'Loading…' : (redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF'))}
                                                 </button>
                                             </div>
                                         )}
@@ -1962,9 +3216,11 @@ export default function TemplateViewer() {
                         </>
                     )}
 
-                    <div className={`grid ${(isDownloadOnly || isEmbed) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} gap-4 sm:gap-6`}>
+                    <div
+                        className={`grid ${(isDownloadOnly || isEmbed || inlineEditMode) ? 'grid-cols-1' : 'grid-cols-[125px_minmax(0,1fr)] sm:grid-cols-[300px_minmax(0,1fr)] md:grid-cols-[360px_minmax(0,1fr)]'} ${isEmbed ? 'gap-0' : 'gap-4 sm:gap-6'}`}
+                    >
                         {/* Left settings panel */}
-                        {!isDownloadOnly && !isEmbed && (
+                        {!isDownloadOnly && !isEmbed && !inlineEditMode && (
                             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-fit shadow-sm">
                                 <div className="px-4 py-4 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 border-b border-gray-100">
                                     <div className="flex items-start">
@@ -1982,20 +3238,33 @@ export default function TemplateViewer() {
                                                 </p>
                                             </div>
 
-                                            <div className="mt-2 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
-                                                <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 shrink-0 shadow-sm">
-                                                    <AlertTriangle className="w-4 h-4 text-amber-600" aria-hidden="true" />
-                                                </span>
-                                                <p>
-                                                    Note, pdf download may not exactly match the screen display. Download the PDF to determine optimal settings.
-                                                </p>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="p-4">
                                     <div>
+                                        {!inlineEditMode && (
+                                            <div className="mb-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (!resumeData) return;
+                                                        const merged = withTemplateViewerStyleSettings(resumeData, styleSettings);
+                                                        setResumeData(merged);
+                                                        await saveEditedResume(merged);
+                                                    }}
+                                                    className={`px-4 py-2 rounded-lg border transition-colors inline-flex items-center justify-center gap-2 ${editSaving
+                                                        ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
+                                                        : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
+                                                        }`}
+                                                    disabled={editSaving || !resumeData}
+                                                >
+                                                    {editSaving ? 'Saving…' : 'Save Changes'}
+                                                </button>
+                                            </div>
+                                        )}
+
                                         <div className="flex items-center justify-between mb-3">
                                             <h2 className="text-sm font-semibold text-gray-900">Settings</h2>
                                             <button
@@ -2008,6 +3277,38 @@ export default function TemplateViewer() {
                                         </div>
 
                                         <div className="space-y-4">
+                                            {backgroundColorControlSupported && (
+                                                <div className="rounded-xl border border-gray-200 bg-white p-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
+                                                            <Wand2 className="w-4 h-4 text-sky-600" />
+                                                            Background color
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {PROFESSIONAL_BACKGROUND_TONES.map((tone) => {
+                                                            const active = safeSecondary.toLowerCase() === tone.value.toLowerCase();
+                                                            return (
+                                                                <button
+                                                                    key={tone.value}
+                                                                    type="button"
+                                                                    title={tone.name}
+                                                                    aria-label={tone.name}
+                                                                    aria-pressed={active}
+                                                                    onClick={() => handleSecondaryColorChange(tone.value)}
+                                                                    disabled={!resumeData}
+                                                                    className={`h-8 w-8 rounded-full border transition ${active
+                                                                        ? 'ring-2 ring-offset-2 ring-sky-500 border-sky-500'
+                                                                        : 'border-gray-300 hover:border-gray-500'
+                                                                        } ${!resumeData ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    style={{ backgroundColor: tone.value }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="rounded-xl border border-gray-200 bg-white p-3">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <label className="text-xs font-semibold text-gray-800 flex items-center gap-2">
@@ -2067,830 +3368,6 @@ export default function TemplateViewer() {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Edit fields (only visible in Edit Mode) */}
-                                {inlineEditMode && (
-                                    <div className="px-4 pb-4">
-                                        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h2 className="text-sm font-semibold text-gray-900">Edit fields</h2>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => loadTemplateData()}
-                                                        className="text-sm text-gray-600 hover:text-gray-800"
-                                                        disabled={editSaving}
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {editSaveError && (
-                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                    {editSaveError}
-                                                </div>
-                                            )}
-                                            {editSaveSuccess && (
-                                                <div className="mb-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                                                    Saved.
-                                                </div>
-                                            )}
-
-                                            {editSaveHubMessage && (
-                                                <div className="mb-3 text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                                    {editSaveHubMessage}
-                                                </div>
-                                            )}
-
-                                            {aiEditError && (
-                                                <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-                                                    {aiEditError}
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-3">
-                                                <Field label="Name">
-                                                    <input
-                                                        value={String(resumeData?.name ?? '')}
-                                                        onChange={(e) => setField('name', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                                <Field label="Title">
-                                                    <input
-                                                        value={String(resumeData?.title ?? '')}
-                                                        onChange={(e) => setField('title', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <Field label="Email">
-                                                        <input
-                                                            value={String(resumeData?.email ?? '')}
-                                                            onChange={(e) => setField('email', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                    <Field label="Phone">
-                                                        <input
-                                                            value={String(resumeData?.phone ?? '')}
-                                                            onChange={(e) => setField('phone', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                </div>
-                                                <Field label="Location">
-                                                    <input
-                                                        value={String(resumeData?.location ?? '')}
-                                                        onChange={(e) => setField('location', e.target.value)}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                    />
-                                                </Field>
-
-                                                {(String(resumeData?.website ?? resumeData?.portfolio ?? '').trim() || linksList.length > 0) && (
-                                                    <Field label="Website">
-                                                        <input
-                                                            value={String(resumeData?.website ?? resumeData?.portfolio ?? '')}
-                                                            onChange={(e) => setField('website', e.target.value)}
-                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                        />
-                                                    </Field>
-                                                )}
-
-                                                {(linksList.length > 0) && (
-                                                    <div>
-                                                        <div className="text-sm font-bold text-blue-700 border-b border-gray-200 pb-1">Links</div>
-                                                        <div className="mt-2 space-y-2">
-                                                            {linksList.map((l: any, idx: number) => {
-                                                                const label = String(l?.label ?? l?.name ?? l?.title ?? '').trim();
-                                                                const url = String(l?.url ?? l?.href ?? '').trim();
-                                                                return (
-                                                                    <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                            <Field label="Label">
-                                                                                <input
-                                                                                    value={label}
-                                                                                    onChange={(e) => updateLinkField(idx, 'label', e.target.value)}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </Field>
-                                                                            <Field label="URL">
-                                                                                <input
-                                                                                    value={url}
-                                                                                    onChange={(e) => updateLinkField(idx, 'url', e.target.value)}
-                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                />
-                                                                            </Field>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {(() => {
-                                                    const hidden = new Set((Array.isArray(hiddenSectionKeys) ? hiddenSectionKeys : []).map(String));
-                                                    const blocks: Record<string, React.ReactNode> = {};
-
-                                                    const skillsVals = normalizeList(resumeData?.skills);
-                                                    const languageVals = normalizeList(resumeData?.languages);
-
-                                                    blocks.summary = (
-                                                        <label className="block">
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-2">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('summary', 'Professional summary')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className={
-                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                        (aiBusySummary
-                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                            : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                    }
-                                                                    disabled={aiBusySummary}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            setAiBusySummary(true);
-                                                                            const nextText = await aiRewriteResumeField({
-                                                                                field: 'summary',
-                                                                                text: String(resumeData?.summary ?? ''),
-                                                                                meta: {
-                                                                                    title: String(resumeData?.title ?? ''),
-                                                                                },
-                                                                            });
-                                                                            setField('summary', nextText);
-                                                                        } catch (e: any) {
-                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                        } finally {
-                                                                            setAiBusySummary(false);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    {aiBusySummary ? (
-                                                                        'Improving…'
-                                                                    ) : (
-                                                                        <>
-                                                                            <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                            Assist with AI
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            </div>
-                                                            <textarea
-                                                                value={String(resumeData?.summary ?? '')}
-                                                                onChange={(e) => setField('summary', e.target.value)}
-                                                                rows={4}
-                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                            />
-                                                        </label>
-                                                    );
-
-                                                    blocks.skills = (
-                                                        <ListField
-                                                            label={getSectionLabel('skills', 'Skills')}
-                                                            hint={(() => {
-                                                                const limit = getTemplateSkillsLimit(templateName);
-                                                                if (!limit) return undefined;
-                                                                return '# of skills limited by template';
-                                                            })()}
-                                                            values={skillsVals}
-                                                            onChange={(vals: string[]) => setField('skills', vals)}
-                                                        />
-                                                    );
-
-                                                    blocks.languages = (
-                                                        <ListField
-                                                            label={getSectionLabel('languages', 'Languages')}
-                                                            values={languageVals}
-                                                            onChange={(vals: string[]) => setField('languages', vals)}
-                                                        />
-                                                    );
-
-                                                    blocks.education = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('education', 'Education')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                    onClick={addEducationItem}
-                                                                >
-                                                                    Add
-                                                                </button>
-                                                            </div>
-                                                            {educationList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No education entries yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {educationList.map((edu: any, idx: number) => (
-                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                <Field label="Degree">
-                                                                                    <input
-                                                                                        value={String(edu?.degree ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'degree', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                                <Field label="Year">
-                                                                                    <input
-                                                                                        value={String(edu?.year ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'year', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            </div>
-                                                                            <div className="mt-2">
-                                                                                <Field label="Institution">
-                                                                                    <input
-                                                                                        value={String(edu?.institution ?? '')}
-                                                                                        onChange={(e) => updateEducationField(idx, 'institution', e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                                <div className="mt-2">
-                                                                                    <Field label="GPA">
-                                                                                        <input
-                                                                                            value={String(edu?.gpa ?? '')}
-                                                                                            onChange={(e) => updateEducationField(idx, 'gpa', e.target.value)}
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                        />
-                                                                                    </Field>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    blocks.projects = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('projects', 'Projects')}</div>
-                                                                <div className="flex items-center gap-3">
-                                                                    {projectsList.length > 0 && (
-                                                                        <button
-                                                                            type="button"
-                                                                            className="text-xs text-gray-600 hover:text-gray-800"
-                                                                            onClick={() => {
-                                                                                if (showAllProjectDescriptions) {
-                                                                                    setShowAllProjectDescriptions(false);
-                                                                                    setEditingProjectIndex(null);
-                                                                                    return;
-                                                                                }
-                                                                                if (editingProjectIndex !== null) {
-                                                                                    setEditingProjectIndex(null);
-                                                                                    return;
-                                                                                }
-                                                                                setShowAllProjectDescriptions(true);
-                                                                            }}
-                                                                        >
-                                                                            {showAllProjectDescriptions
-                                                                                ? 'Collapse all'
-                                                                                : (editingProjectIndex !== null ? 'Collapse' : 'Expand all')}
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                        onClick={addProjectItem}
-                                                                    >
-                                                                        Add
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            {projectsList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No projects yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {projectsList.map((proj: any, idx: number) => (
-                                                                        (() => {
-                                                                            const title = String(proj?.title ?? 'Project');
-                                                                            const technologies = String(proj?.technologies ?? '').trim();
-                                                                            const link = String(proj?.link ?? '').trim();
-                                                                            const isOpen = showAllProjectDescriptions || editingProjectIndex === idx;
-                                                                            return (
-                                                                                <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                            if (showAllProjectDescriptions) {
-                                                                                                setShowAllProjectDescriptions(false);
-                                                                                                setEditingProjectIndex(idx);
-                                                                                                return;
-                                                                                            }
-                                                                                            setEditingProjectIndex(isOpen ? null : idx);
-                                                                                        }}
-                                                                                        className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                                    >
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                                {title}
-                                                                                            </div>
-                                                                                            <div className="text-xs text-gray-600 truncate">
-                                                                                                {[technologies, link].filter(Boolean).join(' · ') || ' '}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                        <div className="text-xs text-indigo-700 shrink-0">
-                                                                                            {showAllProjectDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
-                                                                                        </div>
-                                                                                    </button>
-
-                                                                                    {isOpen && (
-                                                                                        <div className="p-3 bg-white">
-                                                                                            <Field label="Title">
-                                                                                                <input
-                                                                                                    value={String(proj?.title ?? '')}
-                                                                                                    onChange={(e) => updateProjectField(idx, 'title', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                />
-                                                                                            </Field>
-                                                                                            <div className="mt-2">
-                                                                                                <Field label="Technologies">
-                                                                                                    <input
-                                                                                                        value={String(proj?.technologies ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'technologies', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </Field>
-                                                                                            </div>
-                                                                                            <div className="mt-2">
-                                                                                                <Field label="Link">
-                                                                                                    <input
-                                                                                                        value={String(proj?.link ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'link', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </Field>
-                                                                                            </div>
-                                                                                            <div className="mt-2">
-                                                                                                <label className="block">
-                                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                                        <div className="text-xs font-semibold text-gray-700">Description</div>
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            className={
-                                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                                ((aiBusyProjects[idx] ?? false)
-                                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                                                            }
-                                                                                                            disabled={aiBusyProjects[idx] ?? false}
-                                                                                                            onClick={async () => {
-                                                                                                                try {
-                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                                    const nextText = await aiRewriteResumeField({
-                                                                                                                        field: 'project_description',
-                                                                                                                        text: String(proj?.description ?? ''),
-                                                                                                                        meta: {
-                                                                                                                            title: String(proj?.title ?? ''),
-                                                                                                                            technologies: String(proj?.technologies ?? ''),
-                                                                                                                            link: String(proj?.link ?? ''),
-                                                                                                                        },
-                                                                                                                    });
-                                                                                                                    updateProjectField(idx, 'description', nextText);
-                                                                                                                } catch (e: any) {
-                                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                                } finally {
-                                                                                                                    setAiBusyProjects((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                                                }
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            {(aiBusyProjects[idx] ?? false) ? (
-                                                                                                                'Rewriting…'
-                                                                                                            ) : (
-                                                                                                                <>
-                                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                                    Assist with AI
-                                                                                                                </>
-                                                                                                            )}
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                    <textarea
-                                                                                                        rows={4}
-                                                                                                        value={String(proj?.description ?? '')}
-                                                                                                        onChange={(e) => updateProjectField(idx, 'description', e.target.value)}
-                                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                                    />
-                                                                                                </label>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    blocks.certifications = (
-                                                        <div>
-                                                            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                <div className="text-sm font-bold text-blue-700">{getSectionLabel('certifications', 'Certifications')}</div>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                    onClick={addCertificationItem}
-                                                                >
-                                                                    Add
-                                                                </button>
-                                                            </div>
-                                                            {certificationsList.length === 0 ? (
-                                                                <div className="mt-2 text-sm text-gray-500">No certifications yet.</div>
-                                                            ) : (
-                                                                <div className="mt-2 space-y-2">
-                                                                    {certificationsList.map((cert: any, idx: number) => (
-                                                                        <div key={idx} className="rounded-xl border border-gray-200 p-3 bg-white">
-                                                                            {typeof cert === 'string' ? (
-                                                                                <Field label="Certification">
-                                                                                    <input
-                                                                                        value={String(cert ?? '')}
-                                                                                        onChange={(e) => updateCertification(idx, e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </Field>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <Field label="Name">
-                                                                                        <input
-                                                                                            value={String(cert?.name ?? '')}
-                                                                                            onChange={(e) => updateCertification(idx, { name: e.target.value })}
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                        />
-                                                                                    </Field>
-                                                                                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                        <Field label="Issuer">
-                                                                                            <input
-                                                                                                value={String(cert?.issuer ?? '')}
-                                                                                                onChange={(e) => updateCertification(idx, { issuer: e.target.value })}
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </Field>
-                                                                                        <Field label="Year">
-                                                                                            <input
-                                                                                                value={String(cert?.year ?? '')}
-                                                                                                onChange={(e) => updateCertification(idx, { year: e.target.value })}
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </Field>
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-
-                                                    if (customSectionsList.length > 0) {
-                                                        customSectionsList.forEach((sec: any, sIdx: number) => {
-                                                            const heading = String(sec?.heading || sec?.title || sec?.label || `Section ${sIdx + 1}`).trim();
-                                                            const items = Array.isArray(sec?.items) ? sec.items : [];
-                                                            const body = sec?.content ?? sec?.text ?? sec?.body ?? '';
-                                                            blocks[`custom_${sIdx}`] = (
-                                                                <div>
-                                                                    <div className="text-sm font-bold text-blue-700 border-b border-gray-200 pb-1">{heading || 'Custom section'}</div>
-                                                                    <div className="mt-2 rounded-xl border border-gray-200 p-3 bg-white">
-                                                                        <Field label="Section name">
-                                                                            <input
-                                                                                value={String(sec?.heading ?? heading)}
-                                                                                onChange={(e) => updateCustomSectionHeading(sIdx, e.target.value)}
-                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                            />
-                                                                        </Field>
-
-                                                                        {items.length > 0 ? (
-                                                                            <div className="mt-2 space-y-2">
-                                                                                {items.map((it: any, iIdx: number) => (
-                                                                                    <div key={iIdx} className="rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                                            <Field label="Title">
-                                                                                                <input
-                                                                                                    value={String(it?.title ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'title', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                            <Field label="Date">
-                                                                                                <input
-                                                                                                    value={String(it?.date ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'date', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                        </div>
-                                                                                        <div className="mt-2">
-                                                                                            <Field label="Subtitle">
-                                                                                                <input
-                                                                                                    value={String(it?.subtitle ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'subtitle', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </Field>
-                                                                                        </div>
-                                                                                        <div className="mt-2">
-                                                                                            <label className="block">
-                                                                                                <div className="flex items-center justify-between mb-1">
-                                                                                                    <div className="text-xs font-semibold text-gray-700">Content</div>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className={
-                                                                                                            'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                            ((aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false)
-                                                                                                                ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                                : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                                                        }
-                                                                                                        disabled={aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false}
-                                                                                                        onClick={async () => {
-                                                                                                            const k = `custom_${sIdx}_item_${iIdx}`;
-                                                                                                            try {
-                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
-                                                                                                                const nextText = await aiRewriteResumeField({
-                                                                                                                    field: 'custom_section',
-                                                                                                                    text: String(it?.content ?? ''),
-                                                                                                                    meta: {
-                                                                                                                        heading,
-                                                                                                                        item_title: String(it?.title ?? ''),
-                                                                                                                        item_subtitle: String(it?.subtitle ?? ''),
-                                                                                                                    },
-                                                                                                                });
-                                                                                                                updateCustomSectionItem(sIdx, iIdx, 'content', nextText);
-                                                                                                            } catch (e: any) {
-                                                                                                                setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                            } finally {
-                                                                                                                setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
-                                                                                                            }
-                                                                                                        }}
-                                                                                                    >
-                                                                                                        {(aiBusyCustom[`custom_${sIdx}_item_${iIdx}`] ?? false) ? (
-                                                                                                            'Rewriting…'
-                                                                                                        ) : (
-                                                                                                            <>
-                                                                                                                <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                                Assist with AI
-                                                                                                            </>
-                                                                                                        )}
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                                <textarea
-                                                                                                    rows={4}
-                                                                                                    value={String(it?.content ?? '')}
-                                                                                                    onChange={(e) => updateCustomSectionItem(sIdx, iIdx, 'content', e.target.value)}
-                                                                                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
-                                                                                                />
-                                                                                            </label>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="mt-2">
-                                                                                <label className="block">
-                                                                                    <div className="flex items-center justify-between mb-1">
-                                                                                        <div className="text-xs font-semibold text-gray-700">Content</div>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className={
-                                                                                                'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                ((aiBusyCustom[`custom_${sIdx}_body`] ?? false)
-                                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                    : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                                            }
-                                                                                            disabled={aiBusyCustom[`custom_${sIdx}_body`] ?? false}
-                                                                                            onClick={async () => {
-                                                                                                const k = `custom_${sIdx}_body`;
-                                                                                                try {
-                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: true }));
-                                                                                                    const nextText = await aiRewriteResumeField({
-                                                                                                        field: 'custom_section',
-                                                                                                        text: String(body ?? ''),
-                                                                                                        meta: { heading },
-                                                                                                    });
-                                                                                                    updateCustomSectionBody(sIdx, nextText);
-                                                                                                } catch (e: any) {
-                                                                                                    setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                } finally {
-                                                                                                    setAiBusyCustom((prev) => ({ ...(prev || {}), [k]: false }));
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            {(aiBusyCustom[`custom_${sIdx}_body`] ?? false) ? (
-                                                                                                'Rewriting…'
-                                                                                            ) : (
-                                                                                                <>
-                                                                                                    <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                    Assist with AI
-                                                                                                </>
-                                                                                            )}
-                                                                                        </button>
-                                                                                    </div>
-                                                                                    <textarea
-                                                                                        rows={5}
-                                                                                        value={String(body ?? '')}
-                                                                                        onChange={(e) => updateCustomSectionBody(sIdx, e.target.value)}
-                                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                    />
-                                                                                </label>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    } else {
-                                                        blocks.custom_sections = (
-                                                            <div>
-                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-blue-700">Custom sections</div>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-indigo-700 hover:text-indigo-800"
-                                                                        onClick={addCustomSection}
-                                                                    >
-                                                                        Add
-                                                                    </button>
-                                                                </div>
-                                                                <div className="mt-2 text-sm text-gray-500">No custom sections yet.</div>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    if (experienceList.length > 0) {
-                                                        blocks.experience = (
-                                                            <div className="pt-1">
-                                                                <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                                                                    <div className="text-sm font-bold text-blue-700">{getSectionLabel('experience', 'Work history')} descriptions</div>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-xs text-gray-600 hover:text-gray-800"
-                                                                        onClick={() => {
-                                                                            if (showAllWorkHistoryDescriptions) {
-                                                                                setShowAllWorkHistoryDescriptions(false);
-                                                                                setEditingExperienceIndex(null);
-                                                                                return;
-                                                                            }
-                                                                            if (editingExperienceIndex !== null) {
-                                                                                setEditingExperienceIndex(null);
-                                                                                return;
-                                                                            }
-                                                                            setShowAllWorkHistoryDescriptions(true);
-                                                                        }}
-                                                                    >
-                                                                        {showAllWorkHistoryDescriptions
-                                                                            ? 'Collapse all'
-                                                                            : (editingExperienceIndex !== null ? 'Collapse' : 'Expand all')}
-                                                                    </button>
-                                                                </div>
-
-                                                                <div className="mt-2 space-y-2">
-                                                                    {experienceList.map((exp: any, idx: number) => {
-                                                                        const title = String(exp?.title || exp?.position || exp?.role || 'Role');
-                                                                        const company = String(exp?.company || exp?.organization || '');
-                                                                        const dates = String(exp?.duration || exp?.dates || [exp?.start, exp?.end].filter(Boolean).join(' - ') || '');
-                                                                        const isOpen = showAllWorkHistoryDescriptions || editingExperienceIndex === idx;
-                                                                        return (
-                                                                            <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        if (showAllWorkHistoryDescriptions) {
-                                                                                            setShowAllWorkHistoryDescriptions(false);
-                                                                                            setEditingExperienceIndex(idx);
-                                                                                            return;
-                                                                                        }
-                                                                                        setEditingExperienceIndex(isOpen ? null : idx);
-                                                                                    }}
-                                                                                    className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 text-left flex items-start justify-between gap-3"
-                                                                                >
-                                                                                    <div className="min-w-0">
-                                                                                        <div className="text-sm font-semibold text-gray-900 truncate">
-                                                                                            {title}
-                                                                                        </div>
-                                                                                        <div className="text-xs text-gray-600 truncate">
-                                                                                            {[company, dates].filter(Boolean).join(' · ')}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div className="text-xs text-indigo-700 shrink-0">
-                                                                                        {showAllWorkHistoryDescriptions ? 'Editing' : (isOpen ? 'Hide' : 'Edit')}
-                                                                                    </div>
-                                                                                </button>
-                                                                                {isOpen && (
-                                                                                    <div className="p-3 bg-white">
-                                                                                        <label className="block">
-                                                                                            <div className="flex items-center justify-between mb-1">
-                                                                                                <div className="text-xs font-semibold text-gray-700">Description / bullets</div>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className={
-                                                                                                        'text-xs inline-flex items-center px-2 py-1 rounded-md border ' +
-                                                                                                        ((aiBusyExperience[idx] ?? false)
-                                                                                                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                                                                            : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50')
-                                                                                                    }
-                                                                                                    disabled={aiBusyExperience[idx] ?? false}
-                                                                                                    onClick={async () => {
-                                                                                                        try {
-                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: true }));
-                                                                                                            const nextText = await aiRewriteResumeField({
-                                                                                                                field: 'experience_description',
-                                                                                                                text: String(exp?.description ?? ''),
-                                                                                                                meta: {
-                                                                                                                    title,
-                                                                                                                    company,
-                                                                                                                    dates,
-                                                                                                                },
-                                                                                                            });
-                                                                                                            updateExperienceDescription(idx, nextText);
-                                                                                                        } catch (e: any) {
-                                                                                                            setAiEditError(String(e?.message || 'AI edit failed.'));
-                                                                                                        } finally {
-                                                                                                            setAiBusyExperience((prev) => ({ ...(prev || {}), [idx]: false }));
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {(aiBusyExperience[idx] ?? false) ? (
-                                                                                                        'Rewriting…'
-                                                                                                    ) : (
-                                                                                                        <>
-                                                                                                            <Wand2 className="inline w-3 h-3 mr-1" />
-                                                                                                            Assist with AI
-                                                                                                        </>
-                                                                                                    )}
-                                                                                                </button>
-                                                                                            </div>
-                                                                                            <textarea
-                                                                                                rows={6}
-                                                                                                value={String(exp?.description ?? '')}
-                                                                                                onChange={(e) => updateExperienceDescription(idx, e.target.value)}
-                                                                                                placeholder={"Use bullets like:\n- Did X\n- Improved Y\n- Shipped Z"}
-                                                                                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                                                                            />
-                                                                                        </label>
-                                                                                        <div className="mt-2 text-xs text-gray-500">
-                                                                                            Tip: start lines with “- ” to render bullets.
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    const presentKeys = Object.keys(blocks).filter((k) => Boolean(blocks[k]));
-
-                                                    const defaultOrder: string[] = [
-                                                        'summary',
-                                                        'experience',
-                                                        ...(customSectionsList.length > 0
-                                                            ? customSectionsList.map((_: any, i: number) => `custom_${i}`)
-                                                            : ['custom_sections']),
-                                                        'education',
-                                                        'projects',
-                                                        'certifications',
-                                                        'skills',
-                                                        'languages',
-                                                    ];
-
-                                                    const rawBase = (Array.isArray(sectionOrder) && sectionOrder.length > 0) ? sectionOrder : defaultOrder;
-                                                    const base = (() => {
-                                                        if (!blocks.custom_sections) return rawBase;
-                                                        if (rawBase.includes('custom_sections')) return rawBase;
-                                                        const expIdx = rawBase.indexOf('experience');
-                                                        if (expIdx >= 0) {
-                                                            return [...rawBase.slice(0, expIdx + 1), 'custom_sections', ...rawBase.slice(expIdx + 1)];
-                                                        }
-                                                        return [...rawBase, 'custom_sections'];
-                                                    })();
-                                                    const orderedKeys = [
-                                                        ...base,
-                                                        ...presentKeys.filter((k) => !base.includes(k)),
-                                                    ].filter((k) => Boolean(blocks[k]) && !hidden.has(String(k)));
-
-                                                    if (orderedKeys.length === 0) return null;
-
-                                                    return (
-                                                        <div className="divide-y divide-gray-200">
-                                                            {orderedKeys.map((k) => (
-                                                                <div key={k} className="py-3 first:pt-0">
-                                                                    {blocks[k]}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 
@@ -2944,7 +3421,7 @@ export default function TemplateViewer() {
                                     )}
                                     <div
                                         ref={pdfPreviewContainerRef}
-                                        className={`${isEmbed ? 'bg-transparent p-0 rounded-none overflow-hidden' : 'bg-gray-100 rounded-lg p-4'} ${mobilePreviewOpen ? 'h-full overflow-auto' : (!isEmbed ? 'overflow-x-auto' : '')}`}
+                                        className={`${isEmbed ? 'bg-gray-100 p-0 rounded-none overflow-hidden' : 'bg-gray-100 rounded-lg p-4'} ${mobilePreviewOpen ? 'h-full overflow-auto' : (!isEmbed ? 'overflow-x-auto' : '')}`}
                                     >
                                         {/* Hidden measurement render (used to compute pages + capture HTML snapshot) */}
                                         <div style={{ position: 'fixed', left: '-100000px', top: 0, width: '816px', visibility: 'hidden' }}>
@@ -2961,10 +3438,32 @@ export default function TemplateViewer() {
                                                                 ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                 // @ts-ignore
                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                // @ts-ignore
+                                                                ['--tv-accent']: safeAccent,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-40']: safeAccent40,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-60']: safeAccent60,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-light']: safeAccentLight,
+                                                                // @ts-ignore
+                                                                ['--tv-accent-dark']: safeAccentDark,
+                                                                // @ts-ignore
+                                                                ['--tv-primary']: safePrimary,
+                                                                // @ts-ignore
+                                                                ['--tv-primary-light']: safePrimaryLight,
+                                                                // @ts-ignore
+                                                                ['--tv-primary-dark']: safePrimaryDark,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary']: safeSecondary,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary-light']: safeSecondaryLight,
+                                                                // @ts-ignore
+                                                                ['--tv-secondary-dark']: safeSecondaryDark,
                                                             }}
                                                         >
                                                             <TemplateComponent
-                                                                content={content}
+                                                                content={previewContent}
                                                                 editMode={false}
                                                                 sectionOrder={sectionOrder}
                                                                 onSectionOrderChange={setSectionOrder}
@@ -2980,28 +3479,69 @@ export default function TemplateViewer() {
                                         {(() => {
                                             const PAGE_W = 816;
                                             const twoUpGapPx = 24;
-                                            const pagesForLayout = inlineEditMode ? 1 : pdfPreviewPages;
+                                            const displayPdfPages = embedFirstPageOnly ? 1 : pdfPreviewPages;
+                                            const pagesForLayout = inlineEditMode ? 1 : displayPdfPages;
                                             const totalW = pagesForLayout === 2 ? ((PAGE_W * 2) + twoUpGapPx) : PAGE_W;
                                             const scaledW = Math.max(1, Math.ceil(totalW * pdfPreviewPageScale));
+                                            const templateKey = String(templateName || '').toLowerCase();
+                                            const pageBg = (() => {
+                                                if (templateKey === 'clean') {
+                                                    return `linear-gradient(to right, ${safeSecondary} 0%, ${safeSecondary} 33.333%, #ffffff 33.333%, #ffffff 100%)`;
+                                                }
+                                                if (templateKey === 'classicrose') {
+                                                    return `linear-gradient(to right, ${safeSecondary} 0%, ${safeSecondary} 33.333%, #ffffff 33.333%, #ffffff 100%)`;
+                                                }
+                                                if (templateKey === 'modern') {
+                                                    return `linear-gradient(to right, #ffffff 0%, #ffffff 60%, ${safeSecondary} 60%, ${safeSecondary} 100%)`;
+                                                }
+                                                if (templateKey === 'creative2') {
+                                                    return '#ffffff';
+                                                }
+                                                return '#ffffff';
+                                            })();
                                             return (
-                                                <div style={{ width: `${scaledW}px`, margin: '0 auto' }}>
+                                                <div style={isEmbedFlush ? { width: '100%', margin: 0 } : { width: `${scaledW}px`, margin: '0 auto' }}>
                                                     {inlineEditMode ? (
-                                                        <div className="mb-3 rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
-                                                            <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                                                        <div className="mb-3 space-y-2">
+                                                            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+                                                                <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+                                                                    <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
+                                                                        <div className="break-words">Click/Tap any content to edit.</div>
+                                                                        <div className="flex items-start gap-2">
+                                                                            <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                                                                            <span className="break-words">Drag sections using the handle on the left of each section. Drop on the right to delete.</span>
+                                                                        </div>
+                                                                        <div className="flex items-start gap-2 flex-wrap">
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
+                                                                                <Sparkles className="w-3 h-3" />
+                                                                                <span>Assist with AI</span>
+                                                                            </span>
+                                                                            <span className="break-words">AI rewriting is available directly on supported fields in the editor.</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
 
-                                                                <div className="text-xs sm:text-sm text-gray-600 flex flex-col gap-1 leading-snug">
-                                                                    <div className="break-words">Click/Tap any content to edit.</div>
-                                                                    <div className="flex items-start gap-2">
-                                                                        <Grip className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                                                                        <span className="break-words">Drag sections using the handle on the left of each section. Drop on the right to delete.</span>
-                                                                    </div>
-                                                                    <div className="flex items-start gap-2 flex-wrap">
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] sm:text-xs rounded bg-orange-200 text-black border border-orange-300">
-                                                                            <Wand2 className="w-3 h-3" />
-                                                                            <span>Assist with AI</span>
-                                                                        </span>
-                                                                        <span className="break-words">On the left sidebar, editing and AI rewriting are also available.</span>
-                                                                    </div>
+                                                            <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+                                                                <div className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Add a section:</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {[
+                                                                        { label: 'Experience', onClick: addExperienceItem },
+                                                                        { label: 'Project', onClick: addProjectItem },
+                                                                        { label: 'Education', onClick: addEducationItem },
+                                                                        { label: 'Certification', onClick: addCertificationItem },
+                                                                        { label: 'Custom Section', onClick: addCustomSection },
+                                                                    ].map((action) => (
+                                                                        <button
+                                                                            key={action.label}
+                                                                            type="button"
+                                                                            onClick={action.onClick}
+                                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
+                                                                        >
+                                                                            <span className="inline-flex h-5 items-center justify-center rounded-full bg-indigo-600 px-2 text-white text-xs leading-none">Add</span>
+                                                                            <span>{action.label}</span>
+                                                                        </button>
+                                                                    ))}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -3031,35 +3571,71 @@ export default function TemplateViewer() {
                                                                                 ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                                 // @ts-ignore
                                                                                 ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent']: safeAccent,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-40']: safeAccent40,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-60']: safeAccent60,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-light']: safeAccentLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-accent-dark']: safeAccentDark,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary']: safePrimary,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary-light']: safePrimaryLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-primary-dark']: safePrimaryDark,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary']: safeSecondary,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary-light']: safeSecondaryLight,
+                                                                                // @ts-ignore
+                                                                                ['--tv-secondary-dark']: safeSecondaryDark,
                                                                             }}
                                                                         >
-                                                                            <TemplateComponent
-                                                                                content={content}
-                                                                                editMode={inlineEditMode}
-                                                                                sectionOrder={sectionOrder}
-                                                                                onSectionOrderChange={setSectionOrder}
-                                                                                hiddenSectionKeys={hiddenSectionKeys}
-                                                                                onHiddenSectionKeysChange={setHiddenSectionKeys}
-                                                                                onContentChange={(changes: any) => setInlineEditChanges((prev: any) => ({ ...prev, ...changes }))}
-                                                                            />
+                                                                            <TemplateAiAssistProvider
+                                                                                value={inlineEditMode ? { rewriteField: aiRewriteResumeField, reportError: setAiEditError } : null}
+                                                                            >
+                                                                                <TemplateComponent
+                                                                                    content={previewContent}
+                                                                                    editMode={inlineEditMode}
+                                                                                    sectionOrder={sectionOrder}
+                                                                                    onSectionOrderChange={setSectionOrder}
+                                                                                    hiddenSectionKeys={hiddenSectionKeys}
+                                                                                    onHiddenSectionKeysChange={setHiddenSectionKeys}
+                                                                                    onContentChange={handleTemplateContentChange}
+                                                                                />
+                                                                            </TemplateAiAssistProvider>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         ) : (
                                                             // View mode: paged preview (with optional snapshot windowing).
-                                                            <div className={pdfPreviewPages === 2 ? 'grid grid-cols-[816px_816px] gap-6 items-start' : 'space-y-6'}>
-                                                                {Array.from({ length: pdfPreviewPages }).map((_, idx) => (
+                                                            <div
+                                                                className={
+                                                                    displayPdfPages === 2
+                                                                        ? isEmbed
+                                                                            ? 'grid grid-cols-[816px_816px] gap-0 items-start'
+                                                                            : 'grid grid-cols-[816px_816px] gap-6 items-start'
+                                                                        : isEmbed
+                                                                            ? 'space-y-0'
+                                                                            : 'space-y-6'
+                                                                }
+                                                            >
+                                                                {Array.from({ length: displayPdfPages }).map((_, idx) => (
                                                                     <div key={idx} className={isEmbed ? '' : 'space-y-8'}>
                                                                         {!isEmbed && (
                                                                             <div className="inline-flex items-center gap-3 w-full">
                                                                                 <div
                                                                                     className={
                                                                                         'inline-flex items-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200 font-semibold ' +
-                                                                                        (pdfPreviewPages === 2 ? 'px-6 py-3 text-3xl' : 'px-4 py-2 text-lg')
+                                                                                        (displayPdfPages === 2 ? 'px-6 py-3 text-3xl' : 'px-4 py-2 text-lg')
                                                                                     }
                                                                                 >
-                                                                                    Page {idx + 1}{pdfPreviewPages > 1 ? ` of ${pdfPreviewPages}` : ''}
+                                                                                    Page {idx + 1}{displayPdfPages > 1 ? ` of ${displayPdfPages}` : ''}
                                                                                 </div>
                                                                                 <div className="h-px flex-1 bg-gray-300/80" />
                                                                             </div>
@@ -3067,25 +3643,35 @@ export default function TemplateViewer() {
                                                                         <div
                                                                             className={
                                                                                 `pdfPreviewPage` +
-                                                                                `${pdfPreviewPages === 2 ? ' pdfPreviewPageTwoUp' : ''}` +
-                                                                                `${idx === pdfPreviewPages - 1 ? ' pdfPreviewPageLast' : ''}`
+                                                                                `${displayPdfPages === 2 ? ' pdfPreviewPageTwoUp' : ''}` +
+                                                                                `${idx === displayPdfPages - 1 ? ' pdfPreviewPageLast' : ''}` +
+                                                                                `${isEmbed ? ' pdfPreviewPageEmbed' : ''}`
                                                                             }
                                                                             style={{
                                                                                 // Shrink only the last page frame to the remaining content height
                                                                                 // (removes trailing bottom edge/shadow line at end-of-document)
                                                                                 // @ts-ignore
-                                                                                ['--pdf-page-h']: `${(idx === pdfPreviewPages - 1 && pdfPreviewPages !== 2) ? pdfPreviewLastPageHeightPx : 1138}px`,
+                                                                                ['--pdf-page-h']: `${(idx === displayPdfPages - 1 && displayPdfPages !== 2) ? pdfPreviewLastPageHeightPx : 1064}px`,
+                                                                                // @ts-ignore
+                                                                                ['--pdf-page-bg']: pageBg,
+                                                                                // Page 1: keep top unchanged. Page 2+: add top breathing room.
+                                                                                // @ts-ignore
+                                                                                ['--pdf-pad-top']: idx === 0 ? '0px' : '48px',
+                                                                                // @ts-ignore
+                                                                                ['--pdf-view-h']: idx === 0 ? '996px' : '948px',
                                                                             }}
                                                                         >
                                                                             <div className="pdfPreviewTarget">
                                                                                 <div className="pdfPreviewViewport">
                                                                                     {(() => {
-                                                                                        // Keep stride equal to the viewport height.
-                                                                                        // (The viewport is fixed at Letter height; padding is outside it.)
-                                                                                        const VIEW_H = 1056;
+                                                                                        // Stride = PDF content area height (with safety margin).
+                                                                                        const VIEW_H_FIRST = 996;
+                                                                                        const VIEW_H_REST = 948;
                                                                                         // Avoid 1px overlap at page boundaries (can duplicate the last line on the next page)
                                                                                         // due to rounding/subpixel rasterization.
-                                                                                        const y = (idx * VIEW_H) + (idx > 0 ? 1 : 0);
+                                                                                        const y = (idx === 0)
+                                                                                            ? 0
+                                                                                            : (VIEW_H_FIRST + ((idx - 1) * VIEW_H_REST) + 1);
                                                                                         return !pdfPreviewSnapshotHtml ? (
                                                                                             <div
                                                                                                 style={{
@@ -3102,10 +3688,32 @@ export default function TemplateViewer() {
                                                                                                         ['--tv-font-scale']: String(styleSettings.fontScale),
                                                                                                         // @ts-ignore
                                                                                                         ['--tv-space-scale']: String(styleSettings.spacingScale),
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent']: safeAccent,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-40']: safeAccent40,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-60']: safeAccent60,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-light']: safeAccentLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-accent-dark']: safeAccentDark,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary']: safePrimary,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary-light']: safePrimaryLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-primary-dark']: safePrimaryDark,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary']: safeSecondary,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary-light']: safeSecondaryLight,
+                                                                                                        // @ts-ignore
+                                                                                                        ['--tv-secondary-dark']: safeSecondaryDark,
                                                                                                     }}
                                                                                                 >
                                                                                                     <TemplateComponent
-                                                                                                        content={content}
+                                                                                                        content={previewContent}
                                                                                                         editMode={false}
                                                                                                         sectionOrder={sectionOrder}
                                                                                                         onSectionOrderChange={setSectionOrder}
@@ -3278,74 +3886,30 @@ export default function TemplateViewer() {
     );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <label className="block">
-            <div className="text-xs font-semibold text-gray-700 mb-1">{label}</div>
-            {children}
-        </label>
-    );
+function getTemplateDefaultAccent(rawTemplateName?: string): string {
+    const key = String(rawTemplateName || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]/g, '');
+
+    switch (key) {
+        case 'classicrose':
+        case 'elegant':
+        case 'lavenderclassic':
+            return '#a67c6b';
+
+        case 'boldprofessional':
+        case 'orangeheader':
+            return '#f36b1c';
+
+        // Default (professional-style blue)
+        default:
+            return '#243c6b';
+    }
 }
 
-function ListField({
-    label,
-    hint,
-    values,
-    onChange,
-}: {
-    label: string;
-    hint?: string;
-    values: string[];
-    onChange: (vals: string[]) => void;
-}) {
-    const [draft, setDraft] = React.useState('');
-    return (
-        <div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-1">
-                <div className="flex items-baseline gap-2 min-w-0">
-                    <div className="text-sm font-bold text-blue-700 truncate">{label}</div>
-                    {hint ? <div className="text-xs font-normal text-gray-500 whitespace-nowrap">{hint}</div> : null}
-                </div>
-                <button
-                    type="button"
-                    className="text-xs text-indigo-700 hover:text-indigo-800"
-                    onClick={() => {
-                        const v = draft.trim();
-                        if (!v) return;
-                        onChange([...(values || []), v]);
-                        setDraft('');
-                    }}
-                >
-                    Add
-                </button>
-            </div>
-            <div className="flex gap-2">
-                <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder={`Add ${label.toLowerCase()}…`}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-                {(values || []).map((v, idx) => (
-                    <span
-                        key={`${v}-${idx}`}
-                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200 text-sm text-gray-800"
-                    >
-                        {v}
-                        <button
-                            type="button"
-                            className="text-gray-500 hover:text-gray-800"
-                            onClick={() => onChange(values.filter((_, i) => i !== idx))}
-                            aria-label={`Remove ${v}`}
-                        >
-                            ×
-                        </button>
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-}
+
+
+
+
 

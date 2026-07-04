@@ -337,7 +337,7 @@ export default function PopArtTemplate({
                                                     )
                                                 ) : null}
 
-                                                {proj.description ? (
+                                                {(editMode || proj.description) ? (
                                                     <div className="mt-1.5">
                                                         {editMode ? (
                                                             <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-black/80" multiline />
@@ -665,4 +665,5 @@ function hash(input: string): number {
     for (let i = 0; i < s.length; i++) acc = (acc * 31 + s.charCodeAt(i)) >>> 0;
     return acc;
 }
+
 

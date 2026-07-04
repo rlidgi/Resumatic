@@ -89,8 +89,7 @@ def main() -> int:
 
     flask_app = appmod.app
 
-    # Use the existing admin user ID from users_data.json (must exist in the running server process too).
-    # This ID is present in the repo's users_data.json by default.
+    # Use the existing admin user ID from the running server's Azure-backed user profile.
     admin_user_id = "108278720993144058808"
 
     structured_resume = build_long_resume_structured()

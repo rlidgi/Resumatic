@@ -4,7 +4,7 @@
 <head>
 
     {% include "_clarity.html" %}
-
+{% include "_gtm.html" %}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cancel Subscription - Resumatic</title>
@@ -33,6 +33,26 @@
         </div>
 
         <div id="cancelPanel" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            {% if cancel_scheduled %}
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-rotate-left text-emerald-700 mt-0.5"></i>
+                    <div>
+                        <div class="font-semibold text-emerald-900">Cancellation is currently scheduled</div>
+                        <p class="text-sm text-emerald-800 mt-1">
+                            We strongly believe the service we offer is indispensable in your job search, and we believe with more time to access the service, you will agree.{% if can_extend_trial_on_reinstate %} As such, with this reinstatement we will extend your trial period by <strong>2 weeks</strong>.{% endif %}
+                        </p>
+                        <button type="button" id="btnReinstate"
+                            class="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-semibold text-sm">
+                            Reinstate subscription
+                            <i class="fas fa-arrow-right ml-2 text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not cancel_scheduled %}
             <p class="text-gray-600 mb-4">
                 Our resume revisions and job-description-customized resumes can give you the boost you need to land your
                 next role faster. Plus, our job search hub tracks all your applications, a practice job search experts
@@ -42,14 +62,14 @@
                 Don't give up yet. Stay and keep your edge.
             </p>
 
-            <!-- Incentive offer (customize messaging here) -->
+            {% if not trial_hold_mode %}
             <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 mb-6">
                 <div class="flex items-start gap-3">
                     <i class="fas fa-gift text-amber-600 mt-0.5"></i>
                     <div>
                         <div class="font-semibold text-amber-900">Special offer: 50% off for 2 months</div>
                         <p class="text-sm text-amber-800 mt-1">
-                            Lock in half off your next 2 months. No commitment—cancel anytime.
+                            Lock in half off your next 2 months. No commitment-cancel anytime.
                         </p>
                         <button type="button" id="btnClaimRetention"
                             class="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 font-semibold text-sm">
@@ -59,35 +79,44 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <div class="border-t border-gray-200 pt-4">
                 <p class="text-sm text-gray-600 mb-4">
+                    {% if trial_hold_mode %}
+                    If you cancel now, the temporary card authorization hold will be released and you will not be charged.
+                    {% else %}
                     If you still want to cancel, you'll keep access until <strong>{{ period_end_display }}</strong>.
+                    {% endif %}
                 </p>
                 <div class="flex flex-col sm:flex-row gap-3">
                     <button type="button" id="btnConfirmCancel"
                         class="flex-1 inline-flex items-center justify-center px-4 py-3 rounded-lg bg-purple-50 border border-purple-200 text-purple-800 hover:bg-purple-100 font-semibold">
                         <i class="fas fa-times mr-2"></i>
-                        Cancel at period end
+                        {% if trial_hold_mode %}Cancel trial{% else %}Cancel at period end{% endif %}
                     </button>
                 </div>
             </div>
+            {% endif %}
         </div>
 
-        <!-- Confirmation modal -->
+        {% if not cancel_scheduled %}
         <div id="confirmModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
             <div class="fixed inset-0 bg-black/50" id="modalBackdrop"></div>
             <div class="fixed inset-0 flex items-center justify-center p-4">
                 <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-lg font-bold text-gray-900 mb-2">Confirm cancellation</h3>
                     <p class="text-gray-600 text-sm mb-4">
+                        {% if trial_hold_mode %}
+                        Your trial will end immediately and the card authorization hold will be released.
+                        {% else %}
                         Your subscription will end on {{ period_end_display }}. You'll keep full access until then.
+                        {% endif %}
                     </p>
                     <p class="text-sm font-medium text-gray-700 mb-3">What's your main reason for canceling?</p>
                     <div class="space-y-2 mb-4">
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-                            <input type="radio" name="cancelReason" value="too_expensive"
-                                class="w-4 h-4 text-indigo-600" />
+                            <input type="radio" name="cancelReason" value="too_expensive" class="w-4 h-4 text-indigo-600" />
                             <span class="text-sm text-gray-700">Too expensive</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
@@ -95,8 +124,7 @@
                             <span class="text-sm text-gray-700">Found a job / no longer need</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-                            <input type="radio" name="cancelReason" value="different_service"
-                                class="w-4 h-4 text-indigo-600" />
+                            <input type="radio" name="cancelReason" value="different_service" class="w-4 h-4 text-indigo-600" />
                             <span class="text-sm text-gray-700">Using a different service</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
@@ -104,13 +132,11 @@
                             <span class="text-sm text-gray-700">Not using it enough</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-                            <input type="radio" name="cancelReason" value="missing_features"
-                                class="w-4 h-4 text-indigo-600" />
+                            <input type="radio" name="cancelReason" value="missing_features" class="w-4 h-4 text-indigo-600" />
                             <span class="text-sm text-gray-700">Missing features I need</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-                            <input type="radio" name="cancelReason" value="technical_issues"
-                                class="w-4 h-4 text-indigo-600" />
+                            <input type="radio" name="cancelReason" value="technical_issues" class="w-4 h-4 text-indigo-600" />
                             <span class="text-sm text-gray-700">Technical issues</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
@@ -138,8 +164,8 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Success/error message (hidden initially) -->
         <div id="messageBox" class="hidden mt-4 p-4 rounded-lg"></div>
     </div>
 
@@ -147,6 +173,7 @@
         (function () {
             const btnConfirm = document.getElementById('btnConfirmCancel');
             const btnClaimRetention = document.getElementById('btnClaimRetention');
+            const btnReinstate = document.getElementById('btnReinstate');
             const modal = document.getElementById('confirmModal');
             const modalBackdrop = document.getElementById('modalBackdrop');
             const modalCancel = document.getElementById('modalCancel');
@@ -155,11 +182,13 @@
             const cancelPanel = document.getElementById('cancelPanel');
 
             function showModal() {
+                if (!modal) return;
                 modal.classList.remove('hidden');
                 modal.setAttribute('aria-hidden', 'false');
             }
 
             function hideModal() {
+                if (!modal) return;
                 modal.classList.add('hidden');
                 modal.setAttribute('aria-hidden', 'true');
             }
@@ -175,11 +204,13 @@
             const reasonOtherInput = document.getElementById('reasonOther');
 
             function updateConfirmButton() {
+                if (!modalConfirm) return;
                 const checked = document.querySelector('input[name="cancelReason"]:checked');
                 modalConfirm.disabled = !checked;
             }
 
             function showOtherInput() {
+                if (!reasonOtherWrap) return;
                 const other = document.querySelector('input[name="cancelReason"][value="other"]');
                 if (other && other.checked) {
                     reasonOtherWrap.classList.remove('hidden');
@@ -191,9 +222,11 @@
             function resetModalForm() {
                 reasonRadios.forEach(function (r) { r.checked = false; });
                 if (reasonOtherInput) reasonOtherInput.value = '';
-                reasonOtherWrap.classList.add('hidden');
-                modalConfirm.disabled = true;
-                modalConfirm.textContent = 'Proceed with cancellation';
+                if (reasonOtherWrap) reasonOtherWrap.classList.add('hidden');
+                if (modalConfirm) {
+                    modalConfirm.disabled = true;
+                    modalConfirm.textContent = 'Proceed with cancellation';
+                }
             }
 
             reasonRadios.forEach(function (r) {
@@ -203,18 +236,20 @@
                 });
             });
 
-            btnConfirm.addEventListener('click', function () {
-                resetModalForm();
-                showModal();
-            });
-            modalCancel.addEventListener('click', function () {
-                hideModal();
-                resetModalForm();
-            });
-            modalBackdrop.addEventListener('click', function () {
-                hideModal();
-                resetModalForm();
-            });
+            if (btnConfirm && modalCancel && modalBackdrop && modalConfirm) {
+                btnConfirm.addEventListener('click', function () {
+                    resetModalForm();
+                    showModal();
+                });
+                modalCancel.addEventListener('click', function () {
+                    hideModal();
+                    resetModalForm();
+                });
+                modalBackdrop.addEventListener('click', function () {
+                    hideModal();
+                    resetModalForm();
+                });
+            }
 
             if (btnClaimRetention) {
                 btnClaimRetention.addEventListener('click', async function () {
@@ -246,52 +281,84 @@
                 });
             }
 
-            modalConfirm.addEventListener('click', async function () {
-                const checked = document.querySelector('input[name="cancelReason"]:checked');
-                const reason = checked ? checked.value : '';
-                let reasonLabel = '';
-                try {
-                    const wrap = checked ? checked.closest('label') : null;
-                    const span = wrap ? wrap.querySelector('span') : null;
-                    reasonLabel = span ? (span.textContent || '').trim() : '';
-                } catch (e) {
-                    reasonLabel = '';
-                }
-                const reasonOther = (reason === 'other' && reasonOtherInput) ? reasonOtherInput.value.trim() : '';
-                modalConfirm.disabled = true;
-                modalConfirm.textContent = 'Canceling...';
-                try {
-                    const res = await fetch('/api/billing/cancel', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            cancel_at_period_end: true,
-                            cancel_reason: reason,
-                            cancel_reason_other: reasonOther,
-                            cancel_reason_label: reasonLabel
-                        })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
+            if (btnReinstate) {
+                btnReinstate.addEventListener('click', async function () {
+                    btnReinstate.disabled = true;
+                    btnReinstate.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Reinstating...';
+                    try {
+                        const res = await fetch('/api/billing/reinstate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            cancelPanel.classList.add('hidden');
+                            showMessage(data.message || 'Subscription reinstated.', false);
+                            setTimeout(function () {
+                                window.location.href = data.redirect_url || "{{ url_for('settings_page') }}";
+                            }, 1500);
+                        } else {
+                            showMessage(data.error || 'Something went wrong. Please try again.', true);
+                            btnReinstate.disabled = false;
+                            btnReinstate.innerHTML = 'Reinstate subscription <i class="fas fa-arrow-right ml-2 text-sm"></i>';
+                        }
+                    } catch (err) {
+                        showMessage('Unable to reinstate subscription. Please try again.', true);
+                        btnReinstate.disabled = false;
+                        btnReinstate.innerHTML = 'Reinstate subscription <i class="fas fa-arrow-right ml-2 text-sm"></i>';
+                    }
+                });
+            }
+
+            if (modalConfirm) {
+                modalConfirm.addEventListener('click', async function () {
+                    const checked = document.querySelector('input[name="cancelReason"]:checked');
+                    const reason = checked ? checked.value : '';
+                    let reasonLabel = '';
+                    try {
+                        const wrap = checked ? checked.closest('label') : null;
+                        const span = wrap ? wrap.querySelector('span') : null;
+                        reasonLabel = span ? (span.textContent || '').trim() : '';
+                    } catch (e) {
+                        reasonLabel = '';
+                    }
+                    const reasonOther = (reason === 'other' && reasonOtherInput) ? reasonOtherInput.value.trim() : '';
+                    modalConfirm.disabled = true;
+                    modalConfirm.textContent = 'Canceling...';
+                    try {
+                        const res = await fetch('/api/billing/cancel', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                cancel_at_period_end: true,
+                                cancel_reason: reason,
+                                cancel_reason_other: reasonOther,
+                                cancel_reason_label: reasonLabel
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            hideModal();
+                            cancelPanel.classList.add('hidden');
+                            showMessage(data.message || 'Your subscription has been canceled.', false);
+                            setTimeout(function () {
+                                window.location.href = "{{ url_for('settings_page') }}?canceled=1";
+                            }, 2000);
+                        } else {
+                            hideModal();
+                            showMessage(data.error || 'Something went wrong. Please try again.', true);
+                            modalConfirm.disabled = false;
+                            modalConfirm.textContent = 'Proceed with cancellation';
+                        }
+                    } catch (err) {
                         hideModal();
-                        cancelPanel.classList.add('hidden');
-                        showMessage(data.message || 'Your subscription has been canceled.', false);
-                        setTimeout(function () {
-                            window.location.href = "{{ url_for('settings_page') }}?canceled=1";
-                        }, 2000);
-                    } else {
-                        hideModal();
-                        showMessage(data.error || 'Something went wrong. Please try again.', true);
+                        showMessage('Unable to cancel. Please try again.', true);
                         modalConfirm.disabled = false;
                         modalConfirm.textContent = 'Proceed with cancellation';
                     }
-                } catch (err) {
-                    hideModal();
-                    showMessage('Unable to cancel. Please try again.', true);
-                    modalConfirm.disabled = false;
-                    modalConfirm.textContent = 'Proceed with cancellation';
-                }
-            });
+                });
+            }
         })();
     </script>
 </body>
