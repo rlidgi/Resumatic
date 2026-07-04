@@ -1,0 +1,19 @@
+﻿# Mass-email 10-day trial link
+
+IMPORTANT: Restart Flask after code changes (stop the old process on port 5000, then start again).
+
+Generate a fresh link:
+  python scripts/generate_email_trial_link.py --campaign email-trial-jun-2026 --short
+
+Local test (after restart):
+  http://127.0.0.1:5000/go/email-trial?invite=YOUR_TOKEN
+
+If you see "Please select a valid plan" on /plans, the server is still running OLD code
+without trial_10d_email support — restart Flask.
+
+If you see "expired or invalid", regenerate the token or check FLASK_SECRET_KEY matches.
+
+Flow:
+- User clicks link → login if needed → redirect to Stripe hosted checkout page
+- Same flow as standard trial on /plans (RBI-safe subscription Checkout for India: card + UPI)
+- 10-day trial, then monthly unless cancelled

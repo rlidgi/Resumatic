@@ -3,7 +3,7 @@
 
 <head>
     {% include "_clarity.html" %}
-
+    {% include "_gtm.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Users</title>
@@ -114,7 +114,7 @@
 <body>
     <div class="container">
         <div class="actions">
-            <a class="btn" href="/admin/stats"><i class="fas fa-arrow-left" style="margin-right:8px"></i>Back to Admin
+            <a class="btn" href="/admin/dashboard"><i class="fas fa-arrow-left" style="margin-right:8px"></i>Back to Admin
                 Dashboard</a>
             <a class="btn" style="margin-left:8px;background:#16a34a" href="/admin/registered_users.csv"><i
                     class="fas fa-file-csv" style="margin-right:8px"></i>Download CSV</a>
@@ -124,6 +124,27 @@
         <h1>Registered Users</h1>
         <div class="meta">Total: {{ users|length }} • Azure Table: {{ azure_users_table_name or
             (request.args.get('table') or 'Users') }}</div>
+        {% if conversion_summary %}
+        <div class="meta" style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px 12px;">
+            <strong>Trial Reinstatement CTA Conversion:</strong>
+            Emails Sent: {{ conversion_summary.cta_sent_total }} |
+            Users Emailed: {{ conversion_summary.cta_sent_users }} |
+            Converted Users: {{ conversion_summary.cta_converted_users }} |
+            Reinstatement Events: {{ conversion_summary.cta_conversion_events }} |
+            User Conversion Rate: {{ conversion_summary.cta_user_conversion_rate }}% |
+            Event Conversion Rate: {{ conversion_summary.cta_event_conversion_rate }}%
+        </div>
+        <div class="meta" style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;">
+            <strong>Paid Reinstatement Offer ($3.99) Conversion:</strong>
+            Emails Sent: {{ conversion_summary.paid_offer_sent_total }} |
+            Users Emailed: {{ conversion_summary.paid_offer_sent_users }} |
+            Offer Link Clicks: {{ conversion_summary.paid_offer_click_total }} |
+            Offer Applies: {{ conversion_summary.paid_offer_apply_total }} |
+            Users Applied: {{ conversion_summary.paid_offer_applied_users }} |
+            Click Rate: {{ conversion_summary.paid_offer_click_rate }}% |
+            Apply Rate: {{ conversion_summary.paid_offer_apply_rate }}%
+        </div>
+        {% endif %}
         <form method="get" action="" style="margin: 12px 0;">
             <label for="table">Table name:</label>
             <input type="text" id="table" name="table" value="{{ request.args.get('table') or '' }}" placeholder="Users"

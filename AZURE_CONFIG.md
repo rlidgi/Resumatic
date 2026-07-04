@@ -34,6 +34,7 @@ In App Service → **Configuration** → **Application settings** set these (val
 Set all Stripe values to **live** keys/IDs (not `sk_test` / `price_test` / `buy.stripe.com/test_...`).
 
 - `STRIPE_SECRET_KEY` = `sk_live_...`
+- `STRIPE_PUBLISHABLE_KEY` = `pk_live_...` (required for India embedded checkout / Payment Element)
 - `STRIPE_WEBHOOK_SECRET` = `whsec_...` (from the production webhook endpoint)
 - `STRIPE_PRICE_MONTHLY_10_95` = `price_...` (live price)
 - `STRIPE_PRICE_ANNUAL_6_95` = `price_...` (live price)
@@ -43,7 +44,8 @@ Set all Stripe values to **live** keys/IDs (not `sk_test` / `price_test` / `buy.
 Optional (used as fallback):
 - `STRIPE_PAYMENTLINK_MONTHLY_10_95` = `https://buy.stripe.com/...` (live)
 - `STRIPE_PAYMENTLINK_ANNUAL_6_95` = `https://buy.stripe.com/...` (live)
-- `STRIPE_PAYMENTLINK_TRIAL_14D` = `https://buy.stripe.com/...` (live)
+- `STRIPE_PAYMENTLINK_TRIAL_7D` = `https://buy.stripe.com/...` (live)
+	- (Legacy supported) `STRIPE_PAYMENTLINK_TRIAL_14D`
 
 Retention offer (cancel-flow incentive):
 - `STRIPE_COUPON_RETENTION` = coupon ID (e.g. `retention_50`) for Checkout Session API (classic billing only)
@@ -71,11 +73,26 @@ In Stripe Dashboard (Live mode) create a webhook endpoint:
 Select events that match your implementation. Typical subscription setup uses:
 
 - `checkout.session.completed`
+- `setup_intent.succeeded` (required for India RBI e-mandate embedded checkout)
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
+- `customer.subscription.trial_will_end` (optional; deferred capture is used for authorization-hold trials)
+- `payment_intent.amount_capturable_updated` (activates trial after card authorization hold)
+- `payment_intent.succeeded` (optional; records hold capture timestamp)
 - `invoice.paid`
 - `invoice.payment_failed`
+- `invoice.payment_action_required` (India payment recovery emails)
+
+### Trial authorization hold (standard 7-day trial)
+
+The `/checkout?plan=trial_7d` flow places a **manual-capture** hold for the monthly plan amount (default $10.95) without charging the card. After the hold is authorized, the app creates a **trialing** Stripe subscription. The hold is captured on the scheduled capture day (default day 6 of 7) and a customer balance credit is applied toward the first invoice. Cancel before capture to release the hold; cancel on the final trial day after capture for a refund.
+
+Optional env vars:
+
+- `TRIAL_HOLD_DAYS` = `7` (default)
+- `TRIAL_CAPTURE_DAYS_BEFORE_END` = `1` (capture on day 6 when hold is 7 days)
+- `STRIPE_TRIAL_DEPOSIT_CENTS` = override hold amount in cents (default: monthly price)
 
 Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 
@@ -88,6 +105,7 @@ Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 	- Paid through
 	- Next billing date
 5) Confirm webhook logs show the checkout + subscription events arriving.
+6) For trial: start `/checkout?plan=trial_7d`, confirm a pending hold (not a charge), cancel during trial and confirm the hold is released, or let trial end and confirm capture + first invoice.
 
 ## 6) Notes on billing-cycle alignment
 

@@ -4,15 +4,29 @@
 <head>
   {% include "_clarity.html" %}
 
+  {% include "_gtm.html" %}
+  <!-- Google tag (gtag.js) 
+<script defer="" src="https://www.googletagmanager.com/gtag/js'id=AW-18159645263"></script>
+<script defer="">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18159645263');
+</script>
+
+-->
+
   <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
-  <script>
+  <script defer="" src="https://www.googletagmanager.com/gtag/js'id=AW-18159645263"></script>
+
+  <script defer="">
     window.dataLayer = window.dataLayer || [];
     function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
-    gtag('config', 'G-KRPLMCR73G');
-  </script>
 
+    gtag('config', 'AW-18159645263');
+  </script>
 
   <meta charset="utf-8">
   <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
@@ -31,7 +45,7 @@
       }
     }
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"
+  <link href="https://fonts.googleapis.com/css2'family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"
     media="print" onload="this.media='all'" />
   <style>
     body {
@@ -51,15 +65,16 @@
   <header class="border-b bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
       <a href="/" class="inline-flex items-center gap-3">
-        <img src="/static/images/logo23_small.webp" alt="Resumatic AI" width="40" height="40">
-        <span class="text-xl font-bold">Resumatic AI</span>
+        <img src="/static/images/logo_2333_small.png" alt="Resumatic AI" class="h-16 sm:h-[72px] w-auto">
+
       </a>
       <nav class="hidden md:flex items-center gap-6 text-gray-700">
         <a href="/" class="hover:text-primary">Home</a>
         <a href="/blog" class="hover:text-primary">Blog</a>
         <a href="/about" class="hover:text-primary">About</a>
         {% if user and user.is_authenticated %}
-        <a href="/my_revisions" class="text-white bg-primary px-4 py-2 rounded-xl hover:bg-primary/90">My Account</a>
+        <a href="/my_revisions" class="text-white bg-primary px-4 py-2 rounded-xl hover:bg-primary/90">Career
+          Dashboard</a>
         {% else %}
         <a href="/login" class="text-white bg-primary px-4 py-2 rounded-xl hover:bg-primary/90">Login</a>
         {% endif %}
@@ -71,7 +86,7 @@
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-10">
         <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">
-          Let’s <span class="gradient-text">get started</span>
+          Let's <span class="gradient-text">get started</span>
         </h1>
         <p class="mt-3 text-gray-600 text-lg">
           Choose what you want to do.
@@ -82,36 +97,78 @@
         {% set new_resume_href = url_for('resume_new') if (user and user.is_authenticated) else url_for('login',
         tab='register', next=url_for('resume_new')) %}
         <a href="{{ new_resume_href }}"
-          class="group bg-white rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all transition-colors p-7 flex items-center gap-3 hover:bg-emerald-100 hover:border-emerald-400">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-              stroke="currentColor" class="w-6 h-6 text-emerald-700">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
+          class="group bg-emerald-50/70 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-xl transition-all duration-200 p-7 flex flex-col hover:bg-emerald-100/80 hover:border-emerald-300">
+          <div class="flex items-start justify-between gap-4">
+            <div
+              class="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                stroke="currentColor" class="w-7 h-7 text-emerald-700">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                stroke="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 6v6l4 2m6-2a10 10 0 1 1-20 0a10 10 0 0 1 20 0Z" />
+              </svg>
+              10-15 min
+            </span>
           </div>
-          <h2 class="text-xl font-bold text-gray-900">Build new resume</h2>
+
+          <div class="mt-6">
+            <h2 class="text-[1.6rem] font-bold text-gray-900">Build new resume</h2>
+            <p class="mt-2 text-sm sm:text-base text-gray-600">
+              Start from scratch with guided sections and a step-by-step flow.
+            </p>
+            <p class="mt-3 text-sm font-medium text-emerald-700">
+              Hint: This usually takes 10 to 15 minutes.
+            </p>
+          </div>
+
         </a>
 
         {% set improve_resume_href = url_for('upload') if (user and user.is_authenticated) else url_for('login',
         tab='register', next=url_for('upload')) %}
         <a href="{{ improve_resume_href }}"
-          class="group bg-white rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all transition-colors p-7 flex items-center gap-3 hover:bg-indigo-100 hover:border-indigo-400">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-              stroke="currentColor" class="w-6 h-6 text-indigo-700">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 10.5h4.5m-4.5 3h7.5M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V7.5L14.25 2.25H10.5Z" />
-            </svg>
+          class="group bg-indigo-50/70 rounded-3xl border border-indigo-200 shadow-sm hover:shadow-xl transition-all duration-200 p-7 flex flex-col hover:bg-indigo-100/80 hover:border-indigo-300">
+          <div class="flex items-start justify-between gap-4">
+            <div
+              class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                stroke="currentColor" class="w-7 h-7 text-indigo-700">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 10.5h4.5m-4.5 3h7.5M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V7.5L14.25 2.25H10.5Z" />
+              </svg>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-3.5 h-3.5"
+                aria-hidden="true">
+                <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8Z" />
+              </svg>
+              Fastest option
+            </span>
           </div>
-          <h2 class="text-xl font-bold text-gray-900">Improve existing resume</h2>
+
+          <div class="mt-6">
+            <h2 class="text-[1.6rem] font-bold text-gray-900">Upload existing resume</h2>
+            <p class="mt-2 text-sm sm:text-base text-gray-600">
+              Upload your current resume and let Resumatic improve it for you.
+            </p>
+            <p class="mt-3 text-sm font-medium text-indigo-700">
+              Hint: This is the fastest option.
+            </p>
+          </div>
+
         </a>
       </div>
 
-      <div class="mt-10 text-center text-sm text-gray-500">
-        You can choose a template after creating your resume.
-      </div>
+
     </div>
   </main>
 </body>
 
 </html>
+

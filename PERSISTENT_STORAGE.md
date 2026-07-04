@@ -1,14 +1,14 @@
 # Persistent User Storage
 
 ## Overview
-Your Flask app now uses **persistent storage** to ensure user data is never lost, even when the app restarts or is updated.
+Your Flask app now uses **Azure-backed persistent storage** to ensure user data is never lost, even when the app restarts or is updated.
 
 ## How It Works
 
 ### 1. Storage Location
-- User data is saved to: `users_data.json`
-- This file is created automatically in your app's root directory
-- The file persists between app restarts
+- User data is saved to the Azure `Users` table
+- Profile rows use `RowKey = profile`
+- The store persists between app restarts and deployments
 
 ### 2. Data Stored
 For each user, the following information is permanently saved:
@@ -19,8 +19,8 @@ For each user, the following information is permanently saved:
 - **Admin status** (based on email address)
 
 ### 3. Automatic Operations
-- **On App Startup**: Automatically loads all existing users from `users_data.json`
-- **On User Registration**: Immediately saves new users to the file
+- **On App Startup**: Automatically loads existing users from Azure profiles
+- **On User Registration**: Immediately saves new users to Azure
 - **On User Login**: No data loss, existing users are preserved
 
 ## Benefits
@@ -42,46 +42,26 @@ For each user, the following information is permanently saved:
 
 ## File Structure
 
-### `users_data.json` Example:
-```json
-{
-  "google_123456789": {
-    "id": "google_123456789",
-    "name": "John Doe",
-    "email": "john.doe@gmail.com",
-    "created_at": "2025-06-22T10:30:00+00:00",
-    "is_admin": false
-  },
-  "facebook_987654321": {
-    "id": "facebook_987654321", 
-    "name": "Jane Smith",
-    "email": "jane.smith@example.com",
-    "created_at": "2025-06-22T11:15:00+00:00",
-    "is_admin": false
-  }
-}
-```
+### Azure profile example
+Each row is stored in the Azure `Users` table with `PartitionKey = user_id` and `RowKey = profile`.
 
 ## Testing
 
 ### Manual Test
-Run the test script to verify storage is working:
-```bash
-python test_storage.py
-```
+Run the app and sign up or log in with a test account to verify Azure-backed storage works.
 
 ### What to Expect
-1. **First Run**: Creates `users_data.json` file
-2. **User Signup**: Automatically adds users to the file
-3. **App Restart**: Loads all existing users on startup
+1. **First Run**: Creates the Azure profile row on first signup
+2. **User Signup**: Automatically adds users to Azure
+3. **App Restart**: Loads all existing users from Azure on startup
 4. **Admin Panel**: Shows all registered users with timestamps
 
 ## Security
 
 ### Data Protection
-- File is stored locally on your server
-- No sensitive authentication data stored
-- Only basic profile information saved
+- Data is stored in Azure Table Storage
+- Password hashes and verification state are persisted for auth recovery
+- Only the fields needed by the app are saved
 
 ### Access Control
 - Only admin users can view user list
@@ -91,9 +71,8 @@ python test_storage.py
 ## Maintenance
 
 ### Backup
-- The `users_data.json` file should be included in your backups
-- File is human-readable JSON format
-- Can be manually edited if needed
+- Back up the Azure `Users` table if you need a copy of account data
+- Local file backups are no longer used for user auth storage
 
 ### Monitoring
 - App logs show user loading/saving operations
@@ -103,10 +82,10 @@ python test_storage.py
 ## Migration
 
 If you had users before implementing persistent storage:
-- Previous users in memory are now saved to file
-- No existing user data is lost
-- New users will be automatically added to persistent storage
+- Previous users should be present in Azure profiles
+- No existing user data is lost if it was already synced to Azure
+- New users are automatically added to Azure-backed storage
 
 ---
 
-**Your user data is now fully persistent and will never be lost!** 🎉
+**Your user data is now fully persistent in Azure!** 🎉

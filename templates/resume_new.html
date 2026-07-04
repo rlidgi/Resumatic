@@ -4,7 +4,7 @@
 <head>
 
     {% include "_clarity.html" %}
-
+{% include "_gtm.html" %}
 
 
 
@@ -26,13 +26,27 @@
         }
     </script>
 
+    <!-- Google tag (gtag.js) 
+<script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+<script defer="">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18159645263');
+</script>
+
+-->
+
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
-    <script>
+    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+
+    <script defer="">
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-        gtag('config', 'G-KRPLMCR73G');
+
+        gtag('config', 'AW-18159645263');
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"
@@ -120,8 +134,33 @@
             </div>
 
             <form method="POST" action="/resume/new" class="space-y-6" id="resumeWizardForm">
-                <div class="lg:grid lg:grid-cols-[minmax(0,1fr),420px] lg:gap-6">
+                <div id="resumeWizardLayout" class="lg:grid lg:grid-cols-[minmax(0,1fr),420px] lg:gap-6">
                     <div class="relative">
+                        <div class="flex justify-end gap-2 mb-4">
+                            <a href="{{ url_for('index') }}"
+                                class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-indigo-300 hover:bg-indigo-50">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                    aria-hidden="true">
+                                    <path d="M3 10.5L12 3l9 7.5" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                Home
+                            </a>
+                            <a href="{{ url_for('my_revisions') }}"
+                                class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-indigo-300 hover:bg-indigo-50">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                    aria-hidden="true">
+                                    <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" />
+                                    <path d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5Z"
+                                        stroke="currentColor" stroke-width="2" />
+                                </svg>
+                                Career Dashboard
+                            </a>
+                        </div>
+
                         <aside class="self-start md:fixed md:left-0 md:top-6 md:z-40 md:w-24">
                             <div
                                 class="bg-white rounded-2xl border border-gray-200 px-3 pt-3 pb-6 md:px-4 md:pt-4 md:pb-8">
@@ -277,6 +316,24 @@
                                 </style>
 
                                 <div class="relative">
+                                    <!-- Mobile scroll hints (non-interactive; do not block swipe) -->
+                                    <div aria-hidden="true"
+                                        class="pointer-events-none sm:hidden absolute left-0 top-0 bottom-0 w-10 z-10 flex items-center justify-start pl-1 bg-gradient-to-r from-gray-100 to-transparent text-gray-400">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div aria-hidden="true"
+                                        class="pointer-events-none sm:hidden absolute right-0 top-0 bottom-0 w-10 z-10 flex items-center justify-end pr-1 bg-gradient-to-l from-gray-100 to-transparent text-gray-400">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
                                     <button type="button" id="newResumeTemplateCarouselPrev"
                                         class="hidden sm:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/95 shadow border border-gray-200 text-gray-700 hover:text-gray-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         aria-label="Previous templates">
@@ -296,103 +353,180 @@
                                         </svg>
                                     </button>
 
-                                    <div id="newResumeTemplateCarousel"
-                                        class="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory py-1 -mx-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none]"
+                                    <!-- hover-scale-marker: 1.4 -->
+                                    <div id="newResumeTemplateCarousel" data-hover-scale="1.4"
+                                        class="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory py-24 px-10 [-ms-overflow-style:none] [scrollbar-width:none]"
                                         role="list" aria-label="Resume templates">
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
                                             role="listitem">
                                             <input class="sr-only peer" type="radio" name="template"
                                                 value="professional" required>
                                             <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
                                                 <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Professional
                                                 </div>
-                                                <img src="/static/images/professional.jpg" alt="Professional template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
+                                                <img src="/static/images/professional.jpg?v=20260419"
+                                                    srcset="/static/images/professional.jpg?v=20260419 1275w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Professional template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
                                                     loading="lazy" decoding="async">
                                             </div>
                                         </label>
 
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
-                                            role="listitem">
-                                            <input class="sr-only peer" type="radio" name="template"
-                                                value="boldProfessional">
-                                            <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
-                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Bold
-                                                    Professional</div>
-                                                <img src="/static/images/Boldprofessional.jpg"
-                                                    alt="Bold Professional template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    loading="lazy" decoding="async">
-                                            </div>
-                                        </label>
-
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
-                                            role="listitem">
-                                            <input class="sr-only peer" type="radio" name="template"
-                                                value="traditional">
-                                            <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
-                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Traditional
-                                                </div>
-                                                <img src="/static/images/traditional.jpg" alt="Traditional template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    loading="lazy" decoding="async">
-                                            </div>
-                                        </label>
-
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
-                                            role="listitem">
-                                            <input class="sr-only peer" type="radio" name="template" value="modern">
-                                            <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
-                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Modern</div>
-                                                <img src="/static/images/modern.jpg" alt="Modern template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    loading="lazy" decoding="async">
-                                            </div>
-                                        </label>
-
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
-                                            role="listitem">
-                                            <input class="sr-only peer" type="radio" name="template"
-                                                value="minimalSidebar">
-                                            <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
-                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Clean</div>
-                                                <img src="/static/images/clean.jpg" alt="Clean template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    loading="lazy" decoding="async">
-                                            </div>
-                                        </label>
-
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
-                                            role="listitem">
-                                            <input class="sr-only peer" type="radio" name="template" value="creative2">
-                                            <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
-                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Creative
-                                                </div>
-                                                <img src="/static/images/creative.jpg" alt="Creative template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
-                                                    loading="lazy" decoding="async">
-                                            </div>
-                                        </label>
-
-                                        <label class="block cursor-pointer flex-none w-44 sm:w-48 md:w-52 snap-start"
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
                                             role="listitem">
                                             <input class="sr-only peer" type="radio" name="template"
                                                 value="classicRose">
                                             <div
-                                                class="rounded-2xl border border-gray-200 bg-white p-2 transition peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
                                                 <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Classic</div>
-                                                <img src="/static/images/classic.jpg" alt="Classic template"
-                                                    class="w-full aspect-[3/4] object-contain rounded-xl border border-gray-100 bg-gray-50"
+                                                <img src="/static/images/classic.jpg?v=20260419"
+                                                    srcset="/static/images/classic.jpg?v=20260419 562w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Classic template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template"
+                                                value="boldProfessional">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Bold
+                                                    Professional</div>
+                                                <img src="/static/images/BoldProfessional.jpg?v=20260419"
+                                                    alt="Bold Professional template"
+                                                    srcset="/static/images/BoldProfessional.jpg?v=20260419 646w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template"
+                                                value="traditional">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Contemporary
+                                                </div>
+                                                <img src="/static/images/traditional.jpg?v=20260419"
+                                                    srcset="/static/images/traditional.jpg?v=20260419 601w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Contemporary template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template" value="modern">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Modern</div>
+                                                <img src="/static/images/modern.jpg?v=20260419"
+                                                    srcset="/static/images/modern.jpg?v=20260419 606w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Modern template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template"
+                                                value="minimalSidebar">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Stylish</div>
+                                                <img src="/static/images/stylish.jpg?v=20260419"
+                                                    srcset="/static/images/stylish.jpg?v=20260419 568w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Stylish template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template" value="creative2">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Creative
+                                                </div>
+                                                <img src="/static/images/creative.jpg?v=20260419"
+                                                    srcset="/static/images/creative.jpg?v=20260419 609w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Creative template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
+                                                    loading="lazy" decoding="async">
+                                            </div>
+                                        </label>
+
+                                        <label
+                                            class="template-card group block cursor-pointer flex-none w-52 sm:w-56 md:w-60 snap-start relative transition-all transform-gpu origin-center hover:scale-[1.4] focus-within:scale-[1.4] hover:z-10 focus-within:z-10"
+                                            role="listitem">
+                                            <input class="sr-only peer" type="radio" name="template" value="executive">
+                                            <div
+                                                class="rounded-2xl border border-gray-200 bg-white p-2 shadow hover:shadow-xl transition-all hover:border-indigo-500 peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200">
+                                                <div class="px-1 pb-2 text-sm font-semibold text-gray-900">Executive
+                                                </div>
+                                                <img src="/static/images/executive.jpg?v=20260419"
+                                                    srcset="/static/images/executive.jpg?v=20260419 571w"
+                                                    sizes="(min-width: 768px) 240px, (min-width: 640px) 224px, 208px"
+                                                    alt="Executive template"
+                                                    class="w-full h-64 sm:h-72 md:h-80 object-contain rounded-xl border border-gray-100 bg-gray-50 [image-rendering:-webkit-optimize-contrast]"
                                                     loading="lazy" decoding="async">
                                             </div>
                                         </label>
                                     </div>
+
+                                    <script>
+                                        // Debug helper (off by default). Enable with: localStorage.setItem('templateCarouselDebug','1')
+                                        (function () {
+                                            try {
+                                                if (localStorage.getItem('templateCarouselDebug') !== '1') return;
+                                                var carousel = document.getElementById('newResumeTemplateCarousel');
+                                                if (!carousel) return;
+
+                                                function logNewResumeTemplateCarouselImages() {
+                                                    var imgs = carousel.querySelectorAll('img');
+                                                    var dpr = window.devicePixelRatio || 1;
+                                                    console.group('newResumeTemplateCarousel image debug');
+                                                    console.log('devicePixelRatio', dpr);
+                                                    for (var i = 0; i < imgs.length; i++) {
+                                                        var img = imgs[i];
+                                                        var rect = img.getBoundingClientRect();
+                                                        console.log(img.alt || '(no alt)', {
+                                                            currentSrc: img.currentSrc,
+                                                            natural: img.naturalWidth + 'x' + img.naturalHeight,
+                                                            css: Math.round(rect.width) + 'x' + Math.round(rect.height),
+                                                            cssPxNeededAtDPR: Math.round(rect.width * dpr) + 'w'
+                                                        });
+                                                    }
+                                                    console.groupEnd();
+                                                }
+
+                                                window.__logNewResumeTemplateCarouselImages = logNewResumeTemplateCarouselImages;
+                                                logNewResumeTemplateCarouselImages();
+                                            } catch (e) { /* ignore */ }
+                                        })();
+                                    </script>
                                 </div>
                             </section>
 
@@ -1594,6 +1728,31 @@
 
                 if (introEl) introEl.classList.toggle('hidden', current !== 0);
 
+                // Hide the preview panel on step 0 (Template) to avoid overlaying the template chooser.
+                // Also switch to a single-column layout so the template options fill the space.
+                try {
+                    const previewPanel = document.getElementById('resumePreviewPanel');
+                    const layoutEl = document.getElementById('resumeWizardLayout');
+                    const TWO_COL = 'lg:grid-cols-[minmax(0,1fr),420px]';
+                    if (previewPanel) {
+                        const hide = current === 0;
+                        previewPanel.classList.toggle('hidden', hide);
+                        previewPanel.setAttribute('aria-hidden', String(hide));
+
+                        if (layoutEl) {
+                            layoutEl.classList.toggle('lg:grid-cols-1', hide);
+                            if (hide) {
+                                layoutEl.classList.remove(TWO_COL);
+                            } else {
+                                layoutEl.classList.add(TWO_COL);
+                                layoutEl.classList.remove('lg:grid-cols-1');
+                            }
+                        }
+                    }
+                } catch (_) {
+                    // no-op
+                }
+
                 stepEls.forEach((el, idx) => {
                     if (idx === current) {
                         el.classList.remove('hidden');
@@ -1625,9 +1784,10 @@
                 if (backBtn) backBtn.classList.toggle('opacity-50', current === 0);
 
                 const isLast = current === (total - 1);
-                if (nextBtn) nextBtn.classList.toggle('hidden', isLast);
+                // Template step (0) advances automatically on selection; hide the Next button there.
+                if (nextBtn) nextBtn.classList.toggle('hidden', isLast || current === 0);
                 if (submitBtn) submitBtn.classList.toggle('hidden', !isLast);
-                if (arrowEl) arrowEl.classList.toggle('hidden', isLast);
+                if (arrowEl) arrowEl.classList.toggle('hidden', isLast || current === 0);
 
                 if (nextBtn && !isLast) {
                     const nextName = stepNames[current + 1] || String(stepEls[current + 1]?.getAttribute('data-step-title') || '').trim();
@@ -1759,6 +1919,25 @@
                 const nextBtn = document.getElementById('newResumeTemplateCarouselNext');
                 if (!carousel || !prevBtn || !nextBtn) return;
 
+                // Auto-advance wizard when a template is selected.
+                const wizardNextBtn = document.getElementById('wizardNextBtn');
+                const templateInputs = Array.from(carousel.querySelectorAll('input[type="radio"][name="template"]'));
+                templateInputs.forEach((inputEl) => {
+                    inputEl.addEventListener('change', () => {
+                        try {
+                            if (!inputEl.checked) return;
+                            const state = window.__resumeWizard?.getState?.();
+                            if (state && state.current !== 0) return;
+                            // Let the browser paint the checked state before navigating.
+                            window.requestAnimationFrame(() => {
+                                try { wizardNextBtn?.click(); } catch (_) { /* no-op */ }
+                            });
+                        } catch (_) {
+                            // no-op
+                        }
+                    });
+                });
+
                 // Make carousel focusable for keyboard scrolling.
                 if (!carousel.hasAttribute('tabindex')) {
                     carousel.setAttribute('tabindex', '0');
@@ -1820,9 +1999,9 @@
             const TEMPLATE_META = {
                 professional: { label: 'Professional' },
                 boldProfessional: { label: 'Bold Professional' },
-                traditional: { label: 'Traditional' },
+                traditional: { label: 'Contemporary' },
                 modern: { label: 'Modern' },
-                minimalSidebar: { label: 'Clean' },
+                minimalSidebar: { label: 'Stylish' },
                 creative2: { label: 'Creative' },
                 classicRose: { label: 'Classic' },
             };

@@ -2766,6 +2766,3189 @@ jinja2.exceptions.TemplateNotFound: partials/_navbar.html
 
 [2026-03-30T00:43:46.949576Z] local_errors.log initialized
 
-[2026-05-26T15:43:55.129095Z] local_errors.log initialized
+[2026-03-31T05:04:15.755335Z] local_errors.log initialized
+[2026-04-01T08:09:13.420442Z] upload GET: pid=14132 build=1774831151
+[2026-04-01T08:09:24.892963Z] results_route POST: start
+[2026-04-01T08:09:24.912225Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-04-01T08:09:41.285563Z] results_route POST: revise_resume ok revised_len=2025
+[2026-04-01T08:09:41.798076Z] results_route POST: redirecting to results_get
+[2026-04-01T08:09:41.817653Z] results_get GET: start
+[2026-04-01T08:09:41.818769Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
 
-[2026-05-28T17:03:53.323763Z] local_errors.log initialized
+[2026-04-01T08:27:00.987178Z] local_errors.log initialized
+
+[2026-04-01T08:27:34.373055Z] local_errors.log initialized
+[2026-04-01T08:29:24.188297Z] upload GET: pid=14132 build=1774831151
+[2026-04-01T08:29:32.698968Z] results_route POST: start
+[2026-04-01T08:29:32.702968Z] results_route POST: calling revise_resume resume_len=16 jd_len=0
+[2026-04-01T08:29:48.783370Z] results_route POST: revise_resume ok revised_len=1813
+[2026-04-01T08:29:49.260725Z] results_route POST: redirecting to results_get
+[2026-04-01T08:29:49.279177Z] results_get GET: start
+[2026-04-01T08:29:49.280182Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:34:52.945020Z] local_errors.log initialized
+[2026-04-01T08:35:56.615072Z] results_route POST: start
+[2026-04-01T08:35:56.625102Z] results_route POST: calling revise_resume resume_len=22 jd_len=0
+[2026-04-01T08:36:12.281005Z] results_route POST: revise_resume ok revised_len=1826
+[2026-04-01T08:36:12.823576Z] results_route POST: redirecting to results_get
+[2026-04-01T08:36:12.858481Z] results_get GET: start
+[2026-04-01T08:36:12.861276Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:42:21.690685Z] local_errors.log initialized
+[2026-04-01T08:43:22.196261Z] results_route POST: start
+[2026-04-01T08:43:22.204296Z] results_route POST: calling revise_resume resume_len=32 jd_len=0
+[2026-04-01T08:43:38.583548Z] results_route POST: revise_resume ok revised_len=2011
+[2026-04-01T08:43:39.060031Z] results_route POST: redirecting to results_get
+[2026-04-01T08:43:39.078592Z] results_get GET: start
+[2026-04-01T08:43:39.080029Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:47:15.495813Z] local_errors.log initialized
+[2026-04-01T08:48:29.532970Z] results_route POST: start
+[2026-04-01T08:48:29.537101Z] results_route POST: calling revise_resume resume_len=9 jd_len=0
+[2026-04-01T08:48:47.656778Z] results_route POST: revise_resume ok revised_len=2269
+[2026-04-01T08:48:48.077554Z] results_route POST: redirecting to results_get
+[2026-04-01T08:48:48.104456Z] results_get GET: start
+[2026-04-01T08:48:48.106454Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:50:36.453166Z] local_errors.log initialized
+[2026-04-01T08:51:03.085737Z] results_route POST: start
+[2026-04-01T08:51:03.110744Z] results_route POST: calling revise_resume resume_len=18 jd_len=0
+
+[2026-04-01T08:51:15.945481Z] local_errors.log initialized
+[2026-04-01T08:51:20.250124Z] results_route POST: revise_resume ok revised_len=2166
+[2026-04-01T08:51:20.726801Z] results_route POST: redirecting to results_get
+[2026-04-01T08:51:20.764007Z] results_get GET: start
+[2026-04-01T08:51:20.766538Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T08:53:19.370505Z] local_errors.log initialized
+
+[2026-04-01T08:53:47.534148Z] local_errors.log initialized
+
+[2026-04-01T08:55:39.709612Z] local_errors.log initialized
+
+[2026-04-01T08:56:10.001980Z] local_errors.log initialized
+
+[2026-04-01T08:58:57.072873Z] local_errors.log initialized
+
+[2026-04-01T08:59:14.235616Z] local_errors.log initialized
+
+[2026-04-01T09:01:08.619963Z] local_errors.log initialized
+
+[2026-04-01T09:01:29.708104Z] local_errors.log initialized
+[2026-04-01T09:02:55.340697Z] results_route POST: start
+[2026-04-01T09:02:55.375547Z] results_route POST: calling revise_resume resume_len=27 jd_len=0
+[2026-04-01T09:03:11.566646Z] results_route POST: revise_resume ok revised_len=2052
+[2026-04-01T09:03:12.418381Z] results_route POST: redirecting to results_get
+[2026-04-01T09:03:12.455998Z] results_get GET: start
+[2026-04-01T09:03:12.457004Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-01T09:04:36.541963Z] results_route POST: start
+[2026-04-01T09:04:36.555345Z] results_route POST: calling revise_resume resume_len=1405 jd_len=0
+[2026-04-01T09:05:01.547209Z] results_route POST: revise_resume ok revised_len=4182
+[2026-04-01T09:05:02.421676Z] results_route POST: redirecting to results_get
+[2026-04-01T09:05:02.438100Z] results_get GET: start
+[2026-04-01T09:05:02.439100Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-01T22:31:05.966384Z] local_errors.log initialized
+
+[2026-04-01T22:34:00.397859Z] local_errors.log initialized
+
+[2026-04-01T22:38:36.861208Z] local_errors.log initialized
+
+[2026-04-01T22:39:14.459684Z] local_errors.log initialized
+
+[2026-04-01T22:39:28.820479Z] local_errors.log initialized
+
+[2026-04-02T23:09:08.527380Z] local_errors.log initialized
+[2026-04-03T21:42:16.870670Z] results_get GET: start
+[2026-04-03T21:42:16.875948Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-04T23:14:06.671984Z] local_errors.log initialized
+
+[2026-04-04T23:19:46.776064Z] local_errors.log initialized
+
+[2026-04-04T23:29:04.733596Z] local_errors.log initialized
+
+[2026-04-05T00:11:38.478086Z] local_errors.log initialized
+
+[2026-04-05T00:35:53.771799Z] local_errors.log initialized
+
+[2026-04-05T00:38:40.881759Z] local_errors.log initialized
+
+[2026-04-05T00:42:40.008625Z] local_errors.log initialized
+
+[2026-04-05T00:43:13.365396Z] local_errors.log initialized
+
+[2026-04-05T00:57:58.405108Z] local_errors.log initialized
+
+[2026-04-05T01:10:41.598378Z] local_errors.log initialized
+
+[2026-04-05T01:11:20.546361Z] local_errors.log initialized
+
+[2026-04-05T01:11:36.829785Z] local_errors.log initialized
+
+[2026-04-05T01:14:35.555829Z] local_errors.log initialized
+
+[2026-04-05T01:15:03.195436Z] local_errors.log initialized
+
+[2026-04-05T01:15:49.865953Z] local_errors.log initialized
+
+[2026-04-05T01:16:17.934173Z] local_errors.log initialized
+
+[2026-04-05T01:16:53.685746Z] local_errors.log initialized
+[2026-04-05T01:16:56.068890Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:17:35.966454Z] local_errors.log initialized
+[2026-04-05T01:17:38.181917Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:18:15.421990Z] local_errors.log initialized
+[2026-04-05T01:18:21.454221Z] upload GET: pid=2404 build=1775349737
+
+[2026-04-05T01:32:13.169926Z] local_errors.log initialized
+
+[2026-04-05T01:32:38.900749Z] local_errors.log initialized
+[2026-04-05T01:32:48.874834Z] upload GET: pid=36524 build=1775349737
+
+[2026-04-05T01:34:31.902395Z] local_errors.log initialized
+
+[2026-04-05T01:34:41.240861Z] local_errors.log initialized
+[2026-04-05T01:34:50.171266Z] upload GET: pid=32636 build=1775349737
+
+[2026-04-05T02:21:41.376037Z] local_errors.log initialized
+
+[2026-04-05T02:21:44.591555Z] local_errors.log initialized
+
+[2026-04-05T02:22:00.486847Z] local_errors.log initialized
+
+[2026-04-05T02:22:58.838358Z] local_errors.log initialized
+
+[2026-04-05T02:23:26.184399Z] local_errors.log initialized
+
+[2026-04-05T02:26:15.583178Z] local_errors.log initialized
+
+[2026-04-05T02:26:29.100904Z] local_errors.log initialized
+
+[2026-04-05T02:29:47.544681Z] local_errors.log initialized
+
+[2026-04-05T02:30:17.327057Z] local_errors.log initialized
+
+[2026-04-05T02:30:19.262182Z] local_errors.log initialized
+
+[2026-04-05T02:36:21.581291Z] local_errors.log initialized
+
+[2026-04-05T02:38:28.079629Z] local_errors.log initialized
+
+[2026-04-05T02:38:38.054513Z] local_errors.log initialized
+
+[2026-04-05T02:38:56.670843Z] local_errors.log initialized
+
+[2026-04-05T02:39:06.156122Z] local_errors.log initialized
+
+[2026-04-05T02:44:45.218272Z] local_errors.log initialized
+
+[2026-04-05T02:44:52.757981Z] local_errors.log initialized
+
+[2026-04-05T02:45:31.382510Z] local_errors.log initialized
+
+[2026-04-05T02:45:42.097481Z] local_errors.log initialized
+
+[2026-04-05T02:46:07.571417Z] local_errors.log initialized
+
+[2026-04-05T02:46:22.235181Z] local_errors.log initialized
+
+[2026-04-05T02:49:28.866863Z] local_errors.log initialized
+
+[2026-04-05T02:51:24.460295Z] local_errors.log initialized
+
+[2026-04-05T03:12:14.103670Z] local_errors.log initialized
+
+[2026-04-05T03:13:12.751939Z] local_errors.log initialized
+
+[2026-04-05T03:13:30.215216Z] local_errors.log initialized
+
+[2026-04-06T01:52:10.661757Z] local_errors.log initialized
+
+[2026-04-08T01:51:37.790533Z] local_errors.log initialized
+
+[2026-04-08T04:36:01.946667Z] local_errors.log initialized
+
+[2026-04-08T04:57:42.004011Z] local_errors.log initialized
+
+[2026-04-08T05:20:28.671389Z] local_errors.log initialized
+
+[2026-04-09T08:00:00.151578Z] local_errors.log initialized
+
+[2026-04-09T19:32:14.986808Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-04-09T19:32:25.088514Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+[2026-04-09T19:33:20.142950Z] upload GET: pid=44796 build=1775634928
+
+[2026-04-12T03:20:43.316816Z] local_errors.log initialized
+[2026-04-12T03:21:12.337718Z] upload GET: pid=30324 build=1775634928
+[2026-04-12T03:21:20.653226Z] results_route POST: start
+[2026-04-12T03:21:20.685099Z] results_route POST: calling revise_resume resume_len=9 jd_len=0
+[2026-04-12T03:21:38.941016Z] results_route POST: revise_resume ok revised_len=2250
+[2026-04-12T03:21:39.445725Z] results_route POST: redirecting to results_get
+[2026-04-12T03:21:39.468488Z] results_get GET: start
+[2026-04-12T03:21:39.469489Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T03:21:53.445984Z] results_get GET: start
+[2026-04-12T03:21:53.450378Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:43:11.325202Z] upload GET: pid=30324 build=1775634928
+[2026-04-12T05:43:32.625888Z] results_route POST: start
+[2026-04-12T05:43:32.636578Z] results_route POST: received upload filename=updated_actuarial_resume_4-internship.docx
+[2026-04-12T05:43:32.798280Z] results_route POST: extracted_text_len=2057
+[2026-04-12T05:43:32.799281Z] results_route POST: calling revise_resume resume_len=2057 jd_len=0
+[2026-04-12T05:43:57.214422Z] results_route POST: revise_resume ok revised_len=3586
+[2026-04-12T05:43:57.738521Z] results_route POST: redirecting to results_get
+[2026-04-12T05:43:57.767752Z] results_get GET: start
+[2026-04-12T05:43:57.768776Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:44:27.654593Z] results_get GET: start
+[2026-04-12T05:44:27.655604Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:45:23.772126Z] results_get GET: start
+[2026-04-12T05:45:23.774118Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:50:11.951210Z] results_get GET: start
+[2026-04-12T05:50:11.953204Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T05:51:20.938877Z] local_errors.log initialized
+[2026-04-12T05:52:01.699902Z] upload GET: pid=23980 build=1775634928
+[2026-04-12T05:52:13.836046Z] results_route POST: start
+[2026-04-12T05:52:13.839521Z] results_route POST: received upload filename=updated_actuarial_resume_4.docx
+[2026-04-12T05:52:13.872550Z] results_route POST: extracted_text_len=2065
+[2026-04-12T05:52:13.873542Z] results_route POST: calling revise_resume resume_len=2065 jd_len=0
+[2026-04-12T05:52:40.134082Z] results_route POST: revise_resume ok revised_len=3354
+[2026-04-12T05:52:40.602209Z] results_route POST: redirecting to results_get
+[2026-04-12T05:52:41.681361Z] results_get GET: start
+[2026-04-12T05:52:41.682362Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-12T05:58:56.385266Z] results_get GET: start
+[2026-04-12T05:58:56.385584Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T05:59:22.472740Z] local_errors.log initialized
+[2026-04-12T05:59:26.585410Z] results_get GET: start
+[2026-04-12T05:59:26.586409Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-12T06:09:08.929407Z] local_errors.log initialized
+
+[2026-04-12T06:09:27.242241Z] local_errors.log initialized
+[2026-04-12T06:36:52.569599Z] upload GET: pid=25908 build=1775634928
+
+[2026-04-13T00:49:20.729158Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2592, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+[2026-04-13T00:49:54.659173Z] results_route POST: start
+[2026-04-13T00:49:54.680085Z] results_route POST: calling revise_resume resume_len=19 jd_len=0
+[2026-04-13T00:50:06.183614Z] results_route POST: revise_resume ok revised_len=2085
+[2026-04-13T00:50:06.688092Z] results_route POST: redirecting to results_get
+[2026-04-13T00:50:06.706596Z] results_get GET: start
+[2026-04-13T00:50:06.707592Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-13T01:07:04.372678Z] results_route POST: start
+[2026-04-13T01:07:04.377516Z] results_route POST: calling revise_resume resume_len=17 jd_len=0
+[2026-04-13T01:07:18.871043Z] results_route POST: revise_resume ok revised_len=2203
+[2026-04-13T01:07:19.343452Z] results_route POST: redirecting to results_get
+[2026-04-13T01:07:19.360279Z] results_get GET: start
+[2026-04-13T01:07:19.360279Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-04-13T01:08:13.853637Z] local_errors.log initialized
+[2026-04-13T01:08:27.312633Z] results_route POST: start
+[2026-04-13T01:08:27.318409Z] results_route POST: calling revise_resume resume_len=16 jd_len=0
+[2026-04-13T01:08:41.748764Z] results_route POST: revise_resume ok revised_len=2147
+[2026-04-13T01:08:42.248153Z] results_route POST: redirecting to results_get
+[2026-04-13T01:08:42.286121Z] results_get GET: start
+[2026-04-13T01:08:42.290124Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:37:22.602071Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:37:30.777571Z] results_route POST: start
+[2026-04-14T04:37:30.798189Z] results_route POST: calling revise_resume resume_len=13 jd_len=0
+[2026-04-14T04:37:44.999273Z] results_route POST: revise_resume ok revised_len=2107
+[2026-04-14T04:37:45.477079Z] results_route POST: redirecting to results_get
+[2026-04-14T04:37:50.428136Z] results_route POST: start
+[2026-04-14T04:37:50.430135Z] results_route POST: calling revise_resume resume_len=12 jd_len=0
+[2026-04-14T04:38:03.757912Z] results_route POST: revise_resume ok revised_len=1911
+[2026-04-14T04:38:04.278562Z] results_route POST: redirecting to results_get
+[2026-04-14T04:38:04.315061Z] results_get GET: start
+[2026-04-14T04:38:04.317053Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:51:39.080433Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:52:06.382872Z] results_route POST: start
+[2026-04-14T04:52:06.424666Z] results_route POST: received upload filename=actuarial_resume.docx
+[2026-04-14T04:52:08.199171Z] results_route POST: extracted_text_len=1318
+[2026-04-14T04:52:08.201162Z] results_route POST: calling revise_resume resume_len=1318 jd_len=0
+[2026-04-14T04:52:30.071480Z] results_route POST: revise_resume ok revised_len=2799
+[2026-04-14T04:52:30.625141Z] results_route POST: redirecting to results_get
+[2026-04-14T04:52:30.658998Z] results_get GET: start
+[2026-04-14T04:52:30.658998Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-04-14T04:52:47.400225Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:56:25.680080Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:56:27.995269Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:59:03.400175Z] upload GET: pid=10560 build=1776042369
+[2026-04-14T04:59:35.423421Z] results_route POST: start
+[2026-04-14T04:59:35.430639Z] results_route POST: received upload filename=actuarial_resume_12-25_.docx
+[2026-04-14T04:59:35.481547Z] results_route POST: extracted_text_len=2035
+[2026-04-14T04:59:35.484547Z] results_route POST: calling revise_resume resume_len=2035 jd_len=0
+[2026-04-14T04:59:59.772505Z] results_route POST: revise_resume ok revised_len=3596
+[2026-04-14T05:00:00.319791Z] results_route POST: redirecting to results_get
+
+[2026-04-17T23:34:49.209805Z] local_errors.log initialized
+
+[2026-04-18T00:48:22.293466Z] local_errors.log initialized
+
+[2026-04-18T00:54:19.529508Z] local_errors.log initialized
+
+[2026-04-18T00:54:37.694140Z] local_errors.log initialized
+
+[2026-04-18T01:06:27.501109Z] local_errors.log initialized
+[2026-04-18T01:14:51.600014Z] results_get GET: start
+[2026-04-18T01:14:51.601031Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-04-18T01:21:13.480517Z] local_errors.log initialized
+
+[2026-04-18T01:31:15.188648Z] local_errors.log initialized
+
+[2026-04-18T01:53:51.020512Z] local_errors.log initialized
+
+[2026-04-18T02:13:53.224381Z] local_errors.log initialized
+
+[2026-04-18T02:35:57.281945Z] local_errors.log initialized
+
+[2026-04-18T02:37:18.404231Z] local_errors.log initialized
+
+[2026-04-18T02:55:35.959314Z] local_errors.log initialized
+
+[2026-04-18T03:07:27.646332Z] local_errors.log initialized
+
+[2026-04-18T07:23:46.078810Z] local_errors.log initialized
+
+[2026-04-18T07:24:18.614998Z] local_errors.log initialized
+
+[2026-04-18T07:25:31.599519Z] local_errors.log initialized
+
+[2026-04-18T07:32:40.008467Z] local_errors.log initialized
+
+[2026-04-18T07:34:42.946406Z] local_errors.log initialized
+
+[2026-04-18T07:35:29.920071Z] local_errors.log initialized
+
+[2026-04-18T07:39:35.440498Z] local_errors.log initialized
+
+[2026-04-18T07:43:57.606745Z] local_errors.log initialized
+
+[2026-04-18T08:08:50.511908Z] local_errors.log initialized
+
+[2026-04-18T08:10:42.848817Z] local_errors.log initialized
+
+[2026-04-18T08:16:30.343791Z] local_errors.log initialized
+
+[2026-04-18T08:16:35.474695Z] local_errors.log initialized
+
+[2026-04-18T08:18:25.513168Z] local_errors.log initialized
+
+[2026-04-18T08:27:18.295295Z] local_errors.log initialized
+
+[2026-04-18T21:40:07.522933Z] local_errors.log initialized
+
+[2026-04-18T21:50:14.482965Z] local_errors.log initialized
+
+[2026-04-18T22:19:06.198547Z] local_errors.log initialized
+
+[2026-04-18T22:27:14.510918Z] local_errors.log initialized
+
+[2026-04-18T22:30:22.359406Z] local_errors.log initialized
+
+[2026-04-18T22:34:32.149869Z] local_errors.log initialized
+
+[2026-04-18T22:50:55.010324Z] local_errors.log initialized
+
+[2026-04-18T23:00:18.186159Z] local_errors.log initialized
+
+[2026-04-18T23:06:12.844368Z] local_errors.log initialized
+
+[2026-04-18T23:12:17.373892Z] local_errors.log initialized
+
+[2026-04-18T23:15:56.689191Z] local_errors.log initialized
+
+[2026-04-18T23:23:19.065254Z] local_errors.log initialized
+
+[2026-04-18T23:25:59.539851Z] local_errors.log initialized
+
+[2026-04-18T23:47:17.411885Z] local_errors.log initialized
+
+[2026-04-18T23:49:13.127371Z] local_errors.log initialized
+
+[2026-04-18T23:49:24.785184Z] local_errors.log initialized
+[2026-04-18T23:50:18.575063Z] results_get GET: start
+[2026-04-18T23:50:18.576065Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-04-19T02:28:10.945832Z] local_errors.log initialized
+
+[2026-04-19T02:30:08.869935Z] local_errors.log initialized
+
+[2026-04-19T02:43:58.721241Z] local_errors.log initialized
+
+[2026-04-19T02:55:34.989211Z] local_errors.log initialized
+
+[2026-04-19T02:59:48.326717Z] local_errors.log initialized
+
+[2026-04-19T03:05:05.872981Z] local_errors.log initialized
+
+[2026-04-19T03:38:28.574559Z] local_errors.log initialized
+
+[2026-04-19T03:42:12.098287Z] local_errors.log initialized
+
+[2026-04-19T05:58:56.761472Z] local_errors.log initialized
+
+[2026-04-19T07:51:46.423365Z] local_errors.log initialized
+[2026-04-19T08:15:08.446666Z] results_get GET: start
+[2026-04-19T08:15:08.447666Z] results_get GET: no results_data in session
+
+[2026-04-19T20:59:00.674868Z] local_errors.log initialized
+
+[2026-04-19T21:23:31.203051Z] local_errors.log initialized
+
+[2026-04-19T22:30:47.738739Z] local_errors.log initialized
+
+[2026-04-19T22:32:44.894592Z] local_errors.log initialized
+
+[2026-04-19T22:33:49.591998Z] local_errors.log initialized
+
+[2026-04-19T23:00:34.381257Z] local_errors.log initialized
+[2026-04-19T23:17:47.303253Z] results_get GET: start
+[2026-04-19T23:17:47.304253Z] results_get GET: no results_data in session
+
+[2026-04-19T23:19:53.236004Z] local_errors.log initialized
+
+[2026-04-19T23:21:19.100154Z] local_errors.log initialized
+[2026-04-19T23:25:37.158376Z] results_get GET: start
+[2026-04-19T23:25:37.159383Z] results_get GET: no results_data in session
+
+[2026-04-19T23:43:07.525505Z] local_errors.log initialized
+
+[2026-04-19T23:46:12.724719Z] local_errors.log initialized
+
+[2026-04-20T00:00:49.066126Z] local_errors.log initialized
+[2026-04-20T06:45:03.497958Z] results_get GET: start
+[2026-04-20T06:45:03.500815Z] results_get GET: no results_data in session
+
+[2026-04-21T21:51:53.985335Z] local_errors.log initialized
+
+[2026-04-21T21:56:04.569385Z] local_errors.log initialized
+
+[2026-04-21T21:59:33.452022Z] local_errors.log initialized
+
+[2026-04-21T22:03:21.860616Z] local_errors.log initialized
+
+[2026-04-21T22:12:11.933493Z] local_errors.log initialized
+
+[2026-04-23T07:28:10.535478Z] local_errors.log initialized
+
+[2026-04-23T07:55:38.293222Z] local_errors.log initialized
+
+[2026-04-24T06:08:06.714994Z] local_errors.log initialized
+
+[2026-04-25T21:26:36.429422Z] local_errors.log initialized
+
+[2026-04-25T21:31:18.623727Z] local_errors.log initialized
+
+[2026-04-25T22:53:12.125352Z] local_errors.log initialized
+
+[2026-04-25T22:58:40.664614Z] local_errors.log initialized
+
+[2026-04-25T22:59:07.240787Z] local_errors.log initialized
+
+[2026-04-25T23:01:21.067669Z] local_errors.log initialized
+
+[2026-04-25T23:03:12.328109Z] local_errors.log initialized
+
+[2026-04-26T00:22:02.784839Z] local_errors.log initialized
+
+[2026-04-26T00:48:23.847625Z] local_errors.log initialized
+
+[2026-04-26T02:07:39.280476Z] local_errors.log initialized
+
+[2026-04-26T02:20:51.326668Z] local_errors.log initialized
+
+[2026-04-26T05:23:04.746993Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2780, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-04-26T05:23:42.781831Z] local_errors.log initialized
+
+[2026-04-26T05:36:32.646011Z] local_errors.log initialized
+
+[2026-04-26T05:51:37.792273Z] local_errors.log initialized
+
+[2026-04-26T05:58:56.022126Z] local_errors.log initialized
+
+[2026-04-26T06:07:11.257570Z] local_errors.log initialized
+
+[2026-04-27T04:25:43.966028Z] local_errors.log initialized
+
+[2026-04-27T04:27:56.843920Z] local_errors.log initialized
+
+[2026-04-28T07:53:45.486604Z] local_errors.log initialized
+[2026-04-28T23:46:31.451630Z] upload GET: pid=35480 build=1777362755
+[2026-04-29T00:15:22.129893Z] results_get GET: start
+[2026-04-29T00:15:22.132893Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-04-29T00:16:29.410683Z] local_errors.log initialized
+[2026-04-29T00:17:04.013265Z] results_get GET: start
+[2026-04-29T00:17:04.015282Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-04-29T00:18:41.614227Z] local_errors.log initialized
+
+[2026-04-29T00:27:01.708271Z] local_errors.log initialized
+
+[2026-05-05T01:47:27.306917Z] local_errors.log initialized
+
+[2026-05-05T01:48:04.236826Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2743, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+
+[2026-05-05T01:49:17.783634Z] local_errors.log initialized
+
+[2026-05-05T02:31:13.451483Z] local_errors.log initialized
+
+[2026-05-05T02:47:34.061905Z] local_errors.log initialized
+
+[2026-05-05T03:38:24.796723Z] local_errors.log initialized
+[2026-05-05T03:58:40.924529Z] results_get GET: start
+[2026-05-05T03:58:40.924529Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-05T03:58:55.766405Z] results_get GET: start
+[2026-05-05T03:58:55.766405Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-05T04:11:11.255085Z] local_errors.log initialized
+
+[2026-05-05T04:20:56.217428Z] local_errors.log initialized
+
+[2026-05-05T04:21:38.404692Z] local_errors.log initialized
+
+[2026-05-05T04:59:19.319398Z] local_errors.log initialized
+
+[2026-05-05T05:06:18.191902Z] local_errors.log initialized
+
+[2026-05-05T05:11:25.890481Z] local_errors.log initialized
+
+[2026-05-05T05:45:31.251694Z] local_errors.log initialized
+
+[2026-05-05T06:47:34.768846Z] local_errors.log initialized
+
+[2026-05-05T06:55:38.433945Z] local_errors.log initialized
+
+[2026-05-05T07:09:49.720291Z] local_errors.log initialized
+
+[2026-05-05T08:50:46.813964Z] local_errors.log initialized
+[2026-05-05T21:54:17.953648Z] results_get GET: start
+[2026-05-05T21:54:17.955816Z] results_get GET: no results_data in session
+
+[2026-05-06T00:48:05.229010Z] local_errors.log initialized
+
+[2026-05-06T03:58:49.363576Z] local_errors.log initialized
+
+[2026-05-07T00:46:26.208215Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 2820, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-05-07T04:17:29.792000Z] local_errors.log initialized
+
+[2026-05-07T07:08:16.752803Z] local_errors.log initialized
+
+[2026-05-07T07:15:41.996805Z] local_errors.log initialized
+
+[2026-05-08T02:07:19.071589Z] local_errors.log initialized
+
+[2026-05-08T02:09:08.801820Z] local_errors.log initialized
+
+[2026-05-08T02:51:37.457343Z] local_errors.log initialized
+
+[2026-05-08T02:54:47.525551Z] local_errors.log initialized
+
+[2026-05-08T02:59:44.993310Z] local_errors.log initialized
+
+[2026-05-08T03:06:49.949074Z] local_errors.log initialized
+
+[2026-05-09T02:04:30.529119Z] local_errors.log initialized
+
+[2026-05-09T22:20:53.080496Z] local_errors.log initialized
+
+[2026-05-09T23:03:22.186802Z] local_errors.log initialized
+
+[2026-05-09T23:23:38.116639Z] local_errors.log initialized
+
+[2026-05-09T23:46:47.476104Z] local_errors.log initialized
+
+[2026-05-09T23:59:50.801556Z] local_errors.log initialized
+
+[2026-05-10T00:02:50.972424Z] local_errors.log initialized
+
+[2026-05-10T00:06:03.570796Z] local_errors.log initialized
+
+[2026-05-10T00:08:37.589809Z] local_errors.log initialized
+
+[2026-05-10T00:12:20.368874Z] local_errors.log initialized
+
+[2026-05-10T03:56:57.438287Z] local_errors.log initialized
+
+[2026-05-10T04:05:14.203705Z] local_errors.log initialized
+
+[2026-05-10T05:08:44.575026Z] local_errors.log initialized
+
+[2026-05-10T05:15:14.022439Z] local_errors.log initialized
+
+[2026-05-10T05:20:10.674843Z] local_errors.log initialized
+
+[2026-05-10T05:30:27.430924Z] local_errors.log initialized
+
+[2026-05-10T05:34:07.744033Z] local_errors.log initialized
+
+[2026-05-10T05:40:27.440177Z] local_errors.log initialized
+
+[2026-05-10T05:44:24.347171Z] local_errors.log initialized
+
+[2026-05-10T05:44:43.025851Z] unhandled exception
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 241, in react_app
+    resp = send_file(index_abs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\helpers.py", line 504, in send_file
+    return werkzeug.utils.send_file(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\utils.py", line 428, in send_file
+    stat = os.stat(path)
+           ^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+
+
+[2026-05-10T05:44:45.365973Z] unhandled exception
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 241, in react_app
+    resp = send_file(index_abs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\helpers.py", line 504, in send_file
+    return werkzeug.utils.send_file(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\utils.py", line 428, in send_file
+    stat = os.stat(path)
+           ^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+
+
+[2026-05-10T05:46:51.005983Z] local_errors.log initialized
+
+[2026-05-10T05:53:04.487803Z] local_errors.log initialized
+
+[2026-05-10T05:58:55.257100Z] local_errors.log initialized
+
+[2026-05-10T05:59:38.868882Z] local_errors.log initialized
+
+[2026-05-10T06:34:08.977596Z] local_errors.log initialized
+
+[2026-05-11T08:46:17.904150Z] unhandled exception
+UndefinedError: 'plan_prices' is undefined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 4082, in plans
+    user_id=current_user.id,
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\plans.html", line 781, in top-level template code
+    <div class="price"><strong>{{ plan_prices.annual_strong }}</strong><span>/ month</span></div>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 490, in getattr
+    return getattr(obj, attribute)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'plan_prices' is undefined
+
+
+[2026-05-11T19:43:39.797865Z] local_errors.log initialized
+
+[2026-05-13T21:25:19.483764Z] local_errors.log initialized
+[2026-05-14T04:16:11.895842Z] upload GET: pid=31484 build=1778478601
+[2026-05-14T04:16:32.431117Z] results_route POST: start
+[2026-05-14T04:16:32.466267Z] results_route POST: received upload filename=renata_voss_resume.pdf
+[2026-05-14T04:16:32.793401Z] results_route POST: extracted_text_len=1150
+[2026-05-14T04:16:32.797574Z] results_route POST: calling revise_resume resume_len=1150 jd_len=0
+[2026-05-14T04:16:59.138901Z] results_route POST: revise_resume ok revised_len=3661
+[2026-05-14T04:16:59.696542Z] results_route POST: redirecting to results_get
+[2026-05-14T04:16:59.719313Z] results_get GET: start
+[2026-05-14T04:16:59.720797Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-15T06:32:18.498259Z] local_errors.log initialized
+
+[2026-05-15T06:42:50.155615Z] local_errors.log initialized
+[2026-05-18T00:14:58.018046Z] upload GET: pid=44284 build=1778478601
+[2026-05-18T00:15:10.855882Z] results_route POST: start
+[2026-05-18T00:15:10.863403Z] results_route POST: received upload filename=actuarial_resume_internship_12-25.docx
+[2026-05-18T00:15:10.934380Z] results_route POST: extracted_text_len=2037
+[2026-05-18T00:15:10.934380Z] results_route POST: calling revise_resume resume_len=2037 jd_len=0
+[2026-05-18T00:15:35.532588Z] results_route POST: revise_resume ok revised_len=3729
+[2026-05-18T00:15:36.128337Z] results_route POST: redirecting to results_get
+[2026-05-18T00:15:36.145949Z] results_get GET: start
+[2026-05-18T00:15:36.162159Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-18T00:23:35.340640Z] local_errors.log initialized
+[2026-05-18T00:24:16.785157Z] results_get GET: start
+[2026-05-18T00:24:16.785157Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:24:34.465218Z] results_get GET: start
+[2026-05-18T00:24:34.465218Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:24:38.462032Z] results_get GET: start
+[2026-05-18T00:24:38.462032Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:28:51.427390Z] results_get GET: start
+[2026-05-18T00:28:51.428479Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:28:55.520360Z] results_get GET: start
+[2026-05-18T00:28:55.522361Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-05-18T00:30:20.101076Z] upload GET: pid=7176 build=1778994081
+[2026-05-18T00:30:49.619448Z] results_route POST: start
+[2026-05-18T00:30:50.594709Z] results_route POST: received upload filename=actuarial_resume_internship_12-25.docx
+[2026-05-18T00:30:50.670029Z] results_route POST: extracted_text_len=2037
+[2026-05-18T00:30:50.670029Z] results_route POST: calling revise_resume resume_len=2037 jd_len=0
+[2026-05-18T00:31:13.726992Z] results_route POST: revise_resume ok revised_len=2972
+[2026-05-18T00:31:15.230168Z] results_route POST: redirecting to results_get
+[2026-05-18T00:31:16.533893Z] results_get GET: start
+[2026-05-18T00:31:16.533893Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-18T01:07:37.128987Z] local_errors.log initialized
+[2026-05-18T06:13:09.327560Z] upload GET: pid=25156 build=1778994081
+[2026-05-18T06:13:19.353958Z] results_route POST: start
+[2026-05-18T06:13:19.549459Z] results_route POST: calling revise_resume resume_len=14 jd_len=0
+[2026-05-18T06:13:38.334140Z] results_route POST: revise_resume ok revised_len=2371
+[2026-05-18T06:13:38.900096Z] results_route POST: redirecting to results_get
+[2026-05-18T06:13:38.934186Z] results_get GET: start
+[2026-05-18T06:13:38.934186Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-21T21:02:40.390324Z] local_errors.log initialized
+
+[2026-05-23T23:02:27.402506Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3181, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-05-23T23:02:35.240853Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3181, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-05-23T23:23:10.329005Z] local_errors.log initialized
+
+[2026-05-23T23:30:40.014588Z] local_errors.log initialized
+
+[2026-05-30T07:22:02.966151Z] local_errors.log initialized
+
+[2026-05-30T07:24:35.546456Z] local_errors.log initialized
+[2026-05-30T07:24:41.111722Z] upload GET: pid=24460 build=1780125664
+[2026-05-30T07:25:02.877381Z] results_route POST: start
+[2026-05-30T21:16:42.727342Z] upload GET: pid=24460 build=1780125664
+[2026-05-30T21:16:53.129367Z] results_route POST: start
+[2026-05-30T21:16:53.159894Z] results_route POST: received upload filename=actuarial_resume_12-25_.docx
+[2026-05-30T21:16:53.276602Z] results_route POST: extracted_text_len=2035
+[2026-05-30T21:16:53.279586Z] results_route POST: calling revise_resume resume_len=2035 jd_len=0
+[2026-05-30T21:17:17.998834Z] results_route POST: revise_resume ok revised_len=3554
+[2026-05-30T21:17:18.556774Z] results_route POST: redirecting to results_get
+[2026-05-30T21:17:18.579162Z] results_get GET: start
+[2026-05-30T21:17:18.579162Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-30T21:43:52.059521Z] local_errors.log initialized
+
+[2026-05-30T21:47:28.217714Z] local_errors.log initialized
+
+[2026-05-30T21:49:49.450468Z] local_errors.log initialized
+
+[2026-05-30T21:53:50.333983Z] local_errors.log initialized
+
+[2026-05-30T22:14:36.822030Z] local_errors.log initialized
+[2026-05-30T22:57:10.627649Z] results_get GET: start
+[2026-05-30T22:57:10.633597Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,revision_name,source_revision_id
+
+[2026-05-30T23:01:33.320037Z] local_errors.log initialized
+
+[2026-05-30T23:32:59.285613Z] local_errors.log initialized
+
+[2026-05-30T23:38:28.170041Z] local_errors.log initialized
+[2026-05-31T03:14:04.619572Z] upload GET: pid=24640 build=1780178128
+[2026-05-31T03:14:27.782247Z] results_route POST: start
+[2026-05-31T03:14:28.476162Z] results_route POST: received upload filename=resume-boldProfessional-1780184734119.pdf
+[2026-05-31T03:14:30.987666Z] results_route POST: extracted_text_len=2721
+[2026-05-31T03:14:31.021773Z] results_route POST: calling revise_resume resume_len=2721 jd_len=0
+[2026-05-31T03:14:56.188284Z] results_route POST: revise_resume ok revised_len=3773
+[2026-05-31T03:14:57.376740Z] results_route POST: redirecting to results_get
+[2026-05-31T03:14:58.876650Z] results_get GET: start
+[2026-05-31T03:14:58.879166Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-05-31T04:15:42.574632Z] local_errors.log initialized
+[2026-06-04T03:56:15.351240Z] upload GET: pid=45772 build=1780200356
+
+[2026-06-04T04:07:49.350145Z] local_errors.log initialized
+
+[2026-06-04T04:08:00.112645Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3129, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+
+[2026-06-04T04:08:04.547769Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3129, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+
+[2026-06-04T04:08:55.435061Z] unhandled exception
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3129, in google_login
+    flow = Flow.from_client_secrets_file(
+           ^^^^
+UnboundLocalError: cannot access local variable 'Flow' where it is not associated with a value
+
+
+[2026-06-04T04:13:49.326473Z] local_errors.log initialized
+
+[2026-06-08T21:06:07.327618Z] local_errors.log initialized
+
+[2026-06-08T21:28:13.567917Z] local_errors.log initialized
+
+[2026-06-08T21:30:10.558801Z] local_errors.log initialized
+
+[2026-06-08T21:33:00.076940Z] local_errors.log initialized
+
+[2026-06-08T21:34:11.726548Z] local_errors.log initialized
+[2026-06-08T21:58:16.958280Z] upload GET: pid=44112 build=1780954175
+[2026-06-08T21:58:26.109775Z] results_route POST: start
+[2026-06-08T21:58:26.128364Z] results_route POST: calling revise_resume resume_len=5 jd_len=3
+
+[2026-06-08T21:58:33.122409Z] revise_resume error
+ValueError: Failed to connect to OpenAI API: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3511, in revise_resume
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3520, in revise_resume
+    raise ValueError(f"Failed to connect to OpenAI API: {error_msg}")
+ValueError: Failed to connect to OpenAI API: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+
+[2026-06-08T21:58:33.135625Z] results_route error
+ValueError: Failed to connect to OpenAI API: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3511, in revise_resume
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_utils\_utils.py", line 279, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\resources\chat\completions\completions.py", line 914, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 919, in request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1008, in _request
+    return self._retry_request(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1057, in _retry_request
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\openai\_base_client.py", line 1023, in _request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6112, in results_route
+    "billing_cancel(immediate) reason user_id=%s subscription_id=%s reason=%s other=%s",
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3520, in revise_resume
+    raise ValueError(f"Failed to connect to OpenAI API: {error_msg}")
+ValueError: Failed to connect to OpenAI API: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+[2026-06-08T21:58:33.141668Z] results_route POST: unhandled exception (see results_route error block above)
+
+[2026-06-09T21:54:00.235387Z] local_errors.log initialized
+
+[2026-06-09T22:10:26.646138Z] local_errors.log initialized
+
+[2026-06-09T22:16:16.664292Z] local_errors.log initialized
+
+[2026-06-10T07:25:48.307807Z] local_errors.log initialized
+
+[2026-06-11T18:21:40.442745Z] local_errors.log initialized
+
+[2026-06-11T19:00:37.661773Z] local_errors.log initialized
+
+[2026-06-12T00:46:02.824614Z] local_errors.log initialized
+
+[2026-06-12T04:10:14.403935Z] local_errors.log initialized
+
+[2026-06-12T04:11:30.497871Z] local_errors.log initialized
+
+[2026-06-12T04:15:57.014257Z] local_errors.log initialized
+
+[2026-06-12T04:22:03.616581Z] unhandled exception
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 242, in react_app
+    resp = send_file(index_abs)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\helpers.py", line 504, in send_file
+    return werkzeug.utils.send_file(  # type: ignore[return-value]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\utils.py", line 428, in send_file
+    stat = os.stat(path)
+           ^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\rliog\\Desktop\\Resumatic_website2\\static\\react\\index.html'
+
+
+[2026-06-13T08:36:44.057328Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10402, in my_revisions
+    )
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 554, in top-level template code
+    src="{{ url_for('api_template_thumbnail', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+
+
+[2026-06-13T08:36:48.307569Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10402, in my_revisions
+    )
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 554, in top-level template code
+    src="{{ url_for('api_template_thumbnail', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+
+
+[2026-06-13T08:36:54.753859Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10402, in my_revisions
+    )
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 554, in top-level template code
+    src="{{ url_for('api_template_thumbnail', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_template_thumbnail' with values ['revision_id']. Did you mean 'api_template_pdf' instead?
+
+
+[2026-06-13T21:00:05.979433Z] local_errors.log initialized
+
+[2026-06-14T22:33:46.461168Z] local_errors.log initialized
+
+[2026-06-14T22:34:37.888657Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3258, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-14T22:34:49.256060Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3258, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-14T22:39:06.262072Z] local_errors.log initialized
+
+[2026-06-14T22:41:24.691614Z] local_errors.log initialized
+
+[2026-06-14T22:44:35.271654Z] local_errors.log initialized
+
+[2026-06-14T22:45:02.079417Z] local_errors.log initialized
+
+[2026-06-14T23:18:22.902408Z] local_errors.log initialized
+
+[2026-06-14T23:19:22.464687Z] local_errors.log initialized
+
+[2026-06-14T23:19:43.879360Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3307, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-14T23:20:38.250368Z] local_errors.log initialized
+[2026-06-16T20:16:14.120118Z] upload GET: pid=44804 build=1781478808
+
+[2026-06-16T20:35:48.295935Z] local_errors.log initialized
+
+[2026-06-16T20:55:16.652041Z] local_errors.log initialized
+
+[2026-06-16T21:03:24.887750Z] local_errors.log initialized
+
+[2026-06-16T21:27:39.737970Z] local_errors.log initialized
+[2026-06-16T23:00:41.882202Z] upload GET: pid=80664 build=1781644224
+[2026-06-16T23:01:31.318653Z] results_route POST: start
+
+[2026-06-16T23:55:52.833440Z] local_errors.log initialized
+
+[2026-06-17T02:06:01.769934Z] local_errors.log initialized
+
+[2026-06-17T05:58:36.987904Z] local_errors.log initialized
+
+[2026-06-17T21:38:55.527721Z] local_errors.log initialized
+
+[2026-06-17T23:01:22.175317Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3307, in google_callback
+    user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+      ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-17T23:01:25.193631Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3307, in google_callback
+    user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+      ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-17T23:01:31.842887Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3307, in google_callback
+    user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+      ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-17T23:06:41.810512Z] local_errors.log initialized
+
+[2026-06-17T23:06:54.769638Z] local_errors.log initialized
+
+[2026-06-17T23:07:06.645919Z] local_errors.log initialized
+
+[2026-06-17T23:08:14.141336Z] local_errors.log initialized
+
+[2026-06-17T23:10:08.786477Z] local_errors.log initialized
+
+[2026-06-17T23:11:56.170666Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10571, in my_revisions
+    # Materialize to isolate downstream template rendering from paging/iteration errors.
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 431, in top-level template code
+    const JOB_COACH_API_URL = {{ url_for('api_job_search_coach')|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+
+
+[2026-06-17T23:12:06.484734Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10571, in my_revisions
+    # Materialize to isolate downstream template rendering from paging/iteration errors.
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 431, in top-level template code
+    const JOB_COACH_API_URL = {{ url_for('api_job_search_coach')|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+
+
+[2026-06-17T23:12:18.560366Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10571, in my_revisions
+    # Materialize to isolate downstream template rendering from paging/iteration errors.
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 431, in top-level template code
+    const JOB_COACH_API_URL = {{ url_for('api_job_search_coach')|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+
+
+[2026-06-17T23:12:24.629229Z] unhandled exception
+BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10571, in my_revisions
+    # Materialize to isolate downstream template rendering from paging/iteration errors.
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 431, in top-level template code
+    const JOB_COACH_API_URL = {{ url_for('api_job_search_coach')|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'api_job_search_coach'. Did you mean 'site_search' instead?
+
+
+[2026-06-17T23:14:22.391843Z] local_errors.log initialized
+
+[2026-06-17T23:15:38.444629Z] local_errors.log initialized
+
+[2026-06-17T23:15:47.762615Z] unhandled exception
+UndefinedError: 'today_iso' is undefined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10720, in my_revisions
+    return render_template('my_revisions.html', revisions=revisions, user=current_user, is_paid=is_paid_user(current_user))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 1040, in top-level template code
+    {% if app.follow_up_date and app.follow_up_date <= today_iso and app_status not in ['offer', 'rejected' ] %} {%
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'today_iso' is undefined
+
+
+[2026-06-17T23:16:47.386887Z] local_errors.log initialized
+
+[2026-06-17T23:16:56.311358Z] unhandled exception
+UndefinedError: 'today_iso' is undefined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 10720, in my_revisions
+    return render_template('my_revisions.html', revisions=revisions, user=current_user, is_paid=is_paid_user(current_user))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\my_revisions.html", line 1040, in top-level template code
+    {% if app.follow_up_date and app.follow_up_date <= today_iso and app_status not in ['offer', 'rejected' ] %} {%
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+jinja2.exceptions.UndefinedError: 'today_iso' is undefined
+
+
+[2026-06-17T23:18:15.724146Z] local_errors.log initialized
+
+[2026-06-17T23:26:05.683873Z] local_errors.log initialized
+
+[2026-06-18T06:12:32.286377Z] local_errors.log initialized
+[2026-06-18T19:48:46.781953Z] upload GET: pid=90732 build=1781762979
+[2026-06-18T19:50:21.584975Z] upload GET: pid=90732 build=1781762979
+[2026-06-18T19:51:00.028697Z] upload GET: pid=90732 build=1781762979
+[2026-06-18T19:54:42.663452Z] upload GET: pid=90732 build=1781762979
+
+[2026-06-18T23:00:20.684170Z] local_errors.log initialized
+
+[2026-06-18T23:00:50.819100Z] local_errors.log initialized
+
+[2026-06-18T23:02:05.656018Z] local_errors.log initialized
+
+[2026-06-18T23:02:21.498760Z] local_errors.log initialized
+
+[2026-06-18T23:03:38.718161Z] local_errors.log initialized
+
+[2026-06-18T23:04:17.576865Z] local_errors.log initialized
+
+[2026-06-18T23:12:45.810856Z] local_errors.log initialized
+
+[2026-06-18T23:14:49.674772Z] local_errors.log initialized
+
+[2026-06-18T23:15:03.018005Z] local_errors.log initialized
+
+[2026-06-18T23:15:47.024491Z] local_errors.log initialized
+
+[2026-06-18T23:15:57.454994Z] local_errors.log initialized
+
+[2026-06-18T23:18:52.549278Z] local_errors.log initialized
+
+[2026-06-18T23:33:27.334532Z] local_errors.log initialized
+
+[2026-06-18T23:33:53.784663Z] local_errors.log initialized
+
+[2026-06-18T23:36:21.410454Z] local_errors.log initialized
+
+[2026-06-18T23:36:49.768907Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3416, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-06-18T23:38:37.022868Z] local_errors.log initialized
+
+[2026-06-18T23:39:12.569633Z] local_errors.log initialized
+
+[2026-06-18T23:40:03.594589Z] local_errors.log initialized
+
+[2026-06-18T23:40:29.907012Z] local_errors.log initialized
+
+[2026-06-18T23:41:42.276863Z] local_errors.log initialized
+
+[2026-06-18T23:42:19.262812Z] local_errors.log initialized
+
+[2026-06-18T23:42:51.735840Z] local_errors.log initialized
+
+[2026-06-18T23:55:47.520650Z] local_errors.log initialized
+
+[2026-06-18T23:56:04.248972Z] local_errors.log initialized
+
+[2026-06-18T23:57:11.272391Z] local_errors.log initialized
+
+[2026-06-18T23:57:31.476409Z] local_errors.log initialized
+
+[2026-06-18T23:58:46.192463Z] local_errors.log initialized
+
+[2026-06-18T23:58:56.341861Z] local_errors.log initialized
+
+[2026-06-18T23:59:20.612356Z] local_errors.log initialized
+
+[2026-06-19T00:01:25.213189Z] local_errors.log initialized
+
+[2026-06-19T00:01:32.756160Z] local_errors.log initialized
+
+[2026-06-19T00:01:42.499100Z] local_errors.log initialized
+
+[2026-06-19T00:01:43.434618Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3404, in google_callback
+    state=session["state"],
+          ~~~~~~~^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-19T00:03:50.254214Z] local_errors.log initialized
+
+[2026-06-19T00:03:50.891564Z] unhandled exception
+NameError: name 'redirect_uri' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3349, in google_login
+    "redirect_uris": [redirect_uri]
+                      ^^^^^^^^^^^^
+NameError: name 'redirect_uri' is not defined
+
+
+[2026-06-19T00:04:00.628592Z] local_errors.log initialized
+
+[2026-06-19T00:04:01.363515Z] unhandled exception
+NameError: name 'redirect_uri' is not defined
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3398, in google_callback
+    "redirect_uris": [redirect_uri]
+                      ^^^^^^^^^^^^
+NameError: name 'redirect_uri' is not defined
+
+
+[2026-06-19T00:21:52.911321Z] local_errors.log initialized
+
+[2026-06-19T00:39:17.976273Z] local_errors.log initialized
+
+[2026-06-19T00:39:18.030705Z] local_errors.log initialized
+
+[2026-06-19T00:39:18.051961Z] local_errors.log initialized
+
+[2026-06-19T00:39:18.061489Z] local_errors.log initialized
+
+[2026-06-19T00:39:21.061567Z] local_errors.log initialized
+
+[2026-06-19T00:39:22.291654Z] local_errors.log initialized
+
+[2026-06-19T00:39:22.382959Z] local_errors.log initialized
+
+[2026-06-19T00:39:27.142853Z] local_errors.log initialized
+
+[2026-06-19T00:39:30.407152Z] local_errors.log initialized
+
+[2026-06-19T00:39:31.119817Z] local_errors.log initialized
+
+[2026-06-19T00:39:31.217446Z] local_errors.log initialized
+
+[2026-06-19T00:39:31.296061Z] local_errors.log initialized
+
+[2026-06-19T00:39:31.384344Z] local_errors.log initialized
+
+[2026-06-19T00:39:31.466314Z] local_errors.log initialized
+
+[2026-06-19T00:39:32.063829Z] local_errors.log initialized
+
+[2026-06-19T00:39:58.124547Z] local_errors.log initialized
+
+[2026-06-19T00:40:15.581698Z] local_errors.log initialized
+
+[2026-06-19T00:43:14.327304Z] local_errors.log initialized
+
+[2026-06-19T00:43:43.825871Z] local_errors.log initialized
+
+[2026-06-19T00:48:05.062692Z] local_errors.log initialized
+
+[2026-06-19T00:51:56.301588Z] local_errors.log initialized
+
+[2026-06-19T00:52:14.750061Z] local_errors.log initialized
+
+[2026-06-19T00:54:26.791793Z] local_errors.log initialized
+
+[2026-06-19T00:54:37.538753Z] local_errors.log initialized
+
+[2026-06-19T00:59:39.533252Z] local_errors.log initialized
+
+[2026-06-19T02:32:46.827676Z] unhandled exception
+KeyError: 'state'
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3280, in google_callback
+    "redirect_uris": [url_for("google_callback", _external=True)]
+      ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_session\base.py", line 80, in __getitem__
+    return super().__getitem__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'state'
+
+
+[2026-06-19T07:51:59.212835Z] local_errors.log initialized
+
+[2026-06-19T08:04:43.977447Z] local_errors.log initialized
+
+[2026-06-19T08:16:55.991077Z] local_errors.log initialized
+
+[2026-06-19T08:22:06.455304Z] local_errors.log initialized
+
+[2026-06-19T08:24:07.420014Z] local_errors.log initialized
+
+[2026-06-19T21:16:27.595360Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3465, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-06-19T21:16:33.760301Z] unhandled exception
+MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3465, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 271, in fetch_token
+    self._client.parse_request_uri_response(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\clients\web_application.py", line 220, in parse_request_uri_response
+    response = parse_authorization_code_response(uri, state=state)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\oauthlib\oauth2\rfc6749\parameters.py", line 278, in parse_authorization_code_response
+    raise MismatchingStateError()
+oauthlib.oauth2.rfc6749.errors.MismatchingStateError: (mismatching_state) CSRF Warning! State not equal in request and response.
+
+
+[2026-06-20T01:23:58.616834Z] local_errors.log initialized
+
+[2026-06-20T02:33:01.538688Z] local_errors.log initialized
+
+[2026-06-20T02:34:56.841179Z] local_errors.log initialized
+
+[2026-06-20T02:42:52.243537Z] local_errors.log initialized
+
+[2026-06-20T02:45:05.782306Z] local_errors.log initialized
+
+[2026-06-20T02:48:22.463521Z] local_errors.log initialized
+
+[2026-06-20T08:27:42.378941Z] local_errors.log initialized
+
+[2026-06-20T08:37:38.779242Z] local_errors.log initialized
+
+[2026-06-20T08:39:01.544544Z] local_errors.log initialized
+
+[2026-06-20T19:35:16.513537Z] local_errors.log initialized
+
+[2026-06-20T19:49:07.355952Z] local_errors.log initialized
+
+[2026-06-20T19:49:30.751482Z] local_errors.log initialized
+
+[2026-06-20T19:52:26.150115Z] local_errors.log initialized
+
+[2026-06-20T20:14:10.812421Z] local_errors.log initialized
+
+[2026-06-20T20:14:36.507155Z] local_errors.log initialized
+
+[2026-06-20T20:16:06.026520Z] local_errors.log initialized
+
+[2026-06-20T20:16:26.317446Z] local_errors.log initialized
+
+[2026-06-20T20:28:55.229131Z] local_errors.log initialized
+
+[2026-06-20T20:29:13.252483Z] local_errors.log initialized
+
+[2026-06-20T20:31:14.653378Z] local_errors.log initialized
+
+[2026-06-20T20:34:04.905194Z] local_errors.log initialized
+
+[2026-06-20T20:34:41.664491Z] local_errors.log initialized
+
+[2026-06-20T21:20:48.146608Z] local_errors.log initialized
+
+[2026-06-20T21:26:04.677491Z] local_errors.log initialized
+
+[2026-06-20T21:32:23.774456Z] local_errors.log initialized
+
+[2026-06-20T21:37:05.713804Z] local_errors.log initialized
+
+[2026-06-20T21:40:04.914437Z] local_errors.log initialized
+
+[2026-06-21T22:35:42.694489Z] local_errors.log initialized
+
+[2026-06-21T22:59:20.521792Z] local_errors.log initialized
+
+[2026-06-21T23:35:37.304202Z] local_errors.log initialized
+
+[2026-06-21T23:38:29.455812Z] local_errors.log initialized
+
+[2026-06-22T00:07:44.361961Z] local_errors.log initialized
+
+[2026-06-22T00:21:43.831857Z] local_errors.log initialized
+
+[2026-06-22T00:30:45.399909Z] local_errors.log initialized
+
+[2026-06-22T23:04:32.944826Z] unhandled exception
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x92 in position 2912: invalid start byte
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3927, in get_started
+    return render_template("get_started.html", year=current_year, user=current_user)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 64, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 95, in _get_source_fast
+    return loader.get_source(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\loaders.py", line 215, in get_source
+    contents = f.read()
+               ^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x92 in position 2912: invalid start byte
+
+
+[2026-06-22T23:04:50.957192Z] unhandled exception
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x92 in position 2912: invalid start byte
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3927, in get_started
+    return render_template("get_started.html", year=current_year, user=current_user)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 64, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 95, in _get_source_fast
+    return loader.get_source(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\loaders.py", line 215, in get_source
+    contents = f.read()
+               ^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x92 in position 2912: invalid start byte
+
+
+[2026-06-23T00:08:29.129062Z] local_errors.log initialized
+
+[2026-06-23T00:12:07.752727Z] local_errors.log initialized
+
+[2026-06-23T00:13:42.681353Z] local_errors.log initialized
+
+[2026-06-23T00:21:27.927091Z] local_errors.log initialized
+
+[2026-06-23T00:22:05.568956Z] local_errors.log initialized
+
+[2026-06-23T00:25:13.475770Z] local_errors.log initialized
+
+[2026-06-23T00:26:57.193151Z] local_errors.log initialized
+
+[2026-06-23T00:28:05.419229Z] local_errors.log initialized
+
+[2026-06-23T00:45:55.587643Z] local_errors.log initialized
+
+[2026-06-23T00:48:17.668651Z] local_errors.log initialized
+
+[2026-06-23T00:52:09.364116Z] local_errors.log initialized
+
+[2026-06-23T01:12:53.768117Z] local_errors.log initialized
+
+[2026-06-23T01:17:01.172419Z] local_errors.log initialized
+
+[2026-06-23T01:28:33.591588Z] local_errors.log initialized
+[2026-06-25T00:51:36.083846Z] results_route POST: start
+[2026-06-25T00:51:37.179696Z] results_route POST: calling revise_resume resume_len=10 jd_len=0
+[2026-06-25T00:51:57.644033Z] results_route POST: revise_resume ok revised_len=1926
+[2026-06-25T00:51:59.079654Z] results_route POST: redirecting to results_get
+[2026-06-25T00:52:00.486258Z] results_get GET: start
+[2026-06-25T00:52:00.492313Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-06-25T00:54:52.294931Z] results_route POST: start
+[2026-06-25T00:54:53.342228Z] results_route POST: calling revise_resume resume_len=6 jd_len=0
+[2026-06-25T00:55:10.498519Z] results_route POST: revise_resume ok revised_len=1974
+[2026-06-25T00:55:12.012984Z] results_route POST: redirecting to results_get
+[2026-06-25T00:55:12.061160Z] results_get GET: start
+[2026-06-25T00:55:12.065202Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-06-25T05:30:54.510170Z] local_errors.log initialized
+
+[2026-06-26T00:18:23.119624Z] local_errors.log initialized
+
+[2026-06-26T00:18:33.217554Z] local_errors.log initialized
+
+[2026-06-26T00:19:21.748000Z] local_errors.log initialized
+
+[2026-06-26T00:19:31.438144Z] local_errors.log initialized
+
+[2026-06-26T00:20:40.159909Z] local_errors.log initialized
+
+[2026-06-26T00:21:11.956584Z] local_errors.log initialized
+
+[2026-06-26T00:21:38.454998Z] local_errors.log initialized
+
+[2026-06-26T00:22:57.983203Z] local_errors.log initialized
+
+[2026-06-26T00:23:17.498669Z] local_errors.log initialized
+
+[2026-06-26T00:23:50.849643Z] local_errors.log initialized
+
+[2026-06-26T00:24:10.645640Z] local_errors.log initialized
+
+[2026-06-26T00:30:46.411664Z] local_errors.log initialized
+
+[2026-06-26T00:45:34.281513Z] local_errors.log initialized
+
+[2026-06-26T00:47:34.897512Z] local_errors.log initialized
+
+[2026-06-26T00:48:09.298111Z] local_errors.log initialized
+
+[2026-06-26T00:48:25.798071Z] local_errors.log initialized
+
+[2026-06-26T00:49:49.192904Z] local_errors.log initialized
+
+[2026-06-26T00:50:07.113724Z] local_errors.log initialized
+
+[2026-06-26T00:51:03.499892Z] local_errors.log initialized
+
+[2026-06-26T01:02:08.332378Z] local_errors.log initialized
+
+[2026-06-26T01:04:46.063157Z] local_errors.log initialized
+
+[2026-06-26T01:08:32.995666Z] local_errors.log initialized
+
+[2026-06-26T01:10:11.053897Z] local_errors.log initialized
+
+[2026-06-26T01:10:17.322079Z] local_errors.log initialized
+
+[2026-06-26T01:12:56.957494Z] local_errors.log initialized
+
+[2026-06-26T01:13:36.708024Z] local_errors.log initialized
+
+[2026-06-26T01:14:25.188663Z] local_errors.log initialized
+
+[2026-06-26T01:14:46.579310Z] local_errors.log initialized
+
+[2026-06-26T01:15:36.478704Z] local_errors.log initialized
+
+[2026-06-26T06:13:07.941921Z] local_errors.log initialized
+
+[2026-06-26T06:14:37.904204Z] local_errors.log initialized
+
+[2026-06-26T06:17:39.190236Z] local_errors.log initialized
+
+[2026-06-26T06:18:46.309206Z] local_errors.log initialized
+
+[2026-06-26T06:21:44.293844Z] local_errors.log initialized
+
+[2026-06-26T06:21:52.905919Z] local_errors.log initialized
+
+[2026-06-26T06:23:33.066772+00:00] local_errors.log initialized
+
+[2026-06-26T06:28:35.054304+00:00] local_errors.log initialized
+
+[2026-06-26T06:45:17.928214Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T06:45:27.107578Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T06:45:29.800768Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T06:45:47.209402Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    flow.fetch_token(authorization_response=request.url)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T07:04:03.864171+00:00] local_errors.log initialized
+
+[2026-06-26T07:07:19.230088+00:00] local_errors.log initialized
+
+[2026-06-26T07:29:53.320600+00:00] local_errors.log initialized
+
+[2026-06-26T07:31:10.556672+00:00] local_errors.log initialized
+
+[2026-06-26T07:31:52.848768+00:00] local_errors.log initialized
+
+[2026-06-26T07:33:54.056459+00:00] local_errors.log initialized
+
+[2026-06-26T07:44:54.710478+00:00] local_errors.log initialized
+
+[2026-06-26T07:46:29.394886+00:00] local_errors.log initialized
+
+[2026-06-26T07:47:07.694528+00:00] local_errors.log initialized
+
+[2026-06-26T07:48:43.037890Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    # Google OAuth Callback
+        ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T08:17:54.408199+00:00] local_errors.log initialized
+
+[2026-06-26T08:20:10.351895+00:00] local_errors.log initialized
+
+[2026-06-26T08:21:28.371563+00:00] local_errors.log initialized
+
+[2026-06-26T08:22:31.954243+00:00] local_errors.log initialized
+
+[2026-06-26T08:25:04.102691+00:00] local_errors.log initialized
+
+[2026-06-26T08:25:33.446685+00:00] local_errors.log initialized
+
+[2026-06-26T08:28:10.744314+00:00] local_errors.log initialized
+
+[2026-06-26T08:29:20.934258+00:00] local_errors.log initialized
+
+[2026-06-26T08:30:24.048208+00:00] local_errors.log initialized
+
+[2026-06-26T08:30:57.256730Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+    nxt = _pop_auth_next()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T08:33:23.426841+00:00] local_errors.log initialized
+
+[2026-06-26T08:34:25.656204+00:00] local_errors.log initialized
+
+[2026-06-26T08:34:53.864816+00:00] local_errors.log initialized
+
+[2026-06-26T08:35:10.505456Z] unhandled exception
+SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 741, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connection.py", line 920, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 460, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 504, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1041, in _create
+    self.do_handshake()
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\ssl.py", line 1319, in do_handshake
+    self._sslobj.do_handshake()
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+urllib3.exceptions.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 667, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 3686, in google_callback
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\google_auth_oauthlib\flow.py", line 285, in fetch_token
+    return self.oauth2session.fetch_token(self.client_config["token_uri"], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 381, in fetch_token
+    r = self.request(
+        ^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests_oauthlib\oauth2_session.py", line 566, in request
+    return super(OAuth2Session, self).request(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\requests\adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: HTTPSConnectionPool(host='oauth2.googleapis.com', port=443): Max retries exceeded with url: /token (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1010)')))
+
+
+[2026-06-26T08:38:50.174171+00:00] local_errors.log initialized
+
+[2026-06-26T08:39:35.490154+00:00] local_errors.log initialized
+
+[2026-06-26T08:49:37.205547+00:00] local_errors.log initialized
+
+[2026-06-26T08:53:43.727353+00:00] local_errors.log initialized
+
+[2026-06-26T08:55:36.413008+00:00] local_errors.log initialized
+
+[2026-06-26T08:57:12.938812+00:00] local_errors.log initialized
+
+[2026-06-26T08:59:43.818719+00:00] local_errors.log initialized
+
+[2026-06-26T09:00:15.003344+00:00] local_errors.log initialized
+
+[2026-06-26T09:04:28.109761+00:00] local_errors.log initialized
+
+[2026-06-26T09:07:32.940837+00:00] local_errors.log initialized
+
+[2026-06-26T20:04:55.578070+00:00] local_errors.log initialized
+
+[2026-06-26T20:16:34.396162+00:00] local_errors.log initialized
+
+[2026-06-26T20:20:31.953617+00:00] local_errors.log initialized
+
+[2026-06-26T20:53:00.071852+00:00] local_errors.log initialized
+
+[2026-06-26T20:54:48.709090+00:00] local_errors.log initialized
+
+[2026-06-26T20:58:14.596606+00:00] local_errors.log initialized
+
+[2026-06-26T20:58:43.382867+00:00] local_errors.log initialized
+
+[2026-06-26T21:04:26.770377+00:00] local_errors.log initialized
+
+[2026-06-26T21:08:32.310192+00:00] local_errors.log initialized
+
+[2026-06-26T21:18:06.214917+00:00] local_errors.log initialized
+
+[2026-06-26T21:22:15.104423+00:00] local_errors.log initialized
+
+[2026-06-26T21:34:46.429999+00:00] local_errors.log initialized
+
+[2026-06-26T21:35:05.171512+00:00] local_errors.log initialized
+
+[2026-06-26T21:35:11.156351+00:00] local_errors.log initialized
+
+[2026-06-26T21:43:56.823463+00:00] local_errors.log initialized
+
+[2026-06-26T21:43:59.468549+00:00] local_errors.log initialized
+
+[2026-06-26T21:48:48.699732+00:00] local_errors.log initialized
+
+[2026-06-26T21:51:51.377753+00:00] local_errors.log initialized
+
+[2026-06-26T21:56:11.207326+00:00] local_errors.log initialized
+
+[2026-06-26T21:57:01.990795+00:00] local_errors.log initialized
+
+[2026-06-26T22:01:12.059950+00:00] local_errors.log initialized
+
+[2026-06-26T22:02:13.612550+00:00] local_errors.log initialized
+
+[2026-06-26T22:04:23.300038+00:00] local_errors.log initialized
+
+[2026-06-26T22:05:33.028600+00:00] local_errors.log initialized
+
+[2026-06-26T22:08:52.477655+00:00] local_errors.log initialized
+
+[2026-06-26T22:16:28.584629+00:00] local_errors.log initialized
+
+[2026-06-26T22:29:02.529660+00:00] local_errors.log initialized
+
+[2026-06-26T22:30:13.663434+00:00] local_errors.log initialized
+
+[2026-06-26T22:31:29.455734+00:00] local_errors.log initialized
+
+[2026-06-26T22:40:30.989588+00:00] local_errors.log initialized
+
+[2026-06-26T22:41:48.601002+00:00] local_errors.log initialized
+[2026-06-26T22:53:37.415186Z] results_get GET: start
+[2026-06-26T22:53:37.417190Z] results_get GET: no results_data in session
+[2026-06-26T22:55:08.267481Z] results_get GET: start
+[2026-06-26T22:55:08.267481Z] results_get GET: no results_data in session
+
+[2026-06-26T23:19:26.155473+00:00] local_errors.log initialized
+[2026-06-26T23:25:18.294394Z] results_route POST: start
+[2026-06-26T23:25:19.233727Z] results_route POST: calling revise_resume resume_len=3 jd_len=0
+[2026-06-26T23:25:35.149703Z] results_route POST: revise_resume ok revised_len=2088
+[2026-06-26T23:25:36.730097Z] results_route POST: redirecting to results_get
+[2026-06-26T23:25:36.760967Z] results_get GET: start
+[2026-06-26T23:25:36.762968Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-06-26T23:32:49.594748+00:00] local_errors.log initialized
+
+[2026-06-26T23:32:49.594748+00:00] local_errors.log initialized
+
+[2026-06-26T23:42:17.882940+00:00] local_errors.log initialized
+
+[2026-06-26T23:42:49.765860+00:00] local_errors.log initialized
+
+[2026-06-27T02:40:56.151046+00:00] local_errors.log initialized
+
+[2026-06-27T02:46:45.764897+00:00] local_errors.log initialized
+
+[2026-06-27T02:51:48.108025+00:00] local_errors.log initialized
+
+[2026-06-27T02:52:55.297083+00:00] local_errors.log initialized
+
+[2026-06-27T02:56:48.001985+00:00] local_errors.log initialized
+
+[2026-06-27T02:57:29.409954+00:00] local_errors.log initialized
+
+[2026-06-27T02:58:05.858472Z] unhandled exception
+BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 13414, in admin_dashboard
+    )
+      
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\admin_dashboard.html", line 300, in top-level template code
+    <a href="{{ url_for('admin_login_breakdown_csv', days=7) }}" class="btn btn-sm btn-outline-success">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 13424, in admin_dashboard
+    rows = sorted(
+               ^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\admin_dashboard.html", line 300, in top-level template code
+    <a href="{{ url_for('admin_login_breakdown_csv', days=7) }}" class="btn btn-sm btn-outline-success">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+
+
+[2026-06-27T02:58:35.103371Z] unhandled exception
+BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 13414, in admin_dashboard
+    )
+      
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\admin_dashboard.html", line 300, in top-level template code
+    <a href="{{ url_for('admin_login_breakdown_csv', days=7) }}" class="btn btn-sm btn-outline-success">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask_login\utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 13424, in admin_dashboard
+    rows = sorted(
+               ^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\admin_dashboard.html", line 300, in top-level template code
+    <a href="{{ url_for('admin_login_breakdown_csv', days=7) }}" class="btn btn-sm btn-outline-success">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\flask\app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\.venv\Lib\site-packages\werkzeug\routing\map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_login_breakdown_csv' with values ['days']. Did you mean 'admin_login_audit' instead?
+
+
+[2026-06-27T03:01:13.985591+00:00] local_errors.log initialized
+
+[2026-06-27T03:01:46.049235+00:00] local_errors.log initialized
+
+[2026-06-27T03:07:28.519665+00:00] local_errors.log initialized
+
+[2026-06-27T03:08:50.521244+00:00] local_errors.log initialized
+
+[2026-06-27T03:23:54.434504+00:00] local_errors.log initialized
+
+[2026-06-27T03:29:43.757884+00:00] local_errors.log initialized
+
+[2026-06-27T03:30:08.183763+00:00] local_errors.log initialized
+
+[2026-06-27T03:41:46.439846+00:00] local_errors.log initialized
+
+[2026-06-27T04:02:17.347794+00:00] local_errors.log initialized
+
+[2026-06-27T04:11:10.188890+00:00] local_errors.log initialized
+
+[2026-06-27T06:35:38.712478+00:00] local_errors.log initialized
+
+[2026-06-27T06:44:41.675315+00:00] local_errors.log initialized
+
+[2026-06-27T07:32:50.688035+00:00] local_errors.log initialized
+
+[2026-06-27T07:34:06.008211+00:00] local_errors.log initialized
+
+[2026-06-27T07:40:16.900608+00:00] local_errors.log initialized
+
+[2026-06-27T07:44:07.781587+00:00] local_errors.log initialized
+
+[2026-06-27T07:44:19.584782+00:00] local_errors.log initialized
+
+[2026-06-27T07:44:29.710792+00:00] local_errors.log initialized
+
+[2026-06-27T08:11:16.038033+00:00] local_errors.log initialized
+[2026-06-28T00:31:06.958580Z] results_get GET: start
+[2026-06-28T00:31:06.972191Z] results_get GET: no results_data in session
+
+[2026-06-28T08:26:19.864819+00:00] local_errors.log initialized
+
+[2026-06-28T08:29:20.357436+00:00] local_errors.log initialized
+
+[2026-06-28T08:31:15.663969+00:00] local_errors.log initialized
+
+[2026-06-28T08:31:42.245130+00:00] local_errors.log initialized
+
+[2026-06-28T08:32:55.968186+00:00] local_errors.log initialized
+
+[2026-06-28T08:33:43.601582+00:00] local_errors.log initialized
+
+[2026-06-28T08:39:57.390875+00:00] local_errors.log initialized
+
+[2026-06-28T09:13:32.907201+00:00] local_errors.log initialized
+
+[2026-06-28T09:15:28.908612+00:00] local_errors.log initialized
+
+[2026-06-28T09:16:19.269648+00:00] local_errors.log initialized
+
+[2026-06-28T09:16:19.281650+00:00] local_errors.log initialized
+
+[2026-06-28T09:16:59.527653+00:00] local_errors.log initialized
+
+[2026-06-28T09:18:34.738113+00:00] local_errors.log initialized
+
+[2026-06-28T09:19:02.317711+00:00] local_errors.log initialized
+
+[2026-06-28T19:57:11.199032+00:00] local_errors.log initialized
+
+[2026-06-28T20:11:50.940153+00:00] local_errors.log initialized
+
+[2026-06-28T20:13:10.986684+00:00] local_errors.log initialized
+
+[2026-06-28T20:14:15.247246+00:00] local_errors.log initialized
+
+[2026-06-28T20:15:07.967149+00:00] local_errors.log initialized
+
+[2026-06-28T20:25:15.795064+00:00] local_errors.log initialized
+
+[2026-06-28T22:56:52.542148+00:00] local_errors.log initialized
+
+[2026-06-28T23:36:17.144522+00:00] local_errors.log initialized
+
+[2026-06-29T02:42:08.391619+00:00] local_errors.log initialized
+
+[2026-06-29T02:49:55.770800+00:00] local_errors.log initialized
+
+[2026-06-29T07:43:40.677334+00:00] local_errors.log initialized
+
+[2026-06-29T07:45:38.163951+00:00] local_errors.log initialized
+
+[2026-06-30T01:53:41.534904+00:00] local_errors.log initialized
+
+[2026-06-30T01:57:15.734229+00:00] local_errors.log initialized
+
+[2026-06-30T02:25:28.101018+00:00] local_errors.log initialized

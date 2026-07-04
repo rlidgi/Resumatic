@@ -85,7 +85,7 @@ def get_signed_session_cookie(template_name: str) -> str:
 
     flask_app = appmod.app
 
-    # Use the existing admin user ID from users_data.json (must exist in the running server process too).
+    # Use the existing admin user ID from the running server's Azure-backed user profile.
     admin_user_id = "108278720993144058808"
 
     structured_resume = build_long_resume_structured()

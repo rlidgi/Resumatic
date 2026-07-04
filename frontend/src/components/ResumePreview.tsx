@@ -3,7 +3,7 @@ import React from 'react';
 // resumes can come from multiple sources/versions and the UI tolerates missing fields.
 import ExecutiveTemplate from './templates/ExecutiveTemplate';
 import BoldProfessionalTemplate from './templates/BoldProfessionalTemplate';
-import TraditionalTemplate from './templates/TraditionalTemplate';
+import ContemporaryTemplate from './templates/ContemporaryTemplate';
 import ModernTemplate from './templates/ModernTemplate';
 
 interface ResumePreviewProps {
@@ -550,7 +550,7 @@ export default function ResumePreview({ resume }: ResumePreviewProps) {
             {normalizedTemplate === 'lavenderClassic' && <LavenderClassicTemplate resume={resume} />}
             {normalizedTemplate === 'popArt' && <PopArtTemplate resume={resume} />}
             {normalizedTemplate === 'orangeHeader' && <BoldProfessionalTemplate content={JSON.stringify(resume)} />}
-            {normalizedTemplate === 'blueLineClassic' && <TraditionalTemplate content={JSON.stringify(resume)} />}
+            {normalizedTemplate === 'blueLineClassic' && <ContemporaryTemplate content={JSON.stringify(resume)} />}
             {normalizedTemplate === 'cleanSidebar' && <ModernTemplate content={JSON.stringify(resume)} />}
         </div>
     );

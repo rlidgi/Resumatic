@@ -4,6 +4,8 @@
 <html>
 
 <head>
+
+{% include "_gtm.html" %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern.css') }}">
     <title>Modern Resume</title>
 </head>

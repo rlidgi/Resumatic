@@ -1,0 +1,694 @@
+<!DOCTYPE html><html lang="en" style="--tv-secondary: #415886; --tv-accent: #243C6B; --tv-creative2-grid-top: 1739px;"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Templates</title>
+    <link rel="icon" href="/static/images/favicon2.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/fonts/inter.css">
+    <script async="" src="https://scripts.clarity.ms/0.8.59/clarity.js"></script><script async="" src="https://www.clarity.ms/tag/sjihir10df?ref=bwt"></script><script>
+        (function (c, l, a, r, i, t, y) {
+            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i + "?ref=bwt";
+            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+        })(window, document, "clarity", "script", "sjihir10df");
+    </script>
+  <script type="module" crossorigin="" src="/static/react/assets/index-BtepyiQV.js"></script>
+  <link rel="stylesheet" crossorigin="" href="/static/react/assets/index-CzYxPDpL.css">
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script><style id="__pdfOnlyCss">
+                                                /* Use CSS @page margins so we can keep page 1 top unchanged via @page:first. */
+                                                @page { size: letter; margin: 0.5in 0in 0.5in 0in !important; }
+                                                @page:first { margin-top: 0in !important; }
+                        html, body { width: 816px; margin: 0 !important; padding: 0 !important; background: #fff !important; min-height: 0 !important; }
+                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                        body > *:not(#__pdfMount) { display: none !important; }
+
+                                                /* Per-page vertical background fills (repeat on each page using position:fixed).
+                                                     Fixes last-page short-content sidebars that otherwise stop early. */
+                                                body { position: relative !important; }
+                                                body::after {
+                                                    content: "";
+                                                    position: fixed;
+                                                    top: 0;
+                                                    left: 0;
+                                                    right: 0;
+                                                    bottom: 0;
+                                                    z-index: 0;
+                                                    pointer-events: none;
+                                                    background: transparent;
+                                                }
+                                                #__pdfMount { position: relative !important; z-index: 2 !important; }
+                                                #__pdfMount { background: transparent !important; }
+                                                body[data-pdf-template="clean"]::after {
+                                                    background: linear-gradient(to right,
+                                                        var(--tv-secondary) 0%,
+                                                        var(--tv-secondary) 33.333%,
+                                                        #ffffff 33.333%,
+                                                        #ffffff 100%
+                                                    );
+                                                }
+                                                body[data-pdf-template="classicrose"]::after {
+                                                    background: linear-gradient(to right,
+                                                        var(--tv-secondary) 0%,
+                                                        var(--tv-secondary) 33.333%,
+                                                        #ffffff 33.333%,
+                                                        #ffffff 100%
+                                                    );
+                                                }
+                                                body[data-pdf-template="modern"]::after {
+                                                    background: linear-gradient(to right,
+                                                        #ffffff 0%,
+                                                        #ffffff 60%,
+                                                        var(--tv-secondary) 60%,
+                                                        var(--tv-secondary) 100%
+                                                    );
+                                                }
+                                                body[data-pdf-template="creative2"]::after {
+                                                    /* Creative2:
+                                                       - Thin accent bar repeats full-height.
+                                                       - Wide sidebar background extends to page bottom but should NOT appear
+                                                         behind the header/summary on page 1.
+                                                         We measure the grid top and store it in --tv-creative2-grid-top. */
+                                                    background:
+                                                        linear-gradient(to right,
+                                                            var(--tv-accent) 0px,
+                                                            var(--tv-accent) 8px,
+                                                            transparent 8px,
+                                                            transparent 100%
+                                                        ),
+                                                        linear-gradient(to right,
+                                                            transparent 0px,
+                                                            transparent 8px,
+                                                            var(--tv-secondary) 8px,
+                                                            var(--tv-secondary) 32%,
+                                                            #ffffff 32%,
+                                                            #ffffff 100%
+                                                        );
+                                                }
+
+                                                body[data-pdf-template="creative2"]::before {
+                                                    content: "";
+                                                    position: absolute;
+                                                    top: 0;
+                                                    left: 8px;
+                                                    width: calc(32% - 8px);
+                                                    height: var(--tv-creative2-grid-top, 0px);
+                                                    background: #ffffff;
+                                                    z-index: 1;
+                                                    pointer-events: none;
+                                                }
+
+                                                /* Allow the per-page background gradient to show through inside the resume.
+                                                     Many templates render an opaque white wrapper (bg-white) which would otherwise
+                                                     hide the page-level background fills. */
+                                                #__pdfMount [data-template="clean"],
+                                                #__pdfMount [data-template="classicrose"],
+                                                #__pdfMount [data-template="modern"],
+                                                #__pdfMount [data-template="creative2"].creative2-template {
+                                                    background-color: transparent !important;
+                                                    background: transparent !important;
+                                                }
+                                                                /* Use flow-root (BFC) to prevent first-child top-margin collapse which can
+                                                                    appear as an unexplained white strip at the top of page 1 in PDFs. */
+                                                                #__pdfMount { display: flow-root !important; position: relative !important; left: 0 !important; top: 0 !important; }
+                                                                #__pdfMount .tv-style-root { display: flow-root !important; }
+
+                                                                /* PDF seam fix: rounded corners + overflow clipping can create a thin white strip
+                                                                    at the top edge when Chromium rasterizes backgrounds into PDF. Disable wrapper
+                                                                    rounding/overflow in the PDF output context only. */
+                                                                #__pdfMount > * { border-radius: 0 !important; overflow: visible !important; }
+                                                                #__pdfMount .tv-style-root > * { border-radius: 0 !important; overflow: visible !important; }
+                                                /* NOTE: Top-padding stripping is handled by a JS heuristic above, to avoid
+                                                   removing intentional header padding in full-bleed templates. */
+
+                                                                    /* IMPORTANT: Avoid negative top nudges in the PDF-only context.
+                                                                      When page 1 is already pulled up to cancel margins, extra negative
+                                                                      offsets can push text into the clipped top edge. */
+
+
+                                                                                                                                /* Creative2: keep the left edge flush so the yellow accent bar touches the page edge. */
+                                                                                                                                #__pdfMount [data-template="creative2"].creative2-template { margin: 0 !important; }
+                                                                                                                                                                          /* IMPORTANT: Avoid forcing min-heights in PDF.
+                                                                                                                                                                              Full-height vertical fills are handled by the per-page background (body::after). */
+                        #__pdfMount, #__pdfMount * {
+                          box-shadow: none !important;
+                          filter: none !important;
+                        }
+                        #__pdfMount .shadow,
+                        #__pdfMount .shadow-sm,
+                        #__pdfMount .shadow-md,
+                        #__pdfMount .shadow-lg,
+                        #__pdfMount .shadow-xl,
+                        #__pdfMount .shadow-2xl {
+                          box-shadow: none !important;
+                        }
+                        /* Apply font/spacing scale from slider settings (vars set on clone via setProperty) */
+                        #__pdfMount .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
+                        #__pdfMount .tv-style-root { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-xs { font-size: calc(0.75rem * var(--tv-font-scale, 1)) !important; line-height: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-sm { font-size: calc(0.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.25rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-base { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.5rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-lg { font-size: calc(1.125rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-xl { font-size: calc(1.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-2xl { font-size: calc(1.5rem * var(--tv-font-scale, 1)) !important; line-height: calc(2rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-3xl { font-size: calc(1.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.25rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-4xl { font-size: calc(2.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.5rem * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-5xl { font-size: calc(3rem * var(--tv-font-scale, 1)) !important; line-height: 1 !important; }
+                        #__pdfMount .tv-style-root .text-\[10px\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\[11px\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\[12px\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\[13px\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\[34px\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .text-\[38px\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-12 { margin-bottom: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-10 { margin-bottom: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-8 { margin-bottom: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-6 { margin-bottom: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-5 { margin-bottom: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-4 { margin-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-3 { margin-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-2 { margin-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mb-1 { margin-bottom: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-12 { margin-top: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-10 { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-8 { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-6 { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-5 { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-4 { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-3 { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-2 { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .mt-1 { margin-top: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-8 { gap: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-6 { gap: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-5 { gap: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-4 { gap: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-3 { gap: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .gap-2 { gap: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-4 { padding-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-3 { padding-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                        #__pdfMount .tv-style-root .pb-0 { padding-bottom: 0 !important; }
+                                                /* Creative template (Creative2): keep pagination stable in Chromium/print.
+                                                     IMPORTANT: the main issue is that CSS grid may be treated as non-fragmentable,
+                                                     pushing the entire body to the next page. Force a fragmentable layout and only
+                                                     keep *individual entries* together. */
+
+                                                /* Creative2 decorative elements are part of the template design.
+                                                   Do not hide them in PDF; only ensure they don't affect pagination by
+                                                   keeping layout containers fragmentable (rules below). */
+
+                                                                     /* Defensive: if any stale print CSS sets display:none, force them back on.
+                                                                         Preserve display:flex for the top-right blocks container. */
+                                                    #__pdfMount [data-template="creative2"] .creative2-decorative,
+                                                    #__pdfMount .creative2-decorative {
+                                                        display: block !important;
+                                                    }
+                                                    #__pdfMount [data-template="creative2"] .creative2-decorative.flex,
+                                                    #__pdfMount .creative2-decorative.flex {
+                                                        display: flex !important;
+                                                    }
+
+                                                /* Slightly compact typography/padding for PDF */
+                                                #__pdfMount [data-template="creative2"] .creative2-template,
+                                                #__pdfMount .creative2-template {
+                                                    font-size: 0.88em !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-body,
+                                                #__pdfMount .creative2-body {
+                                                        /* Preserve template gutter (pl-12/pr-8) so text doesn't hug the left edge */
+                                                        padding-top: 0.4rem !important;
+                                                        padding-bottom: 0.4rem !important;
+                                                        padding-left: 3rem !important;
+                                                        padding-right: 2rem !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-body > div:first-child,
+                                                #__pdfMount .creative2-body > div:first-child {
+                                                    margin-bottom: 0.35rem !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-summary,
+                                                #__pdfMount .creative2-summary {
+                                                    margin-top: 0.2rem !important;
+                                                    margin-bottom: 0 !important;
+                                                    line-height: 1.3 !important;
+                                                    max-width: none !important;
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                }
+
+                                                /* Ensure header/sections are allowed to break so the grid can start on page 1
+                                                     even when there is only limited remaining space after the summary. */
+                                                #__pdfMount [data-template="creative2"] .creative2-header,
+                                                #__pdfMount .creative2-header {
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-template,
+                                                #__pdfMount .creative2-template,
+                                                #__pdfMount [data-template="creative2"] .creative2-body,
+                                                #__pdfMount .creative2-body {
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-template section,
+                                                #__pdfMount .creative2-template section {
+                                                    break-before: auto !important;
+                                                    page-break-before: auto !important;
+                                                    break-after: auto !important;
+                                                    page-break-after: auto !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+
+                                                /* Make the main two-column layout fragmentable.
+                                                     Use a float-based sidebar for print/PDF so Chromium can paginate
+                                                     reliably (CSS grid pagination is inconsistent). */
+                                                #__pdfMount [data-template="creative2"] .creative2-grid,
+                                                #__pdfMount .creative2-grid {
+                                                    display: block !important;
+                                                    grid-template-columns: none !important;
+                                                    gap: 0 !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                    break-before: auto !important;
+                                                    page-break-before: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-grid::after,
+                                                #__pdfMount .creative2-grid::after {
+                                                    content: "" !important;
+                                                    display: block !important;
+                                                    clear: both !important;
+                                                }
+
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > aside,
+                                                #__pdfMount .creative2-grid > aside {
+                                                    float: left !important;
+                                                    width: 32% !important;
+                                                    max-width: none !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > main,
+                                                #__pdfMount .creative2-grid > main {
+                                                    display: block !important;
+                                                    margin-left: 36% !important;
+                                                    max-width: none !important;
+                                                    break-inside: auto !important;
+                                                    page-break-inside: auto !important;
+                                                }
+
+                                                /* In two-column mode, don't add vertical stacking spacing between columns. */
+                                                #__pdfMount [data-template="creative2"] .creative2-grid > * + *,
+                                                #__pdfMount .creative2-grid > * + * { margin-top: 0 !important; }
+
+                                                /* Allow long entries to split across pages.
+                                                     Chromium print often treats flex rows as non-fragmentable,
+                                                     which can create large bottom whitespace when an item is bumped.
+                                                     Use a float-based marker so content can paginate naturally. */
+                                                #__pdfMount [data-template="creative2"] .creative2-item,
+                                                #__pdfMount .creative2-item {
+                                                    /* flow-root contains internal floats (the bullet marker)
+                                                       without clearing the outer floated sidebar column. */
+                                                    display: flow-root !important;
+                                                    page-break-inside: auto !important;
+                                                    break-inside: auto !important;
+                                                }
+                                                #__pdfMount [data-template="creative2"] .creative2-item > span,
+                                                #__pdfMount .creative2-item > span {
+                                                    float: left !important;
+                                                    margin-right: 0.75rem !important;
+                                                }
+
+                                                #__pdfMount [data-template="creative2"] .creative2-template section,
+                                                #__pdfMount .creative2-template section { margin-bottom: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template section h3,
+                                                #__pdfMount .creative2-template section h3 { margin-bottom: 0.15rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-4 > * + *,
+                                                #__pdfMount .creative2-template .space-y-4 > * + * { margin-top: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-5 > * + *,
+                                                #__pdfMount .creative2-template .space-y-5 > * + * { margin-top: 0.35rem !important; }
+                                                #__pdfMount [data-template="creative2"] .creative2-template .space-y-2 > * + *,
+                                                #__pdfMount .creative2-template .space-y-2 > * + * { margin-top: 0.2rem !important; }
+                      
+                                                                                                    html::before {
+                                                                                                    body::before {
+                                                                                                        content: "";
+                                                                                                        position: fixed;
+                                                                                                        top: 0;
+                                                                                                        left: 0;
+                                                                                                        right: 0;
+                                                                                                        height: 10px;
+                                                                                                        background: #ff00ff !important;
+                                                                                                        z-index: 2147483647;
+                                                                                                    }
+                                                                                                    #__pdfMount { outline: 2px solid #ff00ff !important; }
+                                                                                                </style></head>
+
+<body data-pdf-template="creative2">
+    <div id="root"><div class="min-h-screen bg-gray-100"><div style="position: fixed; left: -100000px; top: 0px; width: 816px; opacity: 0; pointer-events: none;"><div id="templatePrintRoot"><div id="templatePrintContent" class="tv-style-root" style="--tv-paragraph-gap: 0px; --tv-font-scale: 1; --tv-space-scale: 1; --tv-accent: #243C6B; --tv-accent-40: #243C6B40; --tv-accent-60: #243C6B60; --tv-accent-light: #B2BBCB; --tv-accent-dark: #14213B; --tv-primary: #243C6B; --tv-primary-light: #B2BBCB; --tv-primary-dark: #172746; --tv-secondary: #415886; --tv-secondary-dark: #314366;"><style>
+            @media print {
+                [data-template="creative2"] .creative2-template { font-size: 0.82em !important; }
+                [data-template="creative2"] .creative2-body {
+                    /* Preserve the template's left accent gutter (pl-12) and right padding (pr-8)
+                       while slightly compacting vertical padding for multi-page PDF/print. */
+                    padding-top: 0.25rem !important;
+                    padding-bottom: 0.25rem !important;
+                    padding-left: 3rem !important;
+                    padding-right: 2rem !important;
+                }
+                [data-template="creative2"] .creative2-header { margin-bottom: 0.25rem !important; break-after: auto !important; page-break-after: auto !important; }
+                /* Printing fragmentation: many browsers don't fragment CSS grid well; force normal flow for multi-page PDFs */
+                [data-template="creative2"] .creative2-grid { display: block !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-grid::after { content: "" !important; display: block !important; clear: both !important; }
+                [data-template="creative2"] .creative2-grid > aside { float: left !important; width: 32% !important; }
+                [data-template="creative2"] .creative2-grid > main { display: block !important; margin-left: 36% !important; }
+                [data-template="creative2"] .creative2-grid > * + * { margin-top: 0 !important; }
+                [data-template="creative2"] .creative2-summary { margin-top: 0.5rem !important; margin-bottom: 0 !important; line-height: 1.25 !important; max-width: none !important; }
+                [data-template="creative2"] section { margin-bottom: 0.3rem !important; }
+                [data-template="creative2"] section h3 { margin-bottom: 0.1rem !important; }
+                /* Allow long items to paginate; avoid flex rows in print which can create large bottom whitespace */
+                [data-template="creative2"] .creative2-item { display: flow-root !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-item > span { float: left !important; margin-right: 0.75rem !important; }
+            }
+        </style><div class="bg-white rounded-lg shadow-lg ring-1 ring-black/5 max-w-5xl mx-auto creative2-template" data-template="creative2"><div class="relative"><div class="absolute left-0 top-0 bottom-0 w-2 creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent);"></div><div class="absolute top-0 right-0 flex gap-0.5 pointer-events-none creative2-decorative" aria-hidden="true"><div class="w-12 h-12 bg-[#00a99d]"></div><div class="w-10 h-12 bg-[#f25a4b]"></div><div class="w-14 h-12 bg-black"></div><div class="w-8 h-12 bg-[#facc15]"></div></div><div class="absolute top-2 left-3 w-8 h-8 opacity-90 pointer-events-none creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);"></div><div class="pl-12 pr-8 pt-4 pb-4 creative2-body"><div class="mb-3 creative2-header px-4 py-3" style="background-color: var(--tv-secondary-dark);"><div class="text-xs text-black/70 mb-0.5">Hello! I'm</div><div class="text-3xl font-bold text-black tracking-tight"><span class="text-black">ALEX</span><span class="text-black/50"> DOE</span></div><div class="text-base italic text-black/80 mt-0.5">Professional Title</div></div><div class="mt-1.5 mb-3 text-xs leading-relaxed text-black/80 max-w-2xl creative2-summary"><p>Entry-level Product Manager with 4+ years of experience supporting product strategy, KPI-driven optimization, and cross-functional delivery across UX and engineering. Contributed to a 20% revenue increase at XYZ Solutions by defining product direction, monitoring core metrics, and running A/B tests to improve performance. Skilled in PRDs, dashboards, competitive analysis, and agile execution; combines a technical foundation in computer science with strong stakeholder collaboration.</p></div><div class="grid grid-cols-12 gap-4 creative2-grid"><aside class="col-span-4 p-3" style="background-color: var(--tv-secondary);"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Contact</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2 text-sm"><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><div class="text-black break-words flex-1">+1 (234) 567-8901</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin w-4 h-4"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><div class="text-black break-words flex-1">NYC, NY</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail w-4 h-4"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></span><div class="text-black break-words flex-1">alexdoe@gmail.com</div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Skills</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2"><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Product Strategy</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Roadmapping</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">PRDs/User Stories</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Backlog Prioritization</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">KPI Definition &amp; Monitoring</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">A/B Testing</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Competitive Analysis</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">User &amp; Market Research</span></div></div></section></aside><main class="col-span-8"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Education</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-4"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div><div class="font-semibold text-sm">B.S. Computer Science (In Progress)</div><div class="text-xs text-black/70">HARVARD UNIVERSITY — Cambridge, MA</div><div class="text-xs text-black/60">Expected 11/2029</div></div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Experience</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-5"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2019 – 01/2021</div><div class="font-semibold text-sm">Associate Product Manager — XYZ SOLUTIONS — New York, NY</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Supported product vision and roadmap execution for customer-facing features; contributed to a 20% revenue increase through KPI-focused prioritization and iterative experimentation.</li><li class="marker:text-slate-400">Partnered with UX designers to improve customer experience; translated insights into requirements and design feedback to raise customer satisfaction.</li><li class="marker:text-slate-400">Collaborated with engineering to scope work, set priorities, and deliver key features on schedule; clarified tradeoffs and acceptance criteria to reduce rework.</li><li class="marker:text-slate-400">Monitored product performance via KPI dashboards and analytics; executed A/B tests to optimize conversion and engagement.</li></ul></div></div></div><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2017 – 01/2019</div><div class="font-semibold text-sm">Product Analyst — STARTUP — Remote</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Analyzed user needs and business opportunities to inform product direction; synthesized findings into actionable recommendations for stakeholders.</li><li class="marker:text-slate-400">Built and maintained performance dashboards to track adoption, engagement, and funnel performance; improved visibility into product health.</li><li class="marker:text-slate-400">Contributed to product requirement documents (PRDs), user stories, and competitive analyses to support product planning and positioning.</li></ul></div></div></div></div></section></main></div></div></div></div></div></div></div><header class="border-b bg-white"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between"><a href="/" class="inline-flex items-center gap-3"><img src="/static/images/logo23_small.webp" alt="Resumatic AI" class="h-16 w-auto object-contain" width="96" height="96" loading="lazy"></a><nav class="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary"><a href="/" class="hover:text-indigo-600 font-semibold">Home</a><a href="/blog" class="hover:text-indigo-600 font-semibold">Blog</a><a href="/about" class="hover:text-indigo-600 font-semibold">About</a><a href="/my_revisions" class="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">My Account</a><a href="/logout" class="text-white bg-red-500 px-4 py-2 rounded-xl hover:bg-red-600">Sign Out</a></nav><button type="button" class="md:hidden inline-flex items-center justify-center p-2 rounded-xl text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" aria-controls="mobileMenu" aria-expanded="false"><span class="sr-only">Open menu</span><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button></div></header><div class="fixed inset-0 bg-black/30 z-40 transition-opacity md:hidden opacity-0 pointer-events-none" aria-hidden="true"></div><div id="mobileMenu" class="fixed top-0 right-0 h-full w-64 bg-white shadow-lg z-50 p-6 md:hidden transform transition-transform duration-300 ease-in-out translate-x-full" aria-label="Mobile"><div class="flex justify-between items-center mb-8"><img alt="Logo" class="h-16 w-auto object-contain" src="/static/images/logo23_small.webp" loading="lazy" width="96" height="96"><button type="button" class="text-gray-500 hover:text-gray-900" aria-label="Close menu">✕</button></div><nav class="space-y-4"><a class="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/">Home</a><a class="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/blog">Blog</a><a class="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about">About</a><a class="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions">My Account</a><a class="block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-center" href="/logout">Sign Out</a></nav></div><main class="py-8 px-4"><div class="max-w-7xl mx-auto"><style>
+                  /* Mobile should match desktop: make key md:* utilities behave like desktop even on small viewports. */
+                  #templatePrintRoot .md\:flex-row { flex-direction: row !important; }
+                  #templatePrintRoot .md\:w-\[300px\] { width: 300px !important; }
+                  #templatePrintRoot .md\:flex-shrink-0 { flex-shrink: 0 !important; }
+                  #templatePrintRoot .md\:text-base { font-size: 1rem !important; line-height: 1.5rem !important; }
+                  #templatePrintRoot .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+
+                  /* Strip first-child top padding on the offscreen print root (matches PDF export) */
+                  #templatePrintRoot .tv-style-root > *:first-child {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+                  #templatePrintRoot .tv-style-root > *:first-child > :first-of-type > :first-of-type {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                  }
+
+                  /* Resume customization: apply only inside the resume root */
+                  /* Paragraph gap: apply even when a template only renders single <p> blocks */
+                  #templatePrintRoot .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
+
+                  /* Font scaling: override Tailwind text-* utilities to scale font sizes (causes reflow, not zoom). */
+                  #templatePrintRoot .tv-style-root { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-xs { font-size: calc(0.75rem * var(--tv-font-scale, 1)) !important; line-height: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-sm { font-size: calc(0.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.25rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-base { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.5rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-lg { font-size: calc(1.125rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-xl { font-size: calc(1.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-2xl { font-size: calc(1.5rem * var(--tv-font-scale, 1)) !important; line-height: calc(2rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-3xl { font-size: calc(1.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.25rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-4xl { font-size: calc(2.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.5rem * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-5xl { font-size: calc(3rem * var(--tv-font-scale, 1)) !important; line-height: 1 !important; }
+
+                  /* Also scale Tailwind "arbitrary" font sizes used by some templates (e.g. text-[11px]) */
+                  #templatePrintRoot .tv-style-root .text-\[10px\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-\[11px\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-\[12px\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-\[13px\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-\[34px\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .text-\[38px\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
+
+                  /* Scale Tailwind space-y-* gaps with a single multiplier */
+                  #templatePrintRoot .tv-style-root .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-8  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-6  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-5  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-4  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-3  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .space-y-2  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+
+                  /* Also scale common Tailwind margin utilities used by templates for section separation */
+                  #templatePrintRoot .tv-style-root .mb-12 { margin-bottom: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-10 { margin-bottom: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-8  { margin-bottom: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-6  { margin-bottom: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-5  { margin-bottom: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-4  { margin-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-3  { margin-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-2  { margin-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mb-1  { margin-bottom: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+
+                  #templatePrintRoot .tv-style-root .mt-12 { margin-top: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-10 { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-8  { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-6  { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-5  { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-4  { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-3  { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-2  { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .mt-1  { margin-top: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+
+                  /* Scale common flex/grid gaps too */
+                  #templatePrintRoot .tv-style-root .gap-8 { gap: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .gap-6 { gap: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .gap-5 { gap: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .gap-4 { gap: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .gap-3 { gap: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .gap-2 { gap: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+
+                  /* Scale common padding-bottom utilities used by templates for section/item spacing */
+                  #templatePrintRoot .tv-style-root .pb-4 { padding-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .pb-3 { padding-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  #templatePrintRoot .tv-style-root .pb-0 { padding-bottom: 0 !important; }
+
+                  /* PDF preview page styling (HTML-only simulation of the PDF) */
+                  .pdfPreviewPage {
+                    width: 816px;
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
+                                        background: var(--pdf-page-bg, #fff);
+                    position: relative;
+                                        overflow: hidden;
+                    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+                  }
+
+                                    /* Full-height vertical backgrounds in preview (last-page aesthetics):
+                                         match the PDF intent where sidebars/vertical accents fill the page even if text ends early. */
+                                    /* IMPORTANT: Do not force min-height on layout containers here.
+                                       It creates a visible blank gap after the last content block.
+                                       Instead, rely on the page-level background gradient (pdfPreviewPage)
+                                       and make the template wrapper transparent so the gradient shows through. */
+                                    .pdfPreviewViewport [data-template="clean"],
+                                    .pdfPreviewViewport [data-template="classicrose"],
+                                    .pdfPreviewViewport [data-template="modern"],
+                                    .pdfPreviewViewport [data-template="creative2"].creative2-template {
+                                        background: transparent !important;
+                                    }
+                                    /* Continuous edit-mode preview: no forced page height or clipping */
+                                    .pdfPreviewPageContinuous {
+                                        height: auto !important;
+                                        overflow: visible !important;
+                                        box-shadow: none !important;
+                                    }
+                                    /* Remove the bottom "end-of-document" shadow marker on the LAST page. */
+                                    .pdfPreviewPageLast {
+                                        box-shadow: none !important;
+                                    }
+                  .pdfPreviewTarget {
+                    position: relative;
+                    top: 0;
+                    left: 0;
+                    width: 816px;
+                                                                                                                                                                                                                                                                                                                                height: var(--pdf-page-h, 1064px);
+                                        overflow: hidden;
+                                        contain: paint;
+                                                                                                                                                                --pdf-pad-top-first: 0px;
+                                                                                                                                                                --pdf-pad-top-rest: 48px;
+                                                                                                                                                                --pdf-pad-bottom: 48px;
+                                                                                                                                                                --pdf-view-h-first: 996px;
+                                                                                                                                                                --pdf-view-h-rest: 948px;
+                  }
+                                    /* Remove template outer "card" shadow/ring in preview (clipped shadows can look like an end marker). */
+                                    .pdfPreviewTarget .tv-style-root > * {
+                                        box-shadow: none !important;
+                                    }
+                                                                        .pdfPreviewViewport {
+                                                                                position: absolute;
+                                                                                left: 0;
+                                                                                right: 0;
+                                                                            top: var(--pdf-pad-top);
+                                                                            height: var(--pdf-view-h);
+                                                                                overflow: hidden;
+                                                                        }
+                                    .pdfPreviewTargetContinuous {
+                                        height: auto !important;
+                                        overflow: visible !important;
+                                        contain: none !important;
+                                    }
+                  /* Match the print iframe's outer-gutter stripping */
+                                    .pdfPreviewTarget > *,
+                                    .pdfPreviewViewport > * {
+                    width: 816px !important;
+                    max-width: none !important;
+                    margin: 0 !important;
+                  }
+                  .pdfPreviewTarget .mx-auto { margin-left: 0 !important; margin-right: 0 !important; }
+                  .pdfPreviewTarget .max-w-3xl,
+                  .pdfPreviewTarget .max-w-4xl,
+                  .pdfPreviewTarget .max-w-5xl,
+                  .pdfPreviewTarget .max-w-6xl,
+                  .pdfPreviewTarget .max-w-7xl { max-width: none !important; width: 100% !important; }
+                  .pdfPreviewTarget .md\:flex-row { flex-direction: row !important; }
+                  .pdfPreviewTarget .md\:w-\[300px\] { width: 300px !important; }
+                  .pdfPreviewTarget .md\:flex-shrink-0 { flex-shrink: 0 !important; }
+
+                        /* NOTE: Do NOT strip first-page top padding/margins. Requirement: page 1 top must remain unchanged.
+                            Page 2+ top breathing room is handled via the simulated page padding in the viewport. */
+
+
+
+                  /* Apply Customize variables in the preview too */
+                  .pdfPreviewTarget .tv-style-root p { margin: 0 0 var(--tv-paragraph-gap, 0px) 0 !important; }
+                  .pdfPreviewTarget .tv-style-root { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-xs { font-size: calc(0.75rem * var(--tv-font-scale, 1)) !important; line-height: calc(1rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-sm { font-size: calc(0.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.25rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-base { font-size: calc(1rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.5rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-lg { font-size: calc(1.125rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-xl { font-size: calc(1.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(1.75rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-2xl { font-size: calc(1.5rem * var(--tv-font-scale, 1)) !important; line-height: calc(2rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-3xl { font-size: calc(1.875rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.25rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-4xl { font-size: calc(2.25rem * var(--tv-font-scale, 1)) !important; line-height: calc(2.5rem * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-5xl { font-size: calc(3rem * var(--tv-font-scale, 1)) !important; line-height: 1 !important; }
+
+                  /* Also scale Tailwind "arbitrary" font sizes used by some templates (e.g. text-[11px]) */
+                  .pdfPreviewTarget .tv-style-root .text-\[10px\] { font-size: calc(10px * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-\[11px\] { font-size: calc(11px * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-\[12px\] { font-size: calc(12px * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-\[13px\] { font-size: calc(13px * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-\[34px\] { font-size: calc(34px * var(--tv-font-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .text-\[38px\] { font-size: calc(38px * var(--tv-font-scale, 1)) !important; }
+
+                  .pdfPreviewTarget .tv-style-root .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-8  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-6  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-5  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-4  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-3  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .space-y-2  > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+
+                  .pdfPreviewTarget .tv-style-root .mb-12 { margin-bottom: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-10 { margin-bottom: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-8  { margin-bottom: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-6  { margin-bottom: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-5  { margin-bottom: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-4  { margin-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-3  { margin-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-2  { margin-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mb-1  { margin-bottom: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+
+                  .pdfPreviewTarget .tv-style-root .mt-12 { margin-top: calc(3rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-10 { margin-top: calc(2.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-8  { margin-top: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-6  { margin-top: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-5  { margin-top: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-4  { margin-top: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-3  { margin-top: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-2  { margin-top: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .mt-1  { margin-top: calc(0.25rem * var(--tv-space-scale, 1)) !important; }
+
+                  .pdfPreviewTarget .tv-style-root .gap-8 { gap: calc(2rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .gap-6 { gap: calc(1.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .gap-5 { gap: calc(1.25rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .gap-4 { gap: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .gap-3 { gap: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .gap-2 { gap: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+
+                  /* Scale common padding-bottom utilities used by templates for section/item spacing */
+                  .pdfPreviewTarget .tv-style-root .pb-4 { padding-bottom: calc(1rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .pb-3 { padding-bottom: calc(0.75rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .pb-2 { padding-bottom: calc(0.5rem * var(--tv-space-scale, 1)) !important; }
+                  .pdfPreviewTarget .tv-style-root .pb-0 { padding-bottom: 0 !important; }
+                </style><div class="mb-4"><div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5"><div class="text-base font-semibold text-gray-900">Resume PDF download</div><div class="mt-1 text-sm text-gray-700">Click “Download PDF” if your browser blocks auto-downloads.</div><div class="mt-4 flex flex-col sm:flex-row gap-2"><button type="button" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ">Download PDF</button><button type="button" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors">Back to Job Search Hub</button></div></div></div><div class="grid grid-cols-1 gap-4 sm:gap-6"><div class="min-w-0"><div class=""><div class=""><div class="sm:hidden mb-2 flex items-center justify-between gap-2"><div class="min-w-0"></div><button type="button" class="shrink-0 px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors">Full screen</button></div><div class="bg-gray-100 rounded-lg p-4 overflow-x-auto"><div style="position: fixed; left: -100000px; top: 0px; width: 816px; visibility: hidden;"><div class="pdfPreviewPage"><div class="pdfPreviewTarget"><div class="pdfPreviewViewport"><div class="tv-style-root" style="--tv-paragraph-gap: 0px; --tv-font-scale: 1; --tv-space-scale: 1; --tv-accent: #243C6B; --tv-accent-40: #243C6B40; --tv-accent-60: #243C6B60; --tv-accent-light: #B2BBCB; --tv-accent-dark: #14213B; --tv-primary: #243C6B; --tv-primary-light: #B2BBCB; --tv-primary-dark: #172746; --tv-secondary: #415886; --tv-secondary-dark: #314366;"><style>
+            @media print {
+                [data-template="creative2"] .creative2-template { font-size: 0.82em !important; }
+                [data-template="creative2"] .creative2-body {
+                    /* Preserve the template's left accent gutter (pl-12) and right padding (pr-8)
+                       while slightly compacting vertical padding for multi-page PDF/print. */
+                    padding-top: 0.25rem !important;
+                    padding-bottom: 0.25rem !important;
+                    padding-left: 3rem !important;
+                    padding-right: 2rem !important;
+                }
+                [data-template="creative2"] .creative2-header { margin-bottom: 0.25rem !important; break-after: auto !important; page-break-after: auto !important; }
+                /* Printing fragmentation: many browsers don't fragment CSS grid well; force normal flow for multi-page PDFs */
+                [data-template="creative2"] .creative2-grid { display: block !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-grid::after { content: "" !important; display: block !important; clear: both !important; }
+                [data-template="creative2"] .creative2-grid > aside { float: left !important; width: 32% !important; }
+                [data-template="creative2"] .creative2-grid > main { display: block !important; margin-left: 36% !important; }
+                [data-template="creative2"] .creative2-grid > * + * { margin-top: 0 !important; }
+                [data-template="creative2"] .creative2-summary { margin-top: 0.5rem !important; margin-bottom: 0 !important; line-height: 1.25 !important; max-width: none !important; }
+                [data-template="creative2"] section { margin-bottom: 0.3rem !important; }
+                [data-template="creative2"] section h3 { margin-bottom: 0.1rem !important; }
+                /* Allow long items to paginate; avoid flex rows in print which can create large bottom whitespace */
+                [data-template="creative2"] .creative2-item { display: flow-root !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-item > span { float: left !important; margin-right: 0.75rem !important; }
+            }
+        </style><div class="bg-white rounded-lg shadow-lg ring-1 ring-black/5 max-w-5xl mx-auto creative2-template" data-template="creative2"><div class="relative"><div class="absolute left-0 top-0 bottom-0 w-2 creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent);"></div><div class="absolute top-0 right-0 flex gap-0.5 pointer-events-none creative2-decorative" aria-hidden="true"><div class="w-12 h-12 bg-[#00a99d]"></div><div class="w-10 h-12 bg-[#f25a4b]"></div><div class="w-14 h-12 bg-black"></div><div class="w-8 h-12 bg-[#facc15]"></div></div><div class="absolute top-2 left-3 w-8 h-8 opacity-90 pointer-events-none creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);"></div><div class="pl-12 pr-8 pt-4 pb-4 creative2-body"><div class="mb-3 creative2-header px-4 py-3" style="background-color: var(--tv-secondary-dark);"><div class="text-xs text-black/70 mb-0.5">Hello! I'm</div><div class="text-3xl font-bold text-black tracking-tight"><span class="text-black">ALEX</span><span class="text-black/50"> DOE</span></div><div class="text-base italic text-black/80 mt-0.5">Professional Title</div></div><div class="mt-1.5 mb-3 text-xs leading-relaxed text-black/80 max-w-2xl creative2-summary"><p>Entry-level Product Manager with 4+ years of experience supporting product strategy, KPI-driven optimization, and cross-functional delivery across UX and engineering. Contributed to a 20% revenue increase at XYZ Solutions by defining product direction, monitoring core metrics, and running A/B tests to improve performance. Skilled in PRDs, dashboards, competitive analysis, and agile execution; combines a technical foundation in computer science with strong stakeholder collaboration.</p></div><div class="grid grid-cols-12 gap-4 creative2-grid"><aside class="col-span-4 p-3" style="background-color: var(--tv-secondary);"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Contact</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2 text-sm"><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><div class="text-black break-words flex-1">+1 (234) 567-8901</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin w-4 h-4"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><div class="text-black break-words flex-1">NYC, NY</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail w-4 h-4"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></span><div class="text-black break-words flex-1">alexdoe@gmail.com</div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Skills</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2"><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Product Strategy</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Roadmapping</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">PRDs/User Stories</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Backlog Prioritization</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">KPI Definition &amp; Monitoring</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">A/B Testing</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Competitive Analysis</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">User &amp; Market Research</span></div></div></section></aside><main class="col-span-8"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Education</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-4"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div><div class="font-semibold text-sm">B.S. Computer Science (In Progress)</div><div class="text-xs text-black/70">HARVARD UNIVERSITY — Cambridge, MA</div><div class="text-xs text-black/60">Expected 11/2029</div></div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Experience</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-5"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2019 – 01/2021</div><div class="font-semibold text-sm">Associate Product Manager — XYZ SOLUTIONS — New York, NY</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Supported product vision and roadmap execution for customer-facing features; contributed to a 20% revenue increase through KPI-focused prioritization and iterative experimentation.</li><li class="marker:text-slate-400">Partnered with UX designers to improve customer experience; translated insights into requirements and design feedback to raise customer satisfaction.</li><li class="marker:text-slate-400">Collaborated with engineering to scope work, set priorities, and deliver key features on schedule; clarified tradeoffs and acceptance criteria to reduce rework.</li><li class="marker:text-slate-400">Monitored product performance via KPI dashboards and analytics; executed A/B tests to optimize conversion and engagement.</li></ul></div></div></div><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2017 – 01/2019</div><div class="font-semibold text-sm">Product Analyst — STARTUP — Remote</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Analyzed user needs and business opportunities to inform product direction; synthesized findings into actionable recommendations for stakeholders.</li><li class="marker:text-slate-400">Built and maintained performance dashboards to track adoption, engagement, and funnel performance; improved visibility into product health.</li><li class="marker:text-slate-400">Contributed to product requirement documents (PRDs), user stories, and competitive analyses to support product planning and positioning.</li></ul></div></div></div></div></section></main></div></div></div></div></div></div></div></div></div><div style="width: 1px; margin: 0px auto;"><div style="transform: scale(0.00121936); transform-origin: left top;"><div class="space-y-6"><div class="space-y-8"><div class="inline-flex items-center gap-3 w-full"><div class="inline-flex items-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200 font-semibold px-4 py-2 text-lg">Page 1</div><div class="h-px flex-1 bg-gray-300/80"></div></div><div class="pdfPreviewPage pdfPreviewPageLast" style="--pdf-page-h: 1064px; --pdf-page-bg: linear-gradient(to right, #243C6B 0px, #243C6B 8px, #ffffff 8px, #ffffff 100%); --pdf-pad-top: 0px; --pdf-view-h: 996px;"><div class="pdfPreviewTarget"><div class="pdfPreviewViewport"><div style="transform: translateY(0px) scale(1); transform-origin: left top;"><div class="tv-style-root" style="--tv-paragraph-gap: 0px; --tv-font-scale: 1; --tv-space-scale: 1; --tv-accent: #243C6B; --tv-accent-40: #243C6B40; --tv-accent-60: #243C6B60; --tv-accent-light: #B2BBCB; --tv-accent-dark: #14213B; --tv-primary: #243C6B; --tv-primary-light: #B2BBCB; --tv-primary-dark: #172746; --tv-secondary: #415886; --tv-secondary-dark: #314366;"><style>
+            @media print {
+                [data-template="creative2"] .creative2-template { font-size: 0.82em !important; }
+                [data-template="creative2"] .creative2-body {
+                    /* Preserve the template's left accent gutter (pl-12) and right padding (pr-8)
+                       while slightly compacting vertical padding for multi-page PDF/print. */
+                    padding-top: 0.25rem !important;
+                    padding-bottom: 0.25rem !important;
+                    padding-left: 3rem !important;
+                    padding-right: 2rem !important;
+                }
+                [data-template="creative2"] .creative2-header { margin-bottom: 0.25rem !important; break-after: auto !important; page-break-after: auto !important; }
+                /* Printing fragmentation: many browsers don't fragment CSS grid well; force normal flow for multi-page PDFs */
+                [data-template="creative2"] .creative2-grid { display: block !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-grid::after { content: "" !important; display: block !important; clear: both !important; }
+                [data-template="creative2"] .creative2-grid > aside { float: left !important; width: 32% !important; }
+                [data-template="creative2"] .creative2-grid > main { display: block !important; margin-left: 36% !important; }
+                [data-template="creative2"] .creative2-grid > * + * { margin-top: 0 !important; }
+                [data-template="creative2"] .creative2-summary { margin-top: 0.5rem !important; margin-bottom: 0 !important; line-height: 1.25 !important; max-width: none !important; }
+                [data-template="creative2"] section { margin-bottom: 0.3rem !important; }
+                [data-template="creative2"] section h3 { margin-bottom: 0.1rem !important; }
+                /* Allow long items to paginate; avoid flex rows in print which can create large bottom whitespace */
+                [data-template="creative2"] .creative2-item { display: flow-root !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-item > span { float: left !important; margin-right: 0.75rem !important; }
+            }
+        </style><div class="bg-white rounded-lg shadow-lg ring-1 ring-black/5 max-w-5xl mx-auto creative2-template" data-template="creative2"><div class="relative"><div class="absolute left-0 top-0 bottom-0 w-2 creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent);"></div><div class="absolute top-0 right-0 flex gap-0.5 pointer-events-none creative2-decorative" aria-hidden="true"><div class="w-12 h-12 bg-[#00a99d]"></div><div class="w-10 h-12 bg-[#f25a4b]"></div><div class="w-14 h-12 bg-black"></div><div class="w-8 h-12 bg-[#facc15]"></div></div><div class="absolute top-2 left-3 w-8 h-8 opacity-90 pointer-events-none creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);"></div><div class="pl-12 pr-8 pt-4 pb-4 creative2-body"><div class="mb-3 creative2-header px-4 py-3" style="background-color: var(--tv-secondary-dark);"><div class="text-xs text-black/70 mb-0.5">Hello! I'm</div><div class="text-3xl font-bold text-black tracking-tight"><span class="text-black">ALEX</span><span class="text-black/50"> DOE</span></div><div class="text-base italic text-black/80 mt-0.5">Professional Title</div></div><div class="mt-1.5 mb-3 text-xs leading-relaxed text-black/80 max-w-2xl creative2-summary"><p>Entry-level Product Manager with 4+ years of experience supporting product strategy, KPI-driven optimization, and cross-functional delivery across UX and engineering. Contributed to a 20% revenue increase at XYZ Solutions by defining product direction, monitoring core metrics, and running A/B tests to improve performance. Skilled in PRDs, dashboards, competitive analysis, and agile execution; combines a technical foundation in computer science with strong stakeholder collaboration.</p></div><div class="grid grid-cols-12 gap-4 creative2-grid"><aside class="col-span-4 p-3" style="background-color: var(--tv-secondary);"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Contact</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2 text-sm"><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><div class="text-black break-words flex-1">+1 (234) 567-8901</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin w-4 h-4"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><div class="text-black break-words flex-1">NYC, NY</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail w-4 h-4"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></span><div class="text-black break-words flex-1">alexdoe@gmail.com</div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Skills</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2"><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Product Strategy</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Roadmapping</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">PRDs/User Stories</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Backlog Prioritization</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">KPI Definition &amp; Monitoring</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">A/B Testing</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Competitive Analysis</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">User &amp; Market Research</span></div></div></section></aside><main class="col-span-8"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Education</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-4"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div><div class="font-semibold text-sm">B.S. Computer Science (In Progress)</div><div class="text-xs text-black/70">HARVARD UNIVERSITY — Cambridge, MA</div><div class="text-xs text-black/60">Expected 11/2029</div></div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Experience</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-5"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2019 – 01/2021</div><div class="font-semibold text-sm">Associate Product Manager — XYZ SOLUTIONS — New York, NY</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Supported product vision and roadmap execution for customer-facing features; contributed to a 20% revenue increase through KPI-focused prioritization and iterative experimentation.</li><li class="marker:text-slate-400">Partnered with UX designers to improve customer experience; translated insights into requirements and design feedback to raise customer satisfaction.</li><li class="marker:text-slate-400">Collaborated with engineering to scope work, set priorities, and deliver key features on schedule; clarified tradeoffs and acceptance criteria to reduce rework.</li><li class="marker:text-slate-400">Monitored product performance via KPI dashboards and analytics; executed A/B tests to optimize conversion and engagement.</li></ul></div></div></div><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2017 – 01/2019</div><div class="font-semibold text-sm">Product Analyst — STARTUP — Remote</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Analyzed user needs and business opportunities to inform product direction; synthesized findings into actionable recommendations for stakeholders.</li><li class="marker:text-slate-400">Built and maintained performance dashboards to track adoption, engagement, and funnel performance; improved visibility into product health.</li><li class="marker:text-slate-400">Contributed to product requirement documents (PRDs), user stories, and competitive analyses to support product planning and positioning.</li></ul></div></div></div></div></section></main></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></main></div></div>
+
+
+
+<div id="__pdfMount" style="margin: 0px; padding: 0px; background: transparent; position: relative; left: 0px; top: 0px;"><div id="templatePrintContent" class="tv-style-root" style="--tv-paragraph-gap: 0px; --tv-font-scale: 1; --tv-space-scale: 1; --tv-accent: #243C6B; --tv-accent-40: #243C6B40; --tv-accent-60: #243C6B60; --tv-accent-light: #B2BBCB; --tv-accent-dark: #14213B; --tv-primary: #243C6B; --tv-primary-light: #B2BBCB; --tv-primary-dark: #172746; --tv-secondary: #415886; --tv-secondary-dark: #314366; position: relative; left: 0px; top: 0px;"><style>
+            @media print {
+                [data-template="creative2"] .creative2-template { font-size: 0.82em !important; }
+                [data-template="creative2"] .creative2-body {
+                    /* Preserve the template's left accent gutter (pl-12) and right padding (pr-8)
+                       while slightly compacting vertical padding for multi-page PDF/print. */
+                    padding-top: 0.25rem !important;
+                    padding-bottom: 0.25rem !important;
+                    padding-left: 3rem !important;
+                    padding-right: 2rem !important;
+                }
+                [data-template="creative2"] .creative2-header { margin-bottom: 0.25rem !important; break-after: auto !important; page-break-after: auto !important; }
+                /* Printing fragmentation: many browsers don't fragment CSS grid well; force normal flow for multi-page PDFs */
+                [data-template="creative2"] .creative2-grid { display: block !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-grid::after { content: "" !important; display: block !important; clear: both !important; }
+                [data-template="creative2"] .creative2-grid > aside { float: left !important; width: 32% !important; }
+                [data-template="creative2"] .creative2-grid > main { display: block !important; margin-left: 36% !important; }
+                [data-template="creative2"] .creative2-grid > * + * { margin-top: 0 !important; }
+                [data-template="creative2"] .creative2-summary { margin-top: 0.5rem !important; margin-bottom: 0 !important; line-height: 1.25 !important; max-width: none !important; }
+                [data-template="creative2"] section { margin-bottom: 0.3rem !important; }
+                [data-template="creative2"] section h3 { margin-bottom: 0.1rem !important; }
+                /* Allow long items to paginate; avoid flex rows in print which can create large bottom whitespace */
+                [data-template="creative2"] .creative2-item { display: flow-root !important; page-break-inside: auto !important; break-inside: auto !important; }
+                [data-template="creative2"] .creative2-item > span { float: left !important; margin-right: 0.75rem !important; }
+            }
+        </style><div class="bg-white rounded-lg shadow-lg ring-1 ring-black/5 max-w-5xl mx-auto creative2-template" data-template="creative2"><div class="relative"><div class="absolute left-0 top-0 bottom-0 w-2 creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent);"></div><div class="absolute top-0 right-0 flex gap-0.5 pointer-events-none creative2-decorative" aria-hidden="true"><div class="w-12 h-12 bg-[#00a99d]"></div><div class="w-10 h-12 bg-[#f25a4b]"></div><div class="w-14 h-12 bg-black"></div><div class="w-8 h-12 bg-[#facc15]"></div></div><div class="absolute top-2 left-3 w-8 h-8 opacity-90 pointer-events-none creative2-decorative" aria-hidden="true" style="background-color: var(--tv-accent); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);"></div><div class="pl-12 pr-8 pt-4 pb-4 creative2-body"><div class="mb-3 creative2-header px-4 py-3" style="background-color: var(--tv-secondary-dark);"><div class="text-xs text-black/70 mb-0.5">Hello! I'm</div><div class="text-3xl font-bold text-black tracking-tight"><span class="text-black">ALEX</span><span class="text-black/50"> DOE</span></div><div class="text-base italic text-black/80 mt-0.5">Professional Title</div></div><div class="mt-1.5 mb-3 text-xs leading-relaxed text-black/80 max-w-2xl creative2-summary"><p>Entry-level Product Manager with 4+ years of experience supporting product strategy, KPI-driven optimization, and cross-functional delivery across UX and engineering. Contributed to a 20% revenue increase at XYZ Solutions by defining product direction, monitoring core metrics, and running A/B tests to improve performance. Skilled in PRDs, dashboards, competitive analysis, and agile execution; combines a technical foundation in computer science with strong stakeholder collaboration.</p></div><div class="grid grid-cols-12 gap-4 creative2-grid"><aside class="col-span-4 p-3" style="background-color: var(--tv-secondary);"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Contact</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2 text-sm"><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-phone w-4 h-4"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></span><div class="text-black break-words flex-1">+1 (234) 567-8901</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin w-4 h-4"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><div class="text-black break-words flex-1">NYC, NY</div></div><div class="flex items-start gap-2"><span class="text-black/60 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail w-4 h-4"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></span><div class="text-black break-words flex-1">alexdoe@gmail.com</div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Skills</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-2"><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Product Strategy</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Roadmapping</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">PRDs/User Stories</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Backlog Prioritization</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">KPI Definition &amp; Monitoring</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">A/B Testing</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">Competitive Analysis</span></div><div class="flex items-start gap-2"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><span class="text-sm">User &amp; Market Research</span></div></div></section></aside><main class="col-span-8"><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Education</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-4"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div><div class="font-semibold text-sm">B.S. Computer Science (In Progress)</div><div class="text-xs text-black/70">HARVARD UNIVERSITY — Cambridge, MA</div><div class="text-xs text-black/60">Expected 11/2029</div></div></div></div></section><section class="mb-3 last:mb-0"><h3 class="font-bold text-sm uppercase tracking-wide mb-2" style="color: var(--tv-accent);">Experience</h3><div class="h-px mb-3" style="background-color: var(--tv-accent-dark);"></div><div class="space-y-5"><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2019 – 01/2021</div><div class="font-semibold text-sm">Associate Product Manager — XYZ SOLUTIONS — New York, NY</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Supported product vision and roadmap execution for customer-facing features; contributed to a 20% revenue increase through KPI-focused prioritization and iterative experimentation.</li><li class="marker:text-slate-400">Partnered with UX designers to improve customer experience; translated insights into requirements and design feedback to raise customer satisfaction.</li><li class="marker:text-slate-400">Collaborated with engineering to scope work, set priorities, and deliver key features on schedule; clarified tradeoffs and acceptance criteria to reduce rework.</li><li class="marker:text-slate-400">Monitored product performance via KPI dashboards and analytics; executed A/B tests to optimize conversion and engagement.</li></ul></div></div></div><div class="flex gap-3 creative2-item"><span class="w-2 h-2 rounded-full border mt-1.5 flex-shrink-0" style="border-color: var(--tv-accent-dark);"></span><div class="flex-1"><div class="text-xs text-black/60 mb-0.5">01/2017 – 01/2019</div><div class="font-semibold text-sm">Product Analyst — STARTUP — Remote</div><div class="mt-1.5 text-sm leading-relaxed text-black/80"><ul class="text-sm leading-relaxed list-disc pl-5"><li class="marker:text-slate-400">Analyzed user needs and business opportunities to inform product direction; synthesized findings into actionable recommendations for stakeholders.</li><li class="marker:text-slate-400">Built and maintained performance dashboards to track adoption, engagement, and funnel performance; improved visibility into product health.</li><li class="marker:text-slate-400">Contributed to product requirement documents (PRDs), user stories, and competitive analyses to support product planning and positioning.</li></ul></div></div></div></div></section></main></div></div></div></div></div></div></body></html>

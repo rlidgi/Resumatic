@@ -387,7 +387,7 @@ export default function LavenderClassicTemplate({
                                                 <div className="text-[10px] text-[#6c5a86]">{String(proj.technologies)}</div>
                                             )
                                         ) : null}
-                                        {proj.description ? (
+                                        {(editMode || proj.description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
                                                     <EditableText value={String(proj.description)} onChange={(v) => updateProject(idx, 'description', v)} editMode={editMode} liveUpdate layoutSafe as="div" className="text-[11px] leading-relaxed text-[#3b2a52]" multiline />
@@ -640,4 +640,5 @@ function formatInitials(initials: string): string {
     if (clean.length <= 1) return clean;
     return `${clean[0]}/${clean[1]}`;
 }
+
 

@@ -156,6 +156,7 @@ export default function CleanSidebarTemplate({
     }, [emit]);
 
     const data = editedData || {};
+    const professionalTitle = String(data.title || '').trim();
 
     const getHeading = useCallback((key: string, fallback: string) => {
         const h = data?.section_headings?.[key];
@@ -189,21 +190,24 @@ export default function CleanSidebarTemplate({
                         data.name || "Your Name"
                     )}
                 </div>
-                <div className="mt-1 text-sm text-slate-700 font-medium">
-                    {editMode ? (
-                        <EditableText
-                            value={String(data.title || "Professional Title")}
-                            onChange={(v) => updateField('title', v)}
-                            editMode={editMode}
-                            liveUpdate
-                            layoutSafe
-                            className="text-sm text-slate-700 font-medium"
-                            as="div"
-                        />
-                    ) : (
-                        data.title || "Professional Title"
-                    )}
-                </div>
+                {(editMode || professionalTitle) ? (
+                    <div className="mt-1 text-sm text-slate-700 font-medium">
+                        {editMode ? (
+                            <EditableText
+                                value={String(data.title || '')}
+                                placeholder="Professional Title"
+                                onChange={(v) => updateField('title', v)}
+                                editMode={editMode}
+                                liveUpdate
+                                layoutSafe
+                                className="text-sm text-slate-700 font-medium"
+                                as="div"
+                            />
+                        ) : (
+                            professionalTitle
+                        )}
+                    </div>
+                ) : null}
 
                 <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-slate-600">
                     {(editMode || data.location) && (
@@ -344,7 +348,7 @@ export default function CleanSidebarTemplate({
                                                 <div className="mt-1 text-[11px] text-slate-600">{String(proj.technologies)}</div>
                                             )
                                         ) : null}
-                                        {proj.description ? (
+                                        {(editMode || proj.description) ? (
                                             <div className="mt-2">
                                                 {editMode ? (
                                                     <EditableText
@@ -598,7 +602,7 @@ function ExperienceBlock({ exp, editMode, idx, onUpdate }: { exp: any; editMode:
                     )
                 ) : null}
             </div>
-            {exp.description ? (
+            {(editMode || exp.description) ? (
                 <div className="mt-2">
                     {editMode ? (
                         <EditableText
@@ -713,6 +717,7 @@ function extractStrengths(sections: any): Array<{ title: string; body?: string }
     const skills = normalizeList(sections.skills);
     return skills.slice(0, 3).map((s) => ({ title: s }));
 }
+
 
 
 

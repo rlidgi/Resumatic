@@ -162,7 +162,7 @@ export default function Editor() {
                                 <option value="classicRose">Classic</option>
                                 <option value="creative2">Creative</option>
                                 <option value="boldProfessional">Bold Professional</option>
-                                <option value="traditional">Traditional</option>
+                                <option value="traditional">Contemporary</option>
                                 <option value="modern">Modern</option>
                             </select>
 

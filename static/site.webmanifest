@@ -42,7 +42,7 @@
             ]
         },
         {
-            "name": "My Account",
+            "name": "Career Dashboard",
             "short_name": "Account",
             "description": "Access your resume revisions",
             "url": "/my_revisions",

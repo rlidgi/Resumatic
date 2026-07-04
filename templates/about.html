@@ -2,17 +2,30 @@
 <html lang="en">
 
 <head>
+    {% include "_gtm.html" %}
+
+    <!-- Google tag (gtag.js) 
+<script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+<script defer="">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18159645263');
+</script>
+
+-->
 
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
-    <script>
+    <script defer="" src="https://www.googletagmanager.com/gtag/js?id=AW-18159645263"></script>
+
+    <script defer="">
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
 
-        gtag('config', 'G-KRPLMCR73G');
+        gtag('config', 'AW-18159645263');
     </script>
-
     {% include "_clarity.html" %}
 
 
@@ -46,6 +59,7 @@
 
     <link rel="icon" type="image/x-icon" href="/static/images/favicon2.ico">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/responsive.css">
     <link rel="stylesheet" href="/static/css/animations.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
@@ -114,14 +128,14 @@
                     </div>
                     <div class="hidden md:flex items-center space-x-8">
                         <a class="text-gray-600 hover:text-primary transition-colors" href="/blog">Blog</a>
-                        <a class="text-primary font-semibold" href="/about">About</a>
+                        <a class="text-primary font-semibold" href="/about">About Us</a>
                         <a class="text-gray-600 hover:text-primary transition-colors" href="/">
                             <i class="fas fa-home mr-2"></i>Home
                         </a>
                         <a class="text-gray-600 hover:text-primary transition-colors" href="/#faq">FAQ</a>
                         {% if user %}
                         <a href="/my_revisions" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            <i class="fas fa-user mr-2"></i>My Account
+                            <i class="fas fa-user mr-2"></i>Career Dashboard
                         </a>
                         <a href="/logout" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                             Logout
@@ -160,7 +174,7 @@
                 {% if user %}
                 <a href="/my_revisions"
                     class="block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center">
-                    <i class="fas fa-user mr-2"></i>My Account
+                    <i class="fas fa-user mr-2"></i>Career Dashboard
                 </a>
                 <a href="/settings"
                     class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2">
@@ -185,23 +199,6 @@
     </header>
 
     <main>
-        <!-- Hero Section -->
-        <section class="relative overflow-hidden bg-gradient-to-b from-white to-gray-50 py-16">
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center">
-                    <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-                        About ResumaticAI
-                    </h1>
-                    <p class="text-xl sm:text-2xl text-gray-700 mb-3">Tailor your resume to the job — faster, clearer,
-                        and ATS-ready</p>
-                    <p class="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto">
-                        ResumaticAI helps you align your resume with the job description keywords recruiters and ATS
-                        look for — without sounding robotic.
-                    </p>
-
-                </div>
-            </div>
-        </section>
 
 
 
@@ -217,29 +214,40 @@
                                     <h2 class="h3 fw-bold text-primary">Our Story</h2>
                                 </div>
                                 <p class="lead text" style="text-indent: 40px;">
-                                    Hey there 👋, I’m Yaron! Currently, I am pursuing a PhD degree in the area of
-                                    Machine Learning and Artificial Intelligence. I have extensive experience in the
-                                    natural
-                                    language processing space, which, in recent years, has garnered much of the world's
-                                    attention, with the advent of large language models, most notably of which is
-                                    ChatGPT. I am incredibly excited about being involved in this space at this pivotal
-                                    time.</p>
+                                    Hey there 👋, I’m Yaron! I’m currently pursuing a PhD in the area of Machine
+                                    Learning and
+                                    Artificial Intelligence, specializing in natural language processing (NLP), the
+                                    field
+                                    powering today’s most advanced AI systems, including large language models like
+                                    ChatGPT.</p>
                                 <p class="lead text" style="text-indent: 40px;">
-                                    My expertise in the emerging field of natural language processing places me among a
-                                    select group of practitioners currently working at the forefront of this space. I’m
-                                    excited to offer resume assistance that goes far beyond using tools like ChatGPT.
-                                    The guidance you receive is the result of my expertise in finding the right
-                                    combination of a finely tuned model specifically suited for resume enhancement along
-                                    with crucial prompt engineering.
+                                    What sets ResumaticAI apart is not just the use of AI, but how that AI is built and
+                                    applied. My background allows me to go beyond off-the-shelf solutions and deeply
+                                    understand how language models behave, where they fall short, and how to optimize
+                                    them for specific, high-stakes tasks like resume writing.
                                 </p>
                                 <p class="lead text" style="text-indent: 40px;">
-                                    ResumaticAI is currently supported by ads on some pages, which allows us to offer
-                                    our core services completely free of charge. The app has recently launched and we
-                                    are still in the process of gathering feedback from users, so look out for upcoming
-                                    improvements and updates. We also plan to offer paid plans with premium features,
-                                    but expect to continue providing a free resume revision as a preview of our service.
+                                    Resumes are not just text, they’re strategic documents that need to communicate
+                                    impact, align with recruiter expectations, and pass applicant tracking systems.
+                                    Achieving this requires more than generic AI prompts. It requires carefully selected
+                                    models, precise prompt engineering, and an understanding of how subtle language
+                                    choices influence outcomes.
                                 </p>
-
+                                <p class="lead text" style="text-indent: 40px;">
+                                    That’s exactly where my expertise comes in. Every improvement generated by
+                                    ResumaticAI is informed by advanced knowledge of LLM behavior, fine-tuning
+                                    strategies, and real-world NLP applications, resulting in outputs that are more
+                                    targeted, more effective, and more aligned with what actually gets results.
+                                </p>
+                                <p class="lead text" style="text-indent: 40px;">
+                                    At this stage I do not yet have the resources to invest in creating a flashy,
+                                    award-winning
+                                    interface, however this is more than made up for by the depth of my expertise
+                                    in large language models and the quality of the results they produce. Because, at
+                                    the
+                                    end of the day, the value isn’t in
+                                    how the tool looks, it’s in how much stronger it makes your resume.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -302,26 +310,24 @@
                 </div>
             </section>
 
-            <!-- Call to Action -->
-            <section class="mb-5">
-                <div class="row justify-content-center">
-                    <div class="col-lg-8">
-                        <div class="card bg-indigo-500 text-white border-0">
-                            <div class="card-body p-5 text-center">
-                                <i class="bi bi-stars section-icon"></i>
-                                <h3 class="h4 fw-bold mb-3">Ready to Transform Your Career?</h3>
-                                <p class="lead mb-4">Join thousands of professionals who have enhanced their resumes
-                                    with Resumatic AI</p>
-                                <a href="/" class="btn btn-light btn-lg">
+        </div>
 
-                                    Start Your Resume Optimization
-                                </a>
-                            </div>
+        <!-- transform start -->
+        <section class="transform">
+            <div class="container">
+                <div class="transform__item">
+                    <div class="transform__item-content">
+                        <h2>Ready to Transform Your Resume?</h2>
+                        <p>We have made available what we believe to be a truly comprehensive, one-stop solution helping
+                            you land your next job!</p>
+                        <div class="faq__bottom p-0">
+                            <a href="/get-started">Get Started <img src="/static/images/faq-01.png" alt=""></a>
                         </div>
                     </div>
                 </div>
-            </section>
-        </div>
+            </div>
+        </section>
+        <!-- transform end -->
     </main>
 
     <footer class="bg-dark text-light py-4 mt-5">
