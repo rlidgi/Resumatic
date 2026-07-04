@@ -63,7 +63,6 @@ import atexit
 import threading
 import atexit
 
-
 # Import newsletter system
 from email_audit import read_email_events, record_email_event
 from newsletter import NewsletterManager, NewsletterConfig
@@ -6851,10 +6850,6 @@ def _stripe_customer_has_any_subscription(customer_id: str) -> bool:
     """
     cid = (customer_id or "").strip()
     if not cid or not _stripe_enabled():
-        return False
-    try:
-
-    except Exception:
         return False
     try:
         # Preferred: include canceled subs
