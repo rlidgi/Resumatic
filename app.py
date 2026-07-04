@@ -244,6 +244,7 @@ _REACT_SPA_INFO_CACHE = {
 }
 
 
+
 def _get_react_spa_shell_info():
     """Return (index_abs_path, entry_js_filename, entry_css_filename, index_mtime_int).
 
@@ -357,7 +358,12 @@ except Exception:
 
 
 ################################
-
+load_dotenv() 
+load_dotenv(
+    ".env.local",
+    override=True
+)  # .env.local overrides when present locally
+stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
 
 
 
@@ -1419,7 +1425,7 @@ def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[bool, str]:
                 if email:
                     customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True)
             if customer_id:
-                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+
                 res = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
                 for sub in list(getattr(res, 'data', []) or []):
                     if _stripe_subscription_grants_access(sub):
@@ -5306,7 +5312,6 @@ def _fetch_stripe_subscriptions_index() -> dict:
     if not _stripe_enabled():
         return empty
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
         all_subs = []
         starting_after = None
         while True:
@@ -5408,7 +5413,7 @@ def _get_stripe_customer_email_cached(customer_id: str, cache: dict) -> str:
     email = ''
     if _stripe_enabled():
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             cust = stripe.Customer.retrieve(cid)
             email = str(getattr(cust, 'email', '') or '').strip().lower()
         except Exception:
@@ -5670,7 +5675,6 @@ def _find_stripe_customer_id_by_email(
     if not e or not _stripe_enabled():
         return ''
     try:
-        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
         candidates = []
         seen_ids = set()
 
@@ -5759,7 +5763,7 @@ def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, 
         # Create a new Stripe Customer
         if not _stripe_enabled():
             return ''
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         customer_metadata = {"user_id": str(user_id)}
         if mark_ephemeral:
             customer_metadata["ephemeral_checkout"] = "1"
@@ -5796,7 +5800,7 @@ def _cleanup_ephemeral_stripe_customer(customer_id: str, user_id: str = '') -> N
     if not cid or not _stripe_enabled():
         return
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         cust = stripe.Customer.retrieve(cid)
         deleted = bool(getattr(cust, 'deleted', False) or _stripe_obj_get(cust, 'deleted', False))
         if deleted:
@@ -5828,7 +5832,7 @@ def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) 
     if not sid or not uid or not _stripe_enabled():
         return False, 'missing_parameters'
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid, expand=['pending_setup_intent'])
     except Exception:
         return False, 'subscription_not_found'
@@ -5856,7 +5860,7 @@ def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> tuple[
     if not pi_id or not uid or not _stripe_enabled():
         return False, 'missing_parameters'
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
         return False, 'payment_intent_not_found'
@@ -5951,7 +5955,7 @@ def _find_resumable_pending_subscription(customer_id: str, plan_id: str):
     if not cid or not pid or not _stripe_enabled():
         return None
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         res = stripe.Subscription.list(customer=cid, status='all', limit=20, expand=['data.pending_setup_intent'])
         candidates = list(getattr(res, 'data', []) or [])
         for sub in sorted(candidates, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True):
@@ -6026,7 +6030,7 @@ def _subscription_belongs_to_customer(subscription_id: str, customer_id: str) ->
     if not sid or not cid or not _stripe_enabled():
         return False
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid)
         return str(getattr(sub, 'customer', '') or '') == cid
     except Exception:
@@ -6045,7 +6049,7 @@ def _handle_setup_intent_succeeded_webhook(setup_intent: dict) -> None:
     if not user_id:
         return
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
         sdata = list(getattr(subs, 'data', []) or [])
         if not sdata:
@@ -6123,7 +6127,7 @@ def stripe_create_subscription():
         elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
             return jsonify({'error': 'trial_already_used'}), 400
 
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
 
         # Ensure customer exists
         customer_id = _create_or_get_stripe_customer_for_user(current_user, persist_profile=False, mark_ephemeral=True)
@@ -6200,7 +6204,7 @@ def stripe_complete_subscription():
         if not subscription_id:
             return jsonify({'error': 'missing_parameters'}), 400
 
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(
             subscription_id,
             expand=['pending_setup_intent', 'latest_invoice.payment_intent', 'items.data.price'],
@@ -6256,7 +6260,7 @@ def stripe_create_trial_hold():
         return jsonify({'error': 'trial_already_used'}), 400
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         user_id = str(getattr(current_user, 'id', '') or '')
         intent = _create_trial_hold_payment_intent(user_id, plan_id=plan_id)
         if not intent:
@@ -6356,7 +6360,6 @@ def _find_trialing_subscription_for_customer(customer_id: str) -> Optional[dict]
     if not cid or not _stripe_enabled():
         return None
     try:
-        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
         res = stripe.Subscription.list(customer=cid, status="trialing", limit=1)
         data = list(getattr(res, "data", []) or [])
         if not data:
@@ -6378,7 +6381,7 @@ def _get_paid_until_from_stripe(subscription_id: str) -> str:
     if not _stripe_enabled():
         return ''
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid)
         # Prefer current_period_end; for trialing subscriptions, trial_end can be useful too.
         trial_end = getattr(sub, 'trial_end', None)
@@ -6429,7 +6432,7 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
     if not cid or not _stripe_enabled():
         return {}
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
         data = list(getattr(subs, 'data', []) or [])
         if not data:
@@ -6525,7 +6528,7 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
     if not sid or not _stripe_enabled():
         return {}
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid, expand=["items.data.price"])
         status = str(getattr(sub, 'status', '') or '')
         trial_end = getattr(sub, 'trial_end', None)
@@ -6850,7 +6853,7 @@ def _stripe_customer_has_any_subscription(customer_id: str) -> bool:
     if not cid or not _stripe_enabled():
         return False
     try:
-        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     except Exception:
         return False
     try:
@@ -7009,7 +7012,7 @@ def _get_trial_deposit_amount_cents() -> int:
     deposit_price_id = _get_stripe_trial_deposit_price_id()
     if deposit_price_id and _stripe_enabled():
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             price = stripe.Price.retrieve(deposit_price_id)
             unit_amount = int(getattr(price, 'unit_amount', 0) or 0)
             if unit_amount > 0:
@@ -7019,7 +7022,7 @@ def _get_trial_deposit_amount_cents() -> int:
     try:
         monthly_price_id = _get_stripe_price_id('monthly_10_95')
         if monthly_price_id and _stripe_enabled():
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             price = stripe.Price.retrieve(monthly_price_id)
             unit_amount = int(getattr(price, 'unit_amount', 0) or 0)
             if unit_amount > 0:
@@ -7067,7 +7070,7 @@ def _fulfill_trial_deposit_checkout(
     if not uid or not cid or not pi_id or amount_total <= 0 or not _stripe_enabled():
         return None
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
         for sub in list(getattr(subs, 'data', []) or []):
@@ -7121,7 +7124,7 @@ def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, 
     sid = str(subscription_id or '').strip()
     if not sid or not _stripe_enabled():
         return False, 'stripe_not_configured'
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         sub = stripe.Subscription.retrieve(sid)
     except Exception:
@@ -7421,7 +7424,7 @@ def _create_trial_hold_checkout_session_url(user, plan_id: str = 'trial_7d') -> 
     if not _stripe_enabled():
         return ''
     pid = _normalize_plan_id(plan_id) or 'trial_7d'
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     user_id = str(getattr(user, 'id', '') or '').strip()
     email = (getattr(user, 'email', '') or '').strip()
     if not user_id:
@@ -7497,7 +7500,7 @@ def _find_subscription_by_authorization_pi(customer_id: str, payment_intent_id: 
     pi_id = str(payment_intent_id or '').strip()
     if not cid or not pi_id or not _stripe_enabled():
         return None
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
         for sub in list(getattr(subs, 'data', []) or []):
@@ -7520,7 +7523,7 @@ def _get_active_trial_authorization_payment_intent(
     if not sid or not _stripe_enabled():
         return ''
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid)
         return _get_subscription_authorization_payment_intent_id(sub)
     except Exception:
@@ -7550,7 +7553,7 @@ def _create_trial_hold_payment_intent(user_id: str, plan_id: str = 'trial_7d', c
     pid = _normalize_plan_id(plan_id) or 'trial_7d'
     if not uid or not _stripe_enabled():
         return None
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     hold_days = _get_trial_hold_days(pid)
     amount = _get_trial_deposit_amount_cents()
     currency = _trial_hold_currency()
@@ -7606,7 +7609,7 @@ def _payment_intent_belongs_to_user(payment_intent_id: str, user_id: str) -> boo
     if not pi_id or not uid or not _stripe_enabled():
         return False
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         intent = stripe.PaymentIntent.retrieve(pi_id)
         meta = getattr(intent, 'metadata', None) or {}
         if isinstance(meta, dict):
@@ -7631,7 +7634,7 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
     if not _payment_intent_belongs_to_user(pi_id, uid):
         return False, 'payment_intent_mismatch'
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -7810,7 +7813,7 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
     if not pi_id:
         return False, 'no_authorization_payment_intent'
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -7927,7 +7930,7 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
     if not pi_id:
         return False, 'no_authorization_payment_intent'
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -8013,7 +8016,7 @@ def _cancel_trial_hold_payment_intent(payment_intent_id: str) -> tuple[bool, str
     pi_id = str(payment_intent_id or '').strip()
     if not pi_id or not _stripe_enabled():
         return False, 'missing_payment_intent'
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -8068,7 +8071,7 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
     prof = get_user_profile_azure(uid) or {}
     existing_sub_id = str(prof.get('stripe_subscription_id') or '').strip()
     if existing_sub_id:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         try:
             sub = stripe.Subscription.retrieve(existing_sub_id)
             ok, reason = _capture_authorization_hold_for_subscription(sub)
@@ -8083,7 +8086,7 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
     if str(prof.get('trial_hold_cancelled') or '').strip() == '1':
         return False, 'trial_hold_cancelled', None
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -8169,7 +8172,7 @@ def _maybe_capture_due_trial_hold_for_user(user_id: str) -> None:
     if not subscription_id:
         return
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         sub = stripe.Subscription.retrieve(subscription_id)
     except Exception:
@@ -8214,7 +8217,7 @@ def _process_trial_hold_lifecycle_for_user(user_id: str) -> None:
         return
 
     subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     if subscription_id:
         try:
             sub = stripe.Subscription.retrieve(subscription_id)
@@ -8446,7 +8449,7 @@ def _apply_reinstate_offer_credit_from_monthly_price(customer_id: str, target_pr
     if target_cents <= 0:
         target_cents = 399
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         price_id = _get_stripe_price_id('monthly_10_95')
         if not price_id:
             return False, "Monthly plan price is not configured.", 0
@@ -8510,7 +8513,7 @@ def _create_reinstate_offer_checkout_url(user_id: str, customer_id: str) -> str:
     if not price_id:
         return ''
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
         cancel_url = url_for('plans', _external=True, _scheme=request.scheme)
         session_obj = stripe.checkout.Session.create(
@@ -8544,7 +8547,7 @@ def _find_access_granting_subscription_for_customer(customer_id: str):
     if not cid or not _stripe_enabled():
         return None
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
         eligible = [s for s in list(getattr(subs, 'data', []) or []) if _stripe_subscription_grants_access(s)]
         if not eligible:
@@ -8589,7 +8592,7 @@ def _resolve_reinstate_offer_subscription_id(
         if customer_id:
             return _subscription_belongs_to_customer(sid, customer_id)
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             sub = stripe.Subscription.retrieve(sid)
             cust = str(_stripe_obj_get(sub, 'customer', '') or '').strip()
             if not cust:
@@ -8617,7 +8620,7 @@ def _resolve_reinstate_offer_subscription_id(
 
     if customer_id and _stripe_enabled():
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             subs = stripe.Subscription.list(customer=customer_id, status='all', limit=20)
             candidates = list(getattr(subs, 'data', []) or [])
             if candidates:
@@ -8647,7 +8650,7 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
             'offer_applied': False,
             'reactivated': False,
         }
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         sub = stripe.Subscription.retrieve(
             sid,
@@ -8734,7 +8737,7 @@ def _create_invoice_payment_link(customer_id: str, invoice_id: str) -> Optional[
     to re-authenticate and reestablish the recurring mandate.
     """
     try:
-        stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
         if not stripe.api_key or not customer_id or not invoice_id:
             return None
 
@@ -9023,7 +9026,7 @@ def checkout():
                     if not price_id:
                         flash("Checkout is not configured. Please contact support.", "danger")
                         return redirect(url_for("plans"))
-                    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
                     price = stripe.Price.retrieve(price_id)
                     unit_amount = int(getattr(price, "unit_amount", 0) or 0)
                     currency = str(getattr(price, "currency", "usd") or "usd")
@@ -9079,7 +9082,7 @@ def checkout():
             flash("Checkout is not configured. Please contact support.", "danger")
             return redirect(url_for("plans"))
 
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
 
         # Build absolute URLs
         success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
@@ -9162,7 +9165,7 @@ def checkout_trial_hold_success():
         return redirect(url_for('plans'))
 
     user_id = str(getattr(current_user, 'id', '') or '')
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     try:
         sess = stripe.checkout.Session.retrieve(session_id, expand=['payment_intent'])
         client_ref = str(getattr(sess, 'client_reference_id', '') or '').strip()
@@ -9214,7 +9217,7 @@ def checkout_subscription_confirm():
 
     if subscription_id and _stripe_enabled():
         try:
-            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
             sub = stripe.Subscription.retrieve(
                 subscription_id,
                 expand=["items.data.price", "pending_setup_intent"],
@@ -9261,7 +9264,7 @@ def checkout_success():
 
     if session_id and _stripe_enabled():
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             sess = stripe.checkout.Session.retrieve(session_id, expand=['payment_intent'])
             meta = getattr(sess, 'metadata', None) or {}
             if isinstance(meta, dict):
@@ -9457,7 +9460,7 @@ def stripe_webhook():
                 return ("OK", 200)
 
             if trial_deposit_payment == "1" and mode == "payment" and customer_id:
-                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                
                 try:
                     amount_total = int(data.get("amount_total") or 0)
                     currency = str(data.get("currency") or "usd")
@@ -9480,7 +9483,7 @@ def stripe_webhook():
             # 1) credit the customer balance so the first subscription invoice at trial end is covered
             # 2) update the existing trial subscription to the selected plan (annual/monthly)
             if upgrade_from_trial == "1" and mode == "payment" and customer_id and trial_subscription_id and plan_id in ("monthly_10_95", "annual_6_95"):
-                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                
                 try:
                     amount_total = int(data.get("amount_total") or 0)
                     currency = str(data.get("currency") or "usd")
@@ -9553,7 +9556,7 @@ def stripe_webhook():
                 return ("OK", 200)
 
             # Fetch subscription to compute paid_until
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             paid_until = ""
             plan_status = ""
             try:
@@ -9610,7 +9613,7 @@ def stripe_webhook():
 
         # Retention offer: add second 50% credit when first invoice after offer is paid
         if etype == "invoice.paid":
-            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
             inv = data
             if not inv.get("subscription"):
                 pass  # Skip non-subscription invoices
@@ -9667,7 +9670,7 @@ def stripe_webhook():
                         pass
 
         if etype == "customer.subscription.trial_will_end":
-            stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
             sub = data
             status = str(sub.get("status") or "").strip().lower()
             if status == "trialing":
@@ -9727,7 +9730,7 @@ def stripe_webhook():
 
         # Keep subscription status in sync (cancel/expire)
         if etype in ("customer.subscription.updated", "customer.subscription.deleted"):
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             sub = data
             customer_id = sub.get("customer")
             subscription_id = sub.get("id")
@@ -9777,7 +9780,7 @@ def billing_portal():
         flash("Billing portal is not configured.", "danger")
         return redirect(url_for("plans"))
 
-    stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+    
     customer_id = _get_stripe_customer_id_from_azure(getattr(current_user, 'id', ''))
     if not customer_id:
         flash("We couldn't find your billing profile yet. If you just purchased, refresh and try again.", "danger")
@@ -9947,7 +9950,7 @@ def billing_cancel_page():
         return redirect(url_for("settings_page"))
 
     # Fetch subscription details for display
-    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     try:
         sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
         status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
@@ -10005,7 +10008,7 @@ def billing_cancel_page():
 def _apply_retention_offer(subscription_id: str) -> tuple[bool, str]:
     """Apply retention offer: $5.48 off each of next 2 months (works with flexible billing).
     First credit now; second credit added via invoice.paid webhook."""
-    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
     customer_id = str(getattr(sub, "customer", "") or "").strip()
     if not customer_id:
@@ -10186,7 +10189,7 @@ def api_billing_cancel():
     cancellation_details = _stripe_cancellation_details_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
     cancellation_metadata = _stripe_cancellation_metadata_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
 
-    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     try:
         # Snapshot current subscription status before applying cancellation.
         is_trialing_before_cancel = False
@@ -10543,7 +10546,7 @@ def api_billing_reinstate():
     if not subscription_id:
         return jsonify({"success": False, "error": "No active subscription found."}), 404
 
-    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     try:
         if apply_offer_399:
             result = _reinstate_paid_offer_subscription(str(user_id or ''), subscription_id)
@@ -10747,7 +10750,7 @@ def billing_reinstate_paid_offer():
     except Exception:
         logger.exception("Failed to persist paid reinstatement offer click audit fields")
 
-    stripe.api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+
     try:
         result = _reinstate_paid_offer_subscription(user_id, subscription_id)
         if result.get('offer_applied'):
@@ -13888,7 +13891,7 @@ def _admin_assistant_pick_customer_subscription(customer_id: str):
     if not cid or not _stripe_enabled():
         return None
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         res = stripe.Subscription.list(customer=cid, status='all', limit=10, expand=['data.items.data.price'])
         subs = list(getattr(res, 'data', []) or [])
         if not subs:
@@ -13952,7 +13955,7 @@ def _admin_assistant_search_stripe_customers(search: str = '', limit: int = 10) 
         return _admin_assistant_stripe_unavailable()
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         candidates = []
         seen = set()
 
@@ -14022,7 +14025,7 @@ def _admin_assistant_get_stripe_customer_detail(customer_id: str = '', user_iden
         }
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         customer = stripe.Customer.retrieve(cid)
         latest_sub = _admin_assistant_pick_customer_subscription(cid)
         return {
@@ -14053,7 +14056,7 @@ def _admin_assistant_get_stripe_subscription_detail(subscription_id: str = '', u
         }
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         sub = stripe.Subscription.retrieve(sid, expand=['items.data.price', 'latest_invoice'])
         latest_invoice = _stripe_obj_get(sub, 'latest_invoice', None)
         if latest_invoice and not isinstance(latest_invoice, str):
@@ -14096,7 +14099,7 @@ def _admin_assistant_list_stripe_invoices(
         }
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         params = {'limit': safe_limit, 'expand': ['data.charge', 'data.payment_intent']}
         if sid:
             params['subscription'] = sid
@@ -14132,7 +14135,7 @@ def _admin_assistant_list_stripe_charges(
     sid = str(ctx.get('subscription_id') or '').strip()
 
     try:
-        stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+        
         charges = []
         seen = set()
 
@@ -16978,7 +16981,7 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
         paid_until = ''
         plan_status_guess = ''
         try:
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             best_sub_obj = None
             if best_sub_id:
                 best_sub_obj = stripe.Subscription.retrieve(best_sub_id, expand=['pending_setup_intent'])
@@ -17023,7 +17026,7 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
         has_subscription_state = bool((best_sub_id or '').strip() or (best_status or '').strip())
         if (not paid_flag) and customer_id and (not has_subscription_state):
             try:
-                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                
                 sessions = stripe.checkout.Session.list(customer=customer_id, limit=10)
                 sdata = list(getattr(sessions, 'data', []) or [])
                 # Prefer the most recent *paid* session.
@@ -17586,7 +17589,7 @@ def settings_page():
             if not customer_id:
                 customer_id = _find_stripe_customer_id_by_email((getattr(current_user, 'email', '') or '').strip())
             if customer_id and not subscription_id:
-                stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+                
                 subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
                 sdata = list(getattr(subs, 'data', []) or [])
                 # Prefer active > trialing > others; then later period end
@@ -17639,7 +17642,7 @@ def settings_page():
     # This avoids cases where precomputed stripe_dates degrade to "trial end" due to missing interval info.
     try:
         if paid_flag and subscription_id and _stripe_enabled():
-            stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+            
             sub_obj = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
             # If a user has already scheduled cancellation (cancel_at_period_end), keep them paid
             # through the period end, but hide the cancel button in Settings.
