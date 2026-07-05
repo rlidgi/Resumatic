@@ -11768,9 +11768,10 @@ def checkout():
             if existing_customer_id:
                 session_params["customer"] = existing_customer_id
             else:
-                session_params["customer_creation"] = "always"
                 session_params[
                     "customer_email"] = current_user.email if current_user.is_authenticated else None
+                if session_params != "subscription":
+                    session_params["customer_creation"] = "always"
 
             # Pricing and Promotion Options Management
             if plan_role != "trial":
