@@ -10,15 +10,15 @@
     environment - your system Python is never modified.
 
 .PARAMETER Mode
-    preview  (default) - Build React with Vite, then serve via Flask
-    dev                - Flask + Vite hot-reload running side by side
-    flask              - Flask only (reuse existing React build)
+    preview  (default) - Build React with Vite, then serve via Flask + Stripe
+    dev                - Flask + Vite hot-reload + Stripe running side by side
+    flask              - Flask + Stripe only (reuse existing React build)
     install            - Create venv, install Python + Node deps, then exit
 
 .EXAMPLE
     .\run_local.ps1              # preview mode
     .\run_local.ps1 dev          # hot-reload dev mode
-    .\run_local.ps1 flask        # Flask only
+    .\run_local.ps1 flask        # Flask + Stripe only
     .\run_local.ps1 install      # install deps only
 
 .NOTES
@@ -180,6 +180,22 @@ function Build-React {
     Write-Success "React build complete -> static\react\"
 }
 
+# ── Stripe CLI helper ─────────────────────────────────────────────
+function Start-Stripe {
+    $stripe = Get-Command stripe -ErrorAction SilentlyContinue
+    if (-not $stripe) {
+        Write-Warn "Stripe CLI not found in PATH. Skipping webhook forwarding."
+        Write-Warn "Download: https://docs.stripe.com/stripe-cli"
+        return $null
+    }
+    Write-Info "Starting Stripe CLI webhook listener..."
+    # Launches Stripe listening in a separate window so it doesn't clutter Flask logs
+    $stripeProc = Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/k", "stripe listen --forward-to 127.0.0.1:$FLASK_PORT/stripe/webhook" `
+        -PassThru
+    return $stripeProc
+}
+
 # ── Load .env.local on top of .env (local overrides win) ──────────
 function Load-LocalEnv {
     if (Test-Path ".env.local") {
@@ -202,10 +218,6 @@ function Load-LocalEnv {
 
 # ── Force LOCAL mode - never let the app think it is on Azure ─────
 function Set-LocalMode {
-    # Removing these makes app.py set _ON_AZURE = False:
-    #   -> template auto-reload on
-    #   -> SESSION_COOKIE_SECURE = False  (works over plain http://)
-    #   -> local error handler active
     foreach ($v in @("WEBSITE_HOSTNAME","WEBSITE_INSTANCE_ID","WEBSITE_SITE_NAME","APPSETTING_WEBSITE_SITE_NAME")) {
         [System.Environment]::SetEnvironmentVariable($v, $null, "Process")
         Remove-Item -Path "Env:\$v" -ErrorAction SilentlyContinue
@@ -213,10 +225,7 @@ function Set-LocalMode {
 
     $env:FLASK_ENV                    = "development"
     $env:FLASK_DEBUG                  = "1"
-    # Lets OAuth (Google / Facebook) work over plain http://127.0.0.1
     $env:OAUTHLIB_INSECURE_TRANSPORT  = "1"
-    # Skip heavy Playwright / Chromium download on first local run.
-    # Remove this line if you need PDF export to work locally.
     $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 }
 
@@ -224,7 +233,7 @@ function Set-LocalMode {
 function Start-Flask {
     Write-Success "Starting Flask -> http://127.0.0.1:$FLASK_PORT"
     Write-Host "  Open http://127.0.0.1:$FLASK_PORT in your browser" -ForegroundColor White
-    Write-Host "  Press Ctrl+C to stop." -ForegroundColor DarkGray
+    Write-Host "  Press Ctrl+C to stop servers." -ForegroundColor DarkGray
     Write-Host ""
     & $VENV_PY -m flask run --host=127.0.0.1 --port=$FLASK_PORT --debug
 }
@@ -269,10 +278,12 @@ Load-LocalEnv
 Set-LocalMode
 Install-PythonDeps   # fast no-op if already installed
 
+# Initialize background processes tracking
+$stripeProc = $null
+$viteProc = $null
+
 # ══════════════════════════════════════════════════════════════════
 #  PREVIEW mode (default)
-#  Build React with Vite -> serve everything via Flask
-#  Closest local experience to the live production site.
 # ══════════════════════════════════════════════════════════════════
 if ($Mode -eq "preview") {
     if (Test-Node) {
@@ -287,14 +298,19 @@ if ($Mode -eq "preview") {
         }
         Write-Warn "Using existing React build in static\react\."
     }
-    Write-Host ""
-    Start-Flask
+
+    try {
+        $stripeProc = Start-Stripe
+        Start-Flask
+    } finally {
+        if ($stripeProc -and -not $stripeProc.HasExited) {
+            Write-Info "Stopping Stripe listener (pid=$($stripeProc.Id))...."
+            Stop-Process -Id $stripeProc.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
 
 # ══════════════════════════════════════════════════════════════════
 #  DEV mode
-#  Flask + Vite hot-reload running in parallel.
-#  Vite opens in a NEW terminal window so you can see both outputs.
-#  Best for active frontend development.
 # ══════════════════════════════════════════════════════════════════
 } elseif ($Mode -eq "dev") {
     if (-not (Test-Node)) {
@@ -304,8 +320,7 @@ if ($Mode -eq "preview") {
     }
     Install-NodeDeps
 
-    Write-Info "Starting Vite dev server in a new window on port $VITE_PORT ..."
-    # Pass backend URL so Vite's proxy knows where to forward API calls
+    Write-Info "Starting Vite dev server on port $VITE_PORT ..."
     $env:VITE_DEV_BACKEND_URL = "http://127.0.0.1:$FLASK_PORT"
     $viteProc = Start-Process -FilePath "cmd.exe" `
         -ArgumentList "/k", "npm run dev -- --port $VITE_PORT" `
@@ -314,30 +329,40 @@ if ($Mode -eq "preview") {
     Write-Host ""
     Write-Host "  Flask (full app) : http://127.0.0.1:$FLASK_PORT" -ForegroundColor White
     Write-Host "  Vite  (React SPA): http://127.0.0.1:$VITE_PORT"  -ForegroundColor White
-    Write-Host "  Close the Vite window or press Ctrl+C here to stop." -ForegroundColor DarkGray
     Write-Host ""
 
     try {
+        $stripeProc = Start-Stripe
         Start-Flask
     } finally {
-        # Kill the Vite window when Flask exits
         if ($viteProc -and -not $viteProc.HasExited) {
             Write-Info "Stopping Vite (pid=$($viteProc.Id))..."
             Stop-Process -Id $viteProc.Id -Force -ErrorAction SilentlyContinue
+        }
+        if ($stripeProc -and -not $stripeProc.HasExited) {
+            Write-Info "Stopping Stripe listener (pid=$($stripeProc.Id))..."
+            Stop-Process -Id $stripeProc.Id -Force -ErrorAction SilentlyContinue
         }
     }
 
 # ══════════════════════════════════════════════════════════════════
 #  FLASK mode
-#  Flask only - uses whatever is already in static\react\
 # ══════════════════════════════════════════════════════════════════
 } elseif ($Mode -eq "flask") {
     if (-not (Test-Path "static\react\index.html")) {
         Write-Warn "No React build found - React SPA routes will 404."
         Write-Warn "Run '.\run_local.ps1 preview' to build the frontend first."
     }
-    Write-Host ""
-    Start-Flask
+
+    try {
+        $stripeProc = Start-Stripe
+        Start-Flask
+    } finally {
+        if ($stripeProc -and -not $stripeProc.HasExited) {
+            Write-Info "Stopping Stripe listener (pid=$($stripeProc.Id))..."
+            Stop-Process -Id $stripeProc.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
 
 # ══════════════════════════════════════════════════════════════════
 #  Unknown mode
@@ -346,10 +371,5 @@ if ($Mode -eq "preview") {
     Write-Err "Unknown mode: '$Mode'"
     Write-Host ""
     Write-Host "Usage: .\run_local.ps1 [preview|dev|flask|install]"
-    Write-Host ""
-    Write-Host "  preview  (default) - build React, then serve via Flask on :$FLASK_PORT"
-    Write-Host "  dev                - Flask + Vite hot-reload in parallel"
-    Write-Host "  flask              - Flask only (reuse existing React build)"
-    Write-Host "  install            - create venv, install Python + Node deps only"
     exit 1
 }

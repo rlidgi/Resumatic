@@ -8,14 +8,18 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KRPLMCR73G"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+
         gtag('js', new Date());
         gtag('config', 'G-KRPLMCR73G');
     </script>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>Choose Your Plan</title>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon2.ico') }}" />
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon2.ico') }}"/>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,8 +49,8 @@
             margin: 0;
             font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
             background: radial-gradient(1200px 800px at 20% -10%, rgba(var(--accent-rgb), .14), transparent 60%),
-                radial-gradient(1000px 700px at 90% 10%, rgba(var(--accent2-rgb), .10), transparent 55%),
-                var(--bg);
+            radial-gradient(1000px 700px at 90% 10%, rgba(var(--accent2-rgb), .10), transparent 55%),
+            var(--bg);
             color: var(--text);
         }
 
@@ -323,9 +327,8 @@
             border-radius: 999px;
             top: -120px;
             right: -130px;
-            background:
-                radial-gradient(circle at 30% 30%, rgba(var(--accent-rgb), .16), transparent 62%),
-                radial-gradient(circle at 70% 70%, rgba(var(--accent2-rgb), .10), transparent 62%);
+            background: radial-gradient(circle at 30% 30%, rgba(var(--accent-rgb), .16), transparent 62%),
+            radial-gradient(circle at 70% 70%, rgba(var(--accent2-rgb), .10), transparent 62%);
             pointer-events: none;
         }
 
@@ -351,7 +354,13 @@
             font-size: 18px;
             margin: 0 0 8px;
         }
-
+        .price-wrapper{
+            display: flex;
+            flex-direction: column;
+            align-items: start;
+            justify-content: start;
+            margin-bottom: 1rem;
+        }
         .price {
             display: flex;
             align-items: baseline;
@@ -632,255 +641,405 @@
 </head>
 
 <body>
-    <nav class="topbar" aria-label="Main navigation">
-        <div class="topbar-inner">
-            <a class="brand" href="/" aria-label="Resumatic AI Home">
-                <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="80"
-                    height="80" decoding="async">
-            </a>
+<nav class="topbar" aria-label="Main navigation">
+    <div class="topbar-inner">
+        <a class="brand" href="/" aria-label="Resumatic AI Home">
+            <img src="{{ url_for('static', filename='images/logo23_small.webp') }}" alt="Resumatic AI" width="80"
+                 height="80" decoding="async">
+        </a>
 
-            <div class="nav-links" aria-label="Primary">
-                <a href="/">Home</a>
-                <a href="/contact">Support</a>
-                <a href="/feedback">Feedback</a>
-                <a class="active" href="/plans" aria-current="page">Plans</a>
-            </div>
+        <div class="nav-links" aria-label="Primary">
+            <a href="/">Home</a>
+            <a href="/contact">Support</a>
+            <a href="/feedback">Feedback</a>
+            <a class="active" href="/plans" aria-current="page">Plans</a>
+        </div>
 
-            <button class="menu-btn" id="planMenuButton" type="button" aria-controls="planMobileMenu"
+        <button class="menu-btn" id="planMenuButton" type="button" aria-controls="planMobileMenu"
                 aria-expanded="false" aria-label="Open menu">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true">
-                    <path d="M4 7H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    <path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    <path d="M4 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-            </button>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                 aria-hidden="true">
+                <path d="M4 7H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M4 17H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+</nav>
+
+<div class="overlay" id="planMobileOverlay" aria-hidden="true"></div>
+<aside class="drawer" id="planMobileMenu" aria-label="Mobile menu" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+        <div class="drawer-title">Menu</div>
+        <button class="menu-btn" id="planMenuClose" type="button" aria-label="Close menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                 aria-hidden="true">
+                <path d="M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+    <a href="/">Home</a>
+    <a class="secondary" href="/contact">Support</a>
+    <a class="secondary" href="/feedback">Feedback</a>
+    <a class="active" href="/plans" aria-current="page">Plans</a>
+    <a class="secondary" href="/">Back to home</a>
+</aside>
+
+<div class="wrap">
+    <header>
+        <div>
+            <div class="pill">🔒 Secure checkout • Cancel anytime</div>
+            <h1>Get on the path to Job search success!</h1>
+            <p class="sub">
+                Start with a {{ trial_hold_days }}-day trial or save more with annual billing.
+                All plans include unlimited edits and ATS-friendly formatting.
+            </p>
         </div>
-    </nav>
 
-    <div class="overlay" id="planMobileOverlay" aria-hidden="true"></div>
-    <aside class="drawer" id="planMobileMenu" aria-label="Mobile menu" role="dialog" aria-modal="true">
-        <div class="drawer-header">
-            <div class="drawer-title">Menu</div>
-            <button class="menu-btn" id="planMenuClose" type="button" aria-label="Close menu">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true">
-                    <path d="M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    <path d="M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-            </button>
-        </div>
-        <a href="/">Home</a>
-        <a class="secondary" href="/contact">Support</a>
-        <a class="secondary" href="/feedback">Feedback</a>
-        <a class="active" href="/plans" aria-current="page">Plans</a>
-        <a class="secondary" href="/">Back to home</a>
-    </aside>
+        <!-- Trust badges removed -->
+    </header>
 
-    <div class="wrap">
-        <header>
-            <div>
-                <div class="pill">🔒 Secure checkout • Cancel anytime</div>
-                <h1>Get on the path to Job search success!</h1>
-                <p class="sub">
-                    Start with a {{ trial_hold_days }}-day trial or save more with annual billing.
-                    All plans include unlimited edits and ATS-friendly formatting.
-                </p>
-            </div>
-
-            <!-- Trust badges removed -->
-        </header>
-
-        {% if next_url and (request.args.get('reason') or '')|lower == 'pdf' %}
+    {% if next_url and (request.args.get('reason') or '')|lower == 'pdf' %}
         <div style="margin: 0 0 12px;">
             <a class="pill link" href="{{ next_url }}">← Return to resume</a>
         </div>
-        {% endif %}
+    {% endif %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        {% for category, message in messages %}
-        {% set is_pdf_warning = 'PDF downloads are not available on free accounts.' in message %}
-        <div class="alert alert-{{ category }}{% if is_pdf_warning %} alert-pdf-warning{% endif %}" role="alert"
-            aria-live="polite">
+            {% for category, message in messages %}
+                {% set is_pdf_warning = 'PDF downloads are not available on free accounts.' in message %}
+                <div class="alert alert-{{ category }}{% if is_pdf_warning %} alert-pdf-warning{% endif %}" role="alert"
+                     aria-live="polite">
             <span class="alert-icon" aria-hidden="true">
                 {% if is_pdf_warning %}
-                ⚠️
+                    ⚠️
                 {% elif category == 'danger' %}
-                ⛔
+                    ⛔
                 {% elif category == 'warning' %}
-                ⚠️
+                    ⚠️
                 {% else %}
-                ℹ️
+                    ℹ️
                 {% endif %}
             </span>
-            <span class="alert-content">
+                    <span class="alert-content">
                 {% if is_pdf_warning %}
-                <span class="alert-title">PDF downloads require a premium plan</span>
+                    <span class="alert-title">PDF downloads require a premium plan</span>
                 {% endif %}
-                {{ message }}
+                        {{ message }}
             </span>
-        </div>
-        {% endfor %}
+                </div>
+            {% endfor %}
         {% endif %}
-        {% endwith %}
+    {% endwith %}
 
-        {% if plan_prices and plan_prices.get('note') %}
+    {% if plan_prices and plan_prices.get('note') %}
         <div class="alert alert-info" role="status" style="margin: 0 0 18px;">
             <span class="alert-content">{{ plan_prices.note }}</span>
         </div>
+    {% endif %}
+
+    {% macro render_card(plan, trial_unavailable, offer_retention) %}
+        <article class="card{% if plan.badge %} popular{% endif %}">
+            {% if plan.badge %}<span class="tag">{{ plan.badge }}</span>{% endif %}
+            <p class="plan">{{ plan.label }}</p>
+
+            <div class="price-wrapper">
+                {% if plan.role == "trial" %}
+                    <div class="price" style="margin-bottom: 0.25rem;">
+                        <strong>Free</strong>
+                        <span>for {{ plan.trial_days }} days</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #6b7280; font-weight: 400;">
+                        then {{ plan.amount_display }} {{ plan.suffix_display }}
+                    </div>
+                {% else %}
+                    <div class="price">
+                        <strong>{{ plan.amount_display }}</strong>
+                        {% if plan.suffix_display %}
+                            <span>{{ plan.suffix_display }}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if plan.note %}
+                <p class="note">{{ plan.note }}</p>
+            {% endif %}
+
+            {# CASE 1: Plan is a trial product and the user has ALREADY used a trial #}
+            {% if plan.role == "trial" and trial_unavailable %}
+                <span class="btn disabled"
+                      style="background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; display: inline-flex; align-items: center; justify-content: center; text-align: center; border: 1px solid #d1d5db;">
+                    You already used trial
+                </span>
+                <p class="micro" style="color: #ef4444;">
+                    <b>Limit one free trial per account.</b>
+                </p>
+
+                {# CASE 2: Plan has a trial and the trial IS available #}
+            {% elif plan.has_trial and not trial_unavailable %}
+                <a class="btn {{ 'primary' if plan.badge else 'lilac' }}"
+                   href="/checkout?plan={{ plan.price_id }}{% if offer_retention %}&offer=retention{% endif %}">
+                    {{ plan.cta_label }}
+                </a>
+                <p class="micro">
+                    {%- if plan.micro_note %}{{ plan.micro_note }}{%- else %}
+                        <b>Includes a {{ plan.trial_days }}-day trial</b>, then renews.{%- endif %}
+                </p>
+
+                {# CASE 3: Standard subscriptions or plan options with used up trialing options #}
+            {% else %}
+                <a class="btn {{ 'primary' if plan.badge else 'lilac' }}"
+                   href="/checkout?plan={{ plan.price_id }}{% if offer_retention %}&offer=retention{% endif %}">
+                    Subscribe Now
+                </a>
+                <p class="micro">
+                    {%- if plan.has_trial and trial_unavailable %}
+                        <b>Trial used.</b> Renews instantly.
+                    {%- elif plan.micro_note %}
+                        {{ plan.micro_note }}
+                    {%- else %}
+                        <b>Cancel anytime.</b> No long-term commitment.
+                    {%- endif %}
+                </p>
+            {% endif %}
+
+            <ul class="features">
+                {% for feature in plan.features %}
+                    <li><span class="check"></span>{{ feature }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+    {% endmacro %}
+
+
+    {# ------------------------------------------------------------- #}
+    {# CONDITION: CHECK IF STRIPE DATA EXISTED AND RENDER DYNAMIC   #}
+    {# ------------------------------------------------------------- #}
+    {% if product_groups %}
+
+        {% if show_billing_toggle %}
+            <div class="billing-toggle-container" style="text-align: center; margin-bottom: 2rem;">
+                <span class="toggle-label active" id="label-monthly">Monthly</span>
+                <label class="switch"
+                       style="position: relative; display: inline-block; width: 50px; height: 26px; margin: 0 10px; vertical-align: middle;">
+                    <input type="checkbox" id="billing-switch" onchange="toggleBillingCycle()"
+                           style="opacity: 0; width: 0; height: 0;">
+                    <span class="slider"
+                          style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px;"></span>
+                </label>
+                <span class="toggle-label" id="label-annual">Annual (Save 🎉)</span>
+            </div>
         {% endif %}
 
         <div class="grid">
+            {% for group in product_groups %}
+                {% if group.monthly and group.annual %}
+                    <div class="billing-monthly">
+                        {{ render_card(group.monthly, trial_unavailable, offer_retention) }}
+                    </div>
+                    <div class="billing-annual" style="display:none;">
+                        {{ render_card(group.annual, trial_unavailable, offer_retention) }}
+                    </div>
+                {% elif group.monthly %}
+                    {{ render_card(group.monthly, trial_unavailable, offer_retention) }}
+                {% elif group.annual %}
+                    {{ render_card(group.annual, trial_unavailable, offer_retention) }}
+                {% endif %}
+            {% endfor %}
+        </div>
 
-            <!-- Free
+    {% else %}
 
-            
-            <article class="card">
-                <p class="plan">Free</p>
-                <div class="price"><strong>$0</strong></div>
-                <p class="note">Try Resumatic with a couple of revisions.</p>
-                <p class="micro"><b>No credit card required.</b></p>
-                <a class="btn lilac" href="{{ next_url or '/upload' }}">Continue free</a>
-
-                <ul class="features">
-                    <li><span class="check"></span>1 resume revision</li>
-
-                    <li><span class="check"></span><b>No PDF downloads</b></li>
-                </ul>
-            </article>
-
-            -->
-            <!-- Trial -->
+        {# ------------------------------------------------------------- #}
+        {# FALLBACK SYSTEM: RUN HARDCODED VIEW PROTOCOLS HERE           #}
+        {# ------------------------------------------------------------- #}
+        <div class="grid">
             <article class="card">
                 <p class="plan">{{ trial_hold_days }} Day Free Trial</p>
-                <div class="price"><strong>
-                    </strong><span></span></div>
+                <div class="price"><strong>$0</strong></div>
                 {% if trial_unavailable %}
-                <p class="note">This one-time trial has already been used on this account.</p>
-                <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b>.</p>
-                <button class="btn disabled" type="button" disabled aria-disabled="true">Trial already used</button>
+                    <p class="note">This one-time trial has already been used on this account.</p>
+                    <p class="micro">You can still choose <b>Monthly</b> or <b>Annual</b>.</p>
+                    <button class="btn disabled" type="button" disabled aria-disabled="true"
+                            style="cursor: not-allowed; background-color: #e5e7eb; color: #9ca3af;">Trial already used
+                    </button>
                 {% else %}
-                <p class="note">Try everything and download your resume today.</p>
-                <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
-                <a class="btn lilac"
-                    href="/checkout?plan=trial_7d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
+                    <p class="note">Try everything and download your resume today.</p>
+                    <p class="micro"><b>Renews to monthly</b> unless canceled.</p>
+                    <a class="btn lilac"
+                       href="/checkout?plan=trial_7d{% if offer_retention %}&offer=retention{% endif %}">Start trial</a>
                 {% endif %}
 
                 <ul class="features">
                     <li><span class="check"></span>Unlimited resume revisions</li>
-
                     <li><span class="check"></span>PDF downloads</li>
                 </ul>
             </article>
 
-            <!-- Annual -->
             <article class="card popular">
                 <span class="tag">Best value</span>
                 <p class="plan">Annual</p>
-                <div class="price"><strong>{{ plan_prices.annual_strong }}</strong><span>/ month</span></div>
+                <div class="price"><strong>{{ plan_prices.annual_strong or '$6.95' }}</strong><span>/ month</span></div>
                 <p class="note">Lowest monthly cost. Great if you want ongoing access.</p>
-                <p class="micro"><b>Billed annually.</b> {{ plan_prices.annual_equiv }}</p>
+                <p class="micro"><b>Billed annually.</b> {{ plan_prices.annual_equiv or 'Billed as $83.40 yearly' }}</p>
                 <a class="btn primary" href="/checkout?plan=annual_6_95">Go annual</a>
 
                 <ul class="features">
-
                     <li><span class="check"></span>Ongoing updates</li>
                     <li><span class="check"></span>Priority support</li>
                 </ul>
             </article>
 
-            <!-- Monthly -->
             <article class="card">
                 <p class="plan">Monthly</p>
-                <div class="price"><strong>{{ plan_prices.monthly_strong }}</strong><span>/ month</span></div>
+                <div class="price"><strong>{{ plan_prices.monthly_strong or '$25.00' }}</strong><span>/ month</span>
+                </div>
                 <p class="note">Flexible month-to-month access.</p>
                 <p class="micro"><b>Cancel anytime.</b> No long-term commitment.</p>
                 <a class="btn lilac"
-                    href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go
-                    monthly</a>
+                   href="/checkout?plan=monthly_10_95{% if offer_retention %}&offer=retention{% endif %}">Go monthly</a>
 
                 <ul class="features">
-
                     <li><span class="check"></span>Unlimited resume revisions</li>
                     <li><span class="check"></span>PDF downloads</li>
                 </ul>
             </article>
         </div>
 
-        <section class="section">
-            <h2>FAQ</h2>
-            <div class="faq">
-                <details>
-                    <summary>What happens after the {{ trial_hold_days }}-day trial?</summary>
-                    <p>
-                        If you don’t cancel before day {{ trial_capture_day }}, your card authorization is captured as
-                        your first month’s payment. Cancel on day {{ trial_hold_days }} for a full refund if you were
-                        charged. Otherwise your subscription renews monthly unless canceled. You can change or cancel
-                        anytime in your account settings.
-                    </p>
-                </details>
-                <details>
-                    <summary>Can I switch plans later?</summary>
-                    <p>Yes, you can upgrade or switch billing options anytime.</p>
-                </details>
-                <details>
-                    <summary>Is payment secure?</summary>
-                    <p>Use a trusted processor (Stripe/PayPal) and serve everything over HTTPS.</p>
-                </details>
-                <details>
-                    <summary>Do you offer a satisfaction guarantee?</summary>
-                    <p>
-                        Yes, if you’re not satisfied, contact support and we’ll help you get it resolved. If it’s
-                        still not a fit, we’ll refund your most recent payment.
-                    </p>
-                </details>
-            </div>
-        </section>
-    </div>
-
+    {% endif %}
+    <!-- 4. INTERACTION TOGGLE SCRIPT -->
     <script>
-        (function () {
-            const btn = document.getElementById('planMenuButton');
-            const closeBtn = document.getElementById('planMenuClose');
-            const overlay = document.getElementById('planMobileOverlay');
-            const drawer = document.getElementById('planMobileMenu');
-            if (!btn || !overlay || !drawer) return;
+        function toggleBillingCycle() {
+            const annual = document.getElementById("billing-switch").checked;
 
-            function isOpen() {
-                return drawer.classList.contains('open');
-            }
-
-            function openMenu() {
-                drawer.classList.add('open');
-                overlay.classList.add('open');
-                document.body.classList.add('no-scroll');
-                btn.setAttribute('aria-expanded', 'true');
-            }
-
-            function closeMenu() {
-                drawer.classList.remove('open');
-                overlay.classList.remove('open');
-                document.body.classList.remove('no-scroll');
-                btn.setAttribute('aria-expanded', 'false');
-            }
-
-            btn.addEventListener('click', function () {
-                if (isOpen()) closeMenu();
-                else openMenu();
+            document.querySelectorAll(".billing-monthly").forEach(el => {
+                el.style.display = annual ? "none" : "";
             });
 
-            overlay.addEventListener('click', closeMenu);
-            if (closeBtn) closeBtn.addEventListener('click', closeMenu);
-
-            drawer.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu));
-
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') closeMenu();
+            document.querySelectorAll(".billing-annual").forEach(el => {
+                el.style.display = annual ? "" : "none";
             });
-        })();
+
+            document.getElementById("label-monthly")
+                .classList.toggle("active", !annual);
+
+            document.getElementById("label-annual")
+                .classList.toggle("active", annual);
+        }
     </script>
-    {% if request.args.get('limit') == '1' %}
+
+    <style>
+        .switch input:checked + .slider {
+            background-color: #a855f7;
+        }
+
+        .switch input:focus + .slider {
+            box-shadow: 0 0 1px #a855f7;
+        }
+
+        .switch input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .toggle-label {
+            font-weight: bold;
+            color: #666;
+            transition: color 0.3s;
+        }
+
+        .toggle-label.active {
+            color: #a855f7;
+        }
+    </style>
+
+    <section class="section">
+        <h2>FAQ</h2>
+        <div class="faq">
+            <details>
+                <summary>What happens after the {{ trial_hold_days }}-day trial?</summary>
+                <p>
+                    If you don’t cancel before day {{ trial_capture_day }}, your card authorization is captured as
+                    your first month’s payment. Cancel on day {{ trial_hold_days }} for a full refund if you were
+                    charged. Otherwise your subscription renews monthly unless canceled. You can change or cancel
+                    anytime in your account settings.
+                </p>
+            </details>
+            <details>
+                <summary>Can I switch plans later?</summary>
+                <p>Yes, you can upgrade or switch billing options anytime.</p>
+            </details>
+            <details>
+                <summary>Is payment secure?</summary>
+                <p>Use a trusted processor (Stripe/PayPal) and serve everything over HTTPS.</p>
+            </details>
+            <details>
+                <summary>Do you offer a satisfaction guarantee?</summary>
+                <p>
+                    Yes, if you’re not satisfied, contact support and we’ll help you get it resolved. If it’s
+                    still not a fit, we’ll refund your most recent payment.
+                </p>
+            </details>
+        </div>
+    </section>
+</div>
+
+<script>
+    (function () {
+        const btn = document.getElementById('planMenuButton');
+        const closeBtn = document.getElementById('planMenuClose');
+        const overlay = document.getElementById('planMobileOverlay');
+        const drawer = document.getElementById('planMobileMenu');
+        if (!btn || !overlay || !drawer) return;
+
+        function isOpen() {
+            return drawer.classList.contains('open');
+        }
+
+        function openMenu() {
+            drawer.classList.add('open');
+            overlay.classList.add('open');
+            document.body.classList.add('no-scroll');
+            btn.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeMenu() {
+            drawer.classList.remove('open');
+            overlay.classList.remove('open');
+            document.body.classList.remove('no-scroll');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+
+        btn.addEventListener('click', function () {
+            if (isOpen()) closeMenu();
+            else openMenu();
+        });
+
+        overlay.addEventListener('click', closeMenu);
+        if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+
+        drawer.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu));
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeMenu();
+        });
+    })();
+</script>
+{% if request.args.get('limit') == '1' %}
     <script>
         // When free users hit the revision limit, we redirect them here with ?limit=1.
         // If they hit the browser Back button, the previous page (homepage) may be restored from cache
@@ -889,9 +1048,10 @@
         try {
             sessionStorage.setItem("freeTierLimitReached", "1");
             sessionStorage.setItem("freeTierLimitMessage", "Free tier includes only 1 resume revision.");
-        } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */
+        }
     </script>
-    {% endif %}
+{% endif %}
 </body>
 
 </html>

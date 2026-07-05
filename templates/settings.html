@@ -87,12 +87,13 @@
                         </dd>
                     </div>
                     <div class="flex items-center justify-between gap-4">
-                        <dt class="text-gray-500">Statement End Date</dt>
+                        <dt class="text-gray-500">
+                            {% if is_trial %}Trial Expiration Date{% else %}Statement End Date{% endif %}
+                        </dt>
                         <dd class="font-semibold text-gray-900">
-                            {{ next_billing_display or ('—' if is_paid else '—') }}
+                            {{ next_billing_display or '—' }}
                         </dd>
                     </div>
-
                 </dl>
 
                 <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -102,35 +103,42 @@
                     </div>
 
                     <div id="planChangesPanel" class="mt-4 space-y-3">
-                        <a href="{{ url_for('plans') }}"
-                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
-
-                            View plans
-                        </a>
-
                         {% if is_paid %}
-                        {% if cancel_scheduled %}
-                        <a href="/billing/cancel"
-                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
-                            Reinstate subscription
-                        </a>
-                        <p class="text-xs text-gray-500">
-                            Your plan is scheduled to end at the end of the current billing period.
-                        </p>
+                            {% if is_standalone_trial %}
+                                <a href="{{ url_for('plans') }}"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
+                                    Upgrade to Premium Plan
+                                </a>
+                                <p class="text-xs text-gray-500">
+                                    You are currently exploring features on a trial plan. Upgrade anytime to maintain continuous access.
+                                </p>
+                            {% else %}
+                                {% if cancel_scheduled %}
+                                <a href="/billing/cancel"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+                                    Reinstate subscription
+                                </a>
+                                <p class="text-xs text-gray-500">
+                                    Your plan is scheduled to end at the end of the current billing period.
+                                </p>
+                            {% else %}
+                                <a href="/billing/cancel"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+                                    Cancel subscription
+                                </a>
+                                <p class="text-xs text-gray-500">
+                                    Billing is managed securely by Stripe.
+                                </p>
+                                {% endif %}
+                            {% endif %}
                         {% else %}
-                        <a href="/billing/cancel"
-                            class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
-                            Cancel subscription
-                        </a>
-                        <p class="text-xs text-gray-500">
-                            Billing is managed securely by Stripe.
-                        </p>
-                        {% endif %}
-                        {% else %}
-                        <p class="text-xs text-gray-500">
-                            You’re on the free plan. Choose a plan above to enable PDF downloads and unlimited
-                            revisions.
-                        </p>
+                            <a href="{{ url_for('plans') }}"
+                                class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">
+                                View plans
+                            </a>
+                            <p class="text-xs text-gray-500">
+                                You’re on the free plan. Choose a plan above to enable PDF downloads and unlimited revisions.
+                            </p>
                         {% endif %}
                     </div>
                 </div>
