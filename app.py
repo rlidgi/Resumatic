@@ -11770,7 +11770,7 @@ def checkout():
             else:
                 session_params[
                     "customer_email"] = current_user.email if current_user.is_authenticated else None
-                if session_params != "subscription":
+                if session_params["mode"] != "subscription":
                     session_params["customer_creation"] = "always"
 
             # Pricing and Promotion Options Management
