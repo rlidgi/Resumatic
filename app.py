@@ -1,5 +1,8 @@
-from flask import (Flask, request, render_template, redirect, url_for, session, flash, send_file, send_from_directory,
-jsonify, Response, make_response, abort, has_request_context)
+from flask import (
+    Flask, request, render_template, redirect, url_for, session, flash,
+    send_file, send_from_directory,
+    jsonify, Response, make_response, abort, has_request_context,
+)
 from jinja2 import TemplateNotFound
 from io import BytesIO
 import PyPDF2
@@ -11,6 +14,7 @@ import mammoth
 import logging
 import os
 
+
 # Configure CA bundle before google-auth/requests import urllib3 (local Windows dev).
 def _bootstrap_https_certificates() -> None:
     if os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'):
@@ -20,15 +24,19 @@ def _bootstrap_https_certificates() -> None:
     try:
         # truststore needs platform.system(); on Windows that probes WMI and can hang for minutes.
         import platform
+
         platform.system = lambda: 'Windows'  # type: ignore[method-assign]
-        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '', 'Multiprocessor Free')  # type: ignore[method-assign]
+        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '',
+                                                      'Multiprocessor Free')  # type: ignore[method-assign]
         import truststore
+
         truststore.inject_into_ssl()
         return
     except Exception:
         pass
     try:
         import certifi
+
         ca_bundle = certifi.where()
         os.environ.setdefault('SSL_CERT_FILE', ca_bundle)
         os.environ.setdefault('REQUESTS_CA_BUNDLE', ca_bundle)
@@ -48,12 +56,16 @@ def _ensure_local_truststore_ssl() -> None:
         return
     try:
         import platform
+
         platform.system = lambda: 'Windows'  # type: ignore[method-assign]
-        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '', 'Multiprocessor Free')  # type: ignore[method-assign]
+        platform.win32_ver = lambda *args, **kwargs: ('10', '10.0', '',
+                                                      'Multiprocessor Free')  # type: ignore[method-assign]
         import truststore
+
         truststore.inject_into_ssl()
     except Exception:
         pass
+
 
 import time
 import ipaddress
@@ -72,10 +84,16 @@ try:
 except Exception as _analytics_import_error:
     class _NoopAnalytics:
         def track_visit(self, request_obj):
-            return {"type": "organic", "source": "fallback", "error": str(_analytics_import_error)}
+            return {"type": "organic", "source": "fallback",
+                    "error": str(_analytics_import_error)}
 
-        def track_conversion(self, session_data, conversion_type="resume_submission"):
-            return {"status": "skipped", "reason": "analytics_unavailable", "type": conversion_type}
+        def track_conversion(
+                self,
+                session_data,
+                conversion_type="resume_submission"
+        ):
+            return {"status": "skipped", "reason": "analytics_unavailable",
+                    "type": conversion_type}
 
         def get_full_analytics(self):
             return {
@@ -93,6 +111,7 @@ except Exception as _analytics_import_error:
                 "facebook_stats": {}
             }
 
+
     analytics = _NoopAnalytics()
 
 from google_auth_oauthlib.flow import Flow
@@ -103,7 +122,10 @@ import google.oauth2.id_token
 from google.oauth2 import service_account
 
 from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
-from flask_login import LoginManager, login_required, login_user, logout_user, UserMixin, current_user
+from flask_login import (
+    LoginManager, login_required, login_user,
+    logout_user, UserMixin, current_user,
+)
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
@@ -130,7 +152,10 @@ from flask_session import Session
 import re
 
 # Lightweight TTL-backed JSON storage for SPA-like drafts
-from temp_store import save_payload, load_payload, delete_payload, DEFAULT_TTL_SECONDS
+from temp_store import (
+    save_payload, load_payload, delete_payload,
+    DEFAULT_TTL_SECONDS,
+)
 
 # One-shot resume payloads for server-side PDF generation (Playwright loads /template-download with ?pdf_snapshot=…).
 # Stored on disk (next to Flask filesystem sessions) so Gunicorn/uWSGI multi-worker pools can all read the same snapshot.
@@ -141,9 +166,19 @@ _PDF_SNAPSHOT_TTL_S = 180.0
 def _pdf_snapshot_dir() -> str:
     home_dir = (os.getenv("HOME") or "").strip()
     if home_dir:
-        base = os.path.join(home_dir, "site", "wwwroot", ".flask_session", "pdf_snapshots")
+        base = os.path.join(
+            home_dir,
+            "site",
+            "wwwroot",
+            ".flask_session",
+            "pdf_snapshots"
+        )
     else:
-        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_session", "pdf_snapshots")
+        base = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            ".flask_session",
+            "pdf_snapshots"
+        )
     try:
         os.makedirs(base, exist_ok=True)
     except Exception:
@@ -162,7 +197,11 @@ def _pdf_snapshot_sanitize_tok(tok: str) -> Optional[str]:
     return t
 
 
-def _pdf_snapshot_store_put(resume: dict, user_id: int, template_hint: Optional[str] = None) -> str:
+def _pdf_snapshot_store_put(
+        resume: dict,
+        user_id: int,
+        template_hint: Optional[str] = None
+) -> str:
     tok = secrets.token_urlsafe(32)
     safe = _pdf_snapshot_sanitize_tok(tok)
     if not safe:
@@ -232,7 +271,13 @@ app = Flask(__name__)
 
 # App Service runs behind a reverse proxy. Trust standard forwarding headers so
 # Flask sees the correct scheme/host (important for redirects and health probes).
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1,
+    x_port=1
+)
 
 # React SPA shell (built by Vite into static/react)
 _REACT_INDEX_REL_PATH = os.path.join("static", "react", "index.html")
@@ -241,7 +286,6 @@ _REACT_SPA_INFO_CACHE = {
     "entry_js": "",
     "entry_css": "",
 }
-
 
 
 def _get_react_spa_shell_info():
@@ -258,15 +302,30 @@ def _get_react_spa_shell_info():
 
     if _REACT_SPA_INFO_CACHE["mtime"] != mtime:
         try:
-            with open(index_abs, "r", encoding="utf-8", errors="ignore") as f:
+            with open(
+                    index_abs,
+                    "r",
+                    encoding="utf-8",
+                    errors="ignore"
+            ) as f:
                 html = f.read()
 
-            js_match = re.search(r"/static/react/assets/([^\"\s]+\.js)", html)
-            css_match = re.search(r"/static/react/assets/([^\"\s]+\.css)", html)
+            js_match = re.search(
+                r"/static/react/assets/([^\"\s]+\.js)",
+                html
+            )
+            css_match = re.search(
+                r"/static/react/assets/([^\"\s]+\.css)",
+                html
+            )
 
             _REACT_SPA_INFO_CACHE["mtime"] = mtime
-            _REACT_SPA_INFO_CACHE["entry_js"] = js_match.group(1) if js_match else ""
-            _REACT_SPA_INFO_CACHE["entry_css"] = css_match.group(1) if css_match else ""
+            _REACT_SPA_INFO_CACHE["entry_js"] = js_match.group(
+                1
+            ) if js_match else ""
+            _REACT_SPA_INFO_CACHE["entry_css"] = css_match.group(
+                1
+            ) if css_match else ""
         except Exception:
             _REACT_SPA_INFO_CACHE["mtime"] = mtime
             _REACT_SPA_INFO_CACHE["entry_js"] = ""
@@ -287,7 +346,8 @@ def react_app(subpath=None):
     resp = send_file(index_abs)
 
     # Ensure the SPA shell isn't cached (it points at hashed JS/CSS assets).
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers[
+        "Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
 
@@ -322,7 +382,9 @@ def imported_resume_builder(subpath=None):
     if not subpath:
         return send_from_directory(builder_root, "index.html")
 
-    requested = os.path.normpath(str(subpath)).replace("\\", "/").lstrip("/")
+    requested = os.path.normpath(str(subpath)).replace("\\", "/").lstrip(
+        "/"
+    )
     if requested.startswith(".."):
         abort(404)
 
@@ -336,10 +398,14 @@ def imported_resume_builder(subpath=None):
 #####################
 # ---- Make `current_user` available in all Jinja templates ----
 try:
-    from flask_login import LoginManager, current_user as flask_login_current_user, AnonymousUserMixin
+    from flask_login import (
+        LoginManager,
+        current_user as flask_login_current_user, AnonymousUserMixin,
+    )
 
     login_manager = LoginManager()
     login_manager.init_app(app)
+
 
     @app.context_processor
     def inject_current_user():
@@ -350,11 +416,11 @@ except Exception:
     # Flask-Login not installed/configured: provide a safe dummy
     class _Anon:
         is_authenticated = False
+
+
     @app.context_processor
     def inject_current_user():
         return dict(current_user=_Anon())
-
-
 
 ################################
 load_dotenv()
@@ -364,9 +430,6 @@ load_dotenv(
 )  # .env.local overrides when present locally
 stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
 
-
-
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -374,20 +437,34 @@ logger = logging.getLogger(__name__)
 # Local debugging aid (Windows-safe): write exception traces to a file next to app.py.
 # This avoids rare Windows console/stderr write errors that can mask the real exception.
 try:
-    _LOCAL_ERRORS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'local_errors.log')
+    _LOCAL_ERRORS_PATH = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'local_errors.log'
+    )
 except Exception:
     _LOCAL_ERRORS_PATH = 'local_errors.log'
 
 # Create the file early so it's easy to locate during debugging.
 try:
-    with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as _f:
+    with open(
+            _LOCAL_ERRORS_PATH,
+            'a',
+            encoding='utf-8',
+            errors='backslashreplace'
+    ) as _f:
         from datetime import datetime
-        _f.write(f"\n[{datetime.now(timezone.utc).isoformat()}] local_errors.log initialized\n")
+
+        _f.write(
+            f"\n[{datetime.now(timezone.utc).isoformat()}] local_errors.log initialized\n"
+        )
 except Exception:
     pass
 
 
-def _safe_log_exception(context: str, exc: Exception | None = None) -> None:
+def _safe_log_exception(
+        context: str,
+        exc: Exception | None = None
+) -> None:
     """Log exceptions without risking console write failures on Windows."""
     try:
         # logger.exception() captures the active exception traceback when called in an except block.
@@ -403,11 +480,22 @@ def _safe_log_exception(context: str, exc: Exception | None = None) -> None:
 
         import traceback
 
-        with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as f:
+        with open(
+                _LOCAL_ERRORS_PATH,
+                'a',
+                encoding='utf-8',
+                errors='backslashreplace'
+        ) as f:
             f.write(f"\n[{datetime.utcnow().isoformat()}Z] {context}\n")
             if exc is not None:
                 f.write(f"{type(exc).__name__}: {exc}\n")
-                tb = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                tb = ''.join(
+                    traceback.format_exception(
+                        type(exc),
+                        exc,
+                        exc.__traceback__
+                    )
+                )
                 f.write(tb)
             else:
                 f.write(traceback.format_exc())
@@ -422,7 +510,12 @@ def _safe_log_event(message: str) -> None:
     try:
         from datetime import datetime
 
-        with open(_LOCAL_ERRORS_PATH, 'a', encoding='utf-8', errors='backslashreplace') as f:
+        with open(
+                _LOCAL_ERRORS_PATH,
+                'a',
+                encoding='utf-8',
+                errors='backslashreplace'
+        ) as f:
             f.write(f"[{datetime.utcnow().isoformat()}Z] {message}\n")
     except Exception:
         pass
@@ -435,15 +528,25 @@ def _safe_print(*args, **kwargs) -> None:
     except Exception:
         pass
 
+
 load_dotenv()
-app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY') or 'a-very-secret-random-key'
+app.config['SECRET_KEY'] = os.getenv(
+    'FLASK_SECRET_KEY'
+) or 'a-very-secret-random-key'
+
 
 # Local Windows Python often lacks a usable CA bundle for requests/google-auth HTTPS calls.
 def _configure_local_ssl_cert_bundle() -> None:
-    if bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID')):
+    if bool(
+            os.getenv('WEBSITE_HOSTNAME') or os.getenv(
+                'WEBSITE_INSTANCE_ID'
+            )
+    ):
         return
     if os.name == 'nt':
-        logger.info('Using Windows trust store for local HTTPS (truststore)')
+        logger.info(
+            'Using Windows trust store for local HTTPS (truststore)'
+        )
         return
     for mod_name in ('truststore', 'pip._vendor.truststore'):
         try:
@@ -455,6 +558,7 @@ def _configure_local_ssl_cert_bundle() -> None:
             continue
     try:
         import certifi
+
         ca_bundle = certifi.where()
         os.environ.setdefault('SSL_CERT_FILE', ca_bundle)
         os.environ.setdefault('REQUESTS_CA_BUNDLE', ca_bundle)
@@ -465,13 +569,16 @@ def _configure_local_ssl_cert_bundle() -> None:
 _configure_local_ssl_cert_bundle()
 
 # Local-dev ergonomics: auto-reload templates/static caching unless running on Azure App Service.
-_ON_AZURE = bool(os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID'))
+_ON_AZURE = bool(
+    os.getenv('WEBSITE_HOSTNAME') or os.getenv('WEBSITE_INSTANCE_ID')
+)
 
 # Local-only: capture any unhandled exceptions into local_errors.log.
 # This is intentionally conservative to avoid changing production behavior.
 if (not _ON_AZURE) and (os.name == 'nt'):
     try:
         from werkzeug.exceptions import HTTPException
+
 
         @app.errorhandler(Exception)
         def _log_unhandled_exception(e):
@@ -492,7 +599,12 @@ try:
     _BUILD_ID = str(int(os.path.getmtime(__file__)))
 except Exception:
     _BUILD_ID = 'unknown'
-logger.info('ResumaticAI boot (build=%s pid=%s on_azure=%s)', _BUILD_ID, os.getpid(), _ON_AZURE)
+logger.info(
+    'ResumaticAI boot (build=%s pid=%s on_azure=%s)',
+    _BUILD_ID,
+    os.getpid(),
+    _ON_AZURE
+)
 
 # ---- Playwright browser reuse (per-worker) ----
 # Launching Chromium is expensive; reuse a single browser per Gunicorn worker for PDF generation.
@@ -519,7 +631,10 @@ def _get_pdf_fonts_dir() -> str:
     if _PDF_FONTS_DIR:
         return _PDF_FONTS_DIR
     try:
-        _static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        _static_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "static"
+        )
         _PDF_FONTS_DIR = os.path.join(_static_dir, "fonts")
     except Exception:
         _PDF_FONTS_DIR = ""
@@ -536,19 +651,25 @@ def _get_inter_font_b64_cache() -> dict:
             return _PDF_INTER_FONT_B64
         try:
             import base64
+
             fonts_dir = _get_pdf_fonts_dir()
-            inter_dir = os.path.join(fonts_dir, "inter") if fonts_dir else ""
+            inter_dir = os.path.join(
+                fonts_dir,
+                "inter"
+            ) if fonts_dir else ""
             cache = {}
             for name in (
-                "inter-latin-400-normal.woff2",
-                "inter-latin-500-normal.woff2",
-                "inter-latin-600-normal.woff2",
-                "inter-latin-700-normal.woff2",
+                    "inter-latin-400-normal.woff2",
+                    "inter-latin-500-normal.woff2",
+                    "inter-latin-600-normal.woff2",
+                    "inter-latin-700-normal.woff2",
             ):
                 p = os.path.join(inter_dir, name)
                 if os.path.isfile(p):
                     with open(p, "rb") as f:
-                        cache[name] = base64.b64encode(f.read()).decode("ascii")
+                        cache[name] = base64.b64encode(f.read()).decode(
+                            "ascii"
+                        )
             _PDF_INTER_FONT_B64 = cache
         except Exception:
             _PDF_INTER_FONT_B64 = {}
@@ -574,6 +695,7 @@ def _get_pdf_browser_threadlocal(launch_kwargs: dict):
             pass
 
     from playwright.sync_api import sync_playwright
+
     try:
         pw = getattr(tl, "pw", None)
     except Exception:
@@ -616,6 +738,7 @@ def _get_pdf_browser(launch_kwargs: dict):
             _PDF_BROWSER = None
 
         from playwright.sync_api import sync_playwright
+
         if _PDF_PW is None:
             _PDF_PW = sync_playwright().start()
         _PDF_BROWSER = _PDF_PW.chromium.launch(**launch_kwargs)
@@ -660,11 +783,16 @@ def _close_pdf_browser():
         except Exception:
             pass
 
+
 # Azure SDK HTTP logging can drown out app logs (especially in Azure Log Stream).
 # Default to quiet; allow overriding via standard logging config if needed.
 try:
-    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
-    logging.getLogger('azure.monitor.opentelemetry.exporter.export._base').setLevel(logging.WARNING)
+    logging.getLogger(
+        'azure.core.pipeline.policies.http_logging_policy'
+    ).setLevel(logging.WARNING)
+    logging.getLogger(
+        'azure.monitor.opentelemetry.exporter.export._base'
+    ).setLevel(logging.WARNING)
 except Exception:
     pass
 
@@ -677,6 +805,7 @@ if not _ON_AZURE:
     # Reduce stale static assets during local debugging
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
+
 # Server-side sessions (prevents oversized cookie drops when storing large resume/feedback payloads).
 def _apply_flask_session_cookie_defaults() -> None:
     app.config['SESSION_PERMANENT'] = False
@@ -687,7 +816,9 @@ def _apply_flask_session_cookie_defaults() -> None:
 
 
 def _should_use_filesystem_sessions() -> bool:
-    force = str(os.getenv('FLASK_FILESYSTEM_SESSIONS', '') or '').strip().lower()
+    force = str(
+        os.getenv('FLASK_FILESYSTEM_SESSIONS', '') or ''
+    ).strip().lower()
     if force in ('0', 'false', 'no', 'off'):
         return False
     if force in ('1', 'true', 'yes', 'on'):
@@ -705,9 +836,17 @@ try:
     if _should_use_filesystem_sessions():
         home_dir = (os.getenv('HOME') or '').strip()
         if home_dir:
-            session_dir = os.path.join(home_dir, 'site', 'wwwroot', '.flask_session')
+            session_dir = os.path.join(
+                home_dir,
+                'site',
+                'wwwroot',
+                '.flask_session'
+            )
         else:
-            session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.flask_session')
+            session_dir = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                '.flask_session'
+            )
         os.makedirs(session_dir, exist_ok=True)
         app.config['SESSION_TYPE'] = 'filesystem'
         app.config['SESSION_FILE_DIR'] = session_dir
@@ -719,7 +858,9 @@ try:
     else:
         raise RuntimeError('no session backend selected for this host')
 except Exception as e:
-    logger.warning(f"Server-side session setup failed; falling back to cookie sessions: {type(e).__name__}: {str(e)}")
+    logger.warning(
+        f"Server-side session setup failed; falling back to cookie sessions: {type(e).__name__}: {str(e)}"
+    )
 
 
 def _is_safe_next_url(target: str) -> bool:
@@ -736,7 +877,8 @@ def _is_safe_next_url(target: str) -> bool:
         # Otherwise require same host
         ref_url = urlparse(request.host_url)
         test_url = urlparse(urljoin(request.host_url, target))
-        return test_url.scheme in ("http", "https") and ref_url.netloc == test_url.netloc
+        return test_url.scheme in (
+            "http", "https") and ref_url.netloc == test_url.netloc
     except Exception:
         return False
 
@@ -850,48 +992,55 @@ def _append_marketing_signup_csv(user: 'User', signup_method: str) -> None:
         if not isinstance(traffic, dict):
             traffic = {}
 
-        filename = os.getenv('MARKETING_SIGNUPS_CSV', 'marketing_signups.csv')
+        filename = os.getenv(
+            'MARKETING_SIGNUPS_CSV',
+            'marketing_signups.csv'
+        )
         file_exists = os.path.exists(filename)
         with open(filename, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow([
-                    'timestamp_iso',
-                    'signup_method',
-                    'user_id',
-                    'email',
-                    'ref',
-                    'utm_source',
-                    'utm_medium',
-                    'utm_campaign',
-                    'utm_content',
-                    'utm_term',
-                    'traffic_type',
-                    'traffic_campaign',
-                    'traffic_referrer',
-                    'first_seen_at',
-                    'last_seen_at',
-                    'landing_path',
-                ])
+                writer.writerow(
+                    [
+                        'timestamp_iso',
+                        'signup_method',
+                        'user_id',
+                        'email',
+                        'ref',
+                        'utm_source',
+                        'utm_medium',
+                        'utm_campaign',
+                        'utm_content',
+                        'utm_term',
+                        'traffic_type',
+                        'traffic_campaign',
+                        'traffic_referrer',
+                        'first_seen_at',
+                        'last_seen_at',
+                        'landing_path',
+                    ]
+                )
 
-            writer.writerow([
-                datetime.now(timezone.utc).isoformat(),
-                str(signup_method or '').strip(),
-                str(getattr(user, 'id', '') or ''),
-                _normalize_email(getattr(user, 'email', '')),
-                str(m.get('ref') or ''),
-                str(m.get('utm_source') or ''),
-                str(m.get('utm_medium') or ''),
-                str(m.get('utm_campaign') or ''),
-                str(m.get('utm_content') or ''),
-                str(m.get('utm_term') or ''),
-                str(traffic.get('type') or ''),
-                str(traffic.get('campaign') or ''),
-                str(traffic.get('referrer') or ''),
-                str(m.get('first_seen_at') or ''),
-                str(m.get('last_seen_at') or ''),
-                str(m.get('landing_path') or ''),
-            ])
+            writer.writerow(
+                [
+                    datetime.now(timezone.utc).isoformat(),
+                    str(signup_method or '').strip(),
+                    str(getattr(user, 'id', '') or ''),
+                    _normalize_email(getattr(user, 'email', '')),
+                    str(m.get('ref') or ''),
+                    str(m.get('utm_source') or ''),
+                    str(m.get('utm_medium') or ''),
+                    str(m.get('utm_campaign') or ''),
+                    str(m.get('utm_content') or ''),
+                    str(m.get('utm_term') or ''),
+                    str(traffic.get('type') or ''),
+                    str(traffic.get('campaign') or ''),
+                    str(traffic.get('referrer') or ''),
+                    str(m.get('first_seen_at') or ''),
+                    str(m.get('last_seen_at') or ''),
+                    str(m.get('landing_path') or ''),
+                ]
+            )
     except Exception:
         logger.exception('Failed to append marketing signup CSV')
 
@@ -916,6 +1065,7 @@ def referral_redirect(code: str):
     except Exception:
         return redirect(url_for('index'), code=302)
 
+
 # Ensure HTTPS URLs in sitemap and external links
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 
@@ -925,28 +1075,38 @@ app.config['UPLOAD_FOLDER'] = 'temp_uploads'
 
 # Create upload folder if it doesn't exist
 import os
+
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
-
-def _append_google_signup_csv(user_id: str, name: str, email: str, created_at_iso: str) -> None:
+def _append_google_signup_csv(
+        user_id: str,
+        name: str,
+        email: str,
+        created_at_iso: str
+) -> None:
     """Append a record of a new Google signup to google_signups.csv.
 
     Columns: timestamp_iso, user_id, name, email
     """
     try:
         import csv
+
         filename = 'google_signups.csv'
         file_exists = os.path.exists(filename)
         with open(filename, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['timestamp_iso', 'user_id', 'name', 'email'])
-            writer.writerow([created_at_iso or datetime.now(timezone.utc).isoformat(), user_id or '', name or '', (email or '').strip().lower()])
+                writer.writerow(
+                    ['timestamp_iso', 'user_id', 'name', 'email']
+                )
+            writer.writerow(
+                [created_at_iso or datetime.now(timezone.utc).isoformat(),
+                 user_id or '', name or '', (email or '').strip().lower()]
+            )
     except Exception as e:
         logger.error(f"Failed to append google signup CSV: {str(e)}")
-
 
 
 @app.before_request
@@ -959,7 +1119,9 @@ def _redirect_http_to_https():
     if request.path in ('/health', '/path/health'):
         return None
 
-    forwarded_proto = (request.headers.get('X-Forwarded-Proto') or '').lower().strip()
+    forwarded_proto = (request.headers.get(
+        'X-Forwarded-Proto'
+    ) or '').lower().strip()
     # Some proxies may send a comma-separated list.
     if ',' in forwarded_proto:
         forwarded_proto = forwarded_proto.split(',')[0].strip()
@@ -982,9 +1144,11 @@ def _redirect_http_to_https():
     return redirect(url, code=301)
 
 
-
 # Google OAuth Configuration
-GOOGLE_CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), "client_secret.json")
+GOOGLE_CLIENT_SECRET_FILE = os.path.join(
+    os.path.dirname(__file__),
+    "client_secret.json"
+)
 
 # Check if we have environment variables for Google OAuth (production)
 if os.getenv('GOOGLE_CLIENT_ID') and os.getenv('GOOGLE_CLIENT_SECRET'):
@@ -1002,7 +1166,6 @@ GOOGLE_SCOPES = [
     "openid"
 ]
 
-
 facebook_bp = make_facebook_blueprint(
     client_id=os.getenv("FACEBOOK_APP_ID"),
     client_secret=os.getenv("FACEBOOK_APP_SECRET"),
@@ -1010,9 +1173,10 @@ facebook_bp = make_facebook_blueprint(
     redirect_to="facebook_callback",  # must be HTTPS
 )
 
-
-app.register_blueprint(facebook_bp, url_prefix="/login")  # MUST be before the route below
-
+app.register_blueprint(
+    facebook_bp,
+    url_prefix="/login"
+)  # MUST be before the route below
 
 # Flask-Login
 login_manager = LoginManager(app)
@@ -1031,11 +1195,15 @@ def _is_api_request() -> bool:
 def _login_unauthorized():
     """Return JSON for API calls instead of an HTML login redirect."""
     if _is_api_request():
-        return jsonify({"success": False, "error": "Please sign in to use the Job Search Coach."}), 401
+        return jsonify(
+            {"success": False,
+             "error": "Please sign in to use the Job Search Coach."}
+        ), 401
     next_path = (request.full_path or request.path or "").strip()
     if next_path.endswith("?"):
         next_path = next_path[:-1]
     return redirect(url_for('login', next=next_path or request.path))
+
 
 # Define a list of admin email addresses
 ADMIN_EMAILS = ["yaronyaronlid@gmail.com"]
@@ -1061,20 +1229,29 @@ _LOGIN_AUDIT_VERSION = 1
 # Throttle updates to avoid excessive disk/DB writes.
 LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY = 'login_audit_last_activity_at'
 LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY = 'login_audit_last_activity_write_at'
-LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS = int(os.getenv('LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS', '60') or '60')
+LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS = int(
+    os.getenv('LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS', '60') or '60'
+)
 
 # Auth session timeouts
 # - Idle timeout: log out after N minutes with no authenticated requests.
 # These are best-effort guards to reduce risk from unattended sessions.
-AUTH_IDLE_TIMEOUT_MINUTES = int(os.getenv('AUTH_IDLE_TIMEOUT_MINUTES', '90') or '90')
+AUTH_IDLE_TIMEOUT_MINUTES = int(
+    os.getenv('AUTH_IDLE_TIMEOUT_MINUTES', '90') or '90'
+)
 # Absolute timeout is disabled by default (set to >0 to enable).
-AUTH_ABSOLUTE_TIMEOUT_HOURS = int(os.getenv('AUTH_ABSOLUTE_TIMEOUT_HOURS', '0') or '0')
+AUTH_ABSOLUTE_TIMEOUT_HOURS = int(
+    os.getenv('AUTH_ABSOLUTE_TIMEOUT_HOURS', '0') or '0'
+)
 AUTH_SESSION_START_AT_KEY = 'auth_session_start_at'
 AUTH_LAST_ACTIVITY_AT_KEY = 'auth_last_activity_at'
 
 # Azure Table Storage (optional) for login auditing.
 # If available, this avoids JSON file concurrency issues across workers/instances.
-AZURE_LOGIN_AUDIT_TABLE = os.getenv('AZURE_LOGIN_AUDIT_TABLE', 'LoginAudit')
+AZURE_LOGIN_AUDIT_TABLE = os.getenv(
+    'AZURE_LOGIN_AUDIT_TABLE',
+    'LoginAudit'
+)
 LOGIN_AUDIT_SESSION_PK_KEY = 'login_audit_pk'
 LOGIN_AUDIT_SESSION_RK_KEY = 'login_audit_rk'
 LOGIN_AUDIT_SESSION_LOGIN_AT_KEY = 'login_audit_login_at'
@@ -1086,30 +1263,33 @@ USERS_SESSION_LOGIN_AT_KEY = 'users_session_login_at'
 USERS_SESSION_AUDIT_ID_KEY = 'users_session_audit_id'
 
 # Email verification
-EMAIL_VERIFY_TOKEN_EXPIRY_HOURS = int(os.getenv('EMAIL_VERIFY_TOKEN_EXPIRY_HOURS', '48'))
-
+EMAIL_VERIFY_TOKEN_EXPIRY_HOURS = int(
+    os.getenv('EMAIL_VERIFY_TOKEN_EXPIRY_HOURS', '48')
+)
 
 
 class User(UserMixin):
     def __init__(
-        self,
-        id,
-        name,
-        email,
-        password_hash=None,
-        is_new=False,
-        created_at=None,
-        email_verified=True,
-        email_verified_at=None,
-        email_verification_sent_at=None,
-        welcome_email_sent_at=None,
+            self,
+            id,
+            name,
+            email,
+            password_hash=None,
+            is_new=False,
+            created_at=None,
+            email_verified=True,
+            email_verified_at=None,
+            email_verification_sent_at=None,
+            welcome_email_sent_at=None,
     ):
         self.id = id
         self.name = name
         self.email = email
         self.password_hash = password_hash
         self.is_new = is_new
-        self.created_at = created_at or datetime.now(timezone.utc).isoformat()
+        self.created_at = created_at or datetime.now(
+            timezone.utc
+        ).isoformat()
         self.email_verified = bool(email_verified)
         self.email_verified_at = email_verified_at
         self.email_verification_sent_at = email_verification_sent_at
@@ -1137,14 +1317,23 @@ class User(UserMixin):
             'created_at': self.created_at,
             'email_verified': getattr(self, 'email_verified', True),
             'email_verified_at': getattr(self, 'email_verified_at', None),
-            'email_verification_sent_at': getattr(self, 'email_verification_sent_at', None),
-            'welcome_email_sent_at': getattr(self, 'welcome_email_sent_at', None),
+            'email_verification_sent_at': getattr(
+                self,
+                'email_verification_sent_at',
+                None
+            ),
+            'welcome_email_sent_at': getattr(
+                self,
+                'welcome_email_sent_at',
+                None
+            ),
             'is_admin': self.is_admin
         }
 
     @classmethod
     def from_dict(cls, data):
         """Create user from dictionary"""
+
         def _coerce_bool(val, default=False):
             if val is None:
                 return default
@@ -1178,7 +1367,9 @@ class User(UserMixin):
             created_at=data.get('created_at'),
             email_verified=inferred_verified,
             email_verified_at=data.get('email_verified_at'),
-            email_verification_sent_at=data.get('email_verification_sent_at'),
+            email_verification_sent_at=data.get(
+                'email_verification_sent_at'
+            ),
             welcome_email_sent_at=data.get('welcome_email_sent_at'),
         )
         return user
@@ -1213,12 +1404,19 @@ def _enforce_email_verification_gate():
             return None
 
         if _is_api_request():
-            return jsonify({
-                "success": False,
-                "error": "Please verify your email to use the Job Search Coach.",
-            }), 403
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Please verify your email to use the Job Search Coach.",
+                }
+            ), 403
 
-        return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
+        return redirect(
+            url_for(
+                'verify_email',
+                email=getattr(current_user, 'email', '')
+            )
+        )
     except Exception:
         return None
 
@@ -1249,6 +1447,7 @@ def _get_external_url(endpoint: str, **values) -> str:
 
 def generate_email_verification_token(user: 'User') -> str:
     from itsdangerous import URLSafeTimedSerializer
+
     serializer = URLSafeTimedSerializer(app.secret_key)
     payload = {
         'user_id': str(user.id),
@@ -1257,11 +1456,22 @@ def generate_email_verification_token(user: 'User') -> str:
     return serializer.dumps(payload, salt='email-verify')
 
 
-def confirm_email_verification_token(token: str, max_age_seconds: int) -> dict | None:
-    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+def confirm_email_verification_token(
+        token: str,
+        max_age_seconds: int
+) -> dict | None:
+    from itsdangerous import (
+        URLSafeTimedSerializer, BadSignature,
+        SignatureExpired,
+    )
+
     serializer = URLSafeTimedSerializer(app.secret_key)
     try:
-        return serializer.loads(token, salt='email-verify', max_age=max_age_seconds)
+        return serializer.loads(
+            token,
+            salt='email-verify',
+            max_age=max_age_seconds
+        )
     except SignatureExpired:
         return None
     except BadSignature:
@@ -1270,9 +1480,14 @@ def confirm_email_verification_token(token: str, max_age_seconds: int) -> dict |
         return None
 
 
-def generate_reinstate_paid_offer_token(user_id: str, subscription_id: str, email: str) -> str:
+def generate_reinstate_paid_offer_token(
+        user_id: str,
+        subscription_id: str,
+        email: str
+) -> str:
     """Create a signed token for paid-cancel reinstatement offer links."""
     from itsdangerous import URLSafeTimedSerializer
+
     serializer = URLSafeTimedSerializer(app.secret_key)
     payload = {
         'user_id': str(user_id or '').strip(),
@@ -1285,7 +1500,11 @@ def generate_reinstate_paid_offer_token(user_id: str, subscription_id: str, emai
 
 def _reinstate_offer_max_age_seconds() -> int:
     try:
-        hours = int((os.getenv("REINSTATE_OFFER_TOKEN_EXPIRY_HOURS") or "720").strip())
+        hours = int(
+            (os.getenv(
+                "REINSTATE_OFFER_TOKEN_EXPIRY_HOURS"
+            ) or "720").strip()
+        )
     except Exception:
         hours = 720
     if hours < 1:
@@ -1306,13 +1525,26 @@ def _store_reinstate_paid_offer_token_in_session(token: str) -> None:
         pass
 
 
-def confirm_reinstate_paid_offer_token(token: str, max_age_seconds: int | None = None) -> dict | None:
+def confirm_reinstate_paid_offer_token(
+        token: str,
+        max_age_seconds: int | None = None
+) -> dict | None:
     """Validate a signed paid-cancel reinstatement offer token."""
-    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    from itsdangerous import (
+        URLSafeTimedSerializer, BadSignature,
+        SignatureExpired,
+    )
+
     serializer = URLSafeTimedSerializer(app.secret_key)
-    max_age = int(max_age_seconds if max_age_seconds is not None else _reinstate_offer_max_age_seconds())
+    max_age = int(
+        max_age_seconds if max_age_seconds is not None else _reinstate_offer_max_age_seconds()
+    )
     try:
-        return serializer.loads(token, salt='reinstate-paid-offer', max_age=max_age)
+        return serializer.loads(
+            token,
+            salt='reinstate-paid-offer',
+            max_age=max_age
+        )
     except SignatureExpired:
         return None
     except BadSignature:
@@ -1326,7 +1558,8 @@ EMAIL_TRIAL_INVITE_SALT = 'email-trial-invite'
 
 
 def _rbi_embedded_checkout_plans() -> tuple[str, ...]:
-    return ('trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95', 'annual_6_95')
+    return (
+        'trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95', 'annual_6_95')
 
 
 def _is_email_trial_plan(plan_id: str) -> bool:
@@ -1335,7 +1568,9 @@ def _is_email_trial_plan(plan_id: str) -> bool:
 
 def _email_trial_invite_max_age_seconds() -> int:
     try:
-        days = int((os.getenv('TRIAL_EMAIL_INVITE_MAX_AGE_DAYS') or '120').strip())
+        days = int(
+            (os.getenv('TRIAL_EMAIL_INVITE_MAX_AGE_DAYS') or '120').strip()
+        )
     except Exception:
         days = 120
     if days < 1:
@@ -1344,16 +1579,21 @@ def _email_trial_invite_max_age_seconds() -> int:
 
 
 def generate_email_trial_invite_token(
-    campaign: str = '',
-    trial_days: int = 10,
-    waive_upfront_fee: bool = True,
+        campaign: str = '',
+        trial_days: int = 10,
+        waive_upfront_fee: bool = True,
 ) -> str:
     """Create a signed invite token for the mass-email 10-day trial campaign."""
     from itsdangerous import URLSafeTimedSerializer
+
     serializer = URLSafeTimedSerializer(app.secret_key)
     payload = {
         'plan_id': EMAIL_TRIAL_PLAN_ID,
-        'campaign': str(campaign or os.getenv('TRIAL_EMAIL_CAMPAIGN') or 'email-trial-2026').strip(),
+        'campaign': str(
+            campaign or os.getenv(
+                'TRIAL_EMAIL_CAMPAIGN'
+            ) or 'email-trial-2026'
+        ).strip(),
         'trial_days': max(1, int(trial_days or 10)),
         'waive_upfront_fee': bool(waive_upfront_fee),
         'v': 1,
@@ -1361,13 +1601,26 @@ def generate_email_trial_invite_token(
     return serializer.dumps(payload, salt=EMAIL_TRIAL_INVITE_SALT)
 
 
-def confirm_email_trial_invite_token(token: str, max_age_seconds: int | None = None) -> dict | None:
+def confirm_email_trial_invite_token(
+        token: str,
+        max_age_seconds: int | None = None
+) -> dict | None:
     """Validate a signed mass-email trial invite token."""
-    from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+    from itsdangerous import (
+        URLSafeTimedSerializer, BadSignature,
+        SignatureExpired,
+    )
+
     serializer = URLSafeTimedSerializer(app.secret_key)
-    max_age = int(max_age_seconds if max_age_seconds is not None else _email_trial_invite_max_age_seconds())
+    max_age = int(
+        max_age_seconds if max_age_seconds is not None else _email_trial_invite_max_age_seconds()
+    )
     try:
-        payload = serializer.loads(token, salt=EMAIL_TRIAL_INVITE_SALT, max_age=max_age)
+        payload = serializer.loads(
+            token,
+            salt=EMAIL_TRIAL_INVITE_SALT,
+            max_age=max_age
+        )
     except SignatureExpired:
         return None
     except BadSignature:
@@ -1387,7 +1640,9 @@ def _store_email_trial_invite_in_session(invite: dict) -> None:
             'plan_id': EMAIL_TRIAL_PLAN_ID,
             'campaign': str(invite.get('campaign') or '').strip(),
             'trial_days': max(1, int(invite.get('trial_days') or 10)),
-            'waive_upfront_fee': bool(invite.get('waive_upfront_fee', True)),
+            'waive_upfront_fee': bool(
+                invite.get('waive_upfront_fee', True)
+            ),
         }
         session.modified = True
     except Exception:
@@ -1406,7 +1661,8 @@ def _get_email_trial_invite_from_session() -> dict | None:
         return None
 
 
-def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[bool, str]:
+def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[
+    bool, str]:
     """Return (allowed, reason_code) for the mass-email 10-day trial."""
     if not user_obj or not getattr(user_obj, 'is_authenticated', False):
         return False, 'authentication_required'
@@ -1417,15 +1673,24 @@ def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[bool, str]:
         pass
     if _stripe_enabled():
         try:
-            prof = get_user_profile_azure(getattr(user_obj, 'id', '')) or {}
+            prof = get_user_profile_azure(
+                getattr(user_obj, 'id', '')
+            ) or {}
             customer_id = str(prof.get('stripe_customer_id') or '').strip()
             if not customer_id:
                 email = (getattr(user_obj, 'email', '') or '').strip()
                 if email:
-                    customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True)
+                    customer_id = _find_stripe_customer_id_by_email(
+                        email,
+                        require_subscription_history=True
+                    )
             if customer_id:
 
-                res = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+                res = stripe.Subscription.list(
+                    customer=customer_id,
+                    status='all',
+                    limit=10
+                )
                 for sub in list(getattr(res, 'data', []) or []):
                     if _stripe_subscription_grants_access(sub):
                         return False, 'already_subscribed'
@@ -1434,10 +1699,16 @@ def _user_can_start_email_trial(user_obj: Optional['User']) -> tuple[bool, str]:
     return True, ''
 
 
-def build_email_trial_checkout_url(invite_token: str, base_url: str = '') -> str:
+def build_email_trial_checkout_url(
+        invite_token: str,
+        base_url: str = ''
+) -> str:
     """Build the mass-email checkout URL for a signed invite token."""
     from urllib.parse import quote
-    root = (base_url or os.getenv('PUBLIC_SITE_URL') or 'https://resumaticai.com').strip().rstrip('/')
+
+    root = (base_url or os.getenv(
+        'PUBLIC_SITE_URL'
+    ) or 'https://resumaticai.com').strip().rstrip('/')
     token = quote(str(invite_token or '').strip(), safe='')
     return f"{root}/checkout?plan={EMAIL_TRIAL_PLAN_ID}&invite={token}"
 
@@ -1459,10 +1730,16 @@ def _should_use_embedded_subscription_checkout(plan_id: str) -> bool:
     pid = _normalize_plan_id(plan_id)
     if pid in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
         return False
-    return _is_india_pricing_region() and pid in ('monthly_10_95', 'annual_6_95')
+    return _is_india_pricing_region() and pid in (
+        'monthly_10_95', 'annual_6_95')
 
 
-def send_email_verification_email(email: str, token: str, user_name: str, next_url: str | None = None) -> bool:
+def send_email_verification_email(
+        email: str,
+        token: str,
+        user_name: str,
+        next_url: str | None = None
+) -> bool:
     """Send email verification link to user."""
     try:
         _load_email_config_if_missing()
@@ -1474,12 +1751,20 @@ def send_email_verification_email(email: str, token: str, user_name: str, next_u
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
         # App Service settings sometimes get pasted with surrounding quotes/newlines; tolerate that.
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
 
         if not auth_email or not auth_password:
-            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
 
         verify_url = _get_external_url('verify_email_token', token=token)
         try:
@@ -1565,7 +1850,9 @@ ResumaticAI Team
                 "Verification email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
                 os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
                 os.getenv('SMTP_PORT', '587'),
-                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+                    '"'
+                ).strip("'"),
                 (email or '').strip().lower(),
             )
         except Exception:
@@ -1605,8 +1892,14 @@ def send_welcome_email(email: str, user_name: str) -> bool:
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
 
         # Visible diagnostics (no secrets) to prove which SMTP config is in effect.
         try:
@@ -1618,12 +1911,16 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                 auth_email,
             )
             if not _ON_AZURE:
-                print(f"[send_welcome_email] to={email} smtp={smtp_server}:{smtp_port} from={auth_email}")
+                print(
+                    f"[send_welcome_email] to={email} smtp={smtp_server}:{smtp_port} from={auth_email}"
+                )
         except Exception:
             pass
 
         if not auth_email or not auth_password:
-            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
 
         try:
             home_url = _get_external_url('index')
@@ -1645,7 +1942,12 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         logo_cid = 'resumatic_logo'
         logo_bytes = None
         try:
-            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
+            logo_path = os.path.join(
+                os.path.dirname(__file__),
+                'static',
+                'images',
+                'logo233_small.png'
+            )
             with open(logo_path, 'rb') as f:
                 logo_bytes = f.read()
         except Exception:
@@ -1764,7 +2066,8 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                 'Founder, ResumaticAI',
                 '',
                 '---',
-                *([f'Newsletter unsubscribe: {unsubscribe_url}'] if unsubscribe_url else []),
+                *([
+                      f'Newsletter unsubscribe: {unsubscribe_url}'] if unsubscribe_url else []),
                 'ResumaticAI Team',
             ]
         ).strip()
@@ -1782,7 +2085,11 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         if logo_bytes:
             logo_part = MIMEImage(logo_bytes)
             logo_part.add_header('Content-ID', f"<{logo_cid}>")
-            logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
+            logo_part.add_header(
+                'Content-Disposition',
+                'inline',
+                filename='logo.png'
+            )
             msg_root.attach(logo_part)
 
         server = smtplib.SMTP(smtp_server, smtp_port)
@@ -1811,7 +2118,9 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                 "Welcome email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
                 os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
                 os.getenv('SMTP_PORT', '587'),
-                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+                    '"'
+                ).strip("'"),
                 (email or '').strip().lower(),
             )
         except Exception:
@@ -1832,7 +2141,11 @@ def send_welcome_email(email: str, user_name: str) -> bool:
         return False
 
 
-def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_trial_bonus: bool = True) -> bool:
+def send_trial_cancellation_reinstate_email(
+        email: str,
+        user_name: str,
+        include_trial_bonus: bool = True
+) -> bool:
     """Send CTA email after trial cancellation, encouraging subscription reinstatement."""
     try:
         email = (email or '').strip().lower()
@@ -1847,10 +2160,18 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
         if not auth_email or not auth_password:
-            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
 
         reinstate_url = _get_external_url('billing_cancel_page')
         try:
@@ -1862,7 +2183,12 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
         logo_cid = 'resumatic_logo_trial_cta'
         logo_bytes = None
         try:
-            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
+            logo_path = os.path.join(
+                os.path.dirname(__file__),
+                'static',
+                'images',
+                'logo233_small.png'
+            )
             with open(logo_path, 'rb') as f:
                 logo_bytes = f.read()
         except Exception:
@@ -1926,7 +2252,11 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
         if logo_bytes:
             logo_part = MIMEImage(logo_bytes)
             logo_part.add_header('Content-ID', f"<{logo_cid}>")
-            logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
+            logo_part.add_header(
+                'Content-Disposition',
+                'inline',
+                filename='logo.png'
+            )
             msg_root.attach(logo_part)
 
         server = smtplib.SMTP(smtp_server, smtp_port)
@@ -1957,12 +2287,16 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
                 "Trial CTA email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
                 os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
                 os.getenv('SMTP_PORT', '587'),
-                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+                    '"'
+                ).strip("'"),
                 (email or '').strip().lower(),
             )
         except Exception:
             pass
-        logger.exception("Error sending trial cancellation reinstate CTA email")
+        logger.exception(
+            "Error sending trial cancellation reinstate CTA email"
+        )
         try:
             record_email_event(
                 email_type="trial_cancellation_reinstate",
@@ -1981,49 +2315,74 @@ def send_trial_cancellation_reinstate_email(email: str, user_name: str, include_
         return False
 
 
-def send_paid_cancellation_reinstate_email(email: str, user_name: str, user_id: str, subscription_id: str) -> bool:
-        """Send cancellation CTA email for users with real paid history."""
+def send_paid_cancellation_reinstate_email(
+        email: str,
+        user_name: str,
+        user_id: str,
+        subscription_id: str
+) -> bool:
+    """Send cancellation CTA email for users with real paid history."""
+    try:
+        email = (email or '').strip().lower()
+        if not email:
+            return False
+
+        _load_email_config_if_missing()
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.image import MIMEImage
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
+        if not auth_email or not auth_password:
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
+
         try:
-                email = (email or '').strip().lower()
-                if not email:
-                        return False
+            token = generate_reinstate_paid_offer_token(
+                user_id=str(user_id or ""),
+                subscription_id=str(subscription_id or ""),
+                email=email
+            )
+            reinstate_url = _get_external_url(
+                'billing_reinstate_paid_offer',
+                token=token
+            )
+        except Exception:
+            reinstate_url = _get_external_url('billing_cancel_page')
+        try:
+            home_url = _get_external_url('index')
+        except Exception:
+            home_url = ''
+        site_url = home_url or 'https://resumaticai.com'
+        logo_url = f"{site_url.rstrip('/')}/static/images/logo233_small.png"
+        logo_cid = 'resumatic_logo_paid_cancel_cta'
+        logo_bytes = None
+        try:
+            logo_path = os.path.join(
+                os.path.dirname(__file__),
+                'static',
+                'images',
+                'logo233_small.png'
+            )
+            with open(logo_path, 'rb') as f:
+                logo_bytes = f.read()
+        except Exception:
+            logo_bytes = None
+        logo_src = f"cid:{logo_cid}" if logo_bytes else logo_url
 
-                _load_email_config_if_missing()
-                import smtplib
-                from email.mime.text import MIMEText
-                from email.mime.image import MIMEImage
-                from email.mime.multipart import MIMEMultipart
-
-                smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-                smtp_port = int(os.getenv('SMTP_PORT', '587'))
-                auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-                auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
-                if not auth_email or not auth_password:
-                        raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
-
-                try:
-                    token = generate_reinstate_paid_offer_token(user_id=str(user_id or ""), subscription_id=str(subscription_id or ""), email=email)
-                    reinstate_url = _get_external_url('billing_reinstate_paid_offer', token=token)
-                except Exception:
-                    reinstate_url = _get_external_url('billing_cancel_page')
-                try:
-                        home_url = _get_external_url('index')
-                except Exception:
-                        home_url = ''
-                site_url = home_url or 'https://resumaticai.com'
-                logo_url = f"{site_url.rstrip('/')}/static/images/logo233_small.png"
-                logo_cid = 'resumatic_logo_paid_cancel_cta'
-                logo_bytes = None
-                try:
-                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'logo233_small.png')
-                        with open(logo_path, 'rb') as f:
-                                logo_bytes = f.read()
-                except Exception:
-                        logo_bytes = None
-                logo_src = f"cid:{logo_cid}" if logo_bytes else logo_url
-
-                subject = 'Reinstate today for $3.99 - Exclusive 60% savings offer'
-                html_body = f"""\
+        subject = 'Reinstate today for $3.99 - Exclusive 60% savings offer'
+        html_body = f"""\
 <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
         <div style="max-width: 620px; margin: 0 auto; padding: 20px;">
@@ -2068,112 +2427,129 @@ def send_paid_cancellation_reinstate_email(email: str, user_name: str, user_id: 
     </body>
 </html>
 """
-                text_body = (
-                    "Dear Valued Customer,\n\n"
-                    "We noticed that you've recently canceled your subscription, and we'd love the opportunity to welcome you back.\n\n"
-                    "As a special offer, you can reinstate your account today and receive your next month for just $3.99, an exclusive savings of over 60% off our regular monthly price.\n\n"
-                    "We've made substantial upgrades to our platform, introducing new features, improved AI capabilities, enhanced performance, and most notably a comprehensive Job Dashboard. We're excited about these improvements and would love for you to explore everything that's new.\n\n"
-                    "In today's competitive job market, having the right tools can make all the difference. With these recent enhancements, we believe our service has become an indispensable part of a successful job search campaign, helping job seekers create stronger resumes, stand out to employers, and increase their chances of landing interviews.\n\n"
-                    "Don't miss this opportunity to experience our upgraded platform at a deeply discounted rate.\n\n"
-                    "Reactivate today for just $3.99 and see what's new.\n\n"
-                    f"Reactivation link: {reinstate_url}\n\n"
-                    "We look forward to helping you achieve your career goals.\n\n"
-                    "Best regards,\n\n"
-                    "The ResumaticAI Team\n"
-                )
+        text_body = (
+            "Dear Valued Customer,\n\n"
+            "We noticed that you've recently canceled your subscription, and we'd love the opportunity to welcome you back.\n\n"
+            "As a special offer, you can reinstate your account today and receive your next month for just $3.99, an exclusive savings of over 60% off our regular monthly price.\n\n"
+            "We've made substantial upgrades to our platform, introducing new features, improved AI capabilities, enhanced performance, and most notably a comprehensive Job Dashboard. We're excited about these improvements and would love for you to explore everything that's new.\n\n"
+            "In today's competitive job market, having the right tools can make all the difference. With these recent enhancements, we believe our service has become an indispensable part of a successful job search campaign, helping job seekers create stronger resumes, stand out to employers, and increase their chances of landing interviews.\n\n"
+            "Don't miss this opportunity to experience our upgraded platform at a deeply discounted rate.\n\n"
+            "Reactivate today for just $3.99 and see what's new.\n\n"
+            f"Reactivation link: {reinstate_url}\n\n"
+            "We look forward to helping you achieve your career goals.\n\n"
+            "Best regards,\n\n"
+            "The ResumaticAI Team\n"
+        )
 
-                msg_root = MIMEMultipart('related')
-                msg_root['Subject'] = subject
-                msg_root['From'] = f"ResumaticAI <{auth_email}>"
-                msg_root['To'] = email
+        msg_root = MIMEMultipart('related')
+        msg_root['Subject'] = subject
+        msg_root['From'] = f"ResumaticAI <{auth_email}>"
+        msg_root['To'] = email
 
-                msg_alt = MIMEMultipart('alternative')
-                msg_alt.attach(MIMEText(text_body, 'plain', 'utf-8'))
-                msg_alt.attach(MIMEText(html_body, 'html', 'utf-8'))
-                msg_root.attach(msg_alt)
+        msg_alt = MIMEMultipart('alternative')
+        msg_alt.attach(MIMEText(text_body, 'plain', 'utf-8'))
+        msg_alt.attach(MIMEText(html_body, 'html', 'utf-8'))
+        msg_root.attach(msg_alt)
 
-                if logo_bytes:
-                        logo_part = MIMEImage(logo_bytes)
-                        logo_part.add_header('Content-ID', f"<{logo_cid}>")
-                        logo_part.add_header('Content-Disposition', 'inline', filename='logo.png')
-                        msg_root.attach(logo_part)
+        if logo_bytes:
+            logo_part = MIMEImage(logo_bytes)
+            logo_part.add_header('Content-ID', f"<{logo_cid}>")
+            logo_part.add_header(
+                'Content-Disposition',
+                'inline',
+                filename='logo.png'
+            )
+            msg_root.attach(logo_part)
 
-                server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
-                server.login(auth_email, auth_password)
-                server.send_message(msg_root)
-                server.quit()
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(auth_email, auth_password)
+        server.send_message(msg_root)
+        server.quit()
 
-                logger.info("Paid cancel CTA email sent to %s", email)
-                try:
-                        record_email_event(
-                                email_type="paid_cancellation_reinstate",
-                                recipient=email,
-                                subject=subject,
-                                status="sent",
-                                source="automatic",
-                                metadata={
-                                        "user_name": str(user_name or "").strip(),
-                                        "user_id": str(user_id or "").strip(),
-                                        "subscription_id": str(subscription_id or "").strip(),
-                                },
-                        )
-                except Exception:
-                        pass
-                return True
+        logger.info("Paid cancel CTA email sent to %s", email)
+        try:
+            record_email_event(
+                email_type="paid_cancellation_reinstate",
+                recipient=email,
+                subject=subject,
+                status="sent",
+                source="automatic",
+                metadata={
+                    "user_name": str(user_name or "").strip(),
+                    "user_id": str(user_id or "").strip(),
+                    "subscription_id": str(subscription_id or "").strip(),
+                },
+            )
         except Exception:
-                try:
-                        logger.error(
-                                "Paid cancel CTA email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
-                                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-                                os.getenv('SMTP_PORT', '587'),
-                                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'"),
-                                (email or '').strip().lower(),
-                        )
-                except Exception:
-                        pass
-                logger.exception('Error sending paid cancellation reinstate CTA email')
-                try:
-                        record_email_event(
-                                email_type="paid_cancellation_reinstate",
-                                recipient=email,
-                                subject="Reinstate today for $3.99 - Exclusive 60% savings offer",
-                                status="failed",
-                                source="automatic",
-                                metadata={
-                                        "user_name": str(user_name or "").strip(),
-                                        "user_id": str(user_id or "").strip(),
-                                        "subscription_id": str(subscription_id or "").strip(),
-                                },
-                                error="smtp_send_failed",
-                        )
-                except Exception:
-                        pass
-                return False
+            pass
+        return True
+    except Exception:
+        try:
+            logger.error(
+                "Paid cancel CTA email failed (smtp_server=%s smtp_port=%s auth_email=%s to=%s)",
+                os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+                os.getenv('SMTP_PORT', '587'),
+                (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+                    '"'
+                ).strip("'"),
+                (email or '').strip().lower(),
+            )
+        except Exception:
+            pass
+        logger.exception(
+            'Error sending paid cancellation reinstate CTA email'
+        )
+        try:
+            record_email_event(
+                email_type="paid_cancellation_reinstate",
+                recipient=email,
+                subject="Reinstate today for $3.99 - Exclusive 60% savings offer",
+                status="failed",
+                source="automatic",
+                metadata={
+                    "user_name": str(user_name or "").strip(),
+                    "user_id": str(user_id or "").strip(),
+                    "subscription_id": str(subscription_id or "").strip(),
+                },
+                error="smtp_send_failed",
+            )
+        except Exception:
+            pass
+        return False
 
 
 def load_users():
     """Load users from Azure-backed profiles, with local JSON fallback."""
     try:
-        collector = globals().get('_collect_registered_users_from_azure_users_table')
+        collector = globals().get(
+            '_collect_registered_users_from_azure_users_table'
+        )
         if callable(collector):
             rows, _, _ = collector()
             loaded_users = {}
             for row in rows:
-                user_id = str(row.get('id') or row.get('PartitionKey') or '').strip()
+                user_id = str(
+                    row.get('id') or row.get('PartitionKey') or ''
+                ).strip()
                 email = str(row.get('email') or '').strip()
                 if not user_id or not email:
                     continue
                 user_data = {
                     'id': user_id,
-                    'name': str(row.get('name') or '').strip() or email.split('@')[0] or 'User',
+                    'name': str(row.get('name') or '').strip() or
+                            email.split('@')[0] or 'User',
                     'email': email,
                     'password_hash': row.get('password_hash'),
                     'created_at': row.get('created_at'),
                     'email_verified': row.get('email_verified'),
                     'email_verified_at': row.get('email_verified_at'),
-                    'email_verification_sent_at': row.get('email_verification_sent_at'),
-                    'welcome_email_sent_at': row.get('welcome_email_sent_at'),
+                    'email_verification_sent_at': row.get(
+                        'email_verification_sent_at'
+                    ),
+                    'welcome_email_sent_at': row.get(
+                        'welcome_email_sent_at'
+                    ),
                 }
                 loaded_users[user_id] = User.from_dict(user_data)
             if loaded_users:
@@ -2191,8 +2567,12 @@ def load_users():
                         continue
                     try:
                         record = dict(user_data)
-                        record['id'] = str(record.get('id') or user_id).strip()
-                        if not record['id'] or not str(record.get('email') or '').strip():
+                        record['id'] = str(
+                            record.get('id') or user_id
+                        ).strip()
+                        if not record['id'] or not str(
+                                record.get('email') or ''
+                        ).strip():
                             continue
                         loaded_users[record['id']] = User.from_dict(record)
                     except Exception:
@@ -2201,6 +2581,7 @@ def load_users():
     except Exception:
         logger.exception("Error loading users from local auth store")
     return {}
+
 
 def save_users():
     """Persist the in-memory user cache to Azure profiles and local fallback."""
@@ -2221,11 +2602,12 @@ def save_users():
         logger.exception("Error saving users to local auth store")
 
 
-
 def add_user(user):
     """Add a user and persist to Azure-backed storage plus local fallback."""
     if user and not getattr(user, 'password_hash', None):
-        user.password_hash = generate_password_hash(secrets.token_urlsafe(32))
+        user.password_hash = generate_password_hash(
+            secrets.token_urlsafe(32)
+        )
     users[user.id] = user
     try:
         upsert_user_profile_azure(user)
@@ -2236,7 +2618,11 @@ def add_user(user):
     except Exception:
         logger.exception("Error persisting users after add_user")
     try:
-        logger.info("Added user: %s (%s)", getattr(user, 'name', ''), getattr(user, 'email', ''))
+        logger.info(
+            "Added user: %s (%s)",
+            getattr(user, 'name', ''),
+            getattr(user, 'email', '')
+        )
     except Exception:
         pass
 
@@ -2288,7 +2674,9 @@ def _get_auth_user_by_email(email: str):
         return None
 
     record = dict(prof)
-    record['id'] = str(record.get('PartitionKey') or record.get('id') or '').strip()
+    record['id'] = str(
+        record.get('PartitionKey') or record.get('id') or ''
+    ).strip()
     if not record['id'] or not record.get('password_hash'):
         return None
 
@@ -2301,7 +2689,8 @@ def _get_auth_user_by_email(email: str):
         return None
 
 
-def _resolve_oauth_user(user_id: str, name: str, email: str) -> tuple['User', bool]:
+def _resolve_oauth_user(user_id: str, name: str, email: str) -> tuple[
+    'User', bool]:
     """Return (user, is_new) for OAuth logins using persistent profile lookup.
 
     This prevents existing users from being treated as new after process restarts,
@@ -2342,7 +2731,10 @@ def _load_login_audit_store() -> dict:
         if os.path.exists(LOGIN_AUDIT_FILE):
             with open(LOGIN_AUDIT_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                if isinstance(data, dict) and isinstance(data.get('sessions'), dict):
+                if isinstance(data, dict) and isinstance(
+                        data.get('sessions'),
+                        dict
+                ):
                     data.setdefault('version', _LOGIN_AUDIT_VERSION)
                     return data
     except Exception:
@@ -2359,8 +2751,15 @@ def _save_login_audit_store(store: dict) -> None:
 
         import tempfile
 
-        dir_name = os.path.dirname(os.path.abspath(LOGIN_AUDIT_FILE)) or '.'
-        with tempfile.NamedTemporaryFile('w', delete=False, dir=dir_name, encoding='utf-8') as tf:
+        dir_name = os.path.dirname(
+            os.path.abspath(LOGIN_AUDIT_FILE)
+        ) or '.'
+        with tempfile.NamedTemporaryFile(
+                'w',
+                delete=False,
+                dir=dir_name,
+                encoding='utf-8'
+        ) as tf:
             json.dump(store, tf, indent=2, ensure_ascii=False)
             tmp_path = tf.name
         os.replace(tmp_path, LOGIN_AUDIT_FILE)
@@ -2399,7 +2798,8 @@ def _get_pacific_tzinfo():
 
     # Python <3.9: try backports.
     try:
-        from backports.zoneinfo import ZoneInfo as BackportsZoneInfo  # type: ignore
+        from backports.zoneinfo import \
+            ZoneInfo as BackportsZoneInfo  # type: ignore
 
         return BackportsZoneInfo('America/Los_Angeles')
     except Exception:
@@ -2427,28 +2827,48 @@ def _format_datetime_pacific(iso_value: str | None) -> str:
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
     except Exception:
         try:
-            return dt.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+            return dt.astimezone(timezone.utc).strftime(
+                '%Y-%m-%d %H:%M:%S UTC'
+            )
         except Exception:
             return ''
 
 
 _LOGIN_AUDIT_LOCK = threading.Lock()
 _RECENT_LOGIN_AUDIT_AT_BY_USER: dict[str, float] = {}
-_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS = int(os.getenv('LOGIN_AUDIT_DEDUPE_SECONDS', '45') or '45')
-_LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS = int(os.getenv('LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS', '300') or '300')
-_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES = int(os.getenv('LOGIN_AUDIT_METRICS_DEDUPE_MINUTES', '5') or '5')
-_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES = int(os.getenv('LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES', '10') or '10')
+_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS = int(
+    os.getenv('LOGIN_AUDIT_DEDUPE_SECONDS', '45') or '45'
+)
+_LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS = int(
+    os.getenv('LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS', '300') or '300'
+)
+_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES = int(
+    os.getenv('LOGIN_AUDIT_METRICS_DEDUPE_MINUTES', '5') or '5'
+)
+_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES = int(
+    os.getenv('LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES', '10') or '10'
+)
 
 
 def _login_audit_dedupe_window_seconds(login_method: str) -> float:
     """Return the dedupe window for a login method when deciding whether to record an audit row."""
     method = str(login_method or '').strip().lower()
     if method == 'email_verification':
-        return float(max(_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS, _LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS))
+        return float(
+            max(
+                _RECENT_LOGIN_AUDIT_DEDUPE_SECONDS,
+                _LOGIN_AUDIT_VERIFICATION_DEDUPE_SECONDS
+            )
+        )
     return float(_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS)
 
 
-def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> bool:
+def _should_skip_login_audit(
+        *,
+        user_id: str,
+        email: str,
+        login_method: str
+) -> bool:
     """Return True when a new login audit row would duplicate a very recent auth event."""
     user_id = str(user_id or '').strip()
     email = _normalize_email(email)
@@ -2469,7 +2889,8 @@ def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> 
     existing_login_at = session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY)
     if existing_audit_id and existing_login_at:
         existing_dt = _parse_iso_datetime(existing_login_at)
-        if existing_dt is not None and (now - existing_dt).total_seconds() < window_seconds:
+        if existing_dt is not None and (
+                now - existing_dt).total_seconds() < window_seconds:
             return True
 
     def _matches_user(rec: dict) -> bool:
@@ -2481,18 +2902,24 @@ def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> 
             return True
         return False
 
-    def _recent_duplicate(rec_at: datetime | None, rec_method: str) -> bool:
+    def _recent_duplicate(
+            rec_at: datetime | None,
+            rec_method: str
+    ) -> bool:
         if rec_at is None:
             return False
         elapsed = (now - rec_at).total_seconds()
         if elapsed < 0:
             return False
         rec_method = str(rec_method or '').strip().lower()
-        onboarding_window_seconds = max(60, int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60)
+        onboarding_window_seconds = max(
+            60,
+            int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60
+        )
         if (
-            method == 'password'
-            and rec_method == 'email_verification'
-            and elapsed < onboarding_window_seconds
+                method == 'password'
+                and rec_method == 'email_verification'
+                and elapsed < onboarding_window_seconds
         ):
             return True
         if elapsed >= window_seconds:
@@ -2506,8 +2933,12 @@ def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> 
     if user_id:
         try:
             prof = get_user_profile_azure(user_id) or {}
-            last_login = _parse_iso_datetime(_coerce_datetime_iso(prof.get('last_login_at')))
-            last_method = str(prof.get('last_login_method') or '').strip().lower()
+            last_login = _parse_iso_datetime(
+                _coerce_datetime_iso(prof.get('last_login_at'))
+            )
+            last_method = str(
+                prof.get('last_login_method') or ''
+            ).strip().lower()
             if _recent_duplicate(last_login, last_method):
                 return True
         except Exception:
@@ -2516,13 +2947,20 @@ def _should_skip_login_audit(*, user_id: str, email: str, login_method: str) -> 
     try:
         with _LOGIN_AUDIT_LOCK:
             store = _load_login_audit_store()
-            sessions = store.get('sessions') if isinstance(store, dict) else {}
+            sessions = store.get('sessions') if isinstance(
+                store,
+                dict
+            ) else {}
             if isinstance(sessions, dict):
                 for rec in sessions.values():
                     if not isinstance(rec, dict) or not _matches_user(rec):
                         continue
-                    rec_at = _parse_iso_datetime(_coerce_datetime_iso(rec.get('login_at')))
-                    rec_method = str(rec.get('login_method') or '').strip().lower()
+                    rec_at = _parse_iso_datetime(
+                        _coerce_datetime_iso(rec.get('login_at'))
+                    )
+                    rec_method = str(
+                        rec.get('login_method') or ''
+                    ).strip().lower()
                     if _recent_duplicate(rec_at, rec_method):
                         return True
     except Exception:
@@ -2542,12 +2980,20 @@ def _auth_timeout_seconds() -> tuple[int | None, int | None]:
     except Exception:
         abs_hours = 0
 
-    idle_seconds = int(idle_min * 60) if idle_min and idle_min > 0 else None
-    absolute_seconds = int(abs_hours * 3600) if abs_hours and abs_hours > 0 else None
+    idle_seconds = int(
+        idle_min * 60
+    ) if idle_min and idle_min > 0 else None
+    absolute_seconds = int(
+        abs_hours * 3600
+    ) if abs_hours and abs_hours > 0 else None
     return idle_seconds, absolute_seconds
 
 
-def _auth_set_session_times(*, start_iso: str | None = None, activity_iso: str | None = None) -> None:
+def _auth_set_session_times(
+        *,
+        start_iso: str | None = None,
+        activity_iso: str | None = None
+) -> None:
     """Persist auth session timestamps in the session (best-effort)."""
     try:
         if start_iso and not session.get(AUTH_SESSION_START_AT_KEY):
@@ -2596,7 +3042,13 @@ def _auth_force_logout(*, reason: str) -> Response:
         pass
 
     # Avoid flash() because the login route clears flashes.
-    return redirect(url_for('login', tab='login', expired=str(reason or '').strip() or '1'))
+    return redirect(
+        url_for(
+            'login',
+            tab='login',
+            expired=str(reason or '').strip() or '1'
+        )
+    )
 
 
 def _azure_login_audit_enabled() -> bool:
@@ -2605,7 +3057,8 @@ def _azure_login_audit_enabled() -> bool:
         if (os.getenv('AZURE_STORAGE_CONNECTION_STRING') or '').strip():
             return True
         # Allow managed identity path primarily on Azure.
-        if (os.getenv('AZURE_STORAGE_ACCOUNT') or '').strip() and (os.getenv('WEBSITE_INSTANCE_ID') or '').strip():
+        if (os.getenv('AZURE_STORAGE_ACCOUNT') or '').strip() and (
+                os.getenv('WEBSITE_INSTANCE_ID') or '').strip():
             return True
     except Exception:
         return False
@@ -2614,18 +3067,25 @@ def _azure_login_audit_enabled() -> bool:
 
 def _get_login_audit_table_client(create_if_missing: bool = True):
     """Best-effort TableClient for login audit table."""
-    connection_string = (os.getenv('AZURE_STORAGE_CONNECTION_STRING') or '').strip()
+    connection_string = (
+            os.getenv('AZURE_STORAGE_CONNECTION_STRING') or '').strip()
     account = (os.getenv('AZURE_STORAGE_ACCOUNT') or '').strip()
     if not connection_string and not account:
         raise ValueError('Azure storage not configured')
 
     if connection_string:
-        service = TableServiceClient.from_connection_string(conn_str=connection_string)
+        service = TableServiceClient.from_connection_string(
+            conn_str=connection_string
+        )
     else:
         # Import lazily: azure.identity import can be slow on some Windows hosts.
         from azure.identity import DefaultAzureCredential
+
         credential = DefaultAzureCredential()
-        service = TableServiceClient(endpoint=f"https://{account}.table.core.windows.net", credential=credential)
+        service = TableServiceClient(
+            endpoint=f"https://{account}.table.core.windows.net",
+            credential=credential
+        )
 
     table_client = service.get_table_client(AZURE_LOGIN_AUDIT_TABLE)
     if create_if_missing:
@@ -2643,7 +3103,9 @@ def _azure_login_audit_upsert(entity: dict) -> bool:
         for key in ('login_at', 'last_activity_at', 'logout_at'):
             if key in payload and payload[key] is not None:
                 payload[key] = _coerce_datetime_iso(payload[key])
-        table_client = _get_login_audit_table_client(create_if_missing=True)
+        table_client = _get_login_audit_table_client(
+            create_if_missing=True
+        )
         table_client.upsert_entity(mode=UpdateMode.REPLACE, entity=payload)
         return True
     except Exception:
@@ -2653,7 +3115,9 @@ def _azure_login_audit_upsert(entity: dict) -> bool:
 
 def _azure_login_audit_get(pk: str, rk: str) -> dict | None:
     try:
-        table_client = _get_login_audit_table_client(create_if_missing=False)
+        table_client = _get_login_audit_table_client(
+            create_if_missing=False
+        )
         e = table_client.get_entity(partition_key=pk, row_key=rk)
         return dict(e) if e else None
     except Exception:
@@ -2683,7 +3147,9 @@ def _azure_login_audit_list(limit: int = 500) -> list[dict]:
         return []
     try:
         out.sort(
-            key=lambda r: (_parse_iso_datetime((r or {}).get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+            key=lambda r: (_parse_iso_datetime(
+                (r or {}).get('login_at')
+            ) or datetime.min.replace(tzinfo=timezone.utc)),
             reverse=True,
         )
     except Exception:
@@ -2710,14 +3176,20 @@ def _table_safe_str(value: object, *, max_len: int = 1024) -> str:
 def _best_effort_client_ip() -> str:
     """Best-effort client IP (supports Azure/App Service reverse proxy)."""
     try:
-        xff = _table_safe_str(request.headers.get('X-Forwarded-For', ''), max_len=256)
+        xff = _table_safe_str(
+            request.headers.get('X-Forwarded-For', ''),
+            max_len=256
+        )
         if xff:
             # XFF can be a comma-separated chain; keep the left-most.
             return (xff.split(',', 1)[0] or '').strip()
     except Exception:
         pass
     try:
-        return _table_safe_str(getattr(request, 'remote_addr', ''), max_len=64)
+        return _table_safe_str(
+            getattr(request, 'remote_addr', ''),
+            max_len=64
+        )
     except Exception:
         return ''
 
@@ -2737,7 +3209,9 @@ def _best_effort_country_code() -> str:
 
     # Manual override for testing / VPN edge-cases.
     try:
-        if str(request.args.get('currency') or '').strip().lower() == 'inr':
+        if str(
+                request.args.get('currency') or ''
+        ).strip().lower() == 'inr':
             try:
                 session[_GEOIP_COUNTRY_SESSION_KEY] = 'IN'
                 session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
@@ -2750,10 +3224,15 @@ def _best_effort_country_code() -> str:
 
     # Cached in session (avoid GeoIP roundtrips on every request).
     try:
-        cached = str(session.get(_GEOIP_COUNTRY_SESSION_KEY) or '').strip().upper()
+        cached = str(
+            session.get(_GEOIP_COUNTRY_SESSION_KEY) or ''
+        ).strip().upper()
         cached_at = int(session.get(_GEOIP_COUNTRY_AT_SESSION_KEY) or 0)
-        cache_hours = int((os.getenv('GEOIP_CACHE_HOURS') or '24').strip() or '24')
-        if cached and cached_at and (time.time() - cached_at) < (max(1, cache_hours) * 3600):
+        cache_hours = int(
+            (os.getenv('GEOIP_CACHE_HOURS') or '24').strip() or '24'
+        )
+        if cached and cached_at and (time.time() - cached_at) < (
+                max(1, cache_hours) * 3600):
             if len(cached) == 2 and cached.isalpha():
                 return cached
     except Exception:
@@ -2761,12 +3240,15 @@ def _best_effort_country_code() -> str:
 
     # Header-based (Cloudflare/CloudFront/etc.)
     try:
-        for hdr in ('CF-IPCountry', 'CloudFront-Viewer-Country', 'X-AppEngine-Country'):
+        for hdr in ('CF-IPCountry', 'CloudFront-Viewer-Country',
+                    'X-AppEngine-Country'):
             v = str(request.headers.get(hdr) or '').strip().upper()
             if len(v) == 2 and v.isalpha():
                 try:
                     session[_GEOIP_COUNTRY_SESSION_KEY] = v
-                    session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
+                    session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(
+                        time.time()
+                    )
                     session.modified = True
                 except Exception:
                     pass
@@ -2790,7 +3272,9 @@ def _best_effort_country_code() -> str:
         return ''
 
     try:
-        timeout_seconds = float((os.getenv('GEOIP_TIMEOUT_SECONDS') or '1.5').strip() or '1.5')
+        timeout_seconds = float(
+            (os.getenv('GEOIP_TIMEOUT_SECONDS') or '1.5').strip() or '1.5'
+        )
     except Exception:
         timeout_seconds = 1.5
 
@@ -2798,10 +3282,15 @@ def _best_effort_country_code() -> str:
         resp = requests.get(
             f"https://ipapi.co/{ip}/json/",
             timeout=max(0.2, timeout_seconds),
-            headers={"Accept": "application/json", "User-Agent": "resumatic/geoip"},
+            headers={"Accept": "application/json",
+                     "User-Agent": "resumatic/geoip"},
         )
         data = resp.json() if getattr(resp, 'ok', False) else {}
-        v = str((data or {}).get('country') or (data or {}).get('country_code') or '').strip().upper()
+        v = str(
+            (data or {}).get('country') or (data or {}).get(
+                'country_code'
+            ) or ''
+        ).strip().upper()
         if len(v) == 2 and v.isalpha():
             try:
                 session[_GEOIP_COUNTRY_SESSION_KEY] = v
@@ -2838,7 +3327,9 @@ def _plans_price_display_context() -> dict:
     if not _is_india_pricing_region():
         return dict(base_usd)
     monthly = (os.getenv('PLANS_DISPLAY_MONTHLY_INR') or '').strip()
-    annual_pm = (os.getenv('PLANS_DISPLAY_ANNUAL_PER_MONTH_INR') or '').strip()
+    annual_pm = (os.getenv(
+        'PLANS_DISPLAY_ANNUAL_PER_MONTH_INR'
+    ) or '').strip()
     if monthly and annual_pm:
         return {
             'currency_mode': 'inr',
@@ -2858,7 +3349,17 @@ def _plans_price_display_context() -> dict:
     return out
 
 
-def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login_at: str, login_method: str, row_key: str, login_audit_pk: str = '', login_audit_rk: str = '') -> None:
+def _azure_users_session_start(
+        *,
+        user_id: str,
+        email: str,
+        audit_id: str,
+        login_at: str,
+        login_method: str,
+        row_key: str,
+        login_audit_pk: str = '',
+        login_audit_rk: str = ''
+) -> None:
     """Record a login session row in the Azure Users table (best-effort).
 
     Writes:
@@ -2880,7 +3381,10 @@ def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login
         if email:
             profile_patch['email'] = _table_safe_str(email, max_len=254)
         try:
-            table_client.upsert_entity(profile_patch, mode=UpdateMode.MERGE)
+            table_client.upsert_entity(
+                profile_patch,
+                mode=UpdateMode.MERGE
+            )
         except Exception:
             pass
 
@@ -2888,8 +3392,14 @@ def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login
         user_agent = ''
         referer = ''
         try:
-            user_agent = _table_safe_str(request.headers.get('User-Agent', ''), max_len=512)
-            referer = _table_safe_str(request.headers.get('Referer', ''), max_len=512)
+            user_agent = _table_safe_str(
+                request.headers.get('User-Agent', ''),
+                max_len=512
+            )
+            referer = _table_safe_str(
+                request.headers.get('Referer', ''),
+                max_len=512
+            )
         except Exception:
             user_agent = ''
             referer = ''
@@ -2910,9 +3420,15 @@ def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login
             'referer': referer,
         }
         if login_audit_pk:
-            entity['login_audit_pk'] = _table_safe_str(login_audit_pk, max_len=16)
+            entity['login_audit_pk'] = _table_safe_str(
+                login_audit_pk,
+                max_len=16
+            )
         if login_audit_rk:
-            entity['login_audit_rk'] = _table_safe_str(login_audit_rk, max_len=128)
+            entity['login_audit_rk'] = _table_safe_str(
+                login_audit_rk,
+                max_len=128
+            )
 
         table_client.upsert_entity(entity, mode=UpdateMode.REPLACE)
     except Exception:
@@ -2920,7 +3436,12 @@ def _azure_users_session_start(*, user_id: str, email: str, audit_id: str, login
         return
 
 
-def _azure_users_session_activity(*, user_id: str, row_key: str, activity_at: str) -> None:
+def _azure_users_session_activity(
+        *,
+        user_id: str,
+        row_key: str,
+        activity_at: str
+) -> None:
     """Update last_activity_at for a session row (best-effort, MERGE)."""
     try:
         if not user_id or not row_key:
@@ -2936,7 +3457,13 @@ def _azure_users_session_activity(*, user_id: str, row_key: str, activity_at: st
         return
 
 
-def _azure_users_session_end(*, user_id: str, row_key: str, logout_at: str, duration_seconds: int | None) -> None:
+def _azure_users_session_end(
+        *,
+        user_id: str,
+        row_key: str,
+        logout_at: str,
+        duration_seconds: int | None
+) -> None:
     """Close a session row in Users table (best-effort, MERGE)."""
     try:
         if not user_id or not row_key:
@@ -2966,7 +3493,11 @@ def _audit_login_start(user: "User", login_method: str) -> None:
         user_id = str(getattr(user, 'id', '') or '')
         email = _normalize_email(getattr(user, 'email', ''))
 
-        if _should_skip_login_audit(user_id=user_id, email=email, login_method=login_method):
+        if _should_skip_login_audit(
+                user_id=user_id,
+                email=email,
+                login_method=login_method
+        ):
             return
 
         now_mono = datetime.now(timezone.utc).timestamp()
@@ -3077,18 +3608,26 @@ def _audit_login_activity(activity_iso: str) -> None:
         if not audit_id:
             return
 
-        now_dt = _parse_iso_datetime(activity_iso) or datetime.now(timezone.utc)
+        now_dt = _parse_iso_datetime(activity_iso) or datetime.now(
+            timezone.utc
+        )
 
         # Throttle writes (in-session).
         try:
-            last_write_dt = _parse_iso_datetime(session.get(LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY))
+            last_write_dt = _parse_iso_datetime(
+                session.get(LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY)
+            )
         except Exception:
             last_write_dt = None
         if last_write_dt is not None:
             try:
-                if (now_dt - last_write_dt).total_seconds() < float(LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS):
+                if (now_dt - last_write_dt).total_seconds() < float(
+                        LOGIN_AUDIT_ACTIVITY_WRITE_THROTTLE_SECONDS
+                ):
                     # Still update the in-memory session key for UI estimates.
-                    session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
+                    session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(
+                        activity_iso
+                    )
                     return
             except Exception:
                 pass
@@ -3096,9 +3635,15 @@ def _audit_login_activity(activity_iso: str) -> None:
         # Best-effort: also update the per-session row in the Azure Users table.
         try:
             uid = str(getattr(current_user, 'id', '') or '').strip()
-            users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+            users_rk = str(
+                session.get(USERS_SESSION_ROWKEY_KEY) or ''
+            ).strip()
             if uid and users_rk:
-                _azure_users_session_activity(user_id=uid, row_key=users_rk, activity_at=str(activity_iso))
+                _azure_users_session_activity(
+                    user_id=uid,
+                    row_key=users_rk,
+                    activity_at=str(activity_iso)
+                )
         except Exception:
             pass
 
@@ -3108,22 +3653,58 @@ def _audit_login_activity(activity_iso: str) -> None:
         if pk and rk and _azure_login_audit_enabled():
             existing = _azure_login_audit_get(pk, rk) or {}
             merged = dict(existing) if isinstance(existing, dict) else {}
-            merged.update({
-                'PartitionKey': pk,
-                'RowKey': rk,
-                'audit_id': str(audit_id),
-                'last_activity_at': str(activity_iso),
-            })
+            merged.update(
+                {
+                    'PartitionKey': pk,
+                    'RowKey': rk,
+                    'audit_id': str(audit_id),
+                    'last_activity_at': str(activity_iso),
+                }
+            )
             # Ensure required fields exist (Azure upsert replaces entity).
-            merged.setdefault('login_at', str(session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or (merged.get('login_at') if isinstance(merged, dict) else '') or ''))
-            merged.setdefault('logout_at', (merged.get('logout_at') if isinstance(merged, dict) else '') or '')
-            merged.setdefault('email', (merged.get('email') if isinstance(merged, dict) else '') or '')
-            merged.setdefault('user_id', (merged.get('user_id') if isinstance(merged, dict) else '') or '')
-            merged.setdefault('login_method', (merged.get('login_method') if isinstance(merged, dict) else '') or '')
+            merged.setdefault(
+                'login_at',
+                str(
+                    session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or (
+                        merged.get('login_at') if isinstance(
+                            merged,
+                            dict
+                        ) else '') or ''
+                )
+            )
+            merged.setdefault(
+                'logout_at',
+                (merged.get('logout_at') if isinstance(
+                    merged,
+                    dict
+                ) else '') or ''
+            )
+            merged.setdefault(
+                'email',
+                (merged.get('email') if isinstance(
+                    merged,
+                    dict
+                ) else '') or ''
+            )
+            merged.setdefault(
+                'user_id',
+                (merged.get('user_id') if isinstance(
+                    merged,
+                    dict
+                ) else '') or ''
+            )
+            merged.setdefault(
+                'login_method',
+                (merged.get('login_method') if isinstance(
+                    merged,
+                    dict
+                ) else '') or ''
+            )
             _azure_login_audit_upsert(merged)
 
             session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
-            session[LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
+            session[
+                LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
             return
 
         # JSON file store update.
@@ -3144,7 +3725,8 @@ def _audit_login_activity(activity_iso: str) -> None:
             _save_login_audit_store(store)
 
         session[LOGIN_AUDIT_LAST_ACTIVITY_AT_KEY] = str(activity_iso)
-        session[LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
+        session[
+            LOGIN_AUDIT_LAST_ACTIVITY_WRITE_AT_KEY] = now_dt.isoformat()
     except Exception:
         # Swallow to avoid impacting request handling.
         return
@@ -3169,8 +3751,12 @@ def _enforce_auth_session_timeouts():
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
-        start_dt = _parse_iso_datetime(session.get(AUTH_SESSION_START_AT_KEY))
-        last_dt = _parse_iso_datetime(session.get(AUTH_LAST_ACTIVITY_AT_KEY))
+        start_dt = _parse_iso_datetime(
+            session.get(AUTH_SESSION_START_AT_KEY)
+        )
+        last_dt = _parse_iso_datetime(
+            session.get(AUTH_LAST_ACTIVITY_AT_KEY)
+        )
 
         # If missing, initialize and allow the request (avoid surprising logouts).
         if start_dt is None:
@@ -3210,7 +3796,9 @@ def _audit_login_end() -> None:
         # If this session has Azure PK/RK, close the Azure record.
         pk = str(session.get(LOGIN_AUDIT_SESSION_PK_KEY) or '').strip()
         rk = str(session.get(LOGIN_AUDIT_SESSION_RK_KEY) or '').strip()
-        login_at_iso = str(session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or '').strip() or None
+        login_at_iso = str(
+            session.get(LOGIN_AUDIT_SESSION_LOGIN_AT_KEY) or ''
+        ).strip() or None
         if pk and rk and _azure_login_audit_enabled():
             now = datetime.now(timezone.utc)
             now_iso = now.isoformat()
@@ -3219,9 +3807,13 @@ def _audit_login_end() -> None:
             if start_dt is None:
                 # Best-effort: load from Azure if session data missing.
                 existing = _azure_login_audit_get(pk, rk)
-                start_dt = _parse_iso_datetime((existing or {}).get('login_at'))
+                start_dt = _parse_iso_datetime(
+                    (existing or {}).get('login_at')
+                )
 
-            duration = int(max(0, (now - start_dt).total_seconds())) if start_dt is not None else None
+            duration = int(
+                max(0, (now - start_dt).total_seconds())
+            ) if start_dt is not None else None
             entity = {
                 'PartitionKey': pk,
                 'RowKey': rk,
@@ -3239,19 +3831,50 @@ def _audit_login_end() -> None:
             merged.update(entity)
             # Ensure minimal required fields exist.
             merged.setdefault('audit_id', str(audit_id))
-            merged.setdefault('login_at', (existing.get('login_at') if isinstance(existing, dict) else None) or (login_at_iso or ''))
-            merged.setdefault('email', (existing.get('email') if isinstance(existing, dict) else None) or '')
-            merged.setdefault('user_id', (existing.get('user_id') if isinstance(existing, dict) else None) or '')
-            merged.setdefault('login_method', (existing.get('login_method') if isinstance(existing, dict) else None) or '')
+            merged.setdefault(
+                'login_at',
+                (existing.get('login_at') if isinstance(
+                    existing,
+                    dict
+                ) else None) or (login_at_iso or '')
+            )
+            merged.setdefault(
+                'email',
+                (existing.get('email') if isinstance(
+                    existing,
+                    dict
+                ) else None) or ''
+            )
+            merged.setdefault(
+                'user_id',
+                (existing.get('user_id') if isinstance(
+                    existing,
+                    dict
+                ) else None) or ''
+            )
+            merged.setdefault(
+                'login_method',
+                (existing.get('login_method') if isinstance(
+                    existing,
+                    dict
+                ) else None) or ''
+            )
 
             _azure_login_audit_upsert(merged)
 
             # Also close the per-session row in the Azure Users table (best-effort).
             try:
                 uid = str(getattr(current_user, 'id', '') or '').strip()
-                users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+                users_rk = str(
+                    session.get(USERS_SESSION_ROWKEY_KEY) or ''
+                ).strip()
                 if uid and users_rk:
-                    _azure_users_session_end(user_id=uid, row_key=users_rk, logout_at=now_iso, duration_seconds=duration)
+                    _azure_users_session_end(
+                        user_id=uid,
+                        row_key=users_rk,
+                        logout_at=now_iso,
+                        duration_seconds=duration
+                    )
             except Exception:
                 pass
 
@@ -3297,9 +3920,16 @@ def _audit_login_end() -> None:
         # Best-effort: close the per-session row in the Azure Users table even when audit is file-based.
         try:
             uid = str(getattr(current_user, 'id', '') or '').strip()
-            users_rk = str(session.get(USERS_SESSION_ROWKEY_KEY) or '').strip()
+            users_rk = str(
+                session.get(USERS_SESSION_ROWKEY_KEY) or ''
+            ).strip()
             if uid and users_rk:
-                _azure_users_session_end(user_id=uid, row_key=users_rk, logout_at=now_iso, duration_seconds=duration)
+                _azure_users_session_end(
+                    user_id=uid,
+                    row_key=users_rk,
+                    logout_at=now_iso,
+                    duration_seconds=duration
+                )
         except Exception:
             pass
 
@@ -3312,6 +3942,7 @@ def _audit_login_end() -> None:
     except Exception:
         logger.exception("Error ending login audit")
 
+
 # Load existing users on startup
 users = load_users()
 try:
@@ -3319,7 +3950,6 @@ try:
 except Exception:
     # Avoid crashing at import-time on Windows consoles that can't encode emojis/unicode.
     pass
-
 
 
 @login_manager.user_loader
@@ -3340,13 +3970,17 @@ def load_user(user_id):
     except Exception:
         return None
 
+
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     def _render_login(*, active_tab: str | None = None):
         """Render the combined Login/Sign-up page with anti-caching headers."""
-        resp = make_response(render_template("login.html", active_tab=active_tab))
+        resp = make_response(
+            render_template("login.html", active_tab=active_tab)
+        )
         # Auth pages should not be cached; caching can cause stale JS/UI behavior.
-        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers[
+            'Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
         resp.headers['Expires'] = '0'
         return resp
@@ -3357,13 +3991,20 @@ def login():
             tab = str(request.args.get('tab') or '').strip().lower()
         except Exception:
             tab = ''
-        if tab in ('register', 'signup', 'sign-up', 'create', 'create-account'):
+        if tab in (
+                'register', 'signup', 'sign-up', 'create',
+                'create-account'):
             return 'register'
         return 'login'
 
     if current_user.is_authenticated:
         if _requires_email_verification(current_user):
-            return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
+            return redirect(
+                url_for(
+                    'verify_email',
+                    email=getattr(current_user, 'email', '')
+                )
+            )
         # If already logged in and a next is provided, honor it.
         _set_auth_next_from_request()
         nxt = _pop_auth_next()
@@ -3391,13 +4032,23 @@ def login():
 
             # If the user exists but has no password, they likely signed up via Google/Facebook.
             if user and not getattr(user, 'password_hash', None):
-                flash('This email is linked to a Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
+                flash(
+                    'This email is linked to a Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.',
+                    'danger'
+                )
                 return _render_login(active_tab='login')
 
-            if user and user.password_hash and user.check_password(password):
+            if user and user.password_hash and user.check_password(
+                    password
+            ):
                 if _requires_email_verification(user):
-                    flash('Please verify your email before logging in. We can resend the verification email below.', 'danger')
-                    return redirect(url_for('verify_email', email=user.email))
+                    flash(
+                        'Please verify your email before logging in. We can resend the verification email below.',
+                        'danger'
+                    )
+                    return redirect(
+                        url_for('verify_email', email=user.email)
+                    )
 
                 login_user(user)
                 _audit_login_start(user, login_method='password')
@@ -3406,30 +4057,44 @@ def login():
                 # retry once on the first successful login after verification.
                 try:
                     if (
-                        _normalize_email(getattr(user, 'email', ''))
-                        and bool(getattr(user, 'email_verified', True))
-                        and not getattr(user, 'welcome_email_sent_at', None)
+                            _normalize_email(getattr(user, 'email', ''))
+                            and bool(getattr(user, 'email_verified', True))
+                            and not getattr(
+                        user,
+                        'welcome_email_sent_at',
+                        None
+                    )
                     ):
                         logger.info(
                             "Retrying welcome email on login for %s",
                             _normalize_email(getattr(user, 'email', '')),
                         )
-                        sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+                        sent_ok = send_welcome_email(
+                            user.email,
+                            getattr(user, 'name', '') or ''
+                        )
                         if sent_ok:
-                            user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                            user.welcome_email_sent_at = datetime.now(
+                                timezone.utc
+                            ).isoformat()
                             add_user(user)
                         else:
                             logger.warning(
                                 "Welcome email retry not sent on login for %s",
-                                _normalize_email(getattr(user, 'email', '')),
+                                _normalize_email(
+                                    getattr(user, 'email', '')
+                                ),
                             )
                 except Exception:
-                    logger.exception("Unexpected error during welcome-email retry on login")
+                    logger.exception(
+                        "Unexpected error during welcome-email retry on login"
+                    )
 
                 # Save pending revision if it exists
                 pending = session.pop('pending_revision', None)
                 if pending:
                     import uuid
+
                     try:
                         save_resume_revision(
                             user.id,
@@ -3440,7 +4105,10 @@ def login():
                             job_description=pending.get('job_description')
                         )
                     except FreeTierLimitReached:
-                        flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+                        flash(
+                            "You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.",
+                            "danger"
+                        )
                     except Exception:
                         pass
                 flash('You have been successfully logged in!', 'success')
@@ -3463,7 +4131,10 @@ def login():
                 return _render_login(active_tab='register')
 
             if len(password) < 8:
-                flash('Password must be at least 8 characters long.', 'danger')
+                flash(
+                    'Password must be at least 8 characters long.',
+                    'danger'
+                )
                 return _render_login(active_tab='register')
 
             if password != confirm_password:
@@ -3474,21 +4145,37 @@ def login():
             existing_user = _get_auth_user_by_email(email)
             if existing_user:
                 if not getattr(existing_user, 'password_hash', None):
-                    flash('An account with this email already exists via Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.', 'danger')
+                    flash(
+                        'An account with this email already exists via Google/Facebook sign-in. Use that sign-in, or click “Forgot password” to set a password for this email.',
+                        'danger'
+                    )
                 else:
-                    flash('An account with this email already exists. Please login instead.', 'danger')
+                    flash(
+                        'An account with this email already exists. Please login instead.',
+                        'danger'
+                    )
                 return _render_login(active_tab='register')
 
             # Create new user (requires email verification)
             import uuid
+
             user_id = f"email_{uuid.uuid4().hex[:16]}"
-            user = User(user_id, name, email, is_new=True, email_verified=False)
+            user = User(
+                user_id,
+                name,
+                email,
+                is_new=True,
+                email_verified=False
+            )
             user.set_password(password)
             add_user(user)
 
             # Marketing attribution: record the signup source/ref/utm (best-effort)
             try:
-                _append_marketing_signup_csv(user, signup_method='email_password')
+                _append_marketing_signup_csv(
+                    user,
+                    signup_method='email_password'
+                )
             except Exception:
                 pass
             try:
@@ -3508,19 +4195,31 @@ def login():
                 user.email,
                 token,
                 user.name,
-                next_url=str(session.get('auth_next') or '').strip() or None,
+                next_url=str(
+                    session.get('auth_next') or ''
+                ).strip() or None,
             )
-            user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
+            user.email_verification_sent_at = datetime.now(
+                timezone.utc
+            ).isoformat()
             add_user(user)  # persist sent timestamp + verified flag
 
             if sent_ok:
-                flash('Account created! Please click verification link sent to your email address to activate account.', 'success')
+                flash(
+                    'Account created! Please click verification link sent to your email address to activate account.',
+                    'success'
+                )
             else:
-                flash('Account created, but we could not send a verification email. Please try resending below or contact support.', 'danger')
+                flash(
+                    'Account created, but we could not send a verification email. Please try resending below or contact support.',
+                    'danger'
+                )
 
             nxt = str(session.get('auth_next') or '').strip()
             if nxt and _is_safe_next_url(nxt):
-                return redirect(url_for('verify_email', email=user.email, next=nxt))
+                return redirect(
+                    url_for('verify_email', email=user.email, next=nxt)
+                )
             return redirect(url_for('verify_email', email=user.email))
 
     return _render_login(active_tab=_desired_active_tab())
@@ -3532,7 +4231,11 @@ def verify_email():
     _set_auth_next_from_request()
     email = (request.args.get('email') or '').strip().lower()
     next_url = str(session.get('auth_next') or '').strip()
-    return render_template('verify_email.html', email=email, next_url=next_url)
+    return render_template(
+        'verify_email.html',
+        email=email,
+        next_url=next_url
+    )
 
 
 @app.route('/verify-email/<token>')
@@ -3542,23 +4245,36 @@ def verify_email_token(token):
     # Local-only debug/testing override: allow forcing a welcome resend.
     try:
         _force_resend_welcome = (
-            (not _ON_AZURE)
-            and str(request.args.get('resend_welcome', '') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+                (not _ON_AZURE)
+                and str(
+            request.args.get('resend_welcome', '') or ''
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
         )
     except Exception:
         _force_resend_welcome = False
 
-    payload = confirm_email_verification_token(token, max_age_seconds=EMAIL_VERIFY_TOKEN_EXPIRY_HOURS * 3600)
+    payload = confirm_email_verification_token(
+        token,
+        max_age_seconds=EMAIL_VERIFY_TOKEN_EXPIRY_HOURS * 3600
+    )
     if not payload:
-        flash('This verification link is invalid or has expired. Please request a new one.', 'danger')
+        flash(
+            'This verification link is invalid or has expired. Please request a new one.',
+            'danger'
+        )
         return redirect(url_for('verify_email'))
 
     user_id = str(payload.get('user_id') or '').strip()
     email = str(payload.get('email') or '').strip().lower()
     user = users.get(user_id)
 
-    if not user or (str(getattr(user, 'email', '') or '').strip().lower() != email):
-        flash('We could not verify that account. Please request a new verification email.', 'danger')
+    if not user or (str(
+            getattr(user, 'email', '') or ''
+    ).strip().lower() != email):
+        flash(
+            'We could not verify that account. Please request a new verification email.',
+            'danger'
+        )
         return redirect(url_for('verify_email', email=email))
 
     # Diagnostics: prove the handler is running + show gate values.
@@ -3594,7 +4310,12 @@ def verify_email_token(token):
     # Send a welcome email once, after verification succeeds.
     # Local debug: allow forcing resend with `?resend_welcome=1`.
     try:
-        if _normalize_email(getattr(user, 'email', '')) and (_force_resend_welcome or not getattr(user, 'welcome_email_sent_at', None)):
+        if _normalize_email(getattr(user, 'email', '')) and (
+                _force_resend_welcome or not getattr(
+            user,
+            'welcome_email_sent_at',
+            None
+        )):
             logger.info(
                 "Attempting welcome email after verification for %s (force_resend=%s)",
                 _normalize_email(getattr(user, 'email', '')),
@@ -3607,12 +4328,19 @@ def verify_email_token(token):
                     _force_resend_welcome,
                 )
                 if not _ON_AZURE:
-                    print(f"[verify_email_token] welcome gate passed for {_normalize_email(getattr(user, 'email', ''))} force_resend={_force_resend_welcome}")
+                    print(
+                        f"[verify_email_token] welcome gate passed for {_normalize_email(getattr(user, 'email', ''))} force_resend={_force_resend_welcome}"
+                    )
             except Exception:
                 pass
-            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+            sent_ok = send_welcome_email(
+                user.email,
+                getattr(user, 'name', '') or ''
+            )
             if sent_ok:
-                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                user.welcome_email_sent_at = datetime.now(
+                    timezone.utc
+                ).isoformat()
                 add_user(user)
             else:
                 logger.warning(
@@ -3633,7 +4361,9 @@ def verify_email_token(token):
             except Exception:
                 pass
     except Exception:
-        logger.exception("Unexpected error during welcome-email attempt after verification")
+        logger.exception(
+            "Unexpected error during welcome-email attempt after verification"
+        )
 
     login_user(user)
     if not was_already_verified:
@@ -3643,6 +4373,7 @@ def verify_email_token(token):
     pending = session.pop('pending_revision', None)
     if pending:
         import uuid
+
         try:
             save_resume_revision(
                 user.id,
@@ -3653,14 +4384,23 @@ def verify_email_token(token):
                 job_description=pending.get('job_description')
             )
         except FreeTierLimitReached:
-            flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+            flash(
+                "You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.",
+                "danger"
+            )
         except Exception:
             pass
 
     if was_already_verified:
-        flash('This email is already verified. You are now logged in.', 'success')
+        flash(
+            'This email is already verified. You are now logged in.',
+            'success'
+        )
     else:
-        flash('Email verified successfully! You can now use your account.', 'success')
+        flash(
+            'Email verified successfully! You can now use your account.',
+            'success'
+        )
     nxt = _pop_auth_next()
     return redirect(nxt or url_for('my_revisions'))
 
@@ -3698,12 +4438,23 @@ def resend_verification():
         return redirect(url_for('login'))
 
     token = generate_email_verification_token(user)
-    sent_ok = send_email_verification_email(user.email, token, user.name, next_url=str(session.get('auth_next') or '').strip() or None)
-    user.email_verification_sent_at = datetime.now(timezone.utc).isoformat()
+    sent_ok = send_email_verification_email(
+        user.email,
+        token,
+        user.name,
+        next_url=str(session.get('auth_next') or '').strip() or None
+    )
+    user.email_verification_sent_at = datetime.now(
+        timezone.utc
+    ).isoformat()
     add_user(user)
 
-    flash(generic_msg if sent_ok else 'We could not send a verification email right now. Please try again later.', 'success' if sent_ok else 'danger')
+    flash(
+        generic_msg if sent_ok else 'We could not send a verification email right now. Please try again later.',
+        'success' if sent_ok else 'danger'
+    )
     return redirect(url_for('verify_email', email=email))
+
 
 # Password Reset Functions
 def load_reset_tokens():
@@ -3717,6 +4468,7 @@ def load_reset_tokens():
         logger.error(f"Error loading reset tokens: {e}")
         return {}
 
+
 def save_reset_tokens(tokens):
     """Save reset tokens to JSON file"""
     try:
@@ -3725,10 +4477,13 @@ def save_reset_tokens(tokens):
     except Exception as e:
         logger.error(f"Error saving reset tokens: {e}")
 
+
 def generate_reset_token():
     """Generate a secure random token for password reset"""
     import secrets
+
     return secrets.token_urlsafe(32)
+
 
 def send_password_reset_email(email, token, user_name):
     """Send password reset email to user"""
@@ -3740,11 +4495,19 @@ def send_password_reset_email(email, token, user_name):
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
 
         if not auth_email or not auth_password:
-            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
 
         # Generate reset URL
         reset_url = url_for('reset_password', token=token, _external=True)
@@ -3810,6 +4573,7 @@ ResumaticAI Team
         logger.exception("Error sending password reset email")
         return False
 
+
 @app.route("/forgot-password", methods=['GET', 'POST'])
 def forgot_password():
     """Handle forgot password requests"""
@@ -3828,7 +4592,9 @@ def forgot_password():
             prof = _find_azure_user_profile_by_email(email)
             if prof:
                 record = dict(prof)
-                record['id'] = str(record.get('PartitionKey') or record.get('id') or '').strip()
+                record['id'] = str(
+                    record.get('PartitionKey') or record.get('id') or ''
+                ).strip()
                 if record['id']:
                     try:
                         user = User.from_dict(record)
@@ -3837,10 +4603,13 @@ def forgot_password():
 
         # Redirect back with a generic success indicator (security: don't reveal if email exists)
 
-        if user and _normalize_email(getattr(user, 'email', '')):  # Send for any account with a reachable email
+        if user and _normalize_email(
+                getattr(user, 'email', '')
+        ):  # Send for any account with a reachable email
             # Generate reset token
             token = generate_reset_token()
-            expiry_time = datetime.now(timezone.utc).timestamp() + (RESET_TOKEN_EXPIRY_HOURS * 3600)
+            expiry_time = datetime.now(timezone.utc).timestamp() + (
+                    RESET_TOKEN_EXPIRY_HOURS * 3600)
 
             # Save token
             tokens = load_reset_tokens()
@@ -3858,6 +4627,7 @@ def forgot_password():
 
     return render_template("forgot_password.html")
 
+
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
 def reset_password(token):
     """Handle password reset with token"""
@@ -3868,7 +4638,10 @@ def reset_password(token):
     tokens = load_reset_tokens()
 
     if token not in tokens:
-        flash('Invalid or expired reset link. Please request a new password reset.', 'danger')
+        flash(
+            'Invalid or expired reset link. Please request a new password reset.',
+            'danger'
+        )
         return redirect(url_for('forgot_password'))
 
     token_data = tokens[token]
@@ -3879,7 +4652,10 @@ def reset_password(token):
         # Remove expired token
         del tokens[token]
         save_reset_tokens(tokens)
-        flash('This reset link has expired. Please request a new password reset.', 'danger')
+        flash(
+            'This reset link has expired. Please request a new password reset.',
+            'danger'
+        )
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
@@ -3889,15 +4665,27 @@ def reset_password(token):
         # Validation
         if not password or not confirm_password:
             flash('Please fill in both password fields.', 'danger')
-            return render_template("reset_password.html", token=token, valid=True)
+            return render_template(
+                "reset_password.html",
+                token=token,
+                valid=True
+            )
 
         if len(password) < 8:
             flash('Password must be at least 8 characters long.', 'danger')
-            return render_template("reset_password.html", token=token, valid=True)
+            return render_template(
+                "reset_password.html",
+                token=token,
+                valid=True
+            )
 
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')
-            return render_template("reset_password.html", token=token, valid=True)
+            return render_template(
+                "reset_password.html",
+                token=token,
+                valid=True
+            )
 
         # Get user and update password
         user_id = token_data['user_id']
@@ -3920,13 +4708,17 @@ def reset_password(token):
             del tokens[token]
             save_reset_tokens(tokens)
 
-            flash('Your password has been reset successfully! Please login with your new password.', 'success')
+            flash(
+                'Your password has been reset successfully! Please login with your new password.',
+                'success'
+            )
             return redirect(url_for('login'))
         else:
             flash('User not found. Please contact support.', 'danger')
             return redirect(url_for('login'))
 
     return render_template("reset_password.html", token=token, valid=True)
+
 
 @app.route("/logout")
 @login_required
@@ -3947,7 +4739,9 @@ def logout():
 
 def _oauth_ssl_verify_setting():
     """Return requests/google-auth verify= value for local dev SSL issues."""
-    insecure_ssl = str(os.getenv('LOCAL_DEV_INSECURE_SSL', '') or '').strip().lower()
+    insecure_ssl = str(
+        os.getenv('LOCAL_DEV_INSECURE_SSL', '') or ''
+    ).strip().lower()
     if (not _ON_AZURE) and insecure_ssl in ('1', 'true', 'yes', 'on'):
         return False
     # truststore patches ssl.SSLContext at import; use default verification (True).
@@ -3978,6 +4772,7 @@ def google_login():
     if USE_ENV_CREDENTIALS:
         # Use environment variables for credentials
         from google_auth_oauthlib.flow import Flow
+
         client_config = {
             "web": {
                 "client_id": GOOGLE_CLIENT_ID,
@@ -3985,7 +4780,8 @@ def google_login():
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "redirect_uris": [url_for("google_callback", _external=True)]
+                "redirect_uris": [
+                    url_for("google_callback", _external=True)]
             }
         }
         flow = Flow.from_client_config(
@@ -4012,9 +4808,6 @@ def google_login():
     return redirect(auth_url)
 
 
-
-
-
 # Google OAuth Callback
 @app.route("/login/google/authorized")
 def google_callback():
@@ -4025,7 +4818,10 @@ def google_callback():
 
     oauth_state = str(session.pop("state", None) or "").strip()
     if not oauth_state:
-        flash("Your sign-in session expired. Please try Google sign-in again.", "danger")
+        flash(
+            "Your sign-in session expired. Please try Google sign-in again.",
+            "danger"
+        )
         return redirect(url_for("login"))
 
     try:
@@ -4037,7 +4833,8 @@ def google_callback():
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
                     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "redirect_uris": [url_for("google_callback", _external=True)]
+                    "redirect_uris": [
+                        url_for("google_callback", _external=True)]
                 }
             }
             flow = Flow.from_client_config(
@@ -4055,7 +4852,9 @@ def google_callback():
             )
 
         _apply_oauth_ssl_verify(flow)
-        insecure_ssl = str(os.getenv('LOCAL_DEV_INSECURE_SSL', '') or '').strip().lower()
+        insecure_ssl = str(
+            os.getenv('LOCAL_DEV_INSECURE_SSL', '') or ''
+        ).strip().lower()
         if (not _ON_AZURE) and insecure_ssl in ('1', 'true', 'yes', 'on'):
             flow.oauth2session.verify = False
 
@@ -4063,6 +4862,7 @@ def google_callback():
         credentials = flow.credentials
 
         import time
+
         _ensure_local_truststore_ssl()
         google_request = google.auth.transport.requests.Request()
         try:
@@ -4080,31 +4880,52 @@ def google_callback():
                 )
                 break
             except google.auth.exceptions.InvalidValue as e:
-                if "Token used too early" in str(e) and attempt < max_retries - 1:
+                if "Token used too early" in str(
+                        e
+                ) and attempt < max_retries - 1:
                     time.sleep(2)
                     continue
                 raise
 
         user_id = user_info["sub"]
-        user, is_new = _resolve_oauth_user(user_id, user_info["name"], user_info.get("email", ""))
+        user, is_new = _resolve_oauth_user(
+            user_id,
+            user_info["name"],
+            user_info.get("email", "")
+        )
         add_user(user)
         try:
             if is_new:
-                _append_marketing_signup_csv(user, signup_method='google_oauth')
+                _append_marketing_signup_csv(
+                    user,
+                    signup_method='google_oauth'
+                )
                 analytics.track_conversion(session, "signup")
         except Exception:
             pass
         try:
-            if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
-                sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+            if is_new and _normalize_email(
+                    getattr(user, 'email', '')
+            ) and not getattr(user, 'welcome_email_sent_at', None):
+                sent_ok = send_welcome_email(
+                    user.email,
+                    getattr(user, 'name', '') or ''
+                )
                 if sent_ok:
-                    user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                    user.welcome_email_sent_at = datetime.now(
+                        timezone.utc
+                    ).isoformat()
                     add_user(user)
         except Exception:
             pass
         try:
             if is_new and str(user_id).isdigit():
-                _append_google_signup_csv(user.id, user.name, user.email, user.created_at)
+                _append_google_signup_csv(
+                    user.id,
+                    user.name,
+                    user.email,
+                    user.created_at
+                )
         except Exception:
             pass
         try:
@@ -4116,6 +4937,7 @@ def google_callback():
         pending = session.pop('pending_revision', None)
         if pending:
             import uuid
+
             try:
                 save_resume_revision(
                     user.id,
@@ -4126,7 +4948,10 @@ def google_callback():
                     job_description=pending.get('job_description')
                 )
             except FreeTierLimitReached:
-                flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+                flash(
+                    "You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.",
+                    "danger"
+                )
             except Exception:
                 pass
         nxt = _pop_auth_next()
@@ -4136,9 +4961,15 @@ def google_callback():
         err_text = str(e or "")
         logger.exception("google_callback oauth exchange failed")
         if "MismatchingStateError" in err_name or "mismatching_state" in err_text.lower():
-            flash("Google sign-in could not be verified. Please try again.", "danger")
+            flash(
+                "Google sign-in could not be verified. Please try again.",
+                "danger"
+            )
         elif "SSL" in err_name or "certificate verify failed" in err_text.lower():
-            flash("Google sign-in failed due to a local SSL certificate issue. Please restart the app and try again.", "danger")
+            flash(
+                "Google sign-in failed due to a local SSL certificate issue. Please restart the app and try again.",
+                "danger"
+            )
         else:
             flash("Google sign-in failed. Please try again.", "danger")
         return redirect(url_for("login"))
@@ -4156,21 +4987,35 @@ def facebook_callback():
 
     fb_info = resp.json()
     user_id = f"facebook_{fb_info['id']}"
-    user, is_new = _resolve_oauth_user(user_id, fb_info["name"], fb_info.get("email", ""))
+    user, is_new = _resolve_oauth_user(
+        user_id,
+        fb_info["name"],
+        fb_info.get("email", "")
+    )
     add_user(user)  # Use add_user to save persistently
     # Marketing attribution + conversion (only for first-time signups; best-effort)
     try:
         if is_new:
-            _append_marketing_signup_csv(user, signup_method='facebook_oauth')
+            _append_marketing_signup_csv(
+                user,
+                signup_method='facebook_oauth'
+            )
             analytics.track_conversion(session, "signup")
     except Exception:
         pass
     # One-time welcome email for new OAuth signups (best-effort, non-blocking)
     try:
-        if is_new and _normalize_email(getattr(user, 'email', '')) and not getattr(user, 'welcome_email_sent_at', None):
-            sent_ok = send_welcome_email(user.email, getattr(user, 'name', '') or '')
+        if is_new and _normalize_email(
+                getattr(user, 'email', '')
+        ) and not getattr(user, 'welcome_email_sent_at', None):
+            sent_ok = send_welcome_email(
+                user.email,
+                getattr(user, 'name', '') or ''
+            )
             if sent_ok:
-                user.welcome_email_sent_at = datetime.now(timezone.utc).isoformat()
+                user.welcome_email_sent_at = datetime.now(
+                    timezone.utc
+                ).isoformat()
                 add_user(user)
     except Exception:
         pass
@@ -4185,12 +5030,10 @@ def facebook_callback():
     return redirect(nxt or url_for("index"))
 
 
-
-
-
 from openai import OpenAI
 
-_FEEDBACK_CATEGORIES = ['Content', 'Format', 'Optimization', 'Best Practices', 'Application Readiness']
+_FEEDBACK_CATEGORIES = ['Content', 'Format', 'Optimization',
+                        'Best Practices', 'Application Readiness']
 
 
 def _canonical_feedback_category(raw: str) -> str:
@@ -4237,7 +5080,9 @@ def _canonical_feedback_category(raw: str) -> str:
 def _normalize_feedback(feedback: object) -> dict:
     """Normalize feedback object so result.html can render reliably."""
     if not isinstance(feedback, dict):
-        return {'overall_score': 50, 'subscores': {c: 50 for c in _FEEDBACK_CATEGORIES}, 'improvement_items': []}
+        return {'overall_score': 50,
+                'subscores': {c: 50 for c in _FEEDBACK_CATEGORIES},
+                'improvement_items': []}
 
     out = dict(feedback)
 
@@ -4267,7 +5112,9 @@ def _normalize_feedback(feedback: object) -> dict:
         for it in subs:
             if not isinstance(it, dict):
                 continue
-            cat = _canonical_feedback_category(it.get('category') or it.get('name') or it.get('Category'))
+            cat = _canonical_feedback_category(
+                it.get('category') or it.get('name') or it.get('Category')
+            )
             if not cat:
                 continue
             try:
@@ -4291,31 +5138,43 @@ def _normalize_feedback(feedback: object) -> dict:
             cat = _canonical_feedback_category(k)
             if isinstance(v, list):
                 for msg in v:
-                    normalized_items.append({
-                        'category': cat,
-                        'message': str(msg or '').strip(),
-                        'severity': 'suggestion',
-                        'example_lines': '',
-                    })
+                    normalized_items.append(
+                        {
+                            'category': cat,
+                            'message': str(msg or '').strip(),
+                            'severity': 'suggestion',
+                            'example_lines': '',
+                        }
+                    )
     elif isinstance(items, list):
         for it in items:
             if not isinstance(it, dict):
                 continue
             cat = _canonical_feedback_category(
-                it.get('category') or it.get('Category') or it.get('category_name') or it.get('categoryName')
+                it.get('category') or it.get('Category') or it.get(
+                    'category_name'
+                ) or it.get('categoryName')
             )
-            msg = it.get('message') or it.get('suggestion') or it.get('feedback') or it.get('text') or ''
-            sev = (it.get('severity') or it.get('level') or it.get('importance') or 'suggestion')
-            ex = it.get('example_lines') or it.get('example') or it.get('exampleLines') or ''
+            msg = it.get('message') or it.get('suggestion') or it.get(
+                'feedback'
+            ) or it.get('text') or ''
+            sev = (it.get('severity') or it.get('level') or it.get(
+                'importance'
+            ) or 'suggestion')
+            ex = it.get('example_lines') or it.get('example') or it.get(
+                'exampleLines'
+            ) or ''
             sev_s = str(sev or '').strip().lower()
             if sev_s not in ('error', 'warning', 'suggestion'):
                 sev_s = 'suggestion'
-            normalized_items.append({
-                'category': cat or '',
-                'message': str(msg or '').strip(),
-                'severity': sev_s,
-                'example_lines': str(ex or '').strip(),
-            })
+            normalized_items.append(
+                {
+                    'category': cat or '',
+                    'message': str(msg or '').strip(),
+                    'severity': sev_s,
+                    'example_lines': str(ex or '').strip(),
+                }
+            )
 
     # Keep only items with a message; canonicalize categories; default unknown to Content (so they are visible)
     cleaned = []
@@ -4326,12 +5185,14 @@ def _normalize_feedback(feedback: object) -> dict:
         c = _canonical_feedback_category(it.get('category'))
         if c not in _FEEDBACK_CATEGORIES:
             c = 'Content'
-        cleaned.append({
-            'category': c,
-            'message': m,
-            'severity': it.get('severity') or 'suggestion',
-            'example_lines': it.get('example_lines') or '',
-        })
+        cleaned.append(
+            {
+                'category': c,
+                'message': m,
+                'severity': it.get('severity') or 'suggestion',
+                'example_lines': it.get('example_lines') or '',
+            }
+        )
     out['improvement_items'] = cleaned
 
     return out
@@ -4405,9 +5266,13 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
         except Exception as e:
             error_msg = str(e)
             print(f"OpenAI API Error: {error_msg}")
-            logger.error(f"OpenAI API Error details: {type(e).__name__}: {error_msg}")
+            logger.error(
+                f"OpenAI API Error details: {type(e).__name__}: {error_msg}"
+            )
             # Re-raise with more details for debugging
-            raise ValueError(f"Failed to connect to OpenAI API: {error_msg}")
+            raise ValueError(
+                f"Failed to connect to OpenAI API: {error_msg}"
+            )
 
         raw_content = response.choices[0].message.content
         print("=== GPT RESPONSE ===")
@@ -4416,6 +5281,7 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
         # Remove markdown backticks if present
         if raw_content.startswith("```"):
             import re
+
             raw_content = re.sub(r"^```(?:json)?\n", "", raw_content)
             raw_content = re.sub(r"\n```$", "", raw_content)
 
@@ -4423,14 +5289,20 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
             data = json.loads(raw_content)
             if "revised_resume" not in data or "feedback" not in data:
                 raise ValueError("Missing required keys in JSON response")
-            return data["revised_resume"], _normalize_feedback(data["feedback"])
+            return data["revised_resume"], _normalize_feedback(
+                data["feedback"]
+            )
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {str(e)}")
             print(f"Raw content: {raw_content}")
-            raise ValueError("Invalid response format from OpenAI. Please try again.")
+            raise ValueError(
+                "Invalid response format from OpenAI. Please try again."
+            )
         except KeyError as e:
             print(f"Missing key in response: {str(e)}")
-            raise ValueError("Incomplete response from OpenAI. Please try again.")
+            raise ValueError(
+                "Incomplete response from OpenAI. Please try again."
+            )
 
     except Exception as e:
         print("=== ERROR OCCURRED ===")
@@ -4438,34 +5310,49 @@ Respond with ONLY the JSON object, no markdown formatting or additional text."""
         raise
 
 
-
 @app.route("/")
 def index():
     # Track the visit with source attribution (only if not already tracked)
     if 'visit_tracked' not in session:
         analytics_obj = globals().get('analytics')
-        if analytics_obj is not None and hasattr(analytics_obj, 'track_visit'):
+        if analytics_obj is not None and hasattr(
+                analytics_obj,
+                'track_visit'
+        ):
             try:
                 source_info = analytics_obj.track_visit(request)
             except Exception as e:
                 _safe_log_exception('analytics.track_visit failed', e)
-                source_info = {"type": "organic", "source": "fallback", "error": str(e)}
+                source_info = {"type": "organic", "source": "fallback",
+                               "error": str(e)}
         else:
-            source_info = {"type": "organic", "source": "fallback", "error": "analytics_unavailable"}
+            source_info = {"type": "organic", "source": "fallback",
+                           "error": "analytics_unavailable"}
         session['visit_tracked'] = True
         session['traffic_source'] = source_info
-        app.logger.info(f"Homepage visit tracked from server-side: {source_info.get('type', 'unknown')}")
+        app.logger.info(
+            f"Homepage visit tracked from server-side: {source_info.get('type', 'unknown')}"
+        )
     else:
         # Use existing traffic source from session
         source_info = session.get('traffic_source', {'type': 'organic'})
-        app.logger.info("Homepage visit already tracked in session, skipping duplicate")
+        app.logger.info(
+            "Homepage visit already tracked in session, skipping duplicate"
+        )
 
     current_year = datetime.now().year
-    scroll_to_form = (request.args.get('scroll_to_form', '').lower() == 'true')
+    scroll_to_form = (
+            request.args.get('scroll_to_form', '').lower() == 'true')
     resp = make_response(
-        render_template("index.html", year=current_year, user=current_user, scroll_to_form=scroll_to_form)
+        render_template(
+            "index.html",
+            year=current_year,
+            user=current_user,
+            scroll_to_form=scroll_to_form
+        )
     )
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers[
+        "Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
     return resp
@@ -4486,14 +5373,19 @@ def upload():
     except Exception:
         _safe_log_event("upload GET")
     current_year = datetime.now().year
-    return render_template("upload.html", year=current_year, user=current_user)
+    return render_template(
+        "upload.html",
+        year=current_year,
+        user=current_user
+    )
 
 
 @app.route("/start")
 def start():
     # Use a temporary redirect here because browsers can cache 301s very aggressively.
     resp = redirect(url_for('index'), code=302)
-    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers[
+        'Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
     return resp
@@ -4503,15 +5395,25 @@ def start():
 def get_started():
     """Entry point CTA: let the user choose new resume vs revise existing."""
     current_year = datetime.now().year
-    return render_template("get_started.html", year=current_year, user=current_user)
+    return render_template(
+        "get_started.html",
+        year=current_year,
+        user=current_user
+    )
 
 
 @app.route("/paste-resume")
 def paste_resume():
     """Fallback page for users to paste resume text when file parsing fails."""
     current_year = datetime.now().year
-    show_error = (request.args.get('error') or '').strip() in ('1', 'true', 'yes')
-    return render_template("paste_resume.html", year=current_year, user=current_user, show_error=show_error)
+    show_error = (request.args.get('error') or '').strip() in (
+        '1', 'true', 'yes')
+    return render_template(
+        "paste_resume.html",
+        year=current_year,
+        user=current_user,
+        show_error=show_error
+    )
 
 
 def _clean_lines(value: str) -> list:
@@ -4573,7 +5475,8 @@ def _auto_bullet_sentences(text: str) -> str:
     if not joined:
         return ''
 
-    parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', joined) if p and p.strip()]
+    parts = [p.strip() for p in re.split(r'(?<=[.!?])\s+', joined) if
+             p and p.strip()]
     if len(parts) <= 1:
         return f"• {joined}"
     return '\n'.join([f"• {p}" for p in parts])
@@ -4607,7 +5510,12 @@ def _build_compiled_resume_text(structured: dict) -> str:
         lines.append(summary)
 
     exp = structured.get('experience') or []
-    if isinstance(exp, list) and any((e.get('title') or e.get('company') or e.get('description') or e.get('duration')) for e in exp if isinstance(e, dict)):
+    if isinstance(exp, list) and any(
+            (e.get('title') or e.get('company') or e.get(
+                'description'
+            ) or e.get('duration')) for e in exp if
+            isinstance(e, dict)
+    ):
         lines.append('')
         lines.append('WORK EXPERIENCE')
         for e in exp:
@@ -4634,7 +5542,12 @@ def _build_compiled_resume_text(structured: dict) -> str:
             lines.pop()
 
     edu = structured.get('education') or []
-    if isinstance(edu, list) and any((d.get('degree') or d.get('field_of_study') or d.get('institution') or d.get('year') or d.get('gpa')) for d in edu if isinstance(d, dict)):
+    if isinstance(edu, list) and any(
+            (d.get('degree') or d.get('field_of_study') or d.get(
+                'institution'
+            ) or d.get('year') or d.get('gpa')) for d in edu if
+            isinstance(d, dict)
+    ):
         lines.append('')
         lines.append('EDUCATION')
         for d in edu:
@@ -4658,7 +5571,10 @@ def _build_compiled_resume_text(structured: dict) -> str:
                 lines.append(' — '.join(bits))
 
     certs = structured.get('certifications') or []
-    if isinstance(certs, list) and any((c.get('name') or c.get('issuer') or c.get('year')) for c in certs if isinstance(c, dict)):
+    if isinstance(certs, list) and any(
+            (c.get('name') or c.get('issuer') or c.get('year')) for c in
+            certs if isinstance(c, dict)
+    ):
         lines.append('')
         lines.append('CERTIFICATIONS')
         for c in certs:
@@ -4674,7 +5590,10 @@ def _build_compiled_resume_text(structured: dict) -> str:
                 lines.append(' — '.join(bits))
 
     custom_sections = structured.get('custom_sections') or []
-    if isinstance(custom_sections, list) and any(isinstance(cs, dict) and (cs.get('heading') or cs.get('items')) for cs in custom_sections):
+    if isinstance(custom_sections, list) and any(
+            isinstance(cs, dict) and (cs.get('heading') or cs.get('items'))
+            for cs in custom_sections
+    ):
         for cs in custom_sections:
             if not isinstance(cs, dict):
                 continue
@@ -4736,7 +5655,11 @@ def resume_new():
             nxt = url_for('resume_new')
         return redirect(url_for('login', next=nxt))
     if request.method == 'GET':
-        return render_template('resume_new.html', year=current_year, user=current_user)
+        return render_template(
+            'resume_new.html',
+            year=current_year,
+            user=current_user
+        )
 
     def _format_month_year(raw_value: str) -> str:
         s = str(raw_value or '').strip()
@@ -4779,7 +5702,11 @@ def resume_new():
         now_month = datetime(now.year, now.month, 1)
         return dt > now_month
 
-    def _format_range(from_raw: str, to_raw: str, is_current: bool = False) -> str:
+    def _format_range(
+            from_raw: str,
+            to_raw: str,
+            is_current: bool = False
+    ) -> str:
         start = _format_month_year(from_raw)
         if (not is_current) and _is_future_month(to_raw):
             end_fmt = _format_month_year(to_raw)
@@ -4819,7 +5746,9 @@ def resume_new():
         'certifications': [],
         'skills': _split_skills(request.form.get('skills') or ''),
         'custom_sections': [],
-        'template_id': _canonical_template_id(template_choice) if template_choice else 'professional',
+        'template_id': _canonical_template_id(
+            template_choice
+        ) if template_choice else 'professional',
     }
 
     exp_titles = request.form.getlist('exp_title')
@@ -4842,25 +5771,35 @@ def resume_new():
 
     for i in range(max_exp):
         title = (exp_titles[i] if i < len(exp_titles) else '').strip()
-        company = (exp_companies[i] if i < len(exp_companies) else '').strip()
-        duration = (exp_durations[i] if i < len(exp_durations) else '').strip()
+        company = (
+            exp_companies[i] if i < len(exp_companies) else '').strip()
+        duration = (
+            exp_durations[i] if i < len(exp_durations) else '').strip()
         from_raw = (exp_froms[i] if i < len(exp_froms) else '').strip()
         to_raw = (exp_tos[i] if i < len(exp_tos) else '').strip()
-        current_raw = (exp_currents[i] if i < len(exp_currents) else '').strip().lower()
+        current_raw = (exp_currents[i] if i < len(
+            exp_currents
+        ) else '').strip().lower()
         is_current = current_raw in ('1', 'true', 'yes', 'on')
         if not duration and any([from_raw, to_raw, is_current]):
-            duration = _format_range(from_raw, to_raw, is_current=is_current)
+            duration = _format_range(
+                from_raw,
+                to_raw,
+                is_current=is_current
+            )
         desc = (exp_descs[i] if i < len(exp_descs) else '').strip()
         if desc:
             desc = _auto_bullet_sentences(desc)
         if not any([title, company, duration, desc]):
             continue
-        structured['experience'].append({
-            'title': title,
-            'company': company,
-            'duration': duration,
-            'description': desc,
-        })
+        structured['experience'].append(
+            {
+                'title': title,
+                'company': company,
+                'duration': duration,
+                'description': desc,
+            }
+        )
 
     edu_degrees = request.form.getlist('edu_degree')
     edu_years = request.form.getlist('edu_year')
@@ -4887,7 +5826,8 @@ def resume_new():
         to_raw = (edu_tos[i] if i < len(edu_tos) else '').strip()
         if not year and any([from_raw, to_raw]):
             year = _format_range(from_raw, to_raw, is_current=False)
-        field_of_study = (edu_fields[i] if i < len(edu_fields) else '').strip()
+        field_of_study = (
+            edu_fields[i] if i < len(edu_fields) else '').strip()
         inst = (edu_insts[i] if i < len(edu_insts) else '').strip()
         gpa = (edu_gpas[i] if i < len(edu_gpas) else '').strip()
         if not any([degree, year, field_of_study, inst, gpa]):
@@ -4899,47 +5839,57 @@ def resume_new():
                     degree_display = f"{degree_display} in {field_of_study}"
             else:
                 degree_display = field_of_study
-        structured['education'].append({
-            'degree': degree_display,
-            'field_of_study': field_of_study,
-            'institution': inst,
-            'year': year,
-            'gpa': gpa,
-        })
+        structured['education'].append(
+            {
+                'degree': degree_display,
+                'field_of_study': field_of_study,
+                'institution': inst,
+                'year': year,
+                'gpa': gpa,
+            }
+        )
 
     cert_names = request.form.getlist('cert_name')
     cert_years = request.form.getlist('cert_year')
     cert_issuers = request.form.getlist('cert_issuer')
-    for i in range(max(len(cert_names), len(cert_years), len(cert_issuers))):
+    for i in range(
+            max(len(cert_names), len(cert_years), len(cert_issuers))
+    ):
         cname = (cert_names[i] if i < len(cert_names) else '').strip()
         cyear = (cert_years[i] if i < len(cert_years) else '').strip()
         issuer = (cert_issuers[i] if i < len(cert_issuers) else '').strip()
         if not any([cname, cyear, issuer]):
             continue
-        structured['certifications'].append({
-            'name': cname,
-            'issuer': issuer,
-            'year': cyear,
-        })
+        structured['certifications'].append(
+            {
+                'name': cname,
+                'issuer': issuer,
+                'year': cyear,
+            }
+        )
 
     custom_headings = request.form.getlist('custom_heading')
     custom_contents = request.form.getlist('custom_content')
     for i in range(max(len(custom_headings), len(custom_contents))):
-        heading = (custom_headings[i] if i < len(custom_headings) else '').strip()
-        content = (custom_contents[i] if i < len(custom_contents) else '').strip()
+        heading = (
+            custom_headings[i] if i < len(custom_headings) else '').strip()
+        content = (
+            custom_contents[i] if i < len(custom_contents) else '').strip()
         if not any([heading, content]):
             continue
-        structured['custom_sections'].append({
-            'heading': heading or 'Additional',
-            'items': [
-                {
-                    'title': '',
-                    'subtitle': '',
-                    'date': '',
-                    'content': content,
-                }
-            ],
-        })
+        structured['custom_sections'].append(
+            {
+                'heading': heading or 'Additional',
+                'items': [
+                    {
+                        'title': '',
+                        'subtitle': '',
+                        'date': '',
+                        'content': content,
+                    }
+                ],
+            }
+        )
 
     compiled_text = _build_compiled_resume_text(structured)
 
@@ -4949,25 +5899,37 @@ def resume_new():
     try:
         import hashlib
         import uuid
+
         structured_hash = None
         try:
             structured_hash = hashlib.sha256(
                 (
-                    json.dumps(structured, sort_keys=True, ensure_ascii=False)
-                    + "\n\n" + str(job_description or '')
+                        json.dumps(
+                            structured,
+                            sort_keys=True,
+                            ensure_ascii=False
+                        )
+                        + "\n\n" + str(job_description or '')
                 ).encode('utf-8')
             ).hexdigest()
         except Exception:
             structured_hash = None
 
         if structured_hash:
-            prior_hash = str(session.get('last_resume_new_hash') or '').strip()
-            prior_revision_id = str(session.get('last_resume_new_revision_id') or '').strip()
+            prior_hash = str(
+                session.get('last_resume_new_hash') or ''
+            ).strip()
+            prior_revision_id = str(
+                session.get('last_resume_new_revision_id') or ''
+            ).strip()
             if prior_hash and prior_revision_id and prior_hash == structured_hash:
                 # Best-effort reuse: avoids duplicate revisions from accidental double-submit.
                 try:
                     table_client = get_table_client()
-                    table_client.get_entity(partition_key=str(current_user.id), row_key=str(prior_revision_id))
+                    table_client.get_entity(
+                        partition_key=str(current_user.id),
+                        row_key=str(prior_revision_id)
+                    )
                     source_revision_id = prior_revision_id
                 except Exception:
                     source_revision_id = None
@@ -4989,7 +5951,10 @@ def resume_new():
             session['last_resume_new_revision_id'] = source_revision_id
     except FreeTierLimitReached:
         # Still let the user proceed to the template viewer, but do not persist a new revision.
-        flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+        flash(
+            "You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.",
+            "danger"
+        )
         source_revision_id = None
         try:
             session.pop('last_resume_new_hash', None)
@@ -4999,7 +5964,10 @@ def resume_new():
     except Exception as e:
         # Best-effort: if storage fails, keep the flow working.
         try:
-            logger.error("resume_new: failed to persist revision: %s", str(e))
+            logger.error(
+                "resume_new: failed to persist revision: %s",
+                str(e)
+            )
         except Exception:
             pass
         source_revision_id = None
@@ -5008,21 +5976,33 @@ def resume_new():
     # created resume also has a template version in /my_revisions without needing edit-mode.
     if source_revision_id:
         try:
-            template_id = _canonical_template_id(template_choice) if template_choice else 'professional'
+            template_id = _canonical_template_id(
+                template_choice
+            ) if template_choice else 'professional'
             snapshot = json.dumps(structured, ensure_ascii=False)
             snapshot_bytes = snapshot.encode('utf-8')
 
             table_client = get_table_client()
-            entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(source_revision_id))
+            entity = table_client.get_entity(
+                partition_key=str(current_user.id),
+                row_key=str(source_revision_id)
+            )
             entity['template_id'] = template_id
-            entity['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+            entity['template_saved_at'] = datetime.now(
+                timezone.utc
+            ).isoformat()
 
             try:
-                entity['template_saved_templates'] = json.dumps([template_id], ensure_ascii=False)
+                entity['template_saved_templates'] = json.dumps(
+                    [template_id],
+                    ensure_ascii=False
+                )
             except Exception:
                 entity['template_saved_templates'] = ''
 
-            per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
+            per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(
+                template_id
+            )
             entity[per_at_prop] = entity['template_saved_at']
 
             if len(snapshot_bytes) <= 60_000:
@@ -5033,6 +6013,7 @@ def resume_new():
             else:
                 import base64
                 import gzip
+
                 gz = gzip.compress(snapshot_bytes, compresslevel=9)
                 b64 = base64.b64encode(gz).decode('ascii')
                 if len(b64.encode('ascii')) <= 60_000:
@@ -5059,7 +6040,9 @@ def resume_new():
     session.pop('template_data', None)
     session.modified = True
     # Auto-continue into the chosen template so users don't have to pick twice.
-    return redirect(url_for('resume_choose_template', auto_template=template_choice))
+    return redirect(
+        url_for('resume_choose_template', auto_template=template_choice)
+    )
 
 
 @app.route('/resume/new/start')
@@ -5088,14 +6071,21 @@ def resume_choose_template():
     if not resume_text.strip():
         flash('Please create a resume first.', 'danger')
         return redirect(url_for('get_started'))
-    return render_template('resume_choose_template.html', year=current_year, user=current_user, resume_text=resume_text)
+    return render_template(
+        'resume_choose_template.html',
+        year=current_year,
+        user=current_user,
+        resume_text=resume_text
+    )
+
 
 @app.route("/plans")
 def plans():
     current_year = datetime.now().year
     trial_unavailable = False
     next_url = str(request.args.get('next') or '').strip()
-    safe_next_url = next_url if (next_url and _is_safe_next_url(next_url)) else ''
+    safe_next_url = next_url if (
+            next_url and _is_safe_next_url(next_url)) else ''
     try:
         if getattr(current_user, 'is_authenticated', False):
             trial_unavailable = _trial_already_used_for_user(current_user)
@@ -5103,15 +6093,24 @@ def plans():
             # try to refresh paid status from Stripe and bounce them back to where they came from.
             try:
                 if not is_paid_user(current_user) and _stripe_enabled():
-                    if _refresh_paid_status_from_stripe_for_user(current_user):
-                        return redirect(safe_next_url or url_for('my_revisions'))
+                    if _refresh_paid_status_from_stripe_for_user(
+                            current_user
+                    ):
+                        return redirect(
+                            safe_next_url or url_for('my_revisions')
+                        )
             except Exception:
                 pass
     except Exception:
         trial_unavailable = False
-    offer_retention = str(request.args.get('offer') or '').strip().lower() == 'retention'
+    offer_retention = str(
+        request.args.get('offer') or ''
+    ).strip().lower() == 'retention'
     if str(request.args.get('reason') or '').strip().lower() == 'pdf':
-        flash('PDF downloads are not available on free accounts.', 'warning')
+        flash(
+            'PDF downloads are not available on free accounts.',
+            'warning'
+        )
 
     raw_plans = _get_active_stripe_plans(force_refresh=True)
 
@@ -5144,8 +6143,8 @@ def plans():
             "trial_days": plan["trial_period_days"],
             "cta_label": plan["cta_label"] or (
                 "Start Free Trial" if (
-                            plan["trial_period_days"] > 0 or plan[
-                        "role"] == "trial") else "Choose Plan"
+                        plan["trial_period_days"] > 0 or plan[
+                    "role"] == "trial") else "Choose Plan"
             ),
             "interval": plan["interval"],
         }
@@ -5167,10 +6166,10 @@ def plans():
     product_groups = sorted(
         product_groups.values(),
         key=lambda g: g["sort_order"]
-        )
+    )
     show_billing_toggle = any(
         g["monthly"] and g["annual"] for g in product_groups
-        )
+    )
 
     return render_template(
         "plans.html",
@@ -5187,8 +6186,8 @@ def plans():
             1,
             _get_trial_hold_days() - _get_trial_capture_days_before_end(
                 _get_trial_hold_days()
-                )
-            ),
+            )
+        ),
     )
 
 
@@ -5246,22 +6245,27 @@ def _normalize_stripe_plan(price) -> Optional[dict]:
             return None
 
         metadata = dict(_stripe_obj_get(product, "metadata", None) or {})
-
-        # Flexible display tag check
-        display_val = str(metadata.get("display") or "").strip().lower()
-        if display_val not in ("1", "true"):
-            return None
-
         price_metadata = dict(
             _stripe_obj_get(price, "metadata", None) or {}
-            )
+        )
 
         # Parse role with a safe fallback to "pro"
         role = str(
             metadata.get("plan_role") or price_metadata.get(
                 "plan_role"
-                ) or "pro"
+            ) or "pro"
         ).strip().lower()
+
+        # Flexible display tag check
+        display_val = str(metadata.get("display") or "").strip().lower()
+        if display_val not in ("1", "true"):
+            logger.debug(
+                "Plan rejected price_id=%s display=%s role=%s",
+                price_id,
+                display_val,
+                role,
+            )
+            return None
 
         # Handle recurring blocks safely for one_time trial prices
         recurring = _stripe_obj_get(price, "recurring", None) or {}
@@ -5276,9 +6280,24 @@ def _normalize_stripe_plan(price) -> Optional[dict]:
         override = str(
             metadata.get("trial_days") or price_metadata.get(
                 "trial_days"
-                ) or ""
+            ) or ""
         ).strip()
         trial_period_days = int(override) if override.isdigit() else 0
+
+        # READ USE TRIAL HOLD
+        use_trial_hold_raw = str(
+            metadata.get("use_trial_hold") or price_metadata.get(
+                "use_trial_hold"
+            ) or ""
+        ).strip().lower()
+        use_trial_hold = use_trial_hold_raw in ("1", "true", "True", "yes")
+        trial_hold_ui_raw = str(
+            metadata.get("use_trial_hold") or price_metadata.get(
+                "use_trial_hold"
+            ) or ""
+        ).strip().lower()
+
+        trial_hold_ui = trial_hold_ui_raw in ("self", "stripe")
 
         features_raw = str(metadata.get("features") or "").strip()
         features = [f.strip() for f in features_raw.split("|") if
@@ -5292,33 +6311,35 @@ def _normalize_stripe_plan(price) -> Optional[dict]:
         return {
             "price_id": str(
                 _stripe_obj_get(price, "id", "") or ""
-                ).strip(),
+            ).strip(),
             "product_id": str(
                 _stripe_obj_get(product, "id", "") or ""
-                ).strip(),
+            ).strip(),
             "role": role,
             "label": str(
                 _stripe_obj_get(product, "name", "") or ""
-                ).strip() or role.title(),
+            ).strip() or role.title(),
             "note": str(metadata.get("note") or "").strip() or str(
                 _stripe_obj_get(product, "description", "") or ""
-                ).strip(),
+            ).strip(),
             "micro_note": str(metadata.get("micro_note") or "").strip(),
             "features": features,
             "badge": str(metadata.get("badge") or "").strip(),
             "cta_label": str(metadata.get("cta_label") or "").strip(),
             "unit_amount": int(
                 _stripe_obj_get(price, "unit_amount", 0) or 0
-                ),
+            ),
             "currency": str(
                 _stripe_obj_get(price, "currency", "usd") or "usd"
-                ).lower(),
+            ).lower(),
             "interval": interval,
             "interval_count": interval_count,
             "trial_period_days": trial_period_days,
+            "use_trial_hold": use_trial_hold,
+            "trial_hold_ui": trial_hold_ui,
             "trial_fee_price_id": str(
                 metadata.get("trial_fee_price_id") or ""
-                ).strip(),
+            ).strip(),
             "sort_order": sort_order,
         }
     except Exception:
@@ -5341,6 +6362,7 @@ def _format_plan_price_parts(plan: dict) -> tuple[str, str]:
         return f"{symbol}{amount:,.2f}", f"/ {interval}"
     return f"{symbol}{amount:,.2f}", f"/ {interval_count} {interval}s"
 
+
 def _fetch_stripe_plans_from_api() -> list:
     """Fetch active recurring Prices (with Products expanded) tagged for display on /plans."""
     plans = []
@@ -5355,18 +6377,18 @@ def _fetch_stripe_plans_from_api() -> list:
         )
         print(
             f"DEBUG: Stripe API returned {len(prices.data)} total active recurring prices."
-            )
+        )
         for price in list(getattr(prices, "data", []) or []):
             plan = _normalize_stripe_plan(price)
             if not plan:
                 print(
                     f"DEBUG: Price {price.id} was REJECTED by _normalize_stripe_plan"
-                    )
+                )
                 continue
             if not plan.get("price_id"):
                 print(
                     f"DEBUG: Plan for {price.id} skipped due to missing price_id"
-                    )
+                )
                 continue
             # For trial plans, resolve the optional one-time upfront fee price so the
             # card can display the real amount charged today (not the recurring amount).
@@ -5423,20 +6445,24 @@ def _get_plan_by_price_id(price_id: str) -> Optional[dict]:
     return None
 
 
-
 @app.route("/plans/template-pdf")
 def plans_template_pdf():
     current_year = datetime.now().year
     trial_unavailable = False
     next_url = str(request.args.get('next') or '').strip()
-    safe_next_url = next_url if (next_url and _is_safe_next_url(next_url)) else ''
+    safe_next_url = next_url if (
+            next_url and _is_safe_next_url(next_url)) else ''
     try:
         if getattr(current_user, 'is_authenticated', False):
             trial_unavailable = _trial_already_used_for_user(current_user)
             try:
                 if not is_paid_user(current_user) and _stripe_enabled():
-                    if _refresh_paid_status_from_stripe_for_user(current_user):
-                        return redirect(safe_next_url or url_for('my_revisions'))
+                    if _refresh_paid_status_from_stripe_for_user(
+                            current_user
+                    ):
+                        return redirect(
+                            safe_next_url or url_for('my_revisions')
+                        )
             except Exception:
                 pass
     except Exception:
@@ -5450,7 +6476,12 @@ def plans_template_pdf():
         next_url=safe_next_url,
         plan_prices=_plans_price_display_context(),
         trial_hold_days=_get_trial_hold_days(),
-        capture_day=max(1, _get_trial_hold_days() - _get_trial_capture_days_before_end(_get_trial_hold_days())),
+        capture_day=max(
+            1,
+            _get_trial_hold_days() - _get_trial_capture_days_before_end(
+                _get_trial_hold_days()
+            )
+        ),
     )
 
 
@@ -5482,11 +6513,25 @@ def go_email_trial():
     invite_token = str(request.args.get('invite') or '').strip()
     invite = _resolve_email_trial_invite(invite_token)
     if not invite:
-        flash("This trial offer link has expired or is invalid. Please use the link from your email.", "danger")
+        flash(
+            "This trial offer link has expired or is invalid. Please use the link from your email.",
+            "danger"
+        )
         return redirect(url_for("plans"))
     if not getattr(current_user, 'is_authenticated', False):
-        return redirect(url_for("login", next=url_for("checkout", plan=EMAIL_TRIAL_PLAN_ID, invite=invite_token)))
-    return redirect(url_for("checkout", plan=EMAIL_TRIAL_PLAN_ID, invite=invite_token))
+        return redirect(
+            url_for(
+                "login",
+                next=url_for(
+                    "checkout",
+                    plan=EMAIL_TRIAL_PLAN_ID,
+                    invite=invite_token
+                )
+            )
+        )
+    return redirect(
+        url_for("checkout", plan=EMAIL_TRIAL_PLAN_ID, invite=invite_token)
+    )
 
 
 def _get_plan_config(plan_id: str) -> Optional[dict]:
@@ -5498,7 +6543,10 @@ def _get_plan_config(plan_id: str) -> Optional[dict]:
         disp = _plans_price_display_context()
         deposit_label = disp.get('monthly_strong') or '$10.95'
         hold_days = _get_trial_hold_days(pid)
-        capture_day = max(1, hold_days - _get_trial_capture_days_before_end(hold_days))
+        capture_day = max(
+            1,
+            hold_days - _get_trial_capture_days_before_end(hold_days)
+        )
         return {
             'id': pid,
             'label': f'{hold_days}-Day Trial',
@@ -5518,7 +6566,10 @@ def _get_plan_config(plan_id: str) -> Optional[dict]:
         disp = _plans_price_display_context()
         deposit_label = disp.get('monthly_strong') or '$10.95'
         hold_days = _get_trial_hold_days(pid)
-        capture_day = max(1, hold_days - _get_trial_capture_days_before_end(hold_days))
+        capture_day = max(
+            1,
+            hold_days - _get_trial_capture_days_before_end(hold_days)
+        )
         return {
             'id': EMAIL_TRIAL_PLAN_ID,
             'label': f'{hold_days}-Day Free Trial',
@@ -5584,7 +6635,10 @@ def _stripe_enabled() -> bool:
 def _get_stripe_customer_id_from_azure(user_id: str) -> str:
     try:
         table_client = get_users_table_client()
-        e = table_client.get_entity(partition_key=str(user_id), row_key='profile')
+        e = table_client.get_entity(
+            partition_key=str(user_id),
+            row_key='profile'
+        )
         return str(e.get('stripe_customer_id') or '').strip()
     except Exception:
         return ''
@@ -5593,7 +6647,10 @@ def _get_stripe_customer_id_from_azure(user_id: str) -> str:
 def _get_stripe_subscription_id_from_azure(user_id: str) -> str:
     try:
         table_client = get_users_table_client()
-        e = table_client.get_entity(partition_key=str(user_id), row_key='profile')
+        e = table_client.get_entity(
+            partition_key=str(user_id),
+            row_key='profile'
+        )
         return str(e.get('stripe_subscription_id') or '').strip()
     except Exception:
         return ''
@@ -5615,7 +6672,8 @@ def _fetch_stripe_subscriptions_index() -> dict:
         starting_after = None
         while True:
             # Stripe allows max 4 expand levels on list; price.product would be 5.
-            params = {'status': 'all', 'limit': 100, 'expand': ['data.items.data.price']}
+            params = {'status': 'all', 'limit': 100,
+                      'expand': ['data.items.data.price']}
             if starting_after:
                 params['starting_after'] = starting_after
             res = stripe.Subscription.list(**params)
@@ -5623,7 +6681,9 @@ def _fetch_stripe_subscriptions_index() -> dict:
             all_subs.extend(batch)
             if not getattr(res, 'has_more', False) or not batch:
                 break
-            starting_after = str(getattr(batch[-1], 'id', '') or '').strip()
+            starting_after = str(
+                getattr(batch[-1], 'id', '') or ''
+            ).strip()
             if not starting_after:
                 break
         by_id: dict[str, object] = {}
@@ -5649,14 +6709,20 @@ def _fetch_stripe_subscriptions_index() -> dict:
         }
     except Exception as e:
         try:
-            logger.warning('Failed to fetch Stripe subscriptions for admin dashboard: %s', str(e))
+            logger.warning(
+                'Failed to fetch Stripe subscriptions for admin dashboard: %s',
+                str(e)
+            )
         except Exception:
             pass
         empty['error'] = str(e)
         return empty
 
 
-def _match_user_to_stripe_subscriptions(prof: Optional[dict], stripe_index: dict) -> tuple[list, str]:
+def _match_user_to_stripe_subscriptions(
+        prof: Optional[dict],
+        stripe_index: dict
+) -> tuple[list, str]:
     """Return Stripe subscription objects linked to this Azure profile."""
     if not prof or not stripe_index:
         return [], ''
@@ -5700,10 +6766,16 @@ def _stripe_sub_status_label(sub) -> str:
         'incomplete_expired': 'Incomplete Expired',
         'paused': 'Paused',
     }
-    return labels.get(status, status.replace('_', ' ').title() or 'Unknown')
+    return labels.get(
+        status,
+        status.replace('_', ' ').title() or 'Unknown'
+    )
 
 
-def _get_stripe_customer_email_cached(customer_id: str, cache: dict) -> str:
+def _get_stripe_customer_email_cached(
+        customer_id: str,
+        cache: dict
+) -> str:
     cid = (customer_id or '').strip()
     if not cid:
         return ''
@@ -5744,7 +6816,11 @@ def _build_azure_profile_lookup(users_rows: list) -> dict:
     return lookup
 
 
-def _resolve_azure_profile_for_stripe_sub(sub, lookup: dict, email_cache: dict) -> tuple[Optional[dict], str]:
+def _resolve_azure_profile_for_stripe_sub(
+        sub,
+        lookup: dict,
+        email_cache: dict
+) -> tuple[Optional[dict], str]:
     sid = str(getattr(sub, 'id', '') or '').strip()
     cid = str(getattr(sub, 'customer', '') or '').strip()
     if sid and sid in lookup['by_sub_id']:
@@ -5797,17 +6873,24 @@ def _plan_id_to_product_label(plan_id: str) -> str:
     return pid.replace('_', ' ').title()
 
 
-def _describe_stripe_subscription_product(sub, price_to_plan: dict[str, str]) -> str:
+def _describe_stripe_subscription_product(
+        sub,
+        price_to_plan: dict[str, str]
+) -> str:
     """Human-readable product/plan purchased for a Stripe subscription."""
     try:
         meta = _stripe_obj_get(sub, 'metadata', {}) or {}
-        plan_id = _normalize_plan_id(str(_stripe_obj_get(meta, 'plan_id', '') or ''))
+        plan_id = _normalize_plan_id(
+            str(_stripe_obj_get(meta, 'plan_id', '') or '')
+        )
         if plan_id:
             label = _plan_id_to_product_label(plan_id)
             if label:
                 return label
 
-        price_id, interval, _interval_count = _get_subscription_price_id_and_recurring(sub)
+        price_id, interval, _interval_count = _get_subscription_price_id_and_recurring(
+            sub
+        )
         if price_id and price_id in price_to_plan:
             label = _plan_id_to_product_label(price_to_plan[price_id])
             if label:
@@ -5819,13 +6902,19 @@ def _describe_stripe_subscription_product(sub, price_to_plan: dict[str, str]) ->
         if first_item:
             price = _stripe_obj_get(first_item, 'price', None)
             if price:
-                nickname = str(_stripe_obj_get(price, 'nickname', '') or '').strip()
+                nickname = str(
+                    _stripe_obj_get(price, 'nickname', '') or ''
+                ).strip()
                 if nickname:
                     return nickname
                 amount = _stripe_obj_get(price, 'unit_amount', None)
-                currency = str(_stripe_obj_get(price, 'currency', '') or '').upper()
+                currency = str(
+                    _stripe_obj_get(price, 'currency', '') or ''
+                ).upper()
                 recurring = _stripe_obj_get(price, 'recurring', None)
-                bill_interval = str(_stripe_obj_get(recurring, 'interval', '') or '').strip() if recurring else interval
+                bill_interval = str(
+                    _stripe_obj_get(recurring, 'interval', '') or ''
+                ).strip() if recurring else interval
                 if amount is not None:
                     try:
                         amt = float(amount) / 100.0
@@ -5840,7 +6929,9 @@ def _describe_stripe_subscription_product(sub, price_to_plan: dict[str, str]) ->
                 if isinstance(product, dict):
                     product_name = str(product.get('name') or '').strip()
                 elif product is not None and not isinstance(product, str):
-                    product_name = str(_stripe_obj_get(product, 'name', '') or '').strip()
+                    product_name = str(
+                        _stripe_obj_get(product, 'name', '') or ''
+                    ).strip()
                 if product_name:
                     if amount is not None:
                         try:
@@ -5865,11 +6956,11 @@ def _describe_stripe_subscription_product(sub, price_to_plan: dict[str, str]) ->
 
 
 def _build_stripe_subscription_dashboard_rows(
-    stripe_index: dict,
-    users_rows: list,
-    signup_lookup: dict,
-    login_lookup: dict,
-    revision_counts: dict,
+        stripe_index: dict,
+        users_rows: list,
+        signup_lookup: dict,
+        login_lookup: dict,
+        revision_counts: dict,
 ) -> list[dict]:
     """One dashboard row per Stripe subscription object (matches Stripe dashboard count)."""
     subs = stripe_index.get('subscriptions') or []
@@ -5884,20 +6975,38 @@ def _build_stripe_subscription_dashboard_rows(
     for sub in subs:
         sid = str(getattr(sub, 'id', '') or '').strip()
         cid = str(getattr(sub, 'customer', '') or '').strip()
-        stripe_status = str(getattr(sub, 'status', '') or '').strip().lower()
+        stripe_status = str(
+            getattr(sub, 'status', '') or ''
+        ).strip().lower()
         is_active = stripe_status in ('active', 'trialing')
 
-        prof, match_source = _resolve_azure_profile_for_stripe_sub(sub, lookup, email_cache)
+        prof, match_source = _resolve_azure_profile_for_stripe_sub(
+            sub,
+            lookup,
+            email_cache
+        )
 
         if prof:
-            uid = str(prof.get('id') or prof.get('PartitionKey') or '').strip()
+            uid = str(
+                prof.get('id') or prof.get('PartitionKey') or ''
+            ).strip()
             email = str(prof.get('email') or '').strip()
             name = str(prof.get('name') or '').strip()
             paid_until = str(prof.get('paid_until') or '').strip()
-            created_at = _resolve_user_signup_date(uid, prof, signup_lookup)
-            last_login_at, last_login_method = _resolve_user_last_login(uid, prof, login_lookup)
+            created_at = _resolve_user_signup_date(
+                uid,
+                prof,
+                signup_lookup
+            )
+            last_login_at, last_login_method = _resolve_user_last_login(
+                uid,
+                prof,
+                login_lookup
+            )
             rev_count = revision_counts.get(uid, 0)
-            revision_ts = prof.get('revision_Timestamp') or prof.get('revision_timestamp') or ''
+            revision_ts = prof.get('revision_Timestamp') or prof.get(
+                'revision_timestamp'
+            ) or ''
             revision_ts_str = _coerce_datetime_iso(revision_ts)
             azure_linked = True
         else:
@@ -5915,42 +7024,67 @@ def _build_stripe_subscription_dashboard_rows(
         sub_created_ts = int(getattr(sub, 'created', 0) or 0)
         sub_created_iso = ''
         if sub_created_ts:
-            sub_created_iso = datetime.fromtimestamp(sub_created_ts, tz=timezone.utc).isoformat()
+            sub_created_iso = datetime.fromtimestamp(
+                sub_created_ts,
+                tz=timezone.utc
+            ).isoformat()
 
-        status_label, status_badge = _subscription_status_for_dashboard(prof, is_active, [sub])
+        status_label, status_badge = _subscription_status_for_dashboard(
+            prof,
+            is_active,
+            [sub]
+        )
         period_end = _stripe_sub_period_end_display(sub)
         if period_end == '—' and paid_until:
             period_end = _format_paid_until(paid_until)
 
-        product_purchased = _describe_stripe_subscription_product(sub, price_to_plan)
+        product_purchased = _describe_stripe_subscription_product(
+            sub,
+            price_to_plan
+        )
         if product_purchased == '—' and prof:
-            azure_plan = _normalize_plan_id(str(prof.get('plan_status') or '').strip())
+            azure_plan = _normalize_plan_id(
+                str(prof.get('plan_status') or '').strip()
+            )
             if azure_plan:
-                product_purchased = _plan_id_to_product_label(azure_plan) or product_purchased
+                product_purchased = _plan_id_to_product_label(
+                    azure_plan
+                ) or product_purchased
 
-        rows.append({
-            'id': uid or '—',
-            'email': email or '—',
-            'name': name or '—',
-            'product_purchased': product_purchased,
-            'plan_status': stripe_status or '—',
-            'subscription_status': status_label,
-            'status_badge': status_badge,
-            'is_active': is_active,
-            'stripe_subscription_id': sid or '—',
-            'stripe_customer_id': cid or '—',
-            'azure_linked': azure_linked,
-            'match_source': match_source or ('stripe_only' if not azure_linked else '—'),
-            'subscription_created_display': _format_any_datetime_pacific(sub_created_iso) or '—',
-            'paid_until_display': period_end,
-            'created_at_display': _format_any_datetime_pacific(created_at) or '—',
-            'last_login_display': _format_any_datetime_pacific(last_login_at) or '—',
-            'last_login_method': last_login_method or '—',
-            'revision_count': rev_count,
-            'last_revision_display': _format_any_datetime_pacific(revision_ts_str) if revision_ts_str else '—',
-            '_sort_active': 0 if is_active else 1,
-            '_sort_created': sub_created_ts,
-        })
+        rows.append(
+            {
+                'id': uid or '—',
+                'email': email or '—',
+                'name': name or '—',
+                'product_purchased': product_purchased,
+                'plan_status': stripe_status or '—',
+                'subscription_status': status_label,
+                'status_badge': status_badge,
+                'is_active': is_active,
+                'stripe_subscription_id': sid or '—',
+                'stripe_customer_id': cid or '—',
+                'azure_linked': azure_linked,
+                'match_source': match_source or (
+                    'stripe_only' if not azure_linked else '—'),
+                'subscription_created_display': _format_any_datetime_pacific(
+                    sub_created_iso
+                ) or '—',
+                'paid_until_display': period_end,
+                'created_at_display': _format_any_datetime_pacific(
+                    created_at
+                ) or '—',
+                'last_login_display': _format_any_datetime_pacific(
+                    last_login_at
+                ) or '—',
+                'last_login_method': last_login_method or '—',
+                'revision_count': rev_count,
+                'last_revision_display': _format_any_datetime_pacific(
+                    revision_ts_str
+                ) if revision_ts_str else '—',
+                '_sort_active': 0 if is_active else 1,
+                '_sort_created': sub_created_ts,
+            }
+        )
 
     rows.sort(key=lambda r: r.get('_sort_created') or 0, reverse=True)
     rows.sort(key=lambda r: r.get('_sort_active', 1))
@@ -5961,9 +7095,9 @@ def _build_stripe_subscription_dashboard_rows(
 
 
 def _find_stripe_customer_id_by_email(
-    email: str,
-    require_subscription_history: bool = False,
-    allow_ephemeral: bool = False,
+        email: str,
+        require_subscription_history: bool = False,
+        allow_ephemeral: bool = False,
 ) -> str:
     """Best-effort lookup for a reusable Stripe customer id by email.
 
@@ -6004,11 +7138,19 @@ def _find_stripe_customer_id_by_email(
             cid = str(getattr(cust, 'id', '') or '').strip()
             if not cid:
                 continue
-            meta = getattr(cust, 'metadata', None) or _stripe_obj_get(cust, 'metadata', {}) or {}
+            meta = getattr(cust, 'metadata', None) or _stripe_obj_get(
+                cust,
+                'metadata',
+                {}
+            ) or {}
             if isinstance(meta, dict):
-                ephemeral_flag = str(meta.get('ephemeral_checkout') or '').strip()
+                ephemeral_flag = str(
+                    meta.get('ephemeral_checkout') or ''
+                ).strip()
             else:
-                ephemeral_flag = str(getattr(meta, 'ephemeral_checkout', '') or '').strip()
+                ephemeral_flag = str(
+                    getattr(meta, 'ephemeral_checkout', '') or ''
+                ).strip()
             has_sub_history = _stripe_customer_has_any_subscription(cid)
             if require_subscription_history and not has_sub_history:
                 continue
@@ -6029,7 +7171,11 @@ def _find_stripe_customer_id_by_email(
     return ''
 
 
-def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, mark_ephemeral: bool = False) -> str:
+def _create_or_get_stripe_customer_for_user(
+        user,
+        persist_profile: bool = True,
+        mark_ephemeral: bool = False
+) -> str:
     """Find or create a Stripe Customer for the given user and persist the id to Azure profile.
 
     Returns the customer id or empty string on failure.
@@ -6054,7 +7200,10 @@ def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, 
                             "RowKey": "profile",
                             "stripe_customer_id": str(found),
                         }
-                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                        table_client.upsert_entity(
+                            entity,
+                            mode=UpdateMode.MERGE
+                        )
                     except Exception:
                         pass
                 return found
@@ -6066,7 +7215,10 @@ def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, 
         customer_metadata = {"user_id": str(user_id)}
         if mark_ephemeral:
             customer_metadata["ephemeral_checkout"] = "1"
-        cust = stripe.Customer.create(email=email or None, metadata=customer_metadata)
+        cust = stripe.Customer.create(
+            email=email or None,
+            metadata=customer_metadata
+        )
         customer_id = str(getattr(cust, 'id', '') or '')
         if customer_id and persist_profile:
             try:
@@ -6086,13 +7238,20 @@ def _create_or_get_stripe_customer_for_user(user, persist_profile: bool = True, 
 
 def _stripe_metadata_user_id(obj) -> str:
     """Best-effort user_id read from a Stripe object's metadata."""
-    meta = getattr(obj, 'metadata', None) or _stripe_obj_get(obj, 'metadata', {}) or {}
+    meta = getattr(obj, 'metadata', None) or _stripe_obj_get(
+        obj,
+        'metadata',
+        {}
+    ) or {}
     if isinstance(meta, dict):
         return str(meta.get('user_id') or '').strip()
     return str(getattr(meta, 'user_id', '') or '').strip()
 
 
-def _cleanup_ephemeral_stripe_customer(customer_id: str, user_id: str = '') -> None:
+def _cleanup_ephemeral_stripe_customer(
+        customer_id: str,
+        user_id: str = ''
+) -> None:
     """Best-effort delete of an unpersisted ephemeral Stripe customer after abandoned checkout."""
     cid = str(customer_id or '').strip()
     uid = str(user_id or '').strip()
@@ -6101,21 +7260,43 @@ def _cleanup_ephemeral_stripe_customer(customer_id: str, user_id: str = '') -> N
     try:
 
         cust = stripe.Customer.retrieve(cid)
-        deleted = bool(getattr(cust, 'deleted', False) or _stripe_obj_get(cust, 'deleted', False))
+        deleted = bool(
+            getattr(cust, 'deleted', False) or _stripe_obj_get(
+                cust,
+                'deleted',
+                False
+            )
+        )
         if deleted:
             return
         if _get_stripe_customer_id_from_azure(uid) == cid:
             return
-        meta = getattr(cust, 'metadata', None) or _stripe_obj_get(cust, 'metadata', {}) or {}
-        ephemeral_flag = str(meta.get('ephemeral_checkout') or '').strip() if isinstance(meta, dict) else str(getattr(meta, 'ephemeral_checkout', '') or '').strip()
+        meta = getattr(cust, 'metadata', None) or _stripe_obj_get(
+            cust,
+            'metadata',
+            {}
+        ) or {}
+        ephemeral_flag = str(
+            meta.get('ephemeral_checkout') or ''
+        ).strip() if isinstance(meta, dict) else str(
+            getattr(meta, 'ephemeral_checkout', '') or ''
+        ).strip()
         owner_uid = _stripe_metadata_user_id(cust)
-        if ephemeral_flag != '1' or (uid and owner_uid and owner_uid != uid):
+        if ephemeral_flag != '1' or (
+                uid and owner_uid and owner_uid != uid):
             return
         try:
-            subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+            subs = stripe.Subscription.list(
+                customer=cid,
+                status='all',
+                limit=20
+            )
             for sub in list(getattr(subs, 'data', []) or []):
-                status = str(getattr(sub, 'status', '') or '').strip().lower()
-                if status not in ('canceled', 'cancelled', 'incomplete_expired'):
+                status = str(
+                    getattr(sub, 'status', '') or ''
+                ).strip().lower()
+                if status not in (
+                        'canceled', 'cancelled', 'incomplete_expired'):
                     return
             stripe.Customer.delete(cid)
         except Exception:
@@ -6124,7 +7305,10 @@ def _cleanup_ephemeral_stripe_customer(customer_id: str, user_id: str = '') -> N
         return
 
 
-def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) -> tuple[bool, str]:
+def _abandon_embedded_subscription_checkout(
+        subscription_id: str,
+        user_id: str
+) -> tuple[bool, str]:
     """Best-effort cancel of an incomplete embedded subscription checkout."""
     sid = str(subscription_id or '').strip()
     uid = str(user_id or '').strip()
@@ -6132,7 +7316,10 @@ def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) 
         return False, 'missing_parameters'
     try:
 
-        sub = stripe.Subscription.retrieve(sid, expand=['pending_setup_intent'])
+        sub = stripe.Subscription.retrieve(
+            sid,
+            expand=['pending_setup_intent']
+        )
     except Exception:
         return False, 'subscription_not_found'
     if _stripe_metadata_user_id(sub) != uid:
@@ -6141,7 +7328,9 @@ def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) 
         return True, 'already_completed'
     customer_id = str(getattr(sub, 'customer', '') or '').strip()
     status = str(getattr(sub, 'status', '') or '').strip().lower()
-    if status not in ('incomplete', 'trialing', 'past_due', 'unpaid', 'incomplete_expired'):
+    if status not in (
+            'incomplete', 'trialing', 'past_due', 'unpaid',
+            'incomplete_expired'):
         return True, f'ignored_{status or "unknown"}'
     try:
         if status != 'incomplete_expired':
@@ -6152,7 +7341,8 @@ def _abandon_embedded_subscription_checkout(subscription_id: str, user_id: str) 
     return True, 'cleaned'
 
 
-def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> tuple[bool, str]:
+def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> \
+        tuple[bool, str]:
     """Best-effort cancel of an embedded trial-hold authorization before activation."""
     pi_id = str(payment_intent_id or '').strip()
     uid = str(user_id or '').strip()
@@ -6170,7 +7360,10 @@ def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> tuple[
     if status in ('canceled',):
         _cleanup_ephemeral_stripe_customer(customer_id, uid)
         return True, 'already_canceled'
-    if status in ('requires_payment_method', 'requires_confirmation', 'requires_action', 'processing', 'requires_capture'):
+    if status in (
+            'requires_payment_method', 'requires_confirmation',
+            'requires_action',
+            'processing', 'requires_capture'):
         try:
             stripe.PaymentIntent.cancel(pi_id)
         except Exception:
@@ -6180,8 +7373,6 @@ def _abandon_trial_hold_checkout(payment_intent_id: str, user_id: str) -> tuple[
     if status == 'succeeded':
         return True, 'already_completed'
     return True, f'ignored_{status or "unknown"}'
-
-
 
 
 def _find_user_id_by_stripe_customer_id(customer_id: str) -> str:
@@ -6209,7 +7400,13 @@ def _stripe_subscription_grants_access(sub) -> bool:
     """
     if not sub:
         return False
-    status = str(_stripe_obj_get(sub, 'status', '') or getattr(sub, 'status', '') or '').strip().lower()
+    status = str(
+        _stripe_obj_get(sub, 'status', '') or getattr(
+            sub,
+            'status',
+            ''
+        ) or ''
+    ).strip().lower()
     if status in ('incomplete', 'incomplete_expired'):
         return False
     if status == 'active':
@@ -6239,10 +7436,18 @@ def _subscription_needs_payment_setup(sub) -> bool:
     """Return True when subscription exists but still needs card/setup confirmation."""
     if not sub:
         return False
-    status = str(_stripe_obj_get(sub, 'status', '') or getattr(sub, 'status', '') or '').strip().lower()
+    status = str(
+        _stripe_obj_get(sub, 'status', '') or getattr(
+            sub,
+            'status',
+            ''
+        ) or ''
+    ).strip().lower()
     if status == 'incomplete':
         return True
-    if status == 'trialing' and not _stripe_subscription_grants_access(sub):
+    if status == 'trialing' and not _stripe_subscription_grants_access(
+            sub
+    ):
         return True
     return False
 
@@ -6255,9 +7460,18 @@ def _find_resumable_pending_subscription(customer_id: str, plan_id: str):
         return None
     try:
 
-        res = stripe.Subscription.list(customer=cid, status='all', limit=20, expand=['data.pending_setup_intent'])
+        res = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=20,
+            expand=['data.pending_setup_intent']
+        )
         candidates = list(getattr(res, 'data', []) or [])
-        for sub in sorted(candidates, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True):
+        for sub in sorted(
+                candidates,
+                key=lambda s: int(getattr(s, 'created', 0) or 0),
+                reverse=True
+        ):
             if not _subscription_needs_payment_setup(sub):
                 continue
             meta = getattr(sub, 'metadata', None) or {}
@@ -6286,34 +7500,75 @@ def _find_resumable_pending_subscription(customer_id: str, plan_id: str):
     return None
 
 
-def _persist_stripe_subscription_to_profile(user_id: str, sub, plan_id: str = '') -> None:
+def _persist_stripe_subscription_to_profile(
+        user_id: str,
+        sub,
+        plan_id: str = '',
+        force_access: bool = False  # Add this parameter
+) -> None:
     """Persist Stripe subscription state to the user's Azure profile."""
     uid = str(user_id or '').strip()
     if not uid or not sub:
         return
-    if not _stripe_subscription_grants_access(sub):
+
+    if not force_access and not _stripe_subscription_grants_access(sub):
         return
+
     try:
-        customer_id = str(getattr(sub, 'customer', '') or _stripe_obj_get(sub, 'customer', '') or '')
-        sub_status = str(getattr(sub, 'status', '') or _stripe_obj_get(sub, 'status', '') or '').lower()
-        sub_id = str(getattr(sub, 'id', '') or _stripe_obj_get(sub, 'id', '') or '')
+        customer_id = str(
+            getattr(sub, 'customer', '') or _stripe_obj_get(
+                sub,
+                'customer',
+                ''
+            ) or ''
+        )
+        sub_status = str(
+            getattr(sub, 'status', '') or _stripe_obj_get(
+                sub,
+                'status',
+                ''
+            ) or ''
+        ).lower()
+
+        sub_id = str(
+            getattr(sub, 'id', '') or _stripe_obj_get(sub, 'id', '') or ''
+        )
+        is_trial = sub_status == 'trialing' or _normalize_plan_id(
+            plan_id
+        ) in ('trial_7d', EMAIL_TRIAL_PLAN_ID)
+        status_for_db = "trial" if is_trial else (plan_id or sub_status)
+
         entity = {
             'PartitionKey': uid,
             'RowKey': 'profile',
             'is_paid': True,
-            'plan_status': plan_id or str(getattr(sub, 'status', '') or _stripe_obj_get(sub, 'status', '') or ''),
+            'plan_status': status_for_db,
             'stripe_customer_id': customer_id,
             'stripe_subscription_id': sub_id,
         }
-        if sub_status == 'trialing' or _normalize_plan_id(plan_id) in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
+        if sub_status == 'trialing' or _normalize_plan_id(plan_id) in (
+                'trial_7d', EMAIL_TRIAL_PLAN_ID):
             entity['trial_used'] = True
-            entity['trial_used_at'] = datetime.now(timezone.utc).isoformat()
+            entity['trial_used_at'] = datetime.now(
+                timezone.utc
+            ).isoformat()
         try:
-            current_period_end = getattr(sub, 'current_period_end', None) or _stripe_obj_get(sub, 'current_period_end', None)
-            trial_end = getattr(sub, 'trial_end', None) or _stripe_obj_get(sub, 'trial_end', None)
+            current_period_end = getattr(
+                sub,
+                'current_period_end',
+                None
+            ) or _stripe_obj_get(sub, 'current_period_end', None)
+            trial_end = getattr(sub, 'trial_end', None) or _stripe_obj_get(
+                sub,
+                'trial_end',
+                None
+            )
             ts = current_period_end or trial_end
             if ts:
-                entity['paid_until'] = datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+                entity['paid_until'] = datetime.fromtimestamp(
+                    int(ts),
+                    tz=timezone.utc
+                ).isoformat()
         except Exception:
             pass
         table_client = get_users_table_client()
@@ -6322,7 +7577,10 @@ def _persist_stripe_subscription_to_profile(user_id: str, sub, plan_id: str = ''
         pass
 
 
-def _subscription_belongs_to_customer(subscription_id: str, customer_id: str) -> bool:
+def _subscription_belongs_to_customer(
+        subscription_id: str,
+        customer_id: str
+) -> bool:
     """Return True if the subscription belongs to the given Stripe customer."""
     sid = (subscription_id or '').strip()
     cid = (customer_id or '').strip()
@@ -6349,7 +7607,11 @@ def _handle_setup_intent_succeeded_webhook(setup_intent: dict) -> None:
         return
     try:
 
-        subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+        subs = stripe.Subscription.list(
+            customer=customer_id,
+            status='all',
+            limit=10
+        )
         sdata = list(getattr(subs, 'data', []) or [])
         if not sdata:
             return
@@ -6367,7 +7629,9 @@ def _handle_setup_intent_succeeded_webhook(setup_intent: dict) -> None:
             return (sr, created)
 
         best = sorted(sdata, key=_rank, reverse=True)[0]
-        best_status = str(getattr(best, 'status', '') or '').strip().lower()
+        best_status = str(
+            getattr(best, 'status', '') or ''
+        ).strip().lower()
         if not _stripe_subscription_grants_access(best):
             return
         plan_id = ''
@@ -6379,10 +7643,19 @@ def _handle_setup_intent_succeeded_webhook(setup_intent: dict) -> None:
                 plan_id = str(getattr(meta, 'plan_id', '') or '').strip()
         except Exception:
             plan_id = ''
-        _persist_stripe_subscription_to_profile(user_id, best, plan_id=plan_id)
-        logger.info(f"setup_intent.succeeded: persisted subscription for user {user_id}")
+        _persist_stripe_subscription_to_profile(
+            user_id,
+            best,
+            plan_id=plan_id
+        )
+        logger.info(
+            f"setup_intent.succeeded: persisted subscription for user {user_id}"
+        )
     except Exception as e:
-        logger.warning(f"setup_intent.succeeded webhook handler error: {str(e)}")
+        logger.warning(
+            f"setup_intent.succeeded webhook handler error: {str(e)}"
+        )
+
 
 @app.route('/stripe/create-setup-intent', methods=['POST'])
 def stripe_create_setup_intent():
@@ -6391,10 +7664,12 @@ def stripe_create_setup_intent():
     Standalone SetupIntents do not register Indian e-mandates correctly.
     Use POST /stripe/create-subscription instead.
     """
-    return jsonify({
-        'error': 'deprecated',
-        'message': 'Use /stripe/create-subscription for RBI-compliant e-mandate registration.',
-    }), 410
+    return jsonify(
+        {
+            'error': 'deprecated',
+            'message': 'Use /stripe/create-subscription for RBI-compliant e-mandate registration.',
+        }
+    ), 410
 
 
 @app.route('/stripe/create-subscription', methods=['POST'])
@@ -6417,19 +7692,29 @@ def stripe_create_subscription():
         if _is_email_trial_plan(plan_id):
             invite = _get_email_trial_invite_from_session()
             if not invite:
-                return jsonify({'error': 'invalid_invite', 'message': 'This trial offer link is invalid or expired.'}), 403
+                return jsonify(
+                    {'error': 'invalid_invite',
+                     'message': 'This trial offer link is invalid or expired.'}
+                ), 403
             allowed, reason = _user_can_start_email_trial(current_user)
             if not allowed:
                 if reason == 'already_subscribed':
-                    return jsonify({'error': 'already_subscribed', 'message': 'You already have an active subscription.'}), 400
+                    return jsonify(
+                        {'error': 'already_subscribed',
+                         'message': 'You already have an active subscription.'}
+                    ), 400
                 return jsonify({'error': reason or 'not_allowed'}), 400
-        elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+        elif plan_id == 'trial_7d' and _trial_already_used_for_user(
+                current_user
+        ):
             return jsonify({'error': 'trial_already_used'}), 400
 
-
-
         # Ensure customer exists
-        customer_id = _create_or_get_stripe_customer_for_user(current_user, persist_profile=False, mark_ephemeral=True)
+        customer_id = _create_or_get_stripe_customer_for_user(
+            current_user,
+            persist_profile=False,
+            mark_ephemeral=True
+        )
         if not customer_id:
             return jsonify({'error': 'customer_creation_failed'}), 500
 
@@ -6441,13 +7726,16 @@ def stripe_create_subscription():
             return jsonify({'error': 'invalid_plan'}), 400
 
         user_id = str(getattr(current_user, 'id', '') or '')
-        invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(plan_id) else None
+        invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(
+            plan_id
+        ) else None
         reinstate_from_offer = _consume_reinstate_offer_checkout_from_session()
         subscription_params = {
             'customer': customer_id,
             'items': [{'price': price_id, 'quantity': 1}],
             'payment_behavior': 'default_incomplete',
-            'payment_settings': {'save_default_payment_method': 'on_subscription'},
+            'payment_settings': {
+                'save_default_payment_method': 'on_subscription'},
             'expand': ['pending_setup_intent'],
             'metadata': {
                 'plan_id': plan_id,
@@ -6458,12 +7746,20 @@ def stripe_create_subscription():
         if reinstate_from_offer:
             subscription_params['metadata']['reinstate_from_offer'] = '1'
         if _is_email_trial_plan(plan_id):
-            trial_days = max(1, int((invite or {}).get('trial_days') or 10))
-            subscription_params['trial_end'] = _stripe_trial_end_ts_for_days(trial_days)
+            trial_days = max(
+                1,
+                int((invite or {}).get('trial_days') or 10)
+            )
+            subscription_params[
+                'trial_end'] = _stripe_trial_end_ts_for_days(trial_days)
         elif plan_id == 'trial_7d':
-            subscription_params['trial_end'] = _stripe_trial_end_ts_for_display()
+            subscription_params[
+                'trial_end'] = _stripe_trial_end_ts_for_display()
 
-        existing = _find_resumable_pending_subscription(customer_id, plan_id)
+        existing = _find_resumable_pending_subscription(
+            customer_id,
+            plan_id
+        )
         if existing:
             sub = existing
         else:
@@ -6473,21 +7769,29 @@ def stripe_create_subscription():
         pending = getattr(sub, 'pending_setup_intent', None)
         pending_client_secret = ''
         try:
-            pending_client_secret = getattr(pending, 'client_secret', '') or ''
+            pending_client_secret = getattr(
+                pending,
+                'client_secret',
+                ''
+            ) or ''
         except Exception:
             pending_client_secret = ''
         if not pending_client_secret:
             return jsonify({'error': 'pending_setup_intent_missing'}), 500
 
-        return jsonify({
-            'subscription_id': getattr(sub, 'id', ''),
-            'pending_setup_intent_client_secret': pending_client_secret,
-            'status': getattr(sub, 'status', ''),
-            'customer_id': str(customer_id),
-        })
+        return jsonify(
+            {
+                'subscription_id': getattr(sub, 'id', ''),
+                'pending_setup_intent_client_secret': pending_client_secret,
+                'status': getattr(sub, 'status', ''),
+                'customer_id': str(customer_id),
+            }
+        )
     except Exception as e:
         logger.exception('Error creating subscription')
-        return jsonify({'error': 'subscription_failed', 'message': str(e)}), 500
+        return jsonify(
+            {'error': 'subscription_failed', 'message': str(e)}
+        ), 500
 
 
 @app.route('/stripe/complete-subscription', methods=['POST'])
@@ -6503,19 +7807,23 @@ def stripe_complete_subscription():
         if not subscription_id:
             return jsonify({'error': 'missing_parameters'}), 400
 
-
         sub = stripe.Subscription.retrieve(
             subscription_id,
-            expand=['pending_setup_intent', 'latest_invoice.payment_intent', 'items.data.price'],
+            expand=['pending_setup_intent',
+                    'latest_invoice.payment_intent', 'items.data.price'],
         )
-        if _stripe_metadata_user_id(sub) != str(getattr(current_user, 'id', '') or '').strip():
+        if _stripe_metadata_user_id(sub) != str(
+                getattr(current_user, 'id', '') or ''
+        ).strip():
             return jsonify({'error': 'subscription_not_found'}), 404
         if not _stripe_subscription_grants_access(sub):
-            return jsonify({
-                'error': 'payment_method_required',
-                'message': 'Please save a payment method to start your trial.',
-                'status': str(getattr(sub, 'status', '') or ''),
-            }), 400
+            return jsonify(
+                {
+                    'error': 'payment_method_required',
+                    'message': 'Please save a payment method to start your trial.',
+                    'status': str(getattr(sub, 'status', '') or ''),
+                }
+            ), 400
 
         plan_id = ''
         try:
@@ -6527,11 +7835,20 @@ def stripe_complete_subscription():
         except Exception:
             plan_id = ''
 
-        _persist_stripe_subscription_to_profile(str(getattr(current_user, 'id', '') or ''), sub, plan_id=plan_id)
-        return jsonify({'subscription_id': getattr(sub, 'id', ''), 'status': getattr(sub, 'status', '')})
+        _persist_stripe_subscription_to_profile(
+            str(getattr(current_user, 'id', '') or ''),
+            sub,
+            plan_id=plan_id
+        )
+        return jsonify(
+            {'subscription_id': getattr(sub, 'id', ''),
+             'status': getattr(sub, 'status', '')}
+        )
     except Exception as e:
         logger.exception('Error completing subscription')
-        return jsonify({'error': 'complete_failed', 'message': str(e)}), 500
+        return jsonify(
+            {'error': 'complete_failed', 'message': str(e)}
+        ), 500
 
 
 @app.route('/stripe/create-trial-hold', methods=['POST'])
@@ -6543,40 +7860,59 @@ def stripe_create_trial_hold():
         return jsonify({'error': 'stripe_not_configured'}), 400
 
     body = request.get_json(force=True) or {}
-    plan_id = _normalize_plan_id(str(body.get('plan_id') or 'trial_7d')) or 'trial_7d'
+    plan_id = _normalize_plan_id(
+        str(body.get('plan_id') or 'trial_7d')
+    ) or 'trial_7d'
     if not _should_use_trial_authorization_hold(plan_id):
         return jsonify({'error': 'trial_hold_not_available'}), 400
 
     if _is_email_trial_plan(plan_id):
         if not _get_email_trial_invite_from_session():
-            return jsonify({'error': 'invalid_invite', 'message': 'This trial offer link is invalid or expired.'}), 403
+            return jsonify(
+                {'error': 'invalid_invite',
+                 'message': 'This trial offer link is invalid or expired.'}
+            ), 403
         allowed, reason = _user_can_start_email_trial(current_user)
         if not allowed:
             if reason == 'already_subscribed':
-                return jsonify({'error': 'already_subscribed', 'message': 'You already have an active subscription.'}), 400
+                return jsonify(
+                    {'error': 'already_subscribed',
+                     'message': 'You already have an active subscription.'}
+                ), 400
             return jsonify({'error': reason or 'not_allowed'}), 400
-    elif plan_id == 'trial_7d' and _trial_already_used_for_user(current_user):
+    elif plan_id == 'trial_7d' and _trial_already_used_for_user(
+            current_user
+    ):
         return jsonify({'error': 'trial_already_used'}), 400
 
     try:
 
         user_id = str(getattr(current_user, 'id', '') or '')
-        intent = _create_trial_hold_payment_intent(user_id, plan_id=plan_id)
+        intent = _create_trial_hold_payment_intent(
+            user_id,
+            plan_id=plan_id
+        )
         if not intent:
             return jsonify({'error': 'payment_intent_failed'}), 500
 
-        return jsonify({
-            'clientSecret': getattr(intent, 'client_secret', ''),
-            'customerId': str(getattr(intent, 'customer', '') or ''),
-            'paymentIntentId': getattr(intent, 'id', ''),
-            'amountCents': int(getattr(intent, 'amount', 0) or 0),
-            'currency': str(getattr(intent, 'currency', 'usd') or 'usd'),
-            'trialHoldDays': _get_trial_hold_days(plan_id),
-            'planId': plan_id,
-        })
+        return jsonify(
+            {
+                'clientSecret': getattr(intent, 'client_secret', ''),
+                'customerId': str(getattr(intent, 'customer', '') or ''),
+                'paymentIntentId': getattr(intent, 'id', ''),
+                'amountCents': int(getattr(intent, 'amount', 0) or 0),
+                'currency': str(
+                    getattr(intent, 'currency', 'usd') or 'usd'
+                ),
+                'trialHoldDays': _get_trial_hold_days(plan_id),
+                'planId': plan_id,
+            }
+        )
     except Exception as e:
         logger.exception('Error creating trial hold PaymentIntent')
-        return jsonify({'error': 'trial_hold_failed', 'message': str(e)}), 500
+        return jsonify(
+            {'error': 'trial_hold_failed', 'message': str(e)}
+        ), 500
 
 
 @app.route('/stripe/activate-trial-hold', methods=['POST'])
@@ -6588,7 +7924,9 @@ def stripe_activate_trial_hold():
         return jsonify({'error': 'stripe_not_configured'}), 400
 
     body = request.get_json(force=True) or {}
-    payment_intent_id = str(body.get('paymentIntentId') or body.get('payment_intent_id') or '').strip()
+    payment_intent_id = str(
+        body.get('paymentIntentId') or body.get('payment_intent_id') or ''
+    ).strip()
     if not payment_intent_id:
         return jsonify({'error': 'missing_parameters'}), 400
 
@@ -6598,7 +7936,9 @@ def stripe_activate_trial_hold():
         status = 400
         if reason == 'payment_intent_mismatch':
             status = 403
-        return jsonify({'error': reason, 'message': 'Payment was not authorized'}), status
+        return jsonify(
+            {'error': reason, 'message': 'Payment was not authorized'}
+        ), status
 
     return jsonify({'success': True, 'paymentIntentId': payment_intent_id})
 
@@ -6644,7 +7984,11 @@ def stripe_abandon_checkout():
         )
     elif flow == 'trial_hold':
         ok, reason = _abandon_trial_hold_checkout(
-            str(body.get('payment_intent_id') or body.get('paymentIntentId') or '').strip(),
+            str(
+                body.get('payment_intent_id') or body.get(
+                    'paymentIntentId'
+                ) or ''
+            ).strip(),
             user_id,
         )
     else:
@@ -6653,24 +7997,33 @@ def stripe_abandon_checkout():
     return jsonify({'success': bool(ok), 'reason': reason})
 
 
-def _find_trialing_subscription_for_customer(customer_id: str) -> Optional[dict]:
+def _find_trialing_subscription_for_customer(customer_id: str) -> Optional[
+    dict]:
     """Return a trialing subscription object (Stripe) for a customer, or None."""
     cid = (customer_id or "").strip()
     if not cid or not _stripe_enabled():
         return None
     try:
-        res = stripe.Subscription.list(customer=cid, status="trialing", limit=1)
+        res = stripe.Subscription.list(
+            customer=cid,
+            status="trialing",
+            limit=1
+        )
         data = list(getattr(res, "data", []) or [])
         if not data:
             return None
         sub = data[0]
         try:
-            sub = stripe.Subscription.retrieve(sub.id, expand=["items.data"])
+            sub = stripe.Subscription.retrieve(
+                sub.id,
+                expand=["items.data"]
+            )
         except Exception:
             pass
         return sub
     except Exception:
         return None
+
 
 def _get_paid_until_from_stripe(subscription_id: str) -> str:
     """Return ISO timestamp (UTC) for next renewal/end using Stripe subscription, or '' if unknown."""
@@ -6687,13 +8040,20 @@ def _get_paid_until_from_stripe(subscription_id: str) -> str:
         current_period_end = getattr(sub, 'current_period_end', None)
         ts = current_period_end or trial_end
         if ts:
-            return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(
+                int(ts),
+                tz=timezone.utc
+            ).isoformat()
         return ''
     except Exception:
         return ''
 
 
-def _add_interval_approx(dt: datetime, interval: str, interval_count: int) -> datetime:
+def _add_interval_approx(
+        dt: datetime,
+        interval: str,
+        interval_count: int
+) -> datetime:
     """Calendar-accurate interval math without extra deps."""
     c = int(interval_count or 1)
     if c < 1:
@@ -6732,14 +8092,20 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
         return {}
     try:
 
-        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        subs = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=20
+        )
         data = list(getattr(subs, 'data', []) or [])
         if not data:
             return {}
 
         def _rank(sub):
             status = str(getattr(sub, 'status', '') or '').lower()
-            current_period_end = int(getattr(sub, 'current_period_end', 0) or 0)
+            current_period_end = int(
+                getattr(sub, 'current_period_end', 0) or 0
+            )
             # Prefer active > trialing > others; then later period end.
             status_rank = 0
             if status == 'active':
@@ -6753,7 +8119,10 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
         best = sorted(data, key=_rank, reverse=True)[0]
         # Re-fetch with expanded price/recurring so interval math works reliably (Stripe list results can be "thin")
         try:
-            best = stripe.Subscription.retrieve(best.id, expand=["items.data.price"])
+            best = stripe.Subscription.retrieve(
+                best.id,
+                expand=["items.data.price"]
+            )
         except Exception:
             pass
         status = str(getattr(best, 'status', '') or '')
@@ -6772,13 +8141,23 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
                 if isinstance(price, dict):
                     recurring = price.get('recurring')
                 else:
-                    recurring = getattr(price, 'recurring', None) if price else None
+                    recurring = getattr(
+                        price,
+                        'recurring',
+                        None
+                    ) if price else None
                 if isinstance(recurring, dict):
                     interval = str(recurring.get('interval') or '')
-                    interval_count = int(recurring.get('interval_count') or 1)
+                    interval_count = int(
+                        recurring.get('interval_count') or 1
+                    )
                 else:
-                    interval = str(getattr(recurring, 'interval', '') or '')
-                    interval_count = int(getattr(recurring, 'interval_count', 1) or 1)
+                    interval = str(
+                        getattr(recurring, 'interval', '') or ''
+                    )
+                    interval_count = int(
+                        getattr(recurring, 'interval_count', 1) or 1
+                    )
         except Exception:
             interval = ''
             interval_count = 1
@@ -6806,7 +8185,10 @@ def _get_stripe_plan_dates_for_customer(customer_id: str) -> dict:
             try:
                 if not ts:
                     return ''
-                return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+                return datetime.fromtimestamp(
+                    int(ts),
+                    tz=timezone.utc
+                ).isoformat()
             except Exception:
                 return ''
 
@@ -6828,11 +8210,18 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
         return {}
     try:
 
-        sub = stripe.Subscription.retrieve(sid, expand=["items.data.price"])
+        sub = stripe.Subscription.retrieve(
+            sid,
+            expand=["items.data.price"]
+        )
         status = str(getattr(sub, 'status', '') or '')
         trial_end = getattr(sub, 'trial_end', None)
         current_period_end = getattr(sub, 'current_period_end', None)
-        start_date = getattr(sub, 'start_date', None) or getattr(sub, 'billing_cycle_anchor', None)
+        start_date = getattr(sub, 'start_date', None) or getattr(
+            sub,
+            'billing_cycle_anchor',
+            None
+        )
 
         interval = ''
         interval_count = 1
@@ -6844,13 +8233,23 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
                 if isinstance(price, dict):
                     recurring = price.get('recurring')
                 else:
-                    recurring = getattr(price, 'recurring', None) if price else None
+                    recurring = getattr(
+                        price,
+                        'recurring',
+                        None
+                    ) if price else None
                 if isinstance(recurring, dict):
                     interval = str(recurring.get('interval') or '')
-                    interval_count = int(recurring.get('interval_count') or 1)
+                    interval_count = int(
+                        recurring.get('interval_count') or 1
+                    )
                 else:
-                    interval = str(getattr(recurring, 'interval', '') or '')
-                    interval_count = int(getattr(recurring, 'interval_count', 1) or 1)
+                    interval = str(
+                        getattr(recurring, 'interval', '') or ''
+                    )
+                    interval_count = int(
+                        getattr(recurring, 'interval_count', 1) or 1
+                    )
         except Exception:
             interval = ''
             interval_count = 1
@@ -6868,8 +8267,17 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
             next_ts = int(current_period_end)
         elif start_date and interval:
             try:
-                base_dt = datetime.fromtimestamp(int(start_date), tz=timezone.utc)
-                next_ts = int(_add_interval_approx(base_dt, interval, interval_count).timestamp())
+                base_dt = datetime.fromtimestamp(
+                    int(start_date),
+                    tz=timezone.utc
+                )
+                next_ts = int(
+                    _add_interval_approx(
+                        base_dt,
+                        interval,
+                        interval_count
+                    ).timestamp()
+                )
             except Exception:
                 next_ts = int(start_date)
 
@@ -6881,8 +8289,17 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
             paid_through_est_ts = int(current_period_end)
         elif start_date and interval:
             try:
-                base_dt = datetime.fromtimestamp(int(start_date), tz=timezone.utc)
-                paid_through_est_ts = int(_add_interval_approx(base_dt, interval, interval_count).timestamp())
+                base_dt = datetime.fromtimestamp(
+                    int(start_date),
+                    tz=timezone.utc
+                )
+                paid_through_est_ts = int(
+                    _add_interval_approx(
+                        base_dt,
+                        interval,
+                        interval_count
+                    ).timestamp()
+                )
             except Exception:
                 paid_through_est_ts = int(start_date)
 
@@ -6890,7 +8307,10 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
             try:
                 if not ts:
                     return ''
-                return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+                return datetime.fromtimestamp(
+                    int(ts),
+                    tz=timezone.utc
+                ).isoformat()
             except Exception:
                 return ''
 
@@ -6904,7 +8324,9 @@ def _get_stripe_plan_dates_for_subscription(subscription_id: str) -> dict:
     except Exception:
         return {}
 
-def _get_subscription_price_id_and_recurring(sub_obj) -> tuple[str, str, int]:
+
+def _get_subscription_price_id_and_recurring(sub_obj) -> tuple[
+    str, str, int]:
     """Return (price_id, interval, interval_count) from a subscription object; robust to dict/StripeObject."""
     try:
         items = getattr(sub_obj, 'items', None)
@@ -6914,7 +8336,11 @@ def _get_subscription_price_id_and_recurring(sub_obj) -> tuple[str, str, int]:
         if isinstance(first_item, dict):
             price = first_item.get('price')
         else:
-            price = getattr(first_item, 'price', None) if first_item else None
+            price = getattr(
+                first_item,
+                'price',
+                None
+            ) if first_item else None
         # Sometimes Stripe returns a bare price id string
         if isinstance(price, str):
             return (price.strip(), '', 1)
@@ -6922,8 +8348,14 @@ def _get_subscription_price_id_and_recurring(sub_obj) -> tuple[str, str, int]:
             price_id = str(price.get('id') or '').strip()
             recurring = price.get('recurring')
         else:
-            price_id = str(getattr(price, 'id', '') or '').strip() if price else ''
-            recurring = getattr(price, 'recurring', None) if price else None
+            price_id = str(
+                getattr(price, 'id', '') or ''
+            ).strip() if price else ''
+            recurring = getattr(
+                price,
+                'recurring',
+                None
+            ) if price else None
 
         interval = ''
         interval_count = 1
@@ -6931,11 +8363,16 @@ def _get_subscription_price_id_and_recurring(sub_obj) -> tuple[str, str, int]:
             interval = str(recurring.get('interval') or '').strip()
             interval_count = int(recurring.get('interval_count') or 1)
         else:
-            interval = str(getattr(recurring, 'interval', '') or '').strip()
-            interval_count = int(getattr(recurring, 'interval_count', 1) or 1)
+            interval = str(
+                getattr(recurring, 'interval', '') or ''
+            ).strip()
+            interval_count = int(
+                getattr(recurring, 'interval_count', 1) or 1
+            )
         return (price_id, interval, interval_count)
     except Exception:
         return ('', '', 1)
+
 
 def _stripe_obj_get(obj, key: str, default=None):
     """Safely read key from StripeObject or dict by converting to a raw dictionary."""
@@ -6979,14 +8416,20 @@ def _stripe_subscription_cancel_scheduled(sub, schedule=None) -> bool:
     try:
         if schedule is None:
             schedule = stripe.SubscriptionSchedule.retrieve(schedule_id)
-        if str(_stripe_obj_get(schedule, "end_behavior", "") or "").strip().lower() == "cancel":
+        if str(
+                _stripe_obj_get(schedule, "end_behavior", "") or ""
+        ).strip().lower() == "cancel":
             return True
     except Exception:
         pass
     return False
 
 
-def _stripe_subscription_modify(subscription_id: str, sub=None, **modify_params):
+def _stripe_subscription_modify(
+        subscription_id: str,
+        sub=None,
+        **modify_params
+):
     """Modify subscription; route cancel/reinstate through schedule when required by Stripe."""
     sid = (subscription_id or "").strip()
     if not sid or not modify_params:
@@ -6995,15 +8438,23 @@ def _stripe_subscription_modify(subscription_id: str, sub=None, **modify_params)
         sub = stripe.Subscription.retrieve(sid)
 
     schedule_id = _stripe_schedule_id_from_subscription(sub)
-    touches_cancel = ("cancel_at_period_end" in modify_params) or ("cancel_at" in modify_params)
-    extra_params = {k: v for k, v in modify_params.items() if k not in ("cancel_at_period_end", "cancel_at")}
+    touches_cancel = ("cancel_at_period_end" in modify_params) or (
+            "cancel_at" in modify_params)
+    extra_params = {k: v for k, v in modify_params.items() if
+                    k not in ("cancel_at_period_end", "cancel_at")}
 
     if schedule_id and touches_cancel:
         cancel_at_period_end = modify_params.get("cancel_at_period_end")
         if cancel_at_period_end is True:
-            stripe.SubscriptionSchedule.modify(schedule_id, end_behavior="cancel")
+            stripe.SubscriptionSchedule.modify(
+                schedule_id,
+                end_behavior="cancel"
+            )
         elif cancel_at_period_end is False:
-            stripe.SubscriptionSchedule.modify(schedule_id, end_behavior="release")
+            stripe.SubscriptionSchedule.modify(
+                schedule_id,
+                end_behavior="release"
+            )
         else:
             stripe.Subscription.modify(sid, **modify_params)
             return None
@@ -7029,15 +8480,23 @@ def _stripe_upcoming_invoice(customer_id: str, subscription_id: str):
         return None
     try:
         # Newer stripe versions have stripe.Invoice.upcoming(...)
-        if hasattr(stripe, "Invoice") and hasattr(stripe.Invoice, "upcoming"):
+        if hasattr(stripe, "Invoice") and hasattr(
+                stripe.Invoice,
+                "upcoming"
+        ):
             return stripe.Invoice.upcoming(customer=cid, subscription=sid)
     except Exception:
         pass
     # Fallback: call the endpoint directly
     try:
-        return stripe.Invoice._static_request("get", "/v1/invoices/upcoming", params={"customer": cid, "subscription": sid})
+        return stripe.Invoice._static_request(
+            "get",
+            "/v1/invoices/upcoming",
+            params={"customer": cid, "subscription": sid}
+        )
     except Exception:
         return None
+
 
 def _stripe_subscription_raw(subscription_id: str):
     """Fetch raw subscription JSON via low-level request (works across stripe library versions)."""
@@ -7045,9 +8504,14 @@ def _stripe_subscription_raw(subscription_id: str):
     if not sid:
         return None
     try:
-        return stripe.Subscription._static_request("get", f"/v1/subscriptions/{sid}", params={})
+        return stripe.Subscription._static_request(
+            "get",
+            f"/v1/subscriptions/{sid}",
+            params={}
+        )
     except Exception:
         return None
+
 
 def _stripe_latest_invoice_for_subscription(subscription_id: str):
     """Fetch latest invoice for a subscription (best-effort across stripe versions)."""
@@ -7063,7 +8527,11 @@ def _stripe_latest_invoice_for_subscription(subscription_id: str):
     except Exception:
         pass
     try:
-        res = stripe.Invoice._static_request("get", "/v1/invoices", params={"subscription": sid, "limit": 1})
+        res = stripe.Invoice._static_request(
+            "get",
+            "/v1/invoices",
+            params={"subscription": sid, "limit": 1}
+        )
         data = _stripe_obj_get(res, "data", []) or []
         if data:
             return data[0]
@@ -7095,7 +8563,11 @@ def _stripe_cancellation_paid_history_flags(subscription_id: str) -> dict:
 
     if not invoices:
         try:
-            res = stripe.Invoice._static_request("get", "/v1/invoices", params={"subscription": sid, "limit": 24})
+            res = stripe.Invoice._static_request(
+                "get",
+                "/v1/invoices",
+                params={"subscription": sid, "limit": 24}
+            )
             invoices = list(_stripe_obj_get(res, "data", []) or [])
         except Exception:
             invoices = []
@@ -7125,7 +8597,9 @@ def _stripe_cancellation_paid_history_flags(subscription_id: str) -> dict:
 
     latest_paid = paid_invoices[0]
     try:
-        latest_paid_amount = int(_stripe_obj_get(latest_paid, "amount_paid", 0) or 0)
+        latest_paid_amount = int(
+            _stripe_obj_get(latest_paid, "amount_paid", 0) or 0
+        )
     except Exception:
         latest_paid_amount = 0
     latest_paid_is_real = latest_paid_amount > 0
@@ -7204,14 +8678,14 @@ def _stripe_customer_has_trial_payment_history(customer_id: str) -> bool:
                 (sess.get("status") if isinstance(
                     sess,
                     dict
-                    ) else getattr(sess, "status", "")) or ""
+                ) else getattr(sess, "status", "")) or ""
             ).strip().lower()
 
             if status == "complete":
                 meta = (sess.get("metadata") if isinstance(
                     sess,
                     dict
-                    ) else getattr(sess, "metadata", {})) or {}
+                ) else getattr(sess, "metadata", {})) or {}
                 if not isinstance(meta, dict):
                     try:
                         meta = dict(meta)
@@ -7220,10 +8694,10 @@ def _stripe_customer_has_trial_payment_history(customer_id: str) -> bool:
 
                 plan_role = str(
                     meta.get("plan_role") or ""
-                    ).strip().lower()
+                ).strip().lower()
                 trial_deposit = str(
                     meta.get("trial_deposit_payment") or ""
-                    ).strip()
+                ).strip()
 
                 if plan_role == "trial" or trial_deposit == "1":
                     return True
@@ -7261,7 +8735,7 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
                 user_obj,
                 'is_authenticated',
                 False
-                ):
+        ):
             return False
 
         # 0. Development Bypasses
@@ -7271,7 +8745,7 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
             host = str(getattr(request, "host", "") or "").lower()
             if (host.startswith("127.0.0.1") or host.startswith(
                     "localhost"
-                    )) and session.get('dev_bypass_trial_check'):
+            )) and session.get('dev_bypass_trial_check'):
                 return False
         except Exception:
             pass
@@ -7307,7 +8781,7 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
                     customer_id = _find_stripe_customer_id_by_email(
                         email,
                         require_subscription_history=False
-                        )
+                    )
 
             if customer_id:
                 # Check A: Does this customer have standard subscription history?
@@ -7326,38 +8800,62 @@ def _trial_already_used_for_user(user_obj: Optional['User']) -> bool:
 def _get_stripe_price_id(plan_id: str) -> Optional[str]:
     """Map internal plan IDs to Stripe Price IDs via env vars."""
     plan_id = _normalize_plan_id(plan_id)
+
+    if plan_id.startswith('price_'):
+        return plan_id
+
     if plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
         # Trial should be a subscription (auto-converts to monthly unless canceled).
         # Use a recurring monthly price here (or a dedicated trial recurring price).
         if _is_india_pricing_region():
             return (
-                (os.getenv('STRIPE_PRICE_TRIAL_RECURRING_INR') or '').strip()
-                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95_INR') or '').strip()
-                or (os.getenv('STRIPE_PRICE_TRIAL_RECURRING') or '').strip()
-                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
-                or None
+                    (os.getenv(
+                        'STRIPE_PRICE_TRIAL_RECURRING_INR'
+                    ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PRICE_MONTHLY_10_95_INR'
+            ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PRICE_TRIAL_RECURRING'
+            ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PRICE_MONTHLY_10_95'
+            ) or '').strip()
+                    or None
             )
         return (
-            (os.getenv('STRIPE_PRICE_TRIAL_RECURRING') or '').strip()
-            or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
-            or None
+                (os.getenv('STRIPE_PRICE_TRIAL_RECURRING') or '').strip()
+                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
+                or None
         )
     if plan_id == 'monthly_10_95':
         if _is_india_pricing_region():
             return (
-                (os.getenv('STRIPE_PRICE_MONTHLY_10_95_INR') or '').strip()
-                or (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip()
-                or None
+                    (os.getenv(
+                        'STRIPE_PRICE_MONTHLY_10_95_INR'
+                    ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PRICE_MONTHLY_10_95'
+            ) or '').strip()
+                    or None
             )
-        return (os.getenv('STRIPE_PRICE_MONTHLY_10_95') or '').strip() or None
+        return (os.getenv(
+            'STRIPE_PRICE_MONTHLY_10_95'
+        ) or '').strip() or None
     if plan_id == 'annual_6_95':
         if _is_india_pricing_region():
             return (
-                (os.getenv('STRIPE_PRICE_ANNUAL_6_95_INR') or '').strip()
-                or (os.getenv('STRIPE_PRICE_ANNUAL_6_95') or '').strip()
-                or None
+                    (os.getenv(
+                        'STRIPE_PRICE_ANNUAL_6_95_INR'
+                    ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PRICE_ANNUAL_6_95'
+            ) or '').strip()
+                    or None
             )
-        return (os.getenv('STRIPE_PRICE_ANNUAL_6_95') or '').strip() or None
+        return (os.getenv(
+            'STRIPE_PRICE_ANNUAL_6_95'
+        ) or '').strip() or None
     return None
 
 
@@ -7366,12 +8864,16 @@ def _configured_stripe_price_ids_for_plan(plan_id: str) -> frozenset:
     plan_id = _normalize_plan_id(plan_id)
     raw: list[str] = []
     if plan_id == 'monthly_10_95':
-        for k in ('STRIPE_PRICE_MONTHLY_10_95', 'STRIPE_PRICE_MONTHLY_10_95_INR'):
+        for k in (
+                'STRIPE_PRICE_MONTHLY_10_95',
+                'STRIPE_PRICE_MONTHLY_10_95_INR'):
             v = (os.getenv(k) or '').strip()
             if v:
                 raw.append(v)
     elif plan_id == 'annual_6_95':
-        for k in ('STRIPE_PRICE_ANNUAL_6_95', 'STRIPE_PRICE_ANNUAL_6_95_INR'):
+        for k in (
+                'STRIPE_PRICE_ANNUAL_6_95',
+                'STRIPE_PRICE_ANNUAL_6_95_INR'):
             v = (os.getenv(k) or '').strip()
             if v:
                 raw.append(v)
@@ -7390,8 +8892,13 @@ def _get_stripe_trial_deposit_price_id() -> Optional[str]:
     """Optional one-time Stripe Price for the trial deposit (defaults to monthly plan amount)."""
     keys = ['STRIPE_PRICE_TRIAL_DEPOSIT_10_95']
     if _is_india_pricing_region():
-        keys = ['STRIPE_PRICE_TRIAL_DEPOSIT_10_95_INR', 'STRIPE_PRICE_TRIAL_DEPOSIT_10_95'] + keys
-    keys.extend(['STRIPE_PRICE_TRIAL_FEE_1_85_INR', 'STRIPE_PRICE_TRIAL_FEE_1_85'] if _is_india_pricing_region() else ['STRIPE_PRICE_TRIAL_FEE_1_85'])
+        keys = ['STRIPE_PRICE_TRIAL_DEPOSIT_10_95_INR',
+                'STRIPE_PRICE_TRIAL_DEPOSIT_10_95'] + keys
+    keys.extend(
+        ['STRIPE_PRICE_TRIAL_FEE_1_85_INR',
+         'STRIPE_PRICE_TRIAL_FEE_1_85'] if _is_india_pricing_region() else [
+            'STRIPE_PRICE_TRIAL_FEE_1_85']
+    )
     for key in keys:
         value = (os.getenv(key) or '').strip()
         if value:
@@ -7399,8 +8906,15 @@ def _get_stripe_trial_deposit_price_id() -> Optional[str]:
     return None
 
 
-def _get_trial_deposit_amount_cents() -> int:
+def _get_trial_deposit_amount_cents(plan_id: str = None) -> int:
     """One-time trial deposit amount in cents (defaults to the monthly plan price)."""
+    if plan_id:
+        plan = _get_plan_by_price_id(plan_id)
+        if plan and plan.get('unit_amount') and plan.get(
+                'unit_amount'
+        ) > 0:
+            return plan['unit_amount']
+
     override = (os.getenv('STRIPE_TRIAL_DEPOSIT_CENTS') or '').strip()
     if override.isdigit():
         return int(override)
@@ -7427,12 +8941,13 @@ def _get_trial_deposit_amount_cents() -> int:
     return 1095
 
 
-def _build_trial_deposit_line_item() -> dict:
+def _build_trial_deposit_line_item(plan_id: str = 'trial_7d') -> dict:
     """Stripe Checkout line item for the trial deposit charged before subscription creation."""
     deposit_price_id = _get_stripe_trial_deposit_price_id()
     if deposit_price_id:
         return {'price': deposit_price_id, 'quantity': 1}
-    amount = _get_trial_deposit_amount_cents()
+
+    amount = _get_trial_deposit_amount_cents(plan_id)
     currency = 'inr' if _is_india_pricing_region() else 'usd'
     checkout_name, checkout_description = _trial_checkout_product_copy()
     product_data = {'name': checkout_name}
@@ -7449,13 +8964,13 @@ def _build_trial_deposit_line_item() -> dict:
 
 
 def _fulfill_trial_deposit_checkout(
-    *,
-    client_ref: str,
-    customer_id: str,
-    amount_total: int,
-    currency: str,
-    payment_intent_id: str,
-    plan_id: str = 'trial_7d',
+        *,
+        client_ref: str,
+        customer_id: str,
+        amount_total: int,
+        currency: str,
+        payment_intent_id: str,
+        plan_id: str = 'trial_7d',
 ) -> Optional[str]:
     """Create a trialing subscription only after the deposit payment succeeds."""
     uid = str(client_ref or '').strip()
@@ -7465,39 +8980,76 @@ def _fulfill_trial_deposit_checkout(
     if not uid or not cid or not pi_id or amount_total <= 0 or not _stripe_enabled():
         return None
 
-
     try:
-        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        subs = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=20
+        )
         for sub in list(getattr(subs, 'data', []) or []):
             meta = getattr(sub, 'metadata', None) or {}
             if isinstance(meta, dict):
-                existing_pi = str(meta.get('trial_deposit_payment_intent') or '').strip()
+                existing_pi = str(
+                    meta.get('trial_deposit_payment_intent') or ''
+                ).strip()
             else:
-                existing_pi = str(getattr(meta, 'trial_deposit_payment_intent', '') or '').strip()
+                existing_pi = str(
+                    getattr(meta, 'trial_deposit_payment_intent', '') or ''
+                ).strip()
             if existing_pi and existing_pi == pi_id:
                 return str(getattr(sub, 'id', '') or '')
     except Exception:
         pass
 
-    price_id = _get_stripe_price_id(plan_id)
+    trial_period_days = 7
+    if plan_id.startswith("price"):
+        plan = _get_plan_by_price_id(plan_id) if plan_id.startswith(
+            "price"
+        ) else None
+        plan_id = plan.get("product_id")
+
+        trial_period_days = plan.get("trial_period_days")
+
+        price_id = (
+                (plan.get("price_id") if plan else None)
+                or plan_id
+        )
+    else:
+        price_id = _get_plan_by_price_id(plan_id) or plan_id
+
     if not price_id:
-        logger.error('trial deposit fulfillment failed: missing recurring price for %s', plan_id)
+        logger.error(
+            'trial deposit fulfillment failed: missing recurring price for %s',
+            plan_id
+        )
         return None
 
     subscription_params = {
         'customer': cid,
         'items': [{'price': price_id, 'quantity': 1}],
-        'trial_end': _stripe_trial_end_ts_for_display(),
-        'payment_settings': {'save_default_payment_method': 'on_subscription'},
+        # 'trial_end': _stripe_trial_end_ts_for_display(),
+        "trial_period_days": trial_period_days,
+        'payment_settings': {
+            'save_default_payment_method': 'on_subscription'},
         'metadata': {
             'plan_id': plan_id,
             'user_id': uid,
             'trial_deposit_payment_intent': pi_id,
             'trial_deposit_cents': str(int(amount_total)),
             'trial_deposit_currency': str(currency or 'usd').lower(),
+            'use_trial_hold': 'true',
         },
     }
-    sub = stripe.Subscription.create(**subscription_params)
+    try:
+        sub = stripe.Subscription.create(**subscription_params)
+    except Exception as e:
+        logger.error(
+            "Subscription creation failed: %s",
+            str(e),
+            exc_info=True
+        )
+        raise
+
     sub_id = str(getattr(sub, 'id', '') or '')
 
     try:
@@ -7508,13 +9060,20 @@ def _fulfill_trial_deposit_checkout(
             description='Trial deposit credit applied to first month if not canceled within 7 days',
         )
     except Exception:
-        logger.exception('trial deposit fulfillment: failed to apply customer balance credit')
-
-    _persist_stripe_subscription_to_profile(uid, sub, plan_id=plan_id)
+        logger.exception(
+            'trial deposit fulfillment: failed to apply customer balance credit'
+        )
+    _persist_stripe_subscription_to_profile(
+        uid,
+        sub,
+        plan_id=plan_id,
+        force_access=True
+    )
     return sub_id or None
 
 
-def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, str]:
+def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[
+    bool, str]:
     """Refund the trial deposit when a user cancels during the trial period."""
     sid = str(subscription_id or '').strip()
     if not sid or not _stripe_enabled():
@@ -7528,14 +9087,30 @@ def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, 
     meta = getattr(sub, 'metadata', None) or {}
     if isinstance(meta, dict):
         pi_id = str(meta.get('trial_deposit_payment_intent') or '').strip()
-        refunded_flag = str(meta.get('trial_deposit_refunded') or '').strip()
-        deposit_cents = int(str(meta.get('trial_deposit_cents') or '0').strip() or '0')
-        currency = str(meta.get('trial_deposit_currency') or 'usd').strip().lower()
+        refunded_flag = str(
+            meta.get('trial_deposit_refunded') or ''
+        ).strip()
+        deposit_cents = int(
+            str(meta.get('trial_deposit_cents') or '0').strip() or '0'
+        )
+        currency = str(
+            meta.get('trial_deposit_currency') or 'usd'
+        ).strip().lower()
     else:
-        pi_id = str(getattr(meta, 'trial_deposit_payment_intent', '') or '').strip()
-        refunded_flag = str(getattr(meta, 'trial_deposit_refunded', '') or '').strip()
-        deposit_cents = int(str(getattr(meta, 'trial_deposit_cents', '0') or '0').strip() or '0')
-        currency = str(getattr(meta, 'trial_deposit_currency', 'usd') or 'usd').strip().lower()
+        pi_id = str(
+            getattr(meta, 'trial_deposit_payment_intent', '') or ''
+        ).strip()
+        refunded_flag = str(
+            getattr(meta, 'trial_deposit_refunded', '') or ''
+        ).strip()
+        deposit_cents = int(
+            str(
+                getattr(meta, 'trial_deposit_cents', '0') or '0'
+            ).strip() or '0'
+        )
+        currency = str(
+            getattr(meta, 'trial_deposit_currency', 'usd') or 'usd'
+        ).strip().lower()
 
     if not pi_id:
         return False, 'no_deposit_payment'
@@ -7545,7 +9120,11 @@ def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, 
     try:
         stripe.Refund.create(payment_intent=pi_id)
     except Exception as e:
-        logger.warning('trial deposit refund failed for %s: %s', sid, str(e))
+        logger.warning(
+            'trial deposit refund failed for %s: %s',
+            sid,
+            str(e)
+        )
         return False, 'refund_failed'
 
     customer_id = str(getattr(sub, 'customer', '') or '').strip()
@@ -7558,14 +9137,18 @@ def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[bool, 
                 description='Reversal of trial deposit credit after cancellation within trial period',
             )
         except Exception:
-            logger.exception('trial deposit refund: failed to reverse customer balance credit')
+            logger.exception(
+                'trial deposit refund: failed to reverse customer balance credit'
+            )
 
     try:
         stripe.Subscription.modify(
             sid,
             metadata={
                 'trial_deposit_refunded': '1',
-                'trial_deposit_refunded_at': datetime.now(timezone.utc).isoformat(),
+                'trial_deposit_refunded_at': datetime.now(
+                    timezone.utc
+                ).isoformat(),
             },
         )
     except Exception:
@@ -7577,26 +9160,40 @@ def _get_email_trial_hold_days(invite: Optional[dict] = None) -> int:
     """Trial length from the signed email invite (default 10 days)."""
     raw_invite = invite if invite is not None else _get_email_trial_invite_from_session()
     try:
-        return max(1, min(14, int((raw_invite or {}).get('trial_days') or 10)))
+        return max(
+            1,
+            min(14, int((raw_invite or {}).get('trial_days') or 10))
+        )
     except Exception:
         return 10
 
 
 def _get_trial_hold_days(plan_id: str = 'trial_7d') -> int:
     """Number of days for a trial authorization hold."""
+    plan = _get_plan_by_price_id(plan_id)
+    if plan and plan.get("trial_period_days"):
+        return plan["trial_period_days"]
+
     pid = _normalize_plan_id(plan_id) or 'trial_7d'
     if _is_email_trial_plan(pid):
         return _get_email_trial_hold_days()
-    raw = (os.getenv('TRIAL_HOLD_DAYS') or os.getenv('TRIAL_DURATION_DAYS') or '7').strip()
+    raw = (os.getenv('TRIAL_HOLD_DAYS') or os.getenv(
+        'TRIAL_DURATION_DAYS'
+    ) or '7').strip()
     try:
         return max(1, min(14, int(raw)))
     except Exception:
         return 7
 
 
-def _get_trial_capture_days_before_end(hold_days: Optional[int] = None) -> int:
+def _get_trial_capture_days_before_end(
+        hold_days: Optional[int] = None
+) -> int:
     """Days before trial end when the authorization hold is captured."""
-    hold = max(1, int(hold_days if hold_days is not None else _get_trial_hold_days()))
+    hold = max(
+        1,
+        int(hold_days if hold_days is not None else _get_trial_hold_days())
+    )
     raw = (os.getenv('TRIAL_CAPTURE_DAYS_BEFORE_END') or '1').strip()
     try:
         before_end = max(0, int(raw))
@@ -7609,71 +9206,115 @@ def _get_trial_capture_days_before_end(hold_days: Optional[int] = None) -> int:
     return before_end
 
 
-def _trial_hold_capture_at_from_end(trial_ends: datetime, hold_days: Optional[int] = None) -> datetime:
+def _trial_hold_capture_at_from_end(
+        trial_ends: datetime,
+        hold_days: Optional[int] = None
+) -> datetime:
     """Return the UTC timestamp when a trial authorization hold should be captured."""
     hold = max(1, int(hold_days or _get_trial_hold_days()))
-    return trial_ends - timedelta(days=_get_trial_capture_days_before_end(hold))
+    return trial_ends - timedelta(
+        days=_get_trial_capture_days_before_end(hold)
+    )
 
 
-def _get_trial_hold_capture_at(prof: Optional[dict], sub=None) -> Optional[datetime]:
+def _get_trial_hold_capture_at(prof: Optional[dict], sub=None) -> Optional[
+    datetime]:
     """Resolve the scheduled capture time for a trial authorization hold."""
-    capture_raw = str((prof or {}).get('trial_hold_capture_at') or '').strip()
+    capture_raw = str(
+        (prof or {}).get('trial_hold_capture_at') or ''
+    ).strip()
     if capture_raw:
         parsed = _parse_iso_dt(capture_raw)
         if parsed is not None:
             return parsed
     meta_capture = ''
     if sub is not None:
-        meta_capture = _subscription_metadata_get(sub, 'trial_hold_capture_at')
+        meta_capture = _subscription_metadata_get(
+            sub,
+            'trial_hold_capture_at'
+        )
     if meta_capture:
         parsed = _parse_iso_dt(meta_capture)
         if parsed is not None:
             return parsed
-    ends_at = _parse_iso_dt(str((prof or {}).get('trial_hold_ends_at') or '').strip())
+    ends_at = _parse_iso_dt(
+        str((prof or {}).get('trial_hold_ends_at') or '').strip()
+    )
     if ends_at is None and sub is not None:
         trial_end_ts = _stripe_obj_get(sub, 'trial_end', None)
         if trial_end_ts:
             try:
-                ends_at = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+                ends_at = datetime.fromtimestamp(
+                    int(trial_end_ts),
+                    tz=timezone.utc
+                )
             except Exception:
                 ends_at = None
     if ends_at is not None:
         hold_days = 0
         try:
-            hold_days = int(str((prof or {}).get('trial_hold_days') or '').strip() or '0')
+            hold_days = int(
+                str(
+                    (prof or {}).get('trial_hold_days') or ''
+                ).strip() or '0'
+            )
         except Exception:
             hold_days = 0
         if hold_days <= 0 and sub is not None:
             try:
-                hold_days = int(_subscription_metadata_get(sub, 'trial_hold_days', '0') or '0')
+                hold_days = int(
+                    _subscription_metadata_get(
+                        sub,
+                        'trial_hold_days',
+                        '0'
+                    ) or '0'
+                )
             except Exception:
                 hold_days = 0
         if hold_days <= 0:
             plan_id = ''
             if sub is not None:
-                plan_id = _subscription_metadata_get(sub, 'plan_id', 'trial_7d')
+                plan_id = _subscription_metadata_get(
+                    sub,
+                    'plan_id',
+                    'trial_7d'
+                )
             hold_days = _get_trial_hold_days(plan_id or 'trial_7d')
         return _trial_hold_capture_at_from_end(ends_at, hold_days)
     return None
 
 
 def _subscription_authorization_hold_captured(sub) -> bool:
-    return _subscription_metadata_get(sub, 'authorization_hold_captured') == '1'
+    return _subscription_metadata_get(
+        sub,
+        'authorization_hold_captured'
+    ) == '1'
 
 
 def _subscription_authorization_hold_refunded(sub) -> bool:
-    return _subscription_metadata_get(sub, 'authorization_hold_refunded') == '1'
+    return _subscription_metadata_get(
+        sub,
+        'authorization_hold_refunded'
+    ) == '1'
 
 
-def _trial_cancel_eligible_for_capture_refund(prof: Optional[dict], sub=None) -> bool:
+def _trial_cancel_eligible_for_capture_refund(
+        prof: Optional[dict],
+        sub=None
+) -> bool:
     """True on the final trial day when a post-capture cancellation should be refunded."""
     ref_now = datetime.now(timezone.utc)
-    ends_at = _parse_iso_dt(str((prof or {}).get('trial_hold_ends_at') or '').strip())
+    ends_at = _parse_iso_dt(
+        str((prof or {}).get('trial_hold_ends_at') or '').strip()
+    )
     if ends_at is None and sub is not None:
         trial_end_ts = _stripe_obj_get(sub, 'trial_end', None)
         if trial_end_ts:
             try:
-                ends_at = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+                ends_at = datetime.fromtimestamp(
+                    int(trial_end_ts),
+                    tz=timezone.utc
+                )
             except Exception:
                 ends_at = None
     if ends_at is None:
@@ -7685,14 +9326,17 @@ def _trial_cancel_eligible_for_capture_refund(prof: Optional[dict], sub=None) ->
     return window_start <= ref_now <= (ends_at + timedelta(hours=1))
 
 
-def _trial_checkout_product_copy(plan_id: str = 'trial_7d') -> tuple[str, str]:
+def _trial_checkout_product_copy(plan_id: str = 'trial_7d') -> tuple[
+    str, str]:
     """Title + subtitle for Stripe Checkout (trial is free; amount shown is a hold only)."""
     hold_days = _get_trial_hold_days(plan_id)
     name = (os.getenv('STRIPE_TRIAL_CHECKOUT_NAME') or '').strip()
     if not name:
         zero_label = '₹0.00' if _is_india_pricing_region() else '$0.00'
         name = f'{hold_days} days free trial {zero_label}'
-    description = (os.getenv('STRIPE_TRIAL_CHECKOUT_DESCRIPTION') or '').strip()
+    description = (os.getenv(
+        'STRIPE_TRIAL_CHECKOUT_DESCRIPTION'
+    ) or '').strip()
     return name, description
 
 
@@ -7700,6 +9344,14 @@ def _should_use_trial_authorization_hold(plan_id: str) -> bool:
     """Use a card authorization hold instead of charging/refunding the trial deposit."""
     if not _stripe_enabled():
         return False
+
+    plan = _get_plan_by_price_id(plan_id)
+    if plan and plan.get("use_trial_hold") and plan.get(
+            "trial_hold_ui",
+            ""
+    ) == "self":
+        return True
+
     pid = _normalize_plan_id(plan_id)
     return pid in ('trial_7d', EMAIL_TRIAL_PLAN_ID)
 
@@ -7723,7 +9375,11 @@ def _get_trial_exit_offer_for_user(user_id: str) -> dict:
     if str(prof.get('trial_exit_offer_active') or '').strip() != '1':
         return {}
     try:
-        target_cents = int(str(prof.get('trial_exit_offer_target_cents') or '').strip() or '0')
+        target_cents = int(
+            str(
+                prof.get('trial_exit_offer_target_cents') or ''
+            ).strip() or '0'
+        )
     except Exception:
         target_cents = 0
     if target_cents <= 0:
@@ -7731,20 +9387,37 @@ def _get_trial_exit_offer_for_user(user_id: str) -> dict:
     return {
         'active': True,
         'target_cents': target_cents,
-        'accepted_at': str(prof.get('trial_exit_offer_accepted_at') or '').strip(),
+        'accepted_at': str(
+            prof.get('trial_exit_offer_accepted_at') or ''
+        ).strip(),
     }
 
 
 def _should_use_embedded_trial_hold_checkout(plan_id: str) -> bool:
     """Trial hold on our checkout page (Payment Element) when HTTPS or localhost allows it."""
-    return _should_use_trial_authorization_hold(plan_id) and _request_allows_stripe_embedded_payments()
+    return _should_use_trial_authorization_hold(
+        plan_id
+    ) and _request_allows_stripe_embedded_payments()
 
 
-def _trial_hold_checkout_template_context(plan_id: str = 'trial_7d') -> dict:
+def _trial_hold_checkout_template_context(
+        plan_id: str = 'trial_7d'
+) -> dict:
     """Shared copy/pricing for embedded and hosted trial hold checkout."""
     pid = _normalize_plan_id(plan_id) or 'trial_7d'
     checkout_name, checkout_description = _trial_checkout_product_copy(pid)
-    amount_label = _plans_price_display_context().get('monthly_strong') or '$10.95'
+
+    plan = _get_plan_by_price_id(pid)
+    if plan and plan.get("unit_amount"):
+        amount = plan["unit_amount"] / 100.0
+        currency = plan.get("currency", "usd").upper()
+        symbol = "$" if currency == "USD" else (currency + " ")
+        amount_label = f"{symbol}{amount:,.2f}"
+    else:
+        amount_label = _plans_price_display_context().get(
+            'monthly_strong'
+        ) or '$10.95'
+
     zero_label = '₹0.00' if _is_india_pricing_region() else '$0.00'
     hold_days = _get_trial_hold_days(pid)
     capture_days_before_end = _get_trial_capture_days_before_end(hold_days)
@@ -7771,12 +9444,17 @@ def inject_trial_plan_context():
     """Expose configured trial duration to all Jinja templates."""
     try:
         hold_days = _get_trial_hold_days()
-        capture_day = max(1, hold_days - _get_trial_capture_days_before_end())
+        capture_day = max(
+            1,
+            hold_days - _get_trial_capture_days_before_end()
+        )
         trial_plan = _get_plan_config('trial_7d') or {}
         return {
             'trial_hold_days': hold_days,
             'trial_capture_day': capture_day,
-            'trial_deposit_terms': str(trial_plan.get('trial_deposit_terms') or '').strip(),
+            'trial_deposit_terms': str(
+                trial_plan.get('trial_deposit_terms') or ''
+            ).strip(),
         }
     except Exception:
         return {
@@ -7789,7 +9467,9 @@ def inject_trial_plan_context():
 def _request_allows_stripe_embedded_payments() -> bool:
     """Stripe Payment Element requires HTTPS or localhost (not plain HTTP on LAN hostnames)."""
     try:
-        proto = str(request.headers.get('X-Forwarded-Proto') or '').strip().lower()
+        proto = str(
+            request.headers.get('X-Forwarded-Proto') or ''
+        ).strip().lower()
         if request.is_secure or proto == 'https':
             return True
         host = str(request.host or '').split(':')[0].strip().lower()
@@ -7803,7 +9483,9 @@ def _request_allows_stripe_embedded_payments() -> bool:
 def _external_url_scheme() -> str:
     """Prefer HTTPS for Stripe redirect URLs (required outside localhost)."""
     try:
-        proto = str(request.headers.get('X-Forwarded-Proto') or '').strip().lower()
+        proto = str(
+            request.headers.get('X-Forwarded-Proto') or ''
+        ).strip().lower()
         if request.is_secure or proto == 'https':
             return 'https'
         host = str(request.host or '').split(':')[0].strip().lower()
@@ -7814,7 +9496,10 @@ def _external_url_scheme() -> str:
     return 'https'
 
 
-def _create_trial_hold_checkout_session_url(user, plan_id: str = 'trial_7d') -> str:
+def _create_trial_hold_checkout_session_url(
+        user,
+        plan_id: str = 'trial_7d'
+) -> str:
     """Stripe Hosted Checkout for trial authorization hold (card form on stripe.com over HTTPS)."""
     if not _stripe_enabled():
         return ''
@@ -7829,15 +9514,24 @@ def _create_trial_hold_checkout_session_url(user, plan_id: str = 'trial_7d') -> 
     _, checkout_blurb = _trial_checkout_product_copy(pid)
     scheme = _external_url_scheme()
     success_url = (
-        url_for('checkout_trial_hold_success', _external=True, _scheme=scheme)
-        + '?session_id={CHECKOUT_SESSION_ID}'
+            url_for(
+                'checkout_trial_hold_success',
+                _external=True,
+                _scheme=scheme
+            )
+            + '?session_id={CHECKOUT_SESSION_ID}'
     )
-    cancel_url = url_for('checkout', plan=pid, _external=True, _scheme=scheme)
+    cancel_url = url_for(
+        'checkout',
+        plan=pid,
+        _external=True,
+        _scheme=scheme
+    )
 
     session_params = {
         'mode': 'payment',
         'customer_creation': 'always',
-        'line_items': [_build_trial_deposit_line_item()],
+        'line_items': [_build_trial_deposit_line_item(pid)],
         'client_reference_id': user_id,
         'metadata': {
             'plan_id': pid,
@@ -7860,7 +9554,8 @@ def _create_trial_hold_checkout_session_url(user, plan_id: str = 'trial_7d') -> 
     if email:
         session_params['customer_email'] = email
     if checkout_blurb:
-        session_params['custom_text'] = {'submit': {'message': checkout_blurb}}
+        session_params['custom_text'] = {
+            'submit': {'message': checkout_blurb}}
     session = stripe.checkout.Session.create(**session_params)
     return str(getattr(session, 'url', '') or '')
 
@@ -7884,12 +9579,16 @@ def _subscription_metadata_get(sub, key: str, default: str = '') -> str:
 def _get_subscription_authorization_payment_intent_id(sub) -> str:
     """Return the linked authorization-hold PaymentIntent id from subscription metadata."""
     return (
-        _subscription_metadata_get(sub, 'authorization_payment_intent')
-        or _subscription_metadata_get(sub, 'trial_hold_payment_intent')
+            _subscription_metadata_get(sub, 'authorization_payment_intent')
+            or _subscription_metadata_get(sub, 'trial_hold_payment_intent')
+            or _subscription_metadata_get(sub, 'trial_deposit_payment_intent')
     )
 
 
-def _find_subscription_by_authorization_pi(customer_id: str, payment_intent_id: str):
+def _find_subscription_by_authorization_pi(
+        customer_id: str,
+        payment_intent_id: str
+):
     """Find an existing subscription already linked to this authorization PaymentIntent."""
     cid = str(customer_id or '').strip()
     pi_id = str(payment_intent_id or '').strip()
@@ -7897,9 +9596,15 @@ def _find_subscription_by_authorization_pi(customer_id: str, payment_intent_id: 
         return None
 
     try:
-        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
+        subs = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=20
+        )
         for sub in list(getattr(subs, 'data', []) or []):
-            if _get_subscription_authorization_payment_intent_id(sub) == pi_id:
+            if _get_subscription_authorization_payment_intent_id(
+                    sub
+            ) == pi_id:
                 return sub
     except Exception:
         pass
@@ -7907,14 +9612,18 @@ def _find_subscription_by_authorization_pi(customer_id: str, payment_intent_id: 
 
 
 def _get_active_trial_authorization_payment_intent(
-    prof: Optional[dict],
-    subscription_id: str = '',
+        prof: Optional[dict],
+        subscription_id: str = '',
 ) -> str:
     """Resolve the active trial authorization PaymentIntent from profile or subscription."""
-    pi_id = str((prof or {}).get('trial_hold_payment_intent_id') or '').strip()
+    pi_id = str(
+        (prof or {}).get('trial_hold_payment_intent_id') or ''
+    ).strip()
     if pi_id:
         return pi_id
-    sid = str(subscription_id or (prof or {}).get('stripe_subscription_id') or '').strip()
+    sid = str(
+        subscription_id or (prof or {}).get('stripe_subscription_id') or ''
+    ).strip()
     if not sid or not _stripe_enabled():
         return ''
     try:
@@ -7925,7 +9634,11 @@ def _get_active_trial_authorization_payment_intent(
         return ''
 
 
-def _profile_has_active_trial_hold(prof: Optional[dict], *, now: Optional[datetime] = None) -> bool:
+def _profile_has_active_trial_hold(
+        prof: Optional[dict],
+        *,
+        now: Optional[datetime] = None
+) -> bool:
     """Return True when the user has an active authorization hold granting trial access."""
     if not prof:
         return False
@@ -7934,14 +9647,20 @@ def _profile_has_active_trial_hold(prof: Optional[dict], *, now: Optional[dateti
         return False
     if str(prof.get('trial_hold_cancelled') or '').strip() == '1':
         return False
-    ends_at = _parse_iso_dt(str(prof.get('trial_hold_ends_at') or '').strip())
+    ends_at = _parse_iso_dt(
+        str(prof.get('trial_hold_ends_at') or '').strip()
+    )
     ref_now = now or datetime.now(timezone.utc)
     if ends_at is not None and ends_at < ref_now:
         return False
     return True
 
 
-def _create_trial_hold_payment_intent(user_id: str, plan_id: str = 'trial_7d', customer_id: str = ''):
+def _create_trial_hold_payment_intent(
+        user_id: str,
+        plan_id: str = 'trial_7d',
+        customer_id: str = ''
+):
     """Create a manual-capture PaymentIntent for the trial hold amount."""
     cid = str(customer_id or '').strip()
     uid = str(user_id or '').strip()
@@ -7950,7 +9669,7 @@ def _create_trial_hold_payment_intent(user_id: str, plan_id: str = 'trial_7d', c
         return None
 
     hold_days = _get_trial_hold_days(pid)
-    amount = _get_trial_deposit_amount_cents()
+    amount = _get_trial_deposit_amount_cents(pid)
     currency = _trial_hold_currency()
     # Authorization holds require card capture; UPI settles immediately and cannot be held.
     params = {
@@ -7997,7 +9716,10 @@ def _trial_hold_days_from_intent(intent) -> int:
     return _get_trial_hold_days(_trial_hold_plan_id_from_intent(intent))
 
 
-def _payment_intent_belongs_to_user(payment_intent_id: str, user_id: str) -> bool:
+def _payment_intent_belongs_to_user(
+        payment_intent_id: str,
+        user_id: str
+) -> bool:
     """Verify a PaymentIntent metadata user_id matches the authenticated user."""
     pi_id = str(payment_intent_id or '').strip()
     uid = str(user_id or '').strip()
@@ -8016,7 +9738,8 @@ def _payment_intent_belongs_to_user(payment_intent_id: str, user_id: str) -> boo
         return False
 
 
-def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, str]:
+def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[
+    bool, str]:
     """Grant trial access after the card authorization hold succeeds (requires_capture).
 
     Creates a trialing Stripe subscription linked to the authorization PaymentIntent.
@@ -8029,7 +9752,6 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
     if not _payment_intent_belongs_to_user(pi_id, uid):
         return False, 'payment_intent_mismatch'
 
-
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -8040,40 +9762,64 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
         return False, 'not_authorized'
 
     prof = get_user_profile_azure(uid) or {}
-    existing_pi = str(prof.get('trial_hold_payment_intent_id') or '').strip()
+    existing_pi = str(
+        prof.get('trial_hold_payment_intent_id') or ''
+    ).strip()
     existing_sub_id = str(prof.get('stripe_subscription_id') or '').strip()
     if existing_pi and existing_pi == pi_id and existing_sub_id:
         return True, 'already_active'
 
-    payment_method_id = str(getattr(intent, 'payment_method', '') or '').strip()
+    payment_method_id = str(
+        getattr(intent, 'payment_method', '') or ''
+    ).strip()
     if not payment_method_id:
         return False, 'missing_payment_method'
 
     amount = int(getattr(intent, 'amount', 0) or 0)
-    currency = str(getattr(intent, 'currency', 'usd') or 'usd').strip().lower()
+    currency = str(
+        getattr(intent, 'currency', 'usd') or 'usd'
+    ).strip().lower()
     exit_offer = _get_trial_exit_offer_for_user(uid)
     plan_id = _trial_hold_plan_id_from_intent(intent)
     hold_days = _trial_hold_days_from_intent(intent)
-    invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(plan_id) else None
+    invite = _get_email_trial_invite_from_session() if _is_email_trial_plan(
+        plan_id
+    ) else None
     campaign = str((invite or {}).get('campaign') or '').strip()
     customer_id = str(getattr(intent, 'customer', '') or '').strip()
     if not customer_id:
         customer_id = str(prof.get('stripe_customer_id') or '').strip()
     if not customer_id:
-        email = str(prof.get('email') or getattr(current_user, 'email', '') or '').strip()
-        customer_id = _find_stripe_customer_id_by_email(email, require_subscription_history=True) if email else ''
+        email = str(
+            prof.get('email') or getattr(current_user, 'email', '') or ''
+        ).strip()
+        customer_id = _find_stripe_customer_id_by_email(
+            email,
+            require_subscription_history=True
+        ) if email else ''
     if not customer_id:
         try:
             cust = stripe.Customer.create(
-                email=str(prof.get('email') or getattr(current_user, 'email', '') or '').strip() or None,
+                email=str(
+                    prof.get('email') or getattr(
+                        current_user,
+                        'email',
+                        ''
+                    ) or ''
+                ).strip() or None,
                 metadata={'user_id': uid},
             )
             customer_id = str(getattr(cust, 'id', '') or '').strip()
         except Exception:
-            logger.exception('trial hold activation: customer creation failed')
+            logger.exception(
+                'trial hold activation: customer creation failed'
+            )
             return False, 'customer_creation_failed'
     try:
-        stripe.PaymentMethod.attach(payment_method_id, customer=customer_id)
+        stripe.PaymentMethod.attach(
+            payment_method_id,
+            customer=customer_id
+        )
     except Exception:
         # The card may already be attached to this customer after a previous successful attempt.
         pass
@@ -8084,7 +9830,9 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
             invoice_settings={'default_payment_method': payment_method_id},
         )
     except Exception:
-        logger.exception('trial hold activation: failed to set default payment method')
+        logger.exception(
+            'trial hold activation: failed to set default payment method'
+        )
 
     sub = _find_subscription_by_authorization_pi(customer_id, pi_id)
     if not sub:
@@ -8097,8 +9845,12 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
             'authorization_payment_intent': pi_id,
             'trial_hold_payment_intent': pi_id,
             'trial_hold_days': str(hold_days),
-            'trial_exit_offer_active': '1' if exit_offer.get('active') else '',
-            'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)) if exit_offer.get('active') else '',
+            'trial_exit_offer_active': '1' if exit_offer.get(
+                'active'
+            ) else '',
+            'trial_exit_offer_target_cents': str(
+                int(exit_offer.get('target_cents') or 0)
+            ) if exit_offer.get('active') else '',
         }
         if campaign:
             sub_metadata['campaign'] = campaign
@@ -8108,13 +9860,19 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
                 items=[{'price': price_id, 'quantity': 1}],
                 default_payment_method=payment_method_id,
                 trial_period_days=hold_days,
-                payment_settings={'save_default_payment_method': 'on_subscription'},
+                payment_settings={
+                    'save_default_payment_method': 'on_subscription'},
                 metadata=sub_metadata,
             )
         except Exception:
-            logger.exception('trial hold activation: subscription creation failed')
+            logger.exception(
+                'trial hold activation: subscription creation failed'
+            )
             return False, 'subscription_failed'
-    elif exit_offer.get('active') and _subscription_metadata_get(sub, 'trial_exit_offer_active') != '1':
+    elif exit_offer.get('active') and _subscription_metadata_get(
+            sub,
+            'trial_exit_offer_active'
+    ) != '1':
         try:
             patch_meta = {
                 'plan_id': plan_id,
@@ -8123,7 +9881,9 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
                 'trial_hold_payment_intent': pi_id,
                 'trial_hold_days': str(hold_days),
                 'trial_exit_offer_active': '1',
-                'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)),
+                'trial_exit_offer_target_cents': str(
+                    int(exit_offer.get('target_cents') or 0)
+                ),
             }
             if campaign:
                 patch_meta['campaign'] = campaign
@@ -8131,9 +9891,13 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
                 str(getattr(sub, 'id', '') or ''),
                 metadata=patch_meta,
             )
-            sub = stripe.Subscription.retrieve(str(getattr(sub, 'id', '') or ''))
+            sub = stripe.Subscription.retrieve(
+                str(getattr(sub, 'id', '') or '')
+            )
         except Exception:
-            logger.exception('trial hold activation: failed to attach exit offer metadata')
+            logger.exception(
+                'trial hold activation: failed to attach exit offer metadata'
+            )
 
     if not _stripe_subscription_grants_access(sub):
         return False, 'subscription_not_active'
@@ -8142,7 +9906,10 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
 
     trial_end_ts = getattr(sub, 'trial_end', None)
     if trial_end_ts:
-        trial_ends = datetime.fromtimestamp(int(trial_end_ts), tz=timezone.utc)
+        trial_ends = datetime.fromtimestamp(
+            int(trial_end_ts),
+            tz=timezone.utc
+        )
     else:
         trial_ends = datetime.now(timezone.utc) + timedelta(days=hold_days)
     capture_at = _trial_hold_capture_at_from_end(trial_ends, hold_days)
@@ -8157,7 +9924,9 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
                 },
             )
         except Exception:
-            logger.exception('trial hold activation: failed to persist capture schedule on subscription')
+            logger.exception(
+                'trial hold activation: failed to persist capture schedule on subscription'
+            )
 
     try:
         table_client = get_users_table_client()
@@ -8176,18 +9945,27 @@ def _activate_trial_hold(user_id: str, payment_intent_id: str) -> tuple[bool, st
             'trial_hold_cancelled': '',
             'trial_used': True,
             'trial_used_at': datetime.now(timezone.utc).isoformat(),
-            'trial_exit_offer_active': '1' if exit_offer.get('active') else '',
-            'trial_exit_offer_target_cents': str(int(exit_offer.get('target_cents') or 0)) if exit_offer.get('active') else '',
+            'trial_exit_offer_active': '1' if exit_offer.get(
+                'active'
+            ) else '',
+            'trial_exit_offer_target_cents': str(
+                int(exit_offer.get('target_cents') or 0)
+            ) if exit_offer.get('active') else '',
         }
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
     except Exception:
-        logger.exception('trial hold activation: failed to persist profile')
+        logger.exception(
+            'trial hold activation: failed to persist profile'
+        )
         return False, 'profile_update_failed'
 
     return True, 'activated'
 
 
-def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
+def _capture_authorization_hold_for_subscription(
+        sub,
+        apply_balance: bool = True
+) -> tuple[bool, str]:
     """Capture the linked authorization hold when a trialing subscription is about to end."""
     if not sub or not _stripe_enabled():
         return False, 'missing_subscription'
@@ -8201,13 +9979,15 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
     if _stripe_subscription_cancel_scheduled(sub):
         return False, 'cancellation_scheduled'
 
-    if _subscription_metadata_get(sub, 'authorization_hold_captured') == '1':
+    if _subscription_metadata_get(
+            sub,
+            'authorization_hold_captured'
+    ) == '1':
         return True, 'already_captured'
 
     pi_id = _get_subscription_authorization_payment_intent_id(sub)
     if not pi_id:
         return False, 'no_authorization_payment_intent'
-
 
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
@@ -8220,27 +10000,48 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
         try:
             captured_intent = stripe.PaymentIntent.capture(pi_id)
         except Exception as e:
-            logger.warning('authorization hold capture failed sub=%s pi=%s err=%s', sub_id, pi_id, str(e))
+            logger.warning(
+                'authorization hold capture failed sub=%s pi=%s err=%s',
+                sub_id,
+                pi_id,
+                str(e)
+            )
             return False, 'capture_failed'
     elif pi_status != 'succeeded':
         return False, f'unexpected_status_{pi_status}'
 
-    if str(getattr(captured_intent, 'status', '') or '').strip().lower() != 'succeeded':
+    if str(
+            getattr(captured_intent, 'status', '') or ''
+    ).strip().lower() != 'succeeded':
         return False, 'capture_not_succeeded'
 
     amount = int(getattr(captured_intent, 'amount', 0) or 0)
-    currency = str(getattr(captured_intent, 'currency', 'usd') or 'usd').strip().lower()
-    customer_id = str(_stripe_obj_get(sub, 'customer', '') or getattr(captured_intent, 'customer', '') or '').strip()
+    currency = str(
+        getattr(captured_intent, 'currency', 'usd') or 'usd'
+    ).strip().lower()
+    customer_id = str(
+        _stripe_obj_get(sub, 'customer', '') or getattr(
+            captured_intent,
+            'customer',
+            ''
+        ) or ''
+    ).strip()
     offer_target_cents = 0
     if _subscription_metadata_get(sub, 'trial_exit_offer_active') == '1':
         try:
-            offer_target_cents = int(_subscription_metadata_get(sub, 'trial_exit_offer_target_cents', '0') or '0')
+            offer_target_cents = int(
+                _subscription_metadata_get(
+                    sub,
+                    'trial_exit_offer_target_cents',
+                    '0'
+                ) or '0'
+            )
         except Exception:
             offer_target_cents = 0
     refund_cents = 0
     if offer_target_cents > 0 and amount > offer_target_cents:
         refund_cents = int(amount - offer_target_cents)
-    if customer_id and amount > 0:
+    if apply_balance and customer_id and amount > 0:
         try:
             stripe.Customer.create_balance_transaction(
                 customer_id,
@@ -8249,11 +10050,15 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
                 description='Trial authorization captured — credit toward first subscription invoice',
             )
         except Exception:
-            logger.exception('authorization hold capture: failed to apply customer balance credit')
+            logger.exception(
+                'authorization hold capture: failed to apply customer balance credit'
+            )
 
     metadata_update = {
         'authorization_hold_captured': '1',
-        'authorization_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+        'authorization_hold_captured_at': datetime.now(
+            timezone.utc
+        ).isoformat(),
         'authorization_hold_balance_credit_cents': str(amount),
     }
     if refund_cents > 0:
@@ -8267,12 +10072,21 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
                 },
             )
             metadata_update['trial_exit_offer_applied'] = '1'
-            metadata_update['trial_exit_offer_refund_cents'] = str(refund_cents)
-            metadata_update['trial_exit_offer_applied_at'] = datetime.now(timezone.utc).isoformat()
+            metadata_update['trial_exit_offer_refund_cents'] = str(
+                refund_cents
+            )
+            metadata_update['trial_exit_offer_applied_at'] = datetime.now(
+                timezone.utc
+            ).isoformat()
         except Exception:
-            logger.exception('authorization hold capture: failed to refund exit offer discount')
+            logger.exception(
+                'authorization hold capture: failed to refund exit offer discount'
+            )
             metadata_update['trial_exit_offer_refund_failed'] = '1'
-            metadata_update['trial_exit_offer_refund_failed_at'] = datetime.now(timezone.utc).isoformat()
+            metadata_update[
+                'trial_exit_offer_refund_failed_at'] = datetime.now(
+                timezone.utc
+            ).isoformat()
 
     try:
         stripe.Subscription.modify(
@@ -8289,9 +10103,13 @@ def _capture_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
             entity = {
                 'PartitionKey': user_id,
                 'RowKey': 'profile',
-                'trial_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+                'trial_hold_captured_at': datetime.now(
+                    timezone.utc
+                ).isoformat(),
                 'trial_exit_offer_active': '',
-                'trial_exit_offer_refund_cents': str(refund_cents) if refund_cents > 0 else '',
+                'trial_exit_offer_refund_cents': str(
+                    refund_cents
+                ) if refund_cents > 0 else '',
             }
             table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         except Exception:
@@ -8310,7 +10128,8 @@ def _release_authorization_hold_for_subscription(sub) -> tuple[bool, str]:
     return _cancel_trial_hold_payment_intent(pi_id)
 
 
-def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str]:
+def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[
+    bool, str]:
     """Refund a captured trial authorization hold and reverse the customer balance credit."""
     if not sub or not _stripe_enabled():
         return False, 'missing_subscription'
@@ -8325,7 +10144,6 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
     if not pi_id:
         return False, 'no_authorization_payment_intent'
 
-
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
     except Exception:
@@ -8336,8 +10154,16 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
         return False, f'unexpected_status_{pi_status}'
 
     amount = int(getattr(intent, 'amount', 0) or 0)
-    currency = str(getattr(intent, 'currency', 'usd') or 'usd').strip().lower()
-    customer_id = str(_stripe_obj_get(sub, 'customer', '') or getattr(intent, 'customer', '') or '').strip()
+    currency = str(
+        getattr(intent, 'currency', 'usd') or 'usd'
+    ).strip().lower()
+    customer_id = str(
+        _stripe_obj_get(sub, 'customer', '') or getattr(
+            intent,
+            'customer',
+            ''
+        ) or ''
+    ).strip()
     if amount <= 0:
         return False, 'zero_amount'
 
@@ -8345,11 +10171,15 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
     try:
         refunds = stripe.Refund.list(payment_intent=pi_id, limit=20)
         for refund in list(getattr(refunds, 'data', []) or []):
-            refund_status = str(getattr(refund, 'status', '') or '').strip().lower()
+            refund_status = str(
+                getattr(refund, 'status', '') or ''
+            ).strip().lower()
             if refund_status in ('succeeded', 'pending'):
                 already_refunded += int(getattr(refund, 'amount', 0) or 0)
     except Exception:
-        logger.exception('trial authorization refund: failed to list existing refunds')
+        logger.exception(
+            'trial authorization refund: failed to list existing refunds'
+        )
 
     remaining_refund = max(0, amount - already_refunded)
     if remaining_refund > 0:
@@ -8363,11 +10193,22 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
                 },
             )
         except Exception as e:
-            logger.warning('trial authorization refund failed sub=%s pi=%s err=%s', sub_id, pi_id, str(e))
+            logger.warning(
+                'trial authorization refund failed sub=%s pi=%s err=%s',
+                sub_id,
+                pi_id,
+                str(e)
+            )
             return False, 'refund_failed'
 
     try:
-        credit_cents = int(_subscription_metadata_get(sub, 'authorization_hold_balance_credit_cents', str(amount)) or amount)
+        credit_cents = int(
+            _subscription_metadata_get(
+                sub,
+                'authorization_hold_balance_credit_cents',
+                str(amount)
+            ) or amount
+        )
     except Exception:
         credit_cents = amount
     if customer_id and credit_cents > 0:
@@ -8379,11 +10220,15 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
                 description='Reversal of trial authorization credit after final-day cancellation',
             )
         except Exception:
-            logger.exception('trial authorization refund: failed to reverse customer balance credit')
+            logger.exception(
+                'trial authorization refund: failed to reverse customer balance credit'
+            )
 
     metadata_update = {
         'authorization_hold_refunded': '1',
-        'authorization_hold_refunded_at': datetime.now(timezone.utc).isoformat(),
+        'authorization_hold_refunded_at': datetime.now(
+            timezone.utc
+        ).isoformat(),
     }
     try:
         stripe.Subscription.modify(sub_id, metadata=metadata_update)
@@ -8397,7 +10242,9 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
             entity = {
                 'PartitionKey': user_id,
                 'RowKey': 'profile',
-                'trial_hold_refunded_at': datetime.now(timezone.utc).isoformat(),
+                'trial_hold_refunded_at': datetime.now(
+                    timezone.utc
+                ).isoformat(),
             }
             table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         except Exception:
@@ -8406,7 +10253,8 @@ def _refund_trial_authorization_capture_for_subscription(sub) -> tuple[bool, str
     return True, 'refunded'
 
 
-def _cancel_trial_hold_payment_intent(payment_intent_id: str) -> tuple[bool, str]:
+def _cancel_trial_hold_payment_intent(payment_intent_id: str) -> tuple[
+    bool, str]:
     """Release an uncaptured authorization hold."""
     pi_id = str(payment_intent_id or '').strip()
     if not pi_id or not _stripe_enabled():
@@ -8425,14 +10273,22 @@ def _cancel_trial_hold_payment_intent(payment_intent_id: str) -> tuple[bool, str
             stripe.PaymentIntent.cancel(pi_id)
             return True, 'cancelled'
         except Exception as e:
-            logger.warning('trial hold cancel failed for %s: %s', pi_id, str(e))
+            logger.warning(
+                'trial hold cancel failed for %s: %s',
+                pi_id,
+                str(e)
+            )
             return False, 'cancel_failed'
     if status == 'succeeded':
         return False, 'already_captured'
     return False, f'unexpected_status_{status}'
 
 
-def _revoke_trial_hold_profile(user_id: str, *, cancelled: bool = True) -> None:
+def _revoke_trial_hold_profile(
+        user_id: str,
+        *,
+        cancelled: bool = True
+) -> None:
     """Clear trial-hold access fields from the user profile."""
     uid = str(user_id or '').strip()
     if not uid:
@@ -8446,14 +10302,20 @@ def _revoke_trial_hold_profile(user_id: str, *, cancelled: bool = True) -> None:
             'plan_status': 'free',
             'paid_until': '',
             'trial_hold_cancelled': '1' if cancelled else '',
-            'trial_hold_cancelled_at': datetime.now(timezone.utc).isoformat() if cancelled else '',
+            'trial_hold_cancelled_at': datetime.now(
+                timezone.utc
+            ).isoformat() if cancelled else '',
         }
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
     except Exception:
-        logger.exception('trial hold revoke: failed to update profile for %s', uid)
+        logger.exception(
+            'trial hold revoke: failed to update profile for %s',
+            uid
+        )
 
 
-def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional[str]]:
+def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[
+    bool, str, Optional[str]]:
     """Legacy fallback: capture hold and create subscription for profiles without a Stripe sub.
 
     New trial signups create a trialing subscription at activation; capture runs on
@@ -8475,12 +10337,15 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
             return True, 'subscription_already_exists', existing_sub_id
 
     pi_id = str(prof.get('trial_hold_payment_intent_id') or '').strip()
-    customer_id = str(prof.get('trial_hold_customer_id') or prof.get('stripe_customer_id') or '').strip()
+    customer_id = str(
+        prof.get('trial_hold_customer_id') or prof.get(
+            'stripe_customer_id'
+        ) or ''
+    ).strip()
     if not pi_id or not customer_id:
         return False, 'no_active_trial_hold', None
     if str(prof.get('trial_hold_cancelled') or '').strip() == '1':
         return False, 'trial_hold_cancelled', None
-
 
     try:
         intent = stripe.PaymentIntent.retrieve(pi_id)
@@ -8494,15 +10359,23 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
         try:
             captured_intent = stripe.PaymentIntent.capture(pi_id)
         except Exception as e:
-            logger.warning('trial hold capture failed for %s: %s', pi_id, str(e))
+            logger.warning(
+                'trial hold capture failed for %s: %s',
+                pi_id,
+                str(e)
+            )
             return False, 'capture_failed', None
     else:
         return False, f'unexpected_status_{status}', None
 
-    if str(getattr(captured_intent, 'status', '') or '').strip().lower() != 'succeeded':
+    if str(
+            getattr(captured_intent, 'status', '') or ''
+    ).strip().lower() != 'succeeded':
         return False, 'capture_not_succeeded', None
 
-    payment_method_id = str(getattr(captured_intent, 'payment_method', '') or '').strip()
+    payment_method_id = str(
+        getattr(captured_intent, 'payment_method', '') or ''
+    ).strip()
     if not payment_method_id:
         return False, 'missing_payment_method', None
 
@@ -8512,7 +10385,9 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
             invoice_settings={'default_payment_method': payment_method_id},
         )
     except Exception:
-        logger.exception('trial hold: failed to set default payment method')
+        logger.exception(
+            'trial hold: failed to set default payment method'
+        )
 
     price_id = _get_stripe_price_id('monthly_10_95')
     if not price_id:
@@ -8522,7 +10397,8 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
         'customer': customer_id,
         'items': [{'price': price_id}],
         'default_payment_method': payment_method_id,
-        'payment_settings': {'save_default_payment_method': 'on_subscription'},
+        'payment_settings': {
+            'save_default_payment_method': 'on_subscription'},
         'metadata': {
             'plan_id': 'monthly_10_95',
             'user_id': uid,
@@ -8539,7 +10415,11 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
         return False, f'subscription_failed:{str(e)}', None
 
     sub_id = str(getattr(sub, 'id', '') or '').strip()
-    _persist_stripe_subscription_to_profile(uid, sub, plan_id='monthly_10_95')
+    _persist_stripe_subscription_to_profile(
+        uid,
+        sub,
+        plan_id='monthly_10_95'
+    )
 
     try:
         table_client = get_users_table_client()
@@ -8547,7 +10427,9 @@ def _capture_trial_hold_and_subscribe(user_id: str) -> tuple[bool, str, Optional
             'PartitionKey': uid,
             'RowKey': 'profile',
             'trial_hold_payment_intent_id': pi_id,
-            'trial_hold_captured_at': datetime.now(timezone.utc).isoformat(),
+            'trial_hold_captured_at': datetime.now(
+                timezone.utc
+            ).isoformat(),
         }
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
     except Exception:
@@ -8566,7 +10448,6 @@ def _maybe_capture_due_trial_hold_for_user(user_id: str) -> None:
     subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
     if not subscription_id:
         return
-
 
     try:
         sub = stripe.Subscription.retrieve(subscription_id)
@@ -8616,15 +10497,21 @@ def _process_trial_hold_lifecycle_for_user(user_id: str) -> None:
     if subscription_id:
         try:
             sub = stripe.Subscription.retrieve(subscription_id)
-            sub_status = str(getattr(sub, 'status', '') or '').strip().lower()
-            if sub_status == 'trialing' and _get_subscription_authorization_payment_intent_id(sub):
+            sub_status = str(
+                getattr(sub, 'status', '') or ''
+            ).strip().lower()
+            if sub_status == 'trialing' and _get_subscription_authorization_payment_intent_id(
+                    sub
+            ):
                 return
         except Exception:
             pass
         return
 
     now = datetime.now(timezone.utc)
-    ends_at = _parse_iso_dt(str(prof.get('trial_hold_ends_at') or '').strip())
+    ends_at = _parse_iso_dt(
+        str(prof.get('trial_hold_ends_at') or '').strip()
+    )
     cancelled = str(prof.get('trial_hold_cancelled') or '').strip() == '1'
 
     try:
@@ -8651,7 +10538,11 @@ def _process_trial_hold_lifecycle_for_user(user_id: str) -> None:
     if ends_at is not None and ends_at <= now and status == 'requires_capture':
         ok, reason, _sub_id = _capture_trial_hold_and_subscribe(uid)
         if not ok:
-            logger.warning('trial hold auto-capture failed user_id=%s reason=%s', uid, reason)
+            logger.warning(
+                'trial hold auto-capture failed user_id=%s reason=%s',
+                uid,
+                reason
+            )
         return
 
     if status not in ('requires_capture', 'processing', 'requires_action'):
@@ -8672,26 +10563,40 @@ def _get_stripe_payment_link(plan_id: str) -> Optional[str]:
     if plan_id == 'trial_7d':
         # Prefer new env var name if present; fall back to legacy name.
         return (
-            (os.getenv('STRIPE_PAYMENTLINK_TRIAL_7D') or '').strip()
-            or (os.getenv('STRIPE_PAYMENTLINK_TRIAL_14D') or '').strip()
-            or defaults['trial_7d']
+                (os.getenv('STRIPE_PAYMENTLINK_TRIAL_7D') or '').strip()
+                or (os.getenv(
+            'STRIPE_PAYMENTLINK_TRIAL_14D'
+        ) or '').strip()
+                or defaults['trial_7d']
         )
     if plan_id == 'monthly_10_95':
         if _is_india_pricing_region():
             return (
-                (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95_INR') or '').strip()
-                or (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95') or '').strip()
-                or defaults['monthly_10_95']
+                    (os.getenv(
+                        'STRIPE_PAYMENTLINK_MONTHLY_10_95_INR'
+                    ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PAYMENTLINK_MONTHLY_10_95'
+            ) or '').strip()
+                    or defaults['monthly_10_95']
             )
-        return (os.getenv('STRIPE_PAYMENTLINK_MONTHLY_10_95') or '').strip() or defaults['monthly_10_95']
+        return (os.getenv(
+            'STRIPE_PAYMENTLINK_MONTHLY_10_95'
+        ) or '').strip() or defaults['monthly_10_95']
     if plan_id == 'annual_6_95':
         if _is_india_pricing_region():
             return (
-                (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95_INR') or '').strip()
-                or (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95') or '').strip()
-                or defaults['annual_6_95']
+                    (os.getenv(
+                        'STRIPE_PAYMENTLINK_ANNUAL_6_95_INR'
+                    ) or '').strip()
+                    or (os.getenv(
+                'STRIPE_PAYMENTLINK_ANNUAL_6_95'
+            ) or '').strip()
+                    or defaults['annual_6_95']
             )
-        return (os.getenv('STRIPE_PAYMENTLINK_ANNUAL_6_95') or '').strip() or defaults['annual_6_95']
+        return (os.getenv(
+            'STRIPE_PAYMENTLINK_ANNUAL_6_95'
+        ) or '').strip() or defaults['annual_6_95']
     return None
 
 
@@ -8714,7 +10619,9 @@ def _get_payment_method_config_for_checkout(plan_id: str) -> dict:
     """
     config = {}
 
-    if _is_india_pricing_region() and plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95', 'annual_6_95'):
+    if _is_india_pricing_region() and plan_id in (
+            'trial_7d', EMAIL_TRIAL_PLAN_ID, 'monthly_10_95',
+            'annual_6_95'):
         # For India recurring subscriptions, enable card (3DS enforced) + UPI
         # Stripe creates mandates through subscription flow for on-session first payment
         # UPI support requires Stripe API 2025+ and account eligibility check
@@ -8726,23 +10633,34 @@ def _get_payment_method_config_for_checkout(plan_id: str) -> dict:
 def _compute_retention_credit_cents(subscription) -> int:
     """Compute 50% off for one month (applied twice = 50% off for 2 months). Works with flexible billing."""
     try:
-        override = (os.getenv('STRIPE_RETENTION_CREDIT_CENTS') or '').strip()
+        override = (os.getenv(
+            'STRIPE_RETENTION_CREDIT_CENTS'
+        ) or '').strip()
         if override and override.isdigit():
             return int(override)
     except Exception:
         pass
     # 50% of one month: monthly $5.48, annual $3.48
-    DEFAULT_MONTHLY_HALF_CENTS = 548   # 50% of $10.95
-    DEFAULT_ANNUAL_HALF_CENTS = 348    # 50% of $6.95
+    DEFAULT_MONTHLY_HALF_CENTS = 548  # 50% of $10.95
+    DEFAULT_ANNUAL_HALF_CENTS = 348  # 50% of $6.95
     try:
-        price_id, interval, interval_count = _get_subscription_price_id_and_recurring(subscription)
+        price_id, interval, interval_count = _get_subscription_price_id_and_recurring(
+            subscription
+        )
         items = getattr(subscription, 'items', None)
-        items_data = list(getattr(items, 'data', []) or []) if items else []
+        items_data = list(
+            getattr(items, 'data', []) or []
+        ) if items else []
         if not items_data:
-            is_annual = interval == 'year' or (interval == 'month' and interval_count == 12)
+            is_annual = interval == 'year' or (
+                    interval == 'month' and interval_count == 12)
             return DEFAULT_ANNUAL_HALF_CENTS if is_annual else DEFAULT_MONTHLY_HALF_CENTS
         first = items_data[0]
-        price = getattr(first, 'price', None) if not isinstance(first, dict) else (first.get('price') if isinstance(first, dict) else None)
+        price = getattr(first, 'price', None) if not isinstance(
+            first,
+            dict
+        ) else (
+            first.get('price') if isinstance(first, dict) else None)
         unit = 0
         if price is not None:
             if isinstance(price, dict):
@@ -8756,17 +10674,22 @@ def _compute_retention_credit_cents(subscription) -> int:
             else:
                 unit = int(getattr(price, 'unit_amount', 0) or 0)
         if unit <= 0:
-            is_annual = interval == 'year' or (interval == 'month' and interval_count == 12)
+            is_annual = interval == 'year' or (
+                    interval == 'month' and interval_count == 12)
             return DEFAULT_ANNUAL_HALF_CENTS if is_annual else DEFAULT_MONTHLY_HALF_CENTS
         # 50% of one month (applied to each of next 2 invoices)
-        if interval == 'year' or (interval == 'month' and interval_count == 12):
+        if interval == 'year' or (
+                interval == 'month' and interval_count == 12):
             return (unit // 12) // 2  # half of one month of annual
         return unit // 2  # half of one month of monthly
     except Exception:
         return DEFAULT_MONTHLY_HALF_CENTS
 
 
-def _apply_reinstate_next_month_price_offer(subscription, target_price_cents: int = 399) -> tuple[bool, str, int]:
+def _apply_reinstate_next_month_price_offer(
+        subscription,
+        target_price_cents: int = 399
+) -> tuple[bool, str, int]:
     """Apply one-time credit so the next monthly invoice is effectively target_price_cents."""
     try:
         target_cents = int(target_price_cents or 0)
@@ -8777,23 +10700,33 @@ def _apply_reinstate_next_month_price_offer(subscription, target_price_cents: in
 
     try:
         sub_id = str(_stripe_obj_get(subscription, "id", "") or "").strip()
-        customer_id = str(_stripe_obj_get(subscription, "customer", "") or "").strip()
+        customer_id = str(
+            _stripe_obj_get(subscription, "customer", "") or ""
+        ).strip()
         if not sub_id or not customer_id:
             return False, "Unable to apply offer: subscription billing details are missing.", 0
 
-        _, interval, interval_count = _get_subscription_price_id_and_recurring(subscription)
-        if str(interval or "").strip().lower() != "month" or int(interval_count or 1) != 1:
+        _, interval, interval_count = _get_subscription_price_id_and_recurring(
+            subscription
+        )
+        if str(interval or "").strip().lower() != "month" or int(
+                interval_count or 1
+        ) != 1:
             return False, "Offer applies only to monthly subscriptions.", 0
 
         items = _stripe_obj_get(subscription, "items", None)
-        items_data = list(_stripe_obj_get(items, "data", []) or []) if items is not None else []
+        items_data = list(
+            _stripe_obj_get(items, "data", []) or []
+        ) if items is not None else []
         if not items_data:
             return False, "Unable to apply offer: subscription price is unavailable.", 0
 
         first = items_data[0]
         price = _stripe_obj_get(first, "price", None)
         unit_amount = int(_stripe_obj_get(price, "unit_amount", 0) or 0)
-        currency = str(_stripe_obj_get(price, "currency", "usd") or "usd").strip().lower()
+        currency = str(
+            _stripe_obj_get(price, "currency", "usd") or "usd"
+        ).strip().lower()
         if unit_amount <= 0:
             return False, "Unable to apply offer: invalid subscription amount.", 0
         if currency != "usd":
@@ -8801,9 +10734,17 @@ def _apply_reinstate_next_month_price_offer(subscription, target_price_cents: in
         if unit_amount <= target_cents:
             return False, "Your next month is already priced at or below this offer.", 0
 
-        current_period_end = str(_stripe_obj_get(subscription, "current_period_end", "") or "").strip()
+        current_period_end = str(
+            _stripe_obj_get(subscription, "current_period_end", "") or ""
+        ).strip()
         metadata = _stripe_obj_get(subscription, "metadata", {}) or {}
-        already_period_end = str(_stripe_obj_get(metadata, "reinstate_offer_399_period_end", "") or "").strip()
+        already_period_end = str(
+            _stripe_obj_get(
+                metadata,
+                "reinstate_offer_399_period_end",
+                ""
+            ) or ""
+        ).strip()
         if current_period_end and already_period_end == current_period_end:
             return True, "Offer already applied to your next month.", 0
 
@@ -8823,16 +10764,23 @@ def _apply_reinstate_next_month_price_offer(subscription, target_price_cents: in
             metadata={
                 "reinstate_offer_399_period_end": current_period_end,
                 "reinstate_offer_399_credit_cents": str(credit_cents),
-                "reinstate_offer_399_applied_at": datetime.now(timezone.utc).isoformat(),
+                "reinstate_offer_399_applied_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
             },
         )
         return True, f"Offer applied: your next month will be ${target_cents / 100:.2f}.", credit_cents
     except Exception:
-        logger.exception("Failed applying reinstate next-month price offer")
+        logger.exception(
+            "Failed applying reinstate next-month price offer"
+        )
         return False, "Unable to apply the $3.99 next-month offer.", 0
 
 
-def _apply_reinstate_offer_credit_from_monthly_price(customer_id: str, target_price_cents: int = 399) -> tuple[bool, str, int]:
+def _apply_reinstate_offer_credit_from_monthly_price(
+        customer_id: str,
+        target_price_cents: int = 399
+) -> tuple[bool, str, int]:
     """Apply $3.99-offer credit using the configured monthly list price."""
     cid = str(customer_id or '').strip()
     if not cid:
@@ -8850,7 +10798,9 @@ def _apply_reinstate_offer_credit_from_monthly_price(customer_id: str, target_pr
             return False, "Monthly plan price is not configured.", 0
         price = stripe.Price.retrieve(price_id)
         unit_amount = int(_stripe_obj_get(price, 'unit_amount', 0) or 0)
-        currency = str(_stripe_obj_get(price, 'currency', 'usd') or 'usd').strip().lower()
+        currency = str(
+            _stripe_obj_get(price, 'currency', 'usd') or 'usd'
+        ).strip().lower()
         if unit_amount <= 0:
             return False, "Unable to apply offer: invalid subscription amount.", 0
         if currency != 'usd':
@@ -8868,7 +10818,9 @@ def _apply_reinstate_offer_credit_from_monthly_price(customer_id: str, target_pr
         )
         return True, f"Offer applied: your next month will be ${target_cents / 100:.2f}.", credit_cents
     except Exception:
-        logger.exception("Failed applying reinstate offer credit from monthly price")
+        logger.exception(
+            "Failed applying reinstate offer credit from monthly price"
+        )
         return False, "Unable to apply the $3.99 next-month offer.", 0
 
 
@@ -8877,7 +10829,11 @@ _REINSTATE_OFFER_CHECKOUT_SESSION_KEY = "reinstate_offer_checkout"
 
 def _is_reinstate_offer_checkout_request() -> bool:
     try:
-        raw = str(request.args.get('reinstate_offer') or request.args.get('reinstate') or '').strip().lower()
+        raw = str(
+            request.args.get('reinstate_offer') or request.args.get(
+                'reinstate'
+            ) or ''
+        ).strip().lower()
         return raw in ('1', 'true', 'yes')
     except Exception:
         return False
@@ -8893,12 +10849,17 @@ def _mark_reinstate_offer_checkout_in_session() -> None:
 
 def _consume_reinstate_offer_checkout_from_session() -> bool:
     try:
-        return bool(session.pop(_REINSTATE_OFFER_CHECKOUT_SESSION_KEY, False))
+        return bool(
+            session.pop(_REINSTATE_OFFER_CHECKOUT_SESSION_KEY, False)
+        )
     except Exception:
         return False
 
 
-def _create_reinstate_offer_checkout_url(user_id: str, customer_id: str) -> str:
+def _create_reinstate_offer_checkout_url(
+        user_id: str,
+        customer_id: str
+) -> str:
     """Stripe Checkout that always collects a payment method for reinstatement."""
     uid = str(user_id or '').strip()
     cid = str(customer_id or '').strip()
@@ -8909,8 +10870,16 @@ def _create_reinstate_offer_checkout_url(user_id: str, customer_id: str) -> str:
         return ''
     try:
 
-        success_url = url_for('my_revisions', _external=True, _scheme=request.scheme) + "?checkout=success"
-        cancel_url = url_for('plans', _external=True, _scheme=request.scheme)
+        success_url = url_for(
+            'my_revisions',
+            _external=True,
+            _scheme=request.scheme
+        ) + "?checkout=success"
+        cancel_url = url_for(
+            'plans',
+            _external=True,
+            _scheme=request.scheme
+        )
         session_obj = stripe.checkout.Session.create(
             mode='subscription',
             customer=cid,
@@ -8933,7 +10902,10 @@ def _create_reinstate_offer_checkout_url(user_id: str, customer_id: str) -> str:
         )
         return str(getattr(session_obj, 'url', '') or '').strip()
     except Exception:
-        logger.exception('Failed creating reinstate offer checkout session for customer %s', cid)
+        logger.exception(
+            'Failed creating reinstate offer checkout session for customer %s',
+            cid
+        )
         return ''
 
 
@@ -8943,13 +10915,20 @@ def _find_access_granting_subscription_for_customer(customer_id: str):
         return None
     try:
 
-        subs = stripe.Subscription.list(customer=cid, status='all', limit=20)
-        eligible = [s for s in list(getattr(subs, 'data', []) or []) if _stripe_subscription_grants_access(s)]
+        subs = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=20
+        )
+        eligible = [s for s in list(getattr(subs, 'data', []) or []) if
+                    _stripe_subscription_grants_access(s)]
         if not eligible:
             return None
 
         def _rank(sub):
-            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            status = str(
+                _stripe_obj_get(sub, 'status', '') or ''
+            ).strip().lower()
             cpe = int(_stripe_obj_get(sub, 'current_period_end', 0) or 0)
             score = 1
             if status == 'active':
@@ -8964,9 +10943,9 @@ def _find_access_granting_subscription_for_customer(customer_id: str):
 
 
 def _resolve_reinstate_offer_subscription_id(
-    user_id: str,
-    token_subscription_id: str = '',
-    email: str = '',
+        user_id: str,
+        token_subscription_id: str = '',
+        email: str = '',
 ) -> tuple[str, str]:
     """Resolve which Stripe subscription a signed reinstate offer should target.
 
@@ -8979,7 +10958,10 @@ def _resolve_reinstate_offer_subscription_id(
 
     customer_id = _get_stripe_customer_id_from_azure(uid)
     if not customer_id:
-        customer_id = _find_stripe_customer_id_by_email(str(email or '').strip().lower(), require_subscription_history=True)
+        customer_id = _find_stripe_customer_id_by_email(
+            str(email or '').strip().lower(),
+            require_subscription_history=True
+        )
 
     def _belongs(sid: str) -> bool:
         if not sid:
@@ -8998,9 +10980,13 @@ def _resolve_reinstate_offer_subscription_id(
             return False
 
     if customer_id and _stripe_enabled():
-        active = _find_access_granting_subscription_for_customer(customer_id)
+        active = _find_access_granting_subscription_for_customer(
+            customer_id
+        )
         if active:
-            active_sid = str(_stripe_obj_get(active, 'id', '') or '').strip()
+            active_sid = str(
+                _stripe_obj_get(active, 'id', '') or ''
+            ).strip()
             if active_sid:
                 return active_sid, ''
 
@@ -9016,24 +11002,38 @@ def _resolve_reinstate_offer_subscription_id(
     if customer_id and _stripe_enabled():
         try:
 
-            subs = stripe.Subscription.list(customer=customer_id, status='all', limit=20)
+            subs = stripe.Subscription.list(
+                customer=customer_id,
+                status='all',
+                limit=20
+            )
             candidates = list(getattr(subs, 'data', []) or [])
             if candidates:
                 latest = sorted(
                     candidates,
-                    key=lambda s: int(_stripe_obj_get(s, 'created', 0) or 0),
+                    key=lambda s: int(
+                        _stripe_obj_get(s, 'created', 0) or 0
+                    ),
                     reverse=True,
                 )[0]
-                latest_sid = str(_stripe_obj_get(latest, 'id', '') or '').strip()
+                latest_sid = str(
+                    _stripe_obj_get(latest, 'id', '') or ''
+                ).strip()
                 if latest_sid:
                     return latest_sid, ''
         except Exception:
-            logger.exception('reinstate offer: unable to list subscriptions for customer %s', customer_id)
+            logger.exception(
+                'reinstate offer: unable to list subscriptions for customer %s',
+                customer_id
+            )
 
     return '', 'No subscription found to reinstate.'
 
 
-def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> dict:
+def _reinstate_paid_offer_subscription(
+        user_id: str,
+        subscription_id: str
+) -> dict:
     """Reinstate a paid-cancel offer for active, scheduled-cancel, or fully canceled subs."""
     uid = str(user_id or '').strip()
     sid = str(subscription_id or '').strip()
@@ -9052,7 +11052,10 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
             expand=['items.data.price', 'default_payment_method'],
         )
     except Exception:
-        logger.exception('reinstate offer: unable to retrieve subscription %s', sid)
+        logger.exception(
+            'reinstate offer: unable to retrieve subscription %s',
+            sid
+        )
         return {
             'ok': False,
             'message': 'Unable to reinstate subscription. Please try again.',
@@ -9067,21 +11070,34 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
     offer_message = ''
     reactivated = False
 
-    existing_active = _find_access_granting_subscription_for_customer(customer_id)
+    existing_active = _find_access_granting_subscription_for_customer(
+        customer_id
+    )
     if existing_active:
-        active_sid = str(_stripe_obj_get(existing_active, 'id', '') or '').strip()
+        active_sid = str(
+            _stripe_obj_get(existing_active, 'id', '') or ''
+        ).strip()
         if active_sid and active_sid != sid:
             sub = existing_active
             sid = active_sid
-            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            status = str(
+                _stripe_obj_get(sub, 'status', '') or ''
+            ).strip().lower()
             reactivated = True
 
     if status in ('active', 'trialing'):
         _stripe_subscription_modify(sid, sub, cancel_at_period_end=False)
-        offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(sub, target_price_cents=399)
+        offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(
+            sub,
+            target_price_cents=399
+        )
         offer_applied = bool(offer_ok)
         offer_message = str(offer_msg or '')
-        _persist_stripe_subscription_to_profile(uid, sub, plan_id='monthly_10_95')
+        _persist_stripe_subscription_to_profile(
+            uid,
+            sub,
+            plan_id='monthly_10_95'
+        )
         msg = 'Subscription reinstated.'
         if offer_message:
             msg = f'{msg} {offer_message}'.strip()
@@ -9102,7 +11118,10 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
                 'offer_applied': False,
                 'reactivated': False,
             }
-        offer_ok, offer_msg, _ = _apply_reinstate_offer_credit_from_monthly_price(customer_id, target_price_cents=399)
+        offer_ok, offer_msg, _ = _apply_reinstate_offer_credit_from_monthly_price(
+            customer_id,
+            target_price_cents=399
+        )
         offer_applied = bool(offer_ok)
         offer_message = str(offer_msg or '')
         msg = 'Please enter your payment details to reactivate your subscription.'
@@ -9111,7 +11130,11 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
         return {
             'ok': False,
             'message': msg,
-            'redirect_url': url_for('checkout', plan='monthly_10_95', reinstate_offer='1'),
+            'redirect_url': url_for(
+                'checkout',
+                plan='monthly_10_95',
+                reinstate_offer='1'
+            ),
             'offer_applied': offer_applied,
             'reactivated': False,
         }
@@ -9125,7 +11148,8 @@ def _reinstate_paid_offer_subscription(user_id: str, subscription_id: str) -> di
     }
 
 
-def _create_invoice_payment_link(customer_id: str, invoice_id: str) -> Optional[str]:
+def _create_invoice_payment_link(customer_id: str, invoice_id: str) -> \
+        Optional[str]:
     """Create Stripe Hosted Invoice Payment Page URL for manual payment retry.
 
     For India recurring payments when mandate expires or bank rejects: allows customer
@@ -9165,15 +11189,24 @@ def _send_payment_recovery_email(email: str, payment_link: str) -> bool:
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
 
         if not auth_email or not auth_password:
-            logger.warning('Email credentials not configured for payment recovery email.')
+            logger.warning(
+                'Email credentials not configured for payment recovery email.'
+            )
             return False
 
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Action Required: Complete Your Subscription Payment'
+        msg[
+            'Subject'] = 'Action Required: Complete Your Subscription Payment'
         msg['From'] = auth_email
         msg['To'] = email
 
@@ -9228,11 +11261,16 @@ Resumatic Team
         logger.info(f"Payment recovery email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send payment recovery email to {email}: {str(e)}")
+        logger.error(
+            f"Failed to send payment recovery email to {email}: {str(e)}"
+        )
         return False
 
 
-def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False) -> Optional['Response']:
+def _redirect_to_stripe_payment_link(
+        plan_id: str,
+        offer_retention: bool = False
+) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
     # Trial plans must be subscriptions with pending SetupIntent / Checkout Session, not Payment Links.
     plan_id = _normalize_plan_id(plan_id)
@@ -9250,7 +11288,9 @@ def _redirect_to_stripe_payment_link(plan_id: str, offer_retention: bool = False
         pass
     # This is the most reliable way for webhook to map checkout back to our user.
     try:
-        params['client_reference_id'] = str(getattr(current_user, 'id', '') or '')
+        params['client_reference_id'] = str(
+            getattr(current_user, 'id', '') or ''
+        )
     except Exception:
         pass
     # Helpful for debugging / analytics
@@ -9290,7 +11330,7 @@ def checkout():
     plan_arg = str(request.args.get('plan') or '').strip()
     offer_retention = str(
         request.args.get('offer') or ''
-        ).strip().lower() == 'retention'
+    ).strip().lower() == 'retention'
     reinstate_offer = _is_reinstate_offer_checkout_request()
 
     # Persist a valid email-trial invite before any redirects (e.g. login).
@@ -9303,7 +11343,7 @@ def checkout():
         plan_id = EMAIL_TRIAL_PLAN_ID
     if not plan_id and invite_token and confirm_email_trial_invite_token(
             invite_token
-            ):
+    ):
         plan_id = EMAIL_TRIAL_PLAN_ID
 
     # Try resolving via modern catalog helper first, falling back to legacy config lookup
@@ -9328,7 +11368,7 @@ def checkout():
     plan_role = plan.get("role") or ""
     price_id = plan.get("price_id") or _get_stripe_price_id(
         plan_id
-        ) or plan_id
+    ) or plan_id
 
     # 3. Handle Email Trial Invitations
     if _is_email_trial_plan(plan_id):
@@ -9337,7 +11377,7 @@ def checkout():
             flash(
                 "This trial offer link has expired or is invalid. Please use the link from your email.",
                 "danger"
-                )
+            )
             return redirect(url_for("plans"))
 
     # 4. Authentication Check
@@ -9348,24 +11388,24 @@ def checkout():
                 "checkout",
                 plan=plan_arg,
                 invite=invite_token
-                )
+            )
         elif reinstate_offer and plan_id in ('monthly_10_95', 'monthly'):
             login_next = url_for(
                 "checkout",
                 plan=plan_arg,
                 reinstate_offer='1'
-                )
+            )
         return redirect(url_for("login", next=login_next))
 
     # 5. Enforce One-Time Trial Limits
     if (
             plan_role == "trial" or plan_id == 'trial_7d') and _trial_already_used_for_user(
-            current_user
-            ):
+        current_user
+    ):
         flash(
             "The trial subscription is a one-time offer and has already been used on this account. Please choose Monthly or Annual.",
             "warning"
-            )
+        )
         return redirect(url_for("plans"))
 
     if _is_email_trial_plan(plan_id):
@@ -9374,24 +11414,33 @@ def checkout():
             flash(
                 "You already have an active subscription." if reason == 'already_subscribed' else "This trial offer is not available for your account.",
                 "warning"
-                )
+            )
             return redirect(url_for("my_revisions"))
 
     # 6. Resolve Existing Customer Identifiers
     existing_customer_id = ""
+
     if _stripe_enabled():
         try:
             prof = get_user_profile_azure(
                 getattr(current_user, "id", "")
-                ) or {}
-            existing_customer_id = str(
-                prof.get("stripe_customer_id") or ""
-                ).strip()
+            ) or {}
+
+            candidate = (prof.get("stripe_customer_id") or "").strip()
+
+            if candidate.startswith("cus_"):
+                existing_customer_id = candidate
+
             if not existing_customer_id:
+                email = (getattr(current_user, "email", "") or "").strip()
                 existing_customer_id = _find_stripe_customer_id_by_email(
-                    (getattr(current_user, "email", "") or "").strip(),
+                    email,
                     require_subscription_history=True
-                )
+                ) or ""
+
+                if not existing_customer_id:
+                    existing_customer_id = ""
+
         except Exception:
             existing_customer_id = ""
 
@@ -9400,18 +11449,18 @@ def checkout():
         _mark_reinstate_offer_checkout_in_session()
         if _stripe_enabled() and existing_customer_id and not _should_use_embedded_subscription_checkout(
                 plan_id
-                ):
+        ):
             try:
                 checkout_url = _create_reinstate_offer_checkout_url(
                     str(current_user.id),
                     existing_customer_id
-                    )
+                )
                 if checkout_url:
                     return redirect(checkout_url, code=303)
             except Exception:
                 logger.exception(
                     "reinstate offer checkout redirect failed"
-                    )
+                )
 
     # 8. Flow: RBI E-mandate Embedded Setup Checkout (India context)
     if _should_use_embedded_subscription_checkout(plan_id):
@@ -9460,7 +11509,7 @@ def checkout():
             checkout_url = _create_trial_hold_checkout_session_url(
                 current_user,
                 plan_id=plan_id
-                )
+            )
             if checkout_url:
                 resp = make_response(
                     render_template(
@@ -9476,17 +11525,17 @@ def checkout():
         flash(
             'Checkout is temporarily unavailable. Please try again.',
             'danger'
-            )
+        )
         return redirect(url_for('plans'))
 
     # 10. Flow: Mid-Trial Upgrade Mode
     if _stripe_enabled() and (
             plan_role in ("monthly", "annual") or plan_id in (
-    "monthly_10_95", "annual_6_95")) and existing_customer_id:
+            "monthly_10_95", "annual_6_95")) and existing_customer_id:
         try:
             trial_sub = _find_trialing_subscription_for_customer(
                 existing_customer_id
-                )
+            )
             if trial_sub:
                 unit_amount = int(plan.get("unit_amount") or 0)
                 currency = str(plan.get("currency") or "usd")
@@ -9494,19 +11543,19 @@ def checkout():
                     flash(
                         "Checkout is not configured. Please contact support.",
                         "danger"
-                        )
+                    )
                     return redirect(url_for("plans"))
 
                 success_url = url_for(
                     'my_revisions',
                     _external=True,
                     _scheme=request.scheme
-                    ) + "?checkout=success"
+                ) + "?checkout=success"
                 cancel_url = url_for(
                     'plans',
                     _external=True,
                     _scheme=request.scheme
-                    )
+                )
                 session_obj = stripe.checkout.Session.create(
                     mode="payment",
                     customer=existing_customer_id,
@@ -9526,7 +11575,7 @@ def checkout():
                         "plan_role": plan_role,
                         "trial_subscription_id": str(
                             getattr(trial_sub, "id", "") or ""
-                            ),
+                        ),
                     },
                     success_url=success_url,
                     cancel_url=cancel_url,
@@ -9535,16 +11584,16 @@ def checkout():
         except Exception as e:
             logger.error(
                 f"Stripe trial-upgrade checkout session create failed: {str(e)}"
-                )
+            )
 
     # 11. Flow: Stripe Payment Links Override
     if _stripe_enabled() and (
             plan_role in ("monthly", "annual") or plan_id in (
-    "monthly_10_95", "annual_6_95")) and not reinstate_offer:
+            "monthly_10_95", "annual_6_95")) and not reinstate_offer:
         pl_redirect = _redirect_to_stripe_payment_link(
             plan_id,
             offer_retention=offer_retention
-            )
+        )
         if pl_redirect:
             return pl_redirect
 
@@ -9552,7 +11601,7 @@ def checkout():
         pl_redirect = _redirect_to_stripe_payment_link(
             plan_id,
             offer_retention=offer_retention
-            )
+        )
         if pl_redirect:
             return pl_redirect
 
@@ -9580,21 +11629,54 @@ def checkout():
             # --- RECURRING TRIAL CHECK ---
             is_recurring = bool(plan.get("interval"))
 
+            # Check for hold enablement regardless of recurring status
+            use_hold = plan.get("use_trial_hold") in ["true", True, "True",
+                                                      "1", 1]
+
             # --- STANDALONE TRIAL CONDITION BLOCK ---
-            if plan_role == "trial" and not is_recurring:
-                # Handle standalone one_time trial items securely via payment mode
+            # Use the hold price ID if it exists and the flag is set, otherwise use the passed price_id
+            hold_price_id = plan.get("trial_fee_price_id")
+            target_price_id = hold_price_id if (
+                    use_hold and hold_price_id) else price_id
+
+            if use_hold and hold_price_id:
+                # Calculate amount for display (assuming unit_amount is in cents)
+                # Fallback to 10.95 if unknown
+                cents = plan.get('unit_amount', 1095)
+                formatted_price = f"${cents / 100:.2f}"
+
+                # Handle standalone one_time trial items via payment mode (Authorization Hold)
                 session_params = {
                     "mode": "payment",
-                    "line_items": [{"price": price_id, "quantity": 1}],
+                    "line_items": [
+                        {"price": target_price_id, "quantity": 1}
+                    ],
                     "client_reference_id": str(current_user.id),
                     "metadata": {
                         "plan_id": plan_id,
                         "plan_role": "trial",
-                        "trial_deposit_payment": "1"
-                        # Triggers fallback setup/fulfillment tasks inside your combined webhook
+                        "trial_deposit_payment": "1",
+                        "original_price_cents": str(cents),
+                        # Store price for the webhook later
                     },
                     "success_url": success_url,
                     "cancel_url": cancel_url,
+                    "payment_intent_data": {
+                        "capture_method": "manual",
+                        # This text shows up on their bank statement
+                        "description": f"Trial Authorization Hold - {formatted_price}"
+                    },
+                    # This text shows up on the actual Stripe Checkout page
+                    "custom_text": {
+                        "after_submit": {
+                            "message": (
+                                f"You are authorizing a hold of {formatted_price}. "
+                                "This is not a charge. The funds will remain on hold "
+                                "and will be collected in 7 days. You may cancel "
+                                "anytime before then to release the hold."
+                            )
+                        }
+                    },
                 }
             else:
                 # Standard subscription processing paths (Includes Auto-Rollover Trials)
@@ -9611,8 +11693,8 @@ def checkout():
                         int(
                             (email_invite or {}).get(
                                 'trial_days'
-                                ) or 10
-                            )
+                            ) or 10
+                        )
                     )
                     subscription_data = {
                         "trial_end": _stripe_trial_end_ts_for_days(
@@ -9679,15 +11761,16 @@ def checkout():
                     session_params[
                         "subscription_data"] = subscription_data
 
-            # Shared Configuration Settings (Both Payment and Subscription modes)
+            session_params.pop("customer", None)
+            session_params.pop("customer_creation", None)
+            session_params.pop("customer_email", None)
+
             if existing_customer_id:
                 session_params["customer"] = existing_customer_id
             else:
-                session_params["customer_email"] = getattr(
-                    current_user,
-                    'email',
-                    ''
-                ) or None
+                session_params["customer_creation"] = "always"
+                session_params[
+                    "customer_email"] = current_user.email if current_user.is_authenticated else None
 
             # Pricing and Promotion Options Management
             if plan_role != "trial":
@@ -9701,7 +11784,7 @@ def checkout():
                     session_params["allow_promotion_codes"] = True
 
             if reinstate_offer and plan_id in (
-            'monthly_10_95', 'monthly'):
+                    'monthly_10_95', 'monthly'):
                 session_params.pop("customer_email", None)
                 if existing_customer_id:
                     session_params["customer"] = existing_customer_id
@@ -9717,8 +11800,8 @@ def checkout():
             )
             if payment_config and 'payment_method_types' in payment_config:
                 session_params['payment_method_types'] = \
-                payment_config[
-                    'payment_method_types']
+                    payment_config[
+                        'payment_method_types']
 
             # Clear development bypass flag before moving to live Stripe
             from flask import session
@@ -9727,7 +11810,7 @@ def checkout():
 
             session_obj = stripe.checkout.Session.create(
                 **session_params
-                )
+            )
             return redirect(session_obj.url, code=303)
 
         except Exception as e:
@@ -9767,7 +11850,7 @@ def checkout_trial_hold_success():
         flash(
             'Trial checkout could not be confirmed. Please try again.',
             'danger'
-            )
+        )
         return redirect(url_for('plans'))
 
     user_id = str(getattr(current_user, 'id', '') or '')
@@ -9776,15 +11859,15 @@ def checkout_trial_hold_success():
         sess = stripe.checkout.Session.retrieve(
             session_id,
             expand=['payment_intent']
-            )
+        )
         client_ref = str(
             getattr(sess, 'client_reference_id', '') or ''
-            ).strip()
+        ).strip()
         if client_ref and client_ref != user_id:
             flash(
                 'This checkout session does not belong to your account.',
                 'danger'
-                )
+            )
             return redirect(url_for('plans'))
 
         payment_intent = getattr(sess, 'payment_intent', None)
@@ -9798,25 +11881,25 @@ def checkout_trial_hold_success():
             flash(
                 'Payment authorization was not completed. Please try again.',
                 'danger'
-                )
+            )
             plan_id = str(
                 (getattr(sess, 'metadata', None) or {}).get(
                     'plan_id'
-                    ) or 'trial_7d'
-                ).strip()
+                ) or 'trial_7d'
+            ).strip()
             return redirect(
                 url_for(
                     'checkout',
                     plan=_normalize_plan_id(plan_id) or 'trial_7d'
-                    )
                 )
+            )
 
         ok, reason = _activate_trial_hold(user_id, pi_id)
         if not ok and reason not in ('already_active',):
             flash(
                 'Your card was not authorized for the trial. Please try another card.',
                 'danger'
-                )
+            )
             try:
                 intent = stripe.PaymentIntent.retrieve(pi_id)
                 plan_id = _trial_hold_plan_id_from_intent(intent)
@@ -9827,14 +11910,14 @@ def checkout_trial_hold_success():
         flash(
             'Your trial has started. A temporary authorization hold may appear on your card.',
             'success'
-            )
+        )
         return redirect(url_for('my_revisions', checkout='success'))
     except Exception:
         logger.exception('checkout_trial_hold_success failed')
         flash(
             'Trial activation failed. Please contact support if you were charged.',
             'danger'
-            )
+        )
         return redirect(url_for('plans'))
 
 
@@ -9844,17 +11927,17 @@ def checkout_subscription_confirm():
     """Return URL after 3DS confirmSetup for RBI e-mandate subscription setup."""
     subscription_id = str(
         request.args.get("subscription_id") or ""
-        ).strip()
+    ).strip()
     setup_intent_id = str(request.args.get("setup_intent") or "").strip()
     redirect_status = str(
         request.args.get("redirect_status") or ""
-        ).strip().lower()
+    ).strip().lower()
 
     if setup_intent_id and redirect_status and redirect_status != "succeeded":
         flash(
             "Card authentication did not complete. Please try again.",
             "danger"
-            )
+        )
         return redirect(url_for("plans"))
 
     if subscription_id and _stripe_enabled():
@@ -9865,7 +11948,7 @@ def checkout_subscription_confirm():
             )
             if _stripe_metadata_user_id(sub) == str(
                     getattr(current_user, "id", "") or ""
-                    ).strip():
+            ).strip():
                 if _stripe_subscription_grants_access(sub):
                     plan_id = ""
                     try:
@@ -9873,11 +11956,11 @@ def checkout_subscription_confirm():
                         if isinstance(meta, dict):
                             plan_id = str(
                                 meta.get("plan_id") or ""
-                                ).strip()
+                            ).strip()
                         else:
                             plan_id = str(
                                 getattr(meta, "plan_id", "") or ""
-                                ).strip()
+                            ).strip()
                     except Exception:
                         plan_id = ""
                     _persist_stripe_subscription_to_profile(
@@ -9888,14 +11971,14 @@ def checkout_subscription_confirm():
                     flash(
                         "Payment method saved — your subscription is active.",
                         "success"
-                        )
+                    )
                     return redirect(
                         url_for("my_revisions", checkout="success")
-                        )
+                    )
         except Exception as e:
             logger.warning(
                 f"checkout_subscription_confirm error: {str(e)}"
-                )
+            )
 
     flash(
         "Payment completed, but we couldn't confirm access yet. If this persists, please contact support.",
@@ -10023,21 +12106,21 @@ def checkout_complete():
     # Enforce one-time trial offer even when running with the placeholder checkout flow.
     if (
             plan_id == 'trial_7d' or plan_role == 'trial') and _trial_already_used_for_user(
-            current_user
-            ):
+        current_user
+    ):
         flash(
             "The trial is a one-time offer and has already been used on this account.",
             "warning"
-            )
+        )
         return redirect(url_for("plans"))
 
     try:
         duration = int(
             plan.get('duration_days') or plan.get('trial_period_days') or 7
-            )
+        )
         paid_until = (datetime.now(timezone.utc) + timedelta(
             days=duration
-            )).isoformat()
+        )).isoformat()
         table_client = get_users_table_client()
         entity = {
             'PartitionKey': str(current_user.id),
@@ -10047,11 +12130,11 @@ def checkout_complete():
             'paid_until': paid_until,
         }
         if plan_id in (
-        'trial_7d', EMAIL_TRIAL_PLAN_ID) or plan_role == 'trial':
+                'trial_7d', EMAIL_TRIAL_PLAN_ID) or plan_role == 'trial':
             entity['trial_used'] = True
             entity['trial_used_at'] = datetime.now(
                 timezone.utc
-                ).isoformat()
+            ).isoformat()
 
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         flash(f"You're all set! {plan.get('label')} activated.", "success")
@@ -10061,7 +12144,7 @@ def checkout_complete():
         flash(
             "We couldn't activate your plan. Please try again.",
             "danger"
-            )
+        )
         return redirect(url_for("plans"))
 
 
@@ -10081,12 +12164,11 @@ self.addEventListener('fetch', function () {});
 """.strip()
     resp = make_response(js)
     resp.headers["Content-Type"] = "application/javascript; charset=utf-8"
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers[
+        "Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
     return resp
-
-
 
 
 @app.route('/dev/reset-trial')
@@ -10119,7 +12201,7 @@ def dev_reset_trial():
             profile_entity = table_client.get_entity(
                 partition_key=user_id,
                 row_key="profile"
-                )
+            )
         except Exception:
             profile_entity = {}
 
@@ -10136,7 +12218,8 @@ def dev_reset_trial():
         # 3. Dynamic target-cleaning for historical tracking attributes used to flag 'You already used trial'
         possible_trial_flags = [
             "trial_used", "had_trial", "trial_redeemed", "used_trial",
-            "has_had_trial", "trial_claimed", "promo_trial_used", "trial_used_at"
+            "has_had_trial", "trial_claimed", "promo_trial_used",
+            "trial_used_at"
         ]
 
         for flag in possible_trial_flags:
@@ -10158,11 +12241,12 @@ def dev_reset_trial():
         flash(
             "Trial status tracking and live Stripe checks bypassed successfully.",
             "success"
-            )
+        )
     except Exception as e:
         flash(f"Failed to reset trial parameters: {str(e)}", "danger")
 
     return redirect(url_for('plans'))
+
 
 @app.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
@@ -10178,7 +12262,7 @@ def stripe_webhook():
             payload,
             sig_header,
             webhook_secret
-            )
+        )
     except Exception as e:
         logger.error(f"stripe_webhook signature error: {str(e)}")
         return ("Invalid signature", 400)
@@ -10189,7 +12273,7 @@ def stripe_webhook():
             _stripe_obj_get(event, "data", {}),
             "object",
             {}
-            ) or {}
+        ) or {}
         if not isinstance(data, dict):
             try:
                 if hasattr(data, "to_dict_recursive"):
@@ -10209,24 +12293,24 @@ def stripe_webhook():
             plan_id = (data.get("metadata") or {}).get("plan_id", "")
             plan_role = str(
                 (data.get("metadata") or {}).get("plan_role") or ""
-                ).strip().lower()
+            ).strip().lower()
 
             if not plan_role and plan_id:
                 plan_role = (_get_plan_by_price_id(plan_id) or {}).get(
                     "role",
                     ""
-                    )
+                )
 
             upgrade_from_trial = str(
                 (data.get("metadata") or {}).get(
                     "upgrade_from_trial"
-                    ) or ""
-                ).strip()
+                ) or ""
+            ).strip()
             trial_subscription_id = str(
                 (data.get("metadata") or {}).get(
                     "trial_subscription_id"
-                    ) or ""
-                ).strip()
+                ) or ""
+            ).strip()
             mode = str(data.get("mode") or "").strip().lower()
 
             # Email-matching customer fallback if client_reference_id is omitted
@@ -10234,7 +12318,7 @@ def stripe_webhook():
                 try:
                     email = ((data.get("customer_details") or {}).get(
                         "email"
-                        ) or data.get("customer_email") or "")
+                    ) or data.get("customer_email") or "")
                     email = str(email).strip().lower()
                     if email:
                         for uid, u in users.items():
@@ -10242,7 +12326,7 @@ def stripe_webhook():
                                     u,
                                     "email",
                                     ""
-                                    ) or "").strip().lower() == email:
+                            ) or "").strip().lower() == email:
                                 client_ref = uid
                                 break
                 except Exception:
@@ -10255,27 +12339,27 @@ def stripe_webhook():
             trial_hold_checkout = str(
                 (data.get("metadata") or {}).get(
                     "trial_hold_checkout"
-                    ) or ""
-                ).strip()
+                ) or ""
+            ).strip()
             if trial_hold_checkout == "1" and mode == "payment" and customer_id:
                 payment_intent_id = str(
                     data.get("payment_intent") or ""
-                    ).strip()
+                ).strip()
                 if payment_intent_id:
                     _activate_trial_hold(
                         str(client_ref),
                         payment_intent_id
-                        )
+                    )
                 return ("OK", 200)
 
             # Flow: Upfront Trial Deposit / Standalone One-Time Trial Checkout Fulfillment
             trial_deposit_payment = str(
                 (data.get("metadata") or {}).get(
                     "trial_deposit_payment"
-                    ) or ""
-                ).strip()
+                ) or ""
+            ).strip()
             if (
-                    trial_deposit_payment == "1" or plan_role == "trial") and mode == "payment" and customer_id:
+                    trial_deposit_payment == "1" or plan_role == "trial") and mode == "payment":
                 try:
                     amount_total = int(data.get("amount_total") or 0)
                     currency = str(data.get("currency") or "usd")
@@ -10284,7 +12368,7 @@ def stripe_webhook():
                     currency = "usd"
                 payment_intent_id = str(
                     data.get("payment_intent") or ""
-                    ).strip()
+                ).strip()
                 if payment_intent_id:
                     _fulfill_trial_deposit_checkout(
                         client_ref=str(client_ref),
@@ -10301,7 +12385,7 @@ def stripe_webhook():
                     upgrade_from_trial == "1" and mode == "payment" and customer_id and
                     trial_subscription_id and (
                     plan_role in ("monthly", "annual") or plan_id in (
-            "monthly_10_95", "annual_6_95"))):
+                    "monthly_10_95", "annual_6_95"))):
                 try:
                     amount_total = int(data.get("amount_total") or 0)
                     currency = str(data.get("currency") or "usd")
@@ -10326,29 +12410,29 @@ def stripe_webhook():
                         sub = stripe.Subscription.retrieve(
                             trial_subscription_id,
                             expand=["items.data"]
-                            )
+                        )
                         items = getattr(sub, "items", None)
                         items_data = getattr(
                             items,
                             "data",
                             []
-                            ) if items else []
+                        ) if items else []
                         item_id = str(
                             getattr(items_data[0], "id", "") or ""
-                            ) if items_data else ""
+                        ) if items_data else ""
                         if not item_id:
                             try:
                                 si = stripe.SubscriptionItem.list(
                                     subscription=trial_subscription_id,
                                     limit=1
-                                    )
+                                )
                                 si_data = list(
                                     getattr(si, "data", []) or []
-                                    )
+                                )
                                 if si_data:
                                     item_id = str(
                                         getattr(si_data[0], "id", "") or ""
-                                        ).strip()
+                                    ).strip()
                             except Exception:
                                 item_id = ""
                         if item_id:
@@ -10366,12 +12450,12 @@ def stripe_webhook():
                                 sub,
                                 "current_period_end",
                                 None
-                                )
+                            )
                             if current_period_end:
                                 paid_until = datetime.fromtimestamp(
                                     int(current_period_end),
                                     tz=timezone.utc
-                                    ).isoformat()
+                                ).isoformat()
                         except Exception:
                             paid_until = ""
 
@@ -10384,14 +12468,14 @@ def stripe_webhook():
                             "stripe_customer_id": str(customer_id),
                             "stripe_subscription_id": str(
                                 trial_subscription_id
-                                ),
+                            ),
                         }
                         if paid_until:
                             entity["paid_until"] = paid_until
                         table_client.upsert_entity(
                             entity,
                             mode=UpdateMode.MERGE
-                            )
+                        )
                 except Exception:
                     pass
 
@@ -10408,12 +12492,12 @@ def stripe_webhook():
                         sub,
                         "current_period_end",
                         None
-                        )
+                    )
                     if current_period_end:
                         paid_until = datetime.fromtimestamp(
                             int(current_period_end),
                             tz=timezone.utc
-                            ).isoformat()
+                        ).isoformat()
             except Exception:
                 pass
 
@@ -10424,14 +12508,15 @@ def stripe_webhook():
                     "RowKey": "profile",
                     "is_paid": True,
                     # REFINED: Prefer actual Stripe subscription status ('trialing') over metadata
-                    "plan_status": (plan_status or plan_role or plan_id or "paid"),
+                    "plan_status": (
+                            plan_status or plan_role or plan_id or "paid"),
                 }
                 if plan_role == "trial" or plan_id in (
-                'trial_7d', EMAIL_TRIAL_PLAN_ID):
+                        'trial_7d', EMAIL_TRIAL_PLAN_ID):
                     entity["trial_used"] = True
                     entity["trial_used_at"] = datetime.now(
                         timezone.utc
-                        ).isoformat()
+                    ).isoformat()
                 if paid_until:
                     entity["paid_until"] = paid_until
                 if customer_id:
@@ -10450,13 +12535,13 @@ def stripe_webhook():
                         customer=customer_id,
                         status="trialing",
                         limit=20
-                        )
+                    )
                     tdata = list(getattr(subs_trialing, "data", []) or [])
                     for s in tdata:
                         sid = str(getattr(s, "id", "") or "")
                         if sid and subscription_id and sid == str(
                                 subscription_id
-                                ):
+                        ):
                             continue
                         if sid:
                             try:
@@ -10470,19 +12555,19 @@ def stripe_webhook():
         elif etype == "invoice.paid":
             inv = data
             if inv.get("subscription") and (
-            customer_id := str(inv.get("customer") or "").strip()):
+                    customer_id := str(inv.get("customer") or "").strip()):
                 try:
                     cust = stripe.Customer.retrieve(customer_id)
                     meta = dict(getattr(cust, "metadata", None) or {})
                     credit_cents_str = meta.get(
                         "retention_2nd_credit_cents",
                         ""
-                        ).strip()
+                    ).strip()
                     if credit_cents_str and credit_cents_str.isdigit():
                         credit_cents = int(credit_cents_str)
                         currency = str(
                             inv.get("currency") or "usd"
-                            ).lower()
+                        ).lower()
                         stripe.Customer.create_balance_transaction(
                             customer_id,
                             amount=-credit_cents,
@@ -10493,11 +12578,11 @@ def stripe_webhook():
                         stripe.Customer.modify(customer_id, metadata=meta)
                         logger.info(
                             f"Applied retention 2nd credit: {credit_cents} cents for customer {customer_id}"
-                            )
+                        )
                 except Exception as e:
                     logger.warning(
                         f"retention 2nd credit webhook error: {str(e)}"
-                        )
+                    )
 
         # --- 3. SPECIALIZED/LEGACY TRIAL MECHANICS ---
         elif etype == "setup_intent.succeeded":
@@ -10510,13 +12595,13 @@ def stripe_webhook():
                 pi_id = str(data.get("id") or "").strip()
                 if user_id and pi_id and str(
                         data.get("status") or ""
-                        ).strip().lower() == "requires_capture":
+                ).strip().lower() == "requires_capture":
                     _activate_trial_hold(user_id, pi_id)
 
         elif etype == "payment_intent.succeeded":
             meta = data.get("metadata") or {}
             if str(meta.get("purpose") or "").strip() == "trial_hold" and (
-            user_id := str(meta.get("user_id") or "").strip()):
+                    user_id := str(meta.get("user_id") or "").strip()):
                 try:
                     table_client = get_users_table_client()
                     entity = {
@@ -10524,12 +12609,12 @@ def stripe_webhook():
                         "RowKey": "profile",
                         "trial_hold_captured_at": datetime.now(
                             timezone.utc
-                            ).isoformat(),
+                        ).isoformat(),
                     }
                     table_client.upsert_entity(
                         entity,
                         mode=UpdateMode.MERGE
-                        )
+                    )
                 except Exception:
                     pass
 
@@ -10540,17 +12625,17 @@ def stripe_webhook():
                     logger.info(
                         "trial_will_end deferred capture skipped sub=%s",
                         str(sub.get("id") or "")
-                        )
+                    )
                 else:
                     ok, reason = _capture_authorization_hold_for_subscription(
                         sub
-                        )
+                    )
                     logger.info(
                         "trial_will_end capture sub=%s ok=%s reason=%s",
                         str(sub.get("id") or ""),
                         bool(ok),
                         reason or "ok"
-                        )
+                    )
 
         # --- 4. RBI INDIA MANDATE EXCEEDED / RECOVERY ROUTINES ---
         elif etype == "invoice.payment_action_required":
@@ -10563,40 +12648,168 @@ def stripe_webhook():
                     for e in table_client.list_entities():
                         if e.get("RowKey") == "profile" and str(
                                 e.get("stripe_customer_id") or ""
-                                ) == customer_id:
+                        ) == customer_id:
                             if user_email := str(
                                     e.get("email") or ""
-                                    ).strip():
+                            ).strip():
                                 payment_link = _create_invoice_payment_link(
                                     customer_id,
                                     invoice_id
-                                    )
+                                )
                                 if payment_link:
                                     _send_payment_recovery_email(
                                         user_email,
                                         payment_link
-                                        )
+                                    )
                                     logger.info(
                                         f"Sent payment recovery email to {user_email} for invoice {invoice_id}"
-                                        )
+                                    )
                             break
                 except Exception as e:
                     logger.warning(
                         f"Payment action required webhook error: {str(e)}"
-                        )
+                    )
 
         elif etype == "invoice.payment_failed":
             logger.warning(
                 f"Invoice {str(data.get('id'))} payment failed: {str(data.get('last_payment_error', {}).get('message', 'Unknown error'))}"
-                )
+            )
 
-        # --- 5. LIFECYCLE SYNC (UPDATES & CANCELLATIONS) ---
+            # --- 5. LIFECYCLE SYNC (UPDATES & CANCELLATIONS) ---
+            # --- 5. LIFECYCLE SYNC (UPDATES & CANCELLATIONS) ---
         elif etype in (
-        "customer.subscription.updated", "customer.subscription.deleted"):
+            "customer.subscription.updated",
+            "customer.subscription.deleted"):
             sub = data
             customer_id = sub.get("customer")
             subscription_id = sub.get("id")
             status = sub.get("status")
+
+            # --- CANCELLATION & REFUND
+            if status in ("canceled", "unpaid"):
+                metadata = _stripe_obj_get(sub, "metadata", {})
+                pi_id = metadata.get("trial_deposit_payment_intent")
+
+                processed_refund = False
+                if pi_id:
+                    try:
+                        # Expand the latest charge so we can check amount_refunded
+                        pi = stripe.PaymentIntent.retrieve(
+                            pi_id,
+                            expand=["latest_charge"]
+                            )
+
+                        # If the money was already captured, we MUST issue a refund
+                        if pi.status == "succeeded" and pi.amount_received > 0:
+                            charge = _stripe_obj_get(
+                                pi,
+                                "latest_charge",
+                                {}
+                                )
+                            amount_refunded = int(
+                                _stripe_obj_get(
+                                    charge,
+                                    "amount_refunded",
+                                    0
+                                    )
+                                )
+
+                            if amount_refunded < pi.amount_received:
+                                try:
+                                    stripe.Refund.create(
+                                        payment_intent=pi_id,
+                                        reason="requested_by_customer"
+                                    )
+                                    logger.info(
+                                        f"Refunded captured trial deposit for PI: {pi_id}"
+                                        )
+                                except stripe.error.InvalidRequestError as refund_err:
+                                    # Failsafe: If Stripe already refunded it, ignore this specific error
+                                    if "refunded" not in str(
+                                            refund_err
+                                            ).lower():
+                                        raise refund_err
+
+                            processed_refund = True
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to check PI status for refund {pi_id}: {str(e)}"
+                            )
+
+                # If it wasn't refunded above, release the hold normally
+                if not processed_refund:
+                    _release_authorization_hold_for_subscription(sub)
+                    logger.info(
+                        f"Subscription {subscription_id} canceled/unpaid. Hold released."
+                        )
+
+            if etype == "customer.subscription.updated":
+                # Ensure we handle the event safely
+                previous_attributes = _stripe_obj_get(
+                    data,
+                    # Note: using 'data' instead of 'event' since 'sub' is 'data' here
+                    "previous_attributes",
+                    {}
+                )
+
+                # Default ok to False to prevent UnboundLocalError
+                ok = False
+
+                if status == 'active' and previous_attributes.get(
+                        'status'
+                        ) == 'trialing':
+                    # ASSIGN the result to ok
+                    ok, reason = _capture_authorization_hold_for_subscription(
+                        sub,
+                        apply_balance=False
+                    )
+
+                if ok:
+                    try:
+                        latest_invoice_id = _stripe_obj_get(
+                            sub,
+                            "latest_invoice",
+                            ""
+                            )
+                        if latest_invoice_id:
+                            if isinstance(latest_invoice_id, dict):
+                                latest_invoice_id = latest_invoice_id.get(
+                                    "id"
+                                    )
+                            elif getattr(latest_invoice_id, "id", ""):
+                                latest_invoice_id = getattr(
+                                    latest_invoice_id,
+                                    "id",
+                                    ""
+                                    )
+
+                            if latest_invoice_id:
+                                inv = stripe.Invoice.retrieve(
+                                    latest_invoice_id
+                                    )
+                                pi_id = _stripe_obj_get(
+                                    inv,
+                                    "payment_intent",
+                                    ""
+                                    )
+                                if isinstance(pi_id, dict):
+                                    pi_id = pi_id.get("id")
+                                elif getattr(pi_id, "id", ""):
+                                    pi_id = getattr(pi_id, "id", "")
+
+                                if pi_id and _stripe_obj_get(
+                                        inv,
+                                        "amount_paid",
+                                        0
+                                        ) > 0:
+                                    stripe.Refund.create(
+                                        payment_intent=pi_id,
+                                        reason="duplicate",
+                                    )
+                    except Exception as e:
+                        logger.error(
+                            f"Error handling invoice refund on trial end: {e}"
+                            )
 
             paid_until = ""
             if current_period_end := sub.get("current_period_end"):
@@ -10604,37 +12817,46 @@ def stripe_webhook():
                     paid_until = datetime.fromtimestamp(
                         int(current_period_end),
                         tz=timezone.utc
-                        ).isoformat()
+                    ).isoformat()
                 except Exception:
                     pass
 
             if customer_id:
                 try:
                     table_client = get_users_table_client()
-                    for e in table_client.list_entities():
-                        if e.get("RowKey") == "profile" and str(
-                                e.get("stripe_customer_id") or ""
-                                ) == str(customer_id):
-                            uid = str(e.get("PartitionKey"))
-                            entity = {
-                                "PartitionKey": uid,
-                                "RowKey": "profile",
-                                "plan_status": str(status or ""),
-                                "is_paid": bool(
-                                    _stripe_subscription_grants_access(sub)
-                                    )
-                            }
-                            if paid_until:
-                                entity["paid_until"] = paid_until
-                            if subscription_id:
+
+                    # DO NOT USE list_entities(). Use an OData query filter to let Azure do the work.
+                    filter_query = f"RowKey eq 'profile' and stripe_customer_id eq '{customer_id}'"
+                    matched_entities = table_client.query_entities(
+                        query_filter=filter_query
+                        )
+
+                    for e in matched_entities:
+                        uid = str(e.get("PartitionKey"))
+                        entity = {
+                            "PartitionKey": uid,
+                            "RowKey": "profile",
+                            "plan_status": str(status or ""),
+                            "is_paid": bool(
+                                _stripe_subscription_grants_access(sub)
+                                )
+                        }
+                        if paid_until:
+                            entity["paid_until"] = paid_until
+                        if subscription_id:
+                            # If canceled, clear the subscription ID so the frontend doesn't hang onto it
+                            if status in ("canceled", "unpaid"):
+                                entity["stripe_subscription_id"] = ""
+                            else:
                                 entity["stripe_subscription_id"] = str(
                                     subscription_id
                                     )
-                            table_client.upsert_entity(
-                                entity,
-                                mode=UpdateMode.MERGE
-                                )
-                            break
+
+                        table_client.upsert_entity(
+                            entity,
+                            mode=UpdateMode.MERGE
+                            )
+                        break
                 except Exception as e:
                     logger.error(
                         f"stripe_webhook subscription sync error: {str(e)}"
@@ -10645,6 +12867,7 @@ def stripe_webhook():
         logger.error(f"stripe_webhook error: {str(e)}")
         return ("Error", 500)
 
+
 @app.route("/billing/portal")
 @login_required
 def billing_portal():
@@ -10653,14 +12876,22 @@ def billing_portal():
         flash("Billing portal is not configured.", "danger")
         return redirect(url_for("plans"))
 
-
-    customer_id = _get_stripe_customer_id_from_azure(getattr(current_user, 'id', ''))
+    customer_id = _get_stripe_customer_id_from_azure(
+        getattr(current_user, 'id', '')
+    )
     if not customer_id:
-        flash("We couldn't find your billing profile yet. If you just purchased, refresh and try again.", "danger")
+        flash(
+            "We couldn't find your billing profile yet. If you just purchased, refresh and try again.",
+            "danger"
+        )
         return redirect(url_for("my_revisions"))
 
     try:
-        return_url = url_for("my_revisions", _external=True, _scheme=request.scheme)
+        return_url = url_for(
+            "my_revisions",
+            _external=True,
+            _scheme=request.scheme
+        )
         session_obj = stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=return_url,
@@ -10675,29 +12906,50 @@ def billing_portal():
 CANCELLATION_FEEDBACK_FILE = "cancellation_feedback.json"
 
 
-def _append_cancellation_feedback(user_id: str, subscription_id: str, reason: str, reason_other: str, email: str = "") -> None:
+def _append_cancellation_feedback(
+        user_id: str,
+        subscription_id: str,
+        reason: str,
+        reason_other: str,
+        email: str = ""
+) -> None:
     """Append cancellation reason to feedback file (best-effort)."""
     try:
         records = []
         if os.path.exists(CANCELLATION_FEEDBACK_FILE):
-            with open(CANCELLATION_FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            with open(
+                    CANCELLATION_FEEDBACK_FILE,
+                    "r",
+                    encoding="utf-8"
+            ) as f:
                 data = json.load(f)
                 records = list(data.get("records") or [])
-        records.append({
-            "user_id": str(user_id or ""),
-            "subscription_id": str(subscription_id or ""),
-            "reason": str(reason or ""),
-            "reason_other": str(reason_other or ""),
-            "email": str(email or ""),
-            "at": datetime.now(timezone.utc).isoformat(),
-        })
+        records.append(
+            {
+                "user_id": str(user_id or ""),
+                "subscription_id": str(subscription_id or ""),
+                "reason": str(reason or ""),
+                "reason_other": str(reason_other or ""),
+                "email": str(email or ""),
+                "at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         with open(CANCELLATION_FEEDBACK_FILE, "w", encoding="utf-8") as f:
-            json.dump({"records": records}, f, indent=2, ensure_ascii=False)
+            json.dump(
+                {"records": records},
+                f,
+                indent=2,
+                ensure_ascii=False
+            )
     except Exception:
         pass
 
 
-def _stripe_cancellation_details_from_reason(cancel_reason: str, cancel_reason_other: str, cancel_reason_label: str = "") -> Optional[dict]:
+def _stripe_cancellation_details_from_reason(
+        cancel_reason: str,
+        cancel_reason_other: str,
+        cancel_reason_label: str = ""
+) -> Optional[dict]:
     """Return Stripe-native cancellation_details payload.
 
     Stripe expects:
@@ -10746,7 +12998,11 @@ def _stripe_cancellation_details_from_reason(cancel_reason: str, cancel_reason_o
     return out
 
 
-def _stripe_cancellation_metadata_from_reason(cancel_reason: str, cancel_reason_other: str, cancel_reason_label: str = "") -> Optional[dict]:
+def _stripe_cancellation_metadata_from_reason(
+        cancel_reason: str,
+        cancel_reason_other: str,
+        cancel_reason_label: str = ""
+) -> Optional[dict]:
     """Return subscription metadata fields to make cancellation reason visible in Stripe.
 
     Stripe Dashboard shows Subscription metadata prominently, while `cancellation_details.comment`
@@ -10786,29 +13042,37 @@ def billing_cancel_page():
 
     user_id = getattr(current_user, "id", "")
     prof = get_user_profile_azure(user_id) or {}
-    reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+    reinstate_trial_bonus_used = bool(
+        prof.get("reinstate_trial_bonus_used", False)
+    )
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
 
     # Trial authorization hold (no subscription yet).
     if not subscription_id and _profile_has_active_trial_hold(prof):
         hold_days = _get_trial_hold_days()
         ends_display = ""
-        ends_at = _parse_iso_dt(str(prof.get("trial_hold_ends_at") or "").strip())
+        ends_at = _parse_iso_dt(
+            str(prof.get("trial_hold_ends_at") or "").strip()
+        )
         if ends_at:
             try:
-                ends_display = ends_at.astimezone(timezone.utc).strftime("%B %d, %Y")
+                ends_display = ends_at.astimezone(timezone.utc).strftime(
+                    "%B %d, %Y"
+                )
             except Exception:
                 ends_display = "end of trial period"
-        resp = make_response(render_template(
-            "billing_cancel.html",
-            subscription_id="",
-            trial_hold_mode=True,
-            interval_label=f"{hold_days}-Day Trial",
-            period_end_display=ends_display or "end of trial period",
-            cancel_scheduled=False,
-            is_trialing=True,
-            can_extend_trial_on_reinstate=False,
-        ))
+        resp = make_response(
+            render_template(
+                "billing_cancel.html",
+                subscription_id="",
+                trial_hold_mode=True,
+                interval_label=f"{hold_days}-Day Trial",
+                period_end_display=ends_display or "end of trial period",
+                cancel_scheduled=False,
+                is_trialing=True,
+                can_extend_trial_on_reinstate=False,
+            )
+        )
         resp.headers["Cache-Control"] = "no-store, max-age=0"
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
@@ -10819,52 +13083,85 @@ def billing_cancel_page():
         return resp
 
     if not subscription_id:
-        flash("No active subscription found. If you just canceled, your access continues until the end of your billing period.", "info")
+        flash(
+            "No active subscription found. If you just canceled, your access continues until the end of your billing period.",
+            "info"
+        )
         return redirect(url_for("settings_page"))
 
     # Fetch subscription details for display
 
     try:
-        sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
-        status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
+        sub = stripe.Subscription.retrieve(
+            subscription_id,
+            expand=["items.data.price"]
+        )
+        status = str(
+            _stripe_obj_get(sub, "status", "") or ""
+        ).strip().lower()
         if status not in ("active", "trialing"):
             flash("Your subscription is not active.", "info")
             return redirect(url_for("settings_page"))
         cancel_scheduled = _stripe_subscription_cancel_scheduled(sub)
 
-        current_period_end = _stripe_obj_get(sub, "current_period_end", None)
+        current_period_end = _stripe_obj_get(
+            sub,
+            "current_period_end",
+            None
+        )
         period_end_display = ""
         if current_period_end:
             try:
-                dt = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
+                dt = datetime.fromtimestamp(
+                    int(current_period_end),
+                    tz=timezone.utc
+                )
                 period_end_display = dt.strftime("%B %d, %Y")
             except Exception:
                 period_end_display = "end of billing period"
 
         interval_label = "Monthly"
-        _, interval, interval_count = _get_subscription_price_id_and_recurring(sub)
+        _, interval, interval_count = _get_subscription_price_id_and_recurring(
+            sub
+        )
         interval = str(interval or "").strip().lower()
         try:
             interval_count = int(interval_count or 1)
         except Exception:
             interval_count = 1
-        if interval == "year" or (interval == "month" and interval_count == 12):
+        if interval == "year" or (
+                interval == "month" and interval_count == 12):
             interval_label = "Annual"
     except Exception as e:
-        logger.exception("billing_cancel_page subscription fetch failed: %s", str(e))
-        flash("Unable to load subscription details. Please try again.", "danger")
+        logger.exception(
+            "billing_cancel_page subscription fetch failed: %s",
+            str(e)
+        )
+        flash(
+            "Unable to load subscription details. Please try again.",
+            "danger"
+        )
         return redirect(url_for("settings_page"))
 
-    resp = make_response(render_template(
-        "billing_cancel.html",
-        subscription_id=subscription_id,
-        interval_label=interval_label,
-        period_end_display=period_end_display or "end of billing period",
-        cancel_scheduled=bool(cancel_scheduled),
-        is_trialing=(status == "trialing"),
-        can_extend_trial_on_reinstate=(status == "trialing" and not reinstate_trial_bonus_used),
-        trial_hold_mode=False,
-    ))
+    sub_metadata = _stripe_obj_get(sub, "metadata", {})
+
+    use_trial_hold = _stripe_obj_get(sub_metadata, "use_trial_hold", "")
+
+    sub_trial_mode = str(use_trial_hold).lower() in ["1", "true"]
+
+    resp = make_response(
+        render_template(
+            "billing_cancel.html",
+            subscription_id=subscription_id,
+            interval_label=interval_label,
+            period_end_display=period_end_display or "end of billing period",
+            cancel_scheduled=bool(cancel_scheduled),
+            is_trialing=(status == "trialing"),
+            can_extend_trial_on_reinstate=(
+                    status == "trialing" and not reinstate_trial_bonus_used),
+            trial_hold_mode=sub_trial_mode,
+        )
+    )
     # Avoid showing stale/cached cancellation UI.
     resp.headers["Cache-Control"] = "no-store, max-age=0"
     resp.headers["Pragma"] = "no-cache"
@@ -10877,12 +13174,14 @@ def billing_cancel_page():
         pass
     return resp
 
-
 def _apply_retention_offer(subscription_id: str) -> tuple[bool, str]:
     """Apply retention offer: $5.48 off each of next 2 months (works with flexible billing).
     First credit now; second credit added via invoice.paid webhook."""
 
-    sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+    sub = stripe.Subscription.retrieve(
+        subscription_id,
+        expand=["items.data.price"]
+    )
     customer_id = str(getattr(sub, "customer", "") or "").strip()
     if not customer_id:
         return False, "Subscription has no customer."
@@ -10908,7 +13207,11 @@ def _apply_retention_offer(subscription_id: str) -> tuple[bool, str]:
         customer_id,
         metadata={"retention_2nd_credit_cents": str(credit_cents)},
     )
-    _stripe_subscription_modify(subscription_id, sub, cancel_at_period_end=False)
+    _stripe_subscription_modify(
+        subscription_id,
+        sub,
+        cancel_at_period_end=False
+    )
     return True, "50% off applied! Your next 2 months will be half price. You keep full access until your current period ends."
 
 
@@ -10935,7 +13238,14 @@ def billing_apply_retention():
         return redirect(url_for("billing_cancel_page"))
     except stripe.error.InvalidRequestError as e:
         logger.warning(f"billing_apply_retention Stripe error: {str(e)}")
-        flash(str(e.user_message) if getattr(e, "user_message", None) else "Unable to apply offer. Please try again.", "danger")
+        flash(
+            str(e.user_message) if getattr(
+                e,
+                "user_message",
+                None
+            ) else "Unable to apply offer. Please try again.",
+            "danger"
+        )
         return redirect(url_for("billing_cancel_page"))
     except Exception as e:
         logger.error(f"billing_apply_retention error: {str(e)}")
@@ -10948,31 +13258,51 @@ def billing_apply_retention():
 def api_billing_apply_retention():
     """Apply retention offer via API. Returns JSON for use by fetch()."""
     if not _stripe_enabled():
-        return jsonify({"success": False, "error": "Billing is not configured."}), 400
+        return jsonify(
+            {"success": False, "error": "Billing is not configured."}
+        ), 400
 
     user_id = getattr(current_user, "id", "")
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
     if not subscription_id:
-        return jsonify({"success": False, "error": "No active subscription found."}), 404
+        return jsonify(
+            {"success": False, "error": "No active subscription found."}
+        ), 404
 
     try:
         success, msg = _apply_retention_offer(subscription_id)
         if success:
-            return jsonify({
-                "success": True,
-                "message": msg,
-                "redirect_url": url_for("settings_page"),
-            })
-        return jsonify({"success": False, "error": msg or "Unable to apply offer. Please try again."}), 400
+            return jsonify(
+                {
+                    "success": True,
+                    "message": msg,
+                    "redirect_url": url_for("settings_page"),
+                }
+            )
+        return jsonify(
+            {"success": False,
+             "error": msg or "Unable to apply offer. Please try again."}
+        ), 400
     except stripe.error.InvalidRequestError as e:
-        logger.warning(f"api_billing_apply_retention Stripe error: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": str(e.user_message) if getattr(e, "user_message", None) else "Unable to apply offer. Please try again.",
-        }), 400
+        logger.warning(
+            f"api_billing_apply_retention Stripe error: {str(e)}"
+        )
+        return jsonify(
+            {
+                "success": False,
+                "error": str(e.user_message) if getattr(
+                    e,
+                    "user_message",
+                    None
+                ) else "Unable to apply offer. Please try again.",
+            }
+        ), 400
     except Exception as e:
         logger.error(f"api_billing_apply_retention error: {str(e)}")
-        return jsonify({"success": False, "error": "Unable to apply the offer. Please try again."}), 500
+        return jsonify(
+            {"success": False,
+             "error": "Unable to apply the offer. Please try again."}
+        ), 500
 
 
 @app.route("/api/billing/claim-trial-exit-offer", methods=["POST"])
@@ -10981,7 +13311,9 @@ def api_claim_trial_exit_offer():
     """Claim the trial-checkout exit offer for a discounted first paid month."""
     user_id = str(getattr(current_user, "id", "") or "").strip()
     if not user_id:
-        return jsonify({"success": False, "error": "Authentication required."}), 401
+        return jsonify(
+            {"success": False, "error": "Authentication required."}
+        ), 401
 
     target_cents = _get_trial_exit_offer_target_cents()
     try:
@@ -10991,19 +13323,27 @@ def api_claim_trial_exit_offer():
             "RowKey": "profile",
             "trial_exit_offer_active": "1",
             "trial_exit_offer_target_cents": str(target_cents),
-            "trial_exit_offer_accepted_at": datetime.now(timezone.utc).isoformat(),
+            "trial_exit_offer_accepted_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
         }
         table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
     except Exception:
-        logger.exception("claim trial exit offer: failed to persist profile flag")
-        return jsonify({"success": False, "error": "Unable to save the offer right now."}), 500
+        logger.exception(
+            "claim trial exit offer: failed to persist profile flag"
+        )
+        return jsonify(
+            {"success": False,
+             "error": "Unable to save the offer right now."}
+        ), 500
 
-    return jsonify({
-        "success": True,
-        "target_price_cents": target_cents,
-        "message": f"Offer applied: if you keep the {_get_trial_hold_days()}-day trial, your first paid month will be ${target_cents / 100:.2f}.",
-    })
-
+    return jsonify(
+        {
+            "success": True,
+            "target_price_cents": target_cents,
+            "message": f"Offer applied: if you keep the {_get_trial_hold_days()}-day trial, your first paid month will be ${target_cents / 100:.2f}.",
+        }
+    )
 
 @app.route("/api/billing/cancel", methods=["POST"])
 @login_required
@@ -11020,7 +13360,9 @@ def api_billing_cancel():
     if not subscription_id and _profile_has_active_trial_hold(prof):
         data = request.get_json(silent=True) or {}
         cancel_reason = str(data.get("cancel_reason") or "").strip()
-        cancel_reason_other = str(data.get("cancel_reason_other") or "").strip()
+        cancel_reason_other = str(
+            data.get("cancel_reason_other") or ""
+        ).strip()
         pi_id = _get_active_trial_authorization_payment_intent(prof)
         if pi_id:
             _cancel_trial_hold_payment_intent(pi_id)
@@ -11028,28 +13370,42 @@ def api_billing_cancel():
         if cancel_reason or cancel_reason_other:
             try:
                 email = str(getattr(current_user, "email", "") or "")
-                _append_cancellation_feedback(str(user_id), pi_id or "trial_hold", cancel_reason, cancel_reason_other, email)
+                _append_cancellation_feedback(
+                    str(user_id),
+                    pi_id or "trial_hold",
+                    cancel_reason,
+                    cancel_reason_other,
+                    email
+                )
             except Exception:
                 pass
         cta_email_sent = False
         try:
-            email = str(getattr(current_user, "email", "") or "").strip().lower()
+            email = str(
+                getattr(current_user, "email", "") or ""
+            ).strip().lower()
             name = str(getattr(current_user, "name", "") or "").strip()
             if email:
-                cta_email_sent = bool(send_trial_cancellation_reinstate_email(
-                    email=email,
-                    user_name=name,
-                    include_trial_bonus=(not bool(prof.get("reinstate_trial_bonus_used", False))),
-                ))
+                cta_email_sent = bool(
+                    send_trial_cancellation_reinstate_email(
+                        email=email,
+                        user_name=name,
+                        include_trial_bonus=(not bool(
+                            prof.get("reinstate_trial_bonus_used", False)
+                        )),
+                    )
+                )
         except Exception:
             logger.exception("trial hold cancel CTA email failed")
-        return jsonify({
-            "success": True,
-            "cancel_at_period_end": False,
-            "trial_hold_cancelled": True,
-            "message": "Your trial has been canceled. The card authorization hold will expire automatically.",
-            "cta_email_sent": bool(cta_email_sent),
-        })
+        return jsonify(
+            {
+                "success": True,
+                "cancel_at_period_end": False,
+                "trial_hold_cancelled": True,
+                "message": "Your trial has been canceled. The card authorization hold will expire automatically.",
+                "cta_email_sent": bool(cta_email_sent),
+            }
+        )
 
     if not subscription_id:
         return jsonify({"error": "No active subscription found"}), 404
@@ -11057,11 +13413,22 @@ def api_billing_cancel():
     data = request.get_json(silent=True) or {}
     cancel_at_period_end = data.get("cancel_at_period_end", True)
     cancel_reason = str(data.get("cancel_reason") or "").strip()
-    cancel_reason_other = str(data.get("cancel_reason_other") or "").strip()
-    cancel_reason_label = str(data.get("cancel_reason_label") or "").strip()
-    cancellation_details = _stripe_cancellation_details_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
-    cancellation_metadata = _stripe_cancellation_metadata_from_reason(cancel_reason, cancel_reason_other, cancel_reason_label)
-
+    cancel_reason_other = str(
+        data.get("cancel_reason_other") or ""
+    ).strip()
+    cancel_reason_label = str(
+        data.get("cancel_reason_label") or ""
+    ).strip()
+    cancellation_details = _stripe_cancellation_details_from_reason(
+        cancel_reason,
+        cancel_reason_other,
+        cancel_reason_label
+    )
+    cancellation_metadata = _stripe_cancellation_metadata_from_reason(
+        cancel_reason,
+        cancel_reason_other,
+        cancel_reason_label
+    )
 
     try:
         # Snapshot current subscription status before applying cancellation.
@@ -11071,19 +13438,34 @@ def api_billing_cancel():
         paid_cancel_email_sent = False
         paid_cancel_email_skip_reason = ""
         try:
-            sub_before = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
-            status_before = str(_stripe_obj_get(sub_before, "status", "") or "").strip().lower()
+            sub_before = stripe.Subscription.retrieve(
+                subscription_id,
+                expand=["items.data.price"]
+            )
+            status_before = str(
+                _stripe_obj_get(sub_before, "status", "") or ""
+            ).strip().lower()
             is_trialing_before_cancel = (status_before == "trialing")
         except Exception:
             is_trialing_before_cancel = False
         prof = get_user_profile_azure(user_id) or {}
-        reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
-        paid_cancel_email_eligibility = _stripe_cancellation_paid_history_flags(subscription_id)
+        reinstate_trial_bonus_used = bool(
+            prof.get("reinstate_trial_bonus_used", False)
+        )
+        paid_cancel_email_eligibility = _stripe_cancellation_paid_history_flags(
+            subscription_id
+        )
         if not bool(paid_cancel_email_eligibility.get("eligible", False)):
-            paid_cancel_email_skip_reason = str(paid_cancel_email_eligibility.get("reason") or "not_eligible")
+            paid_cancel_email_skip_reason = str(
+                paid_cancel_email_eligibility.get(
+                    "reason"
+                ) or "not_eligible"
+            )
         if not is_trialing_before_cancel:
             # Fallback: profile plan status can lag/lead Stripe in edge cases.
-            plan_status_prof = str(prof.get("plan_status") or "").strip().lower()
+            plan_status_prof = str(
+                prof.get("plan_status") or ""
+            ).strip().lower()
             if plan_status_prof in ("trial", "trialing", "trial_7d"):
                 is_trialing_before_cancel = True
 
@@ -11096,10 +13478,15 @@ def api_billing_cancel():
             try:
                 modify_params: dict = {"cancel_at_period_end": True}
                 if cancellation_details:
-                    modify_params["cancellation_details"] = cancellation_details
+                    modify_params[
+                        "cancellation_details"] = cancellation_details
                 if cancellation_metadata:
                     modify_params["metadata"] = cancellation_metadata
-                _stripe_subscription_modify(subscription_id, sub_before, **modify_params)
+                _stripe_subscription_modify(
+                    subscription_id,
+                    sub_before,
+                    **modify_params
+                )
             except stripe.error.InvalidRequestError as e:
                 # If Stripe rejects cancellation_details for any reason, retry without it so
                 # the cancellation still succeeds.
@@ -11111,7 +13498,11 @@ def api_billing_cancel():
                     retry_params: dict = {"cancel_at_period_end": True}
                     if cancellation_metadata:
                         retry_params["metadata"] = cancellation_metadata
-                    _stripe_subscription_modify(subscription_id, sub_before, **retry_params)
+                    _stripe_subscription_modify(
+                        subscription_id,
+                        sub_before,
+                        **retry_params
+                    )
                 else:
                     raise
             if cancel_reason or cancel_reason_other:
@@ -11119,19 +13510,41 @@ def api_billing_cancel():
                     email = str(getattr(current_user, "email", "") or "")
                     logger.info(
                         "billing_cancel reason user_id=%s subscription_id=%s reason=%s other=%s",
-                        user_id, subscription_id, cancel_reason, cancel_reason_other,
+                        user_id,
+                        subscription_id,
+                        cancel_reason,
+                        cancel_reason_other,
                     )
-                    _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
+                    _append_cancellation_feedback(
+                        user_id,
+                        subscription_id,
+                        cancel_reason,
+                        cancel_reason_other,
+                        email
+                    )
                 except Exception as e:
-                    logger.warning("billing_cancel feedback save failed: %s", str(e))
+                    logger.warning(
+                        "billing_cancel feedback save failed: %s",
+                        str(e)
+                    )
             # Trial-specific CTA: release authorization hold, refund final-day capture, or refund legacy deposit.
             if is_trialing_before_cancel:
                 try:
-                    hold_pi = _get_active_trial_authorization_payment_intent(prof, subscription_id)
+                    hold_pi = _get_active_trial_authorization_payment_intent(
+                        prof,
+                        subscription_id
+                    )
                     if hold_pi and sub_before:
-                        if _subscription_authorization_hold_captured(sub_before):
-                            if _trial_cancel_eligible_for_capture_refund(prof, sub_before):
-                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(sub_before)
+                        if _subscription_authorization_hold_captured(
+                                sub_before
+                        ):
+                            if _trial_cancel_eligible_for_capture_refund(
+                                    prof,
+                                    sub_before
+                            ):
+                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(
+                                    sub_before
+                                )
                                 trial_hold_refunded = bool(refunded_ok)
                                 logger.info(
                                     "billing_cancel trial_hold_refund user_id=%s subscription_id=%s ok=%s reason=%s",
@@ -11141,7 +13554,9 @@ def api_billing_cancel():
                                     refund_reason or "ok",
                                 )
                         else:
-                            released_ok, release_reason = _release_authorization_hold_for_subscription(sub_before)
+                            released_ok, release_reason = _release_authorization_hold_for_subscription(
+                                sub_before
+                            )
                             trial_hold_released = bool(released_ok)
                             logger.info(
                                 "billing_cancel trial_hold_release user_id=%s subscription_id=%s ok=%s reason=%s",
@@ -11150,9 +13565,14 @@ def api_billing_cancel():
                                 bool(released_ok),
                                 release_reason or "ok",
                             )
-                        _revoke_trial_hold_profile(str(user_id), cancelled=True)
+                        _revoke_trial_hold_profile(
+                            str(user_id),
+                            cancelled=True
+                        )
                     else:
-                        refunded_ok, refund_reason = _refund_trial_deposit_for_subscription(subscription_id)
+                        refunded_ok, refund_reason = _refund_trial_deposit_for_subscription(
+                            subscription_id
+                        )
                         logger.info(
                             "billing_cancel trial_deposit_refund user_id=%s subscription_id=%s ok=%s reason=%s",
                             user_id,
@@ -11161,22 +13581,33 @@ def api_billing_cancel():
                             refund_reason or "ok",
                         )
                 except Exception:
-                    logger.exception("billing_cancel trial hold/deposit release failed")
+                    logger.exception(
+                        "billing_cancel trial hold/deposit release failed"
+                    )
                 try:
                     cta_email_attempted = True
-                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    email = str(
+                        getattr(current_user, "email", "") or ""
+                    ).strip().lower()
                     if not email:
-                        email = str(prof.get("email") or "").strip().lower()
-                    name = str(getattr(current_user, "name", "") or "").strip()
+                        email = str(
+                            prof.get("email") or ""
+                        ).strip().lower()
+                    name = str(
+                        getattr(current_user, "name", "") or ""
+                    ).strip()
                     if not email:
                         cta_skip_reason = "missing_email"
                         sent_ok = False
                     else:
-                        sent_ok = bool(send_trial_cancellation_reinstate_email(
-                            email=email,
-                            user_name=name,
-                            include_trial_bonus=(not reinstate_trial_bonus_used),
-                        ))
+                        sent_ok = bool(
+                            send_trial_cancellation_reinstate_email(
+                                email=email,
+                                user_name=name,
+                                include_trial_bonus=(
+                                    not reinstate_trial_bonus_used),
+                            )
+                        )
                     cta_email_sent = bool(sent_ok)
                     if (not sent_ok) and (not cta_skip_reason):
                         cta_skip_reason = "smtp_failed_or_rejected"
@@ -11190,7 +13621,10 @@ def api_billing_cancel():
                     )
                     try:
                         table_client = get_users_table_client()
-                        prev_count_raw = prof.get("trial_reinstate_cta_sent_count", 0)
+                        prev_count_raw = prof.get(
+                            "trial_reinstate_cta_sent_count",
+                            0
+                        )
                         try:
                             prev_count = int(prev_count_raw or 0)
                         except Exception:
@@ -11198,18 +13632,32 @@ def api_billing_cancel():
                         entity = {
                             "PartitionKey": str(user_id),
                             "RowKey": "profile",
-                            "trial_reinstate_cta_last_attempt_at": datetime.now(timezone.utc).isoformat(),
-                            "trial_reinstate_cta_last_attempt_ok": bool(sent_ok),
-                            "trial_reinstate_cta_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                            "trial_reinstate_cta_last_attempt_at": datetime.now(
+                                timezone.utc
+                            ).isoformat(),
+                            "trial_reinstate_cta_last_attempt_ok": bool(
+                                sent_ok
+                            ),
+                            "trial_reinstate_cta_sent_count": (
+                                    prev_count + 1) if sent_ok else prev_count,
                         }
                         if sent_ok:
-                            entity["trial_reinstate_cta_last_sent_at"] = entity["trial_reinstate_cta_last_attempt_at"]
-                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                            entity["trial_reinstate_cta_last_sent_at"] = \
+                                entity[
+                                    "trial_reinstate_cta_last_attempt_at"]
+                        table_client.upsert_entity(
+                            entity,
+                            mode=UpdateMode.MERGE
+                        )
                     except Exception:
-                        logger.exception("Failed to persist trial reinstatement CTA email audit fields")
+                        logger.exception(
+                            "Failed to persist trial reinstatement CTA email audit fields"
+                        )
                 except Exception:
                     cta_skip_reason = "exception_during_send"
-                    logger.exception("Failed to send trial reinstatement CTA email")
+                    logger.exception(
+                        "Failed to send trial reinstatement CTA email"
+                    )
             else:
                 cta_skip_reason = "not_trialing"
 
@@ -11217,22 +13665,31 @@ def api_billing_cancel():
             if bool(paid_cancel_email_eligibility.get("eligible", False)):
                 try:
                     paid_cancel_email_attempted = True
-                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    email = str(
+                        getattr(current_user, "email", "") or ""
+                    ).strip().lower()
                     if not email:
-                        email = str(prof.get("email") or "").strip().lower()
-                    name = str(getattr(current_user, "name", "") or "").strip()
+                        email = str(
+                            prof.get("email") or ""
+                        ).strip().lower()
+                    name = str(
+                        getattr(current_user, "name", "") or ""
+                    ).strip()
                     if not email:
                         paid_cancel_email_skip_reason = "missing_email"
                         sent_ok = False
                     else:
-                        sent_ok = bool(send_paid_cancellation_reinstate_email(
-                            email=email,
-                            user_name=name,
-                            user_id=str(user_id or ""),
-                            subscription_id=str(subscription_id or ""),
-                        ))
+                        sent_ok = bool(
+                            send_paid_cancellation_reinstate_email(
+                                email=email,
+                                user_name=name,
+                                user_id=str(user_id or ""),
+                                subscription_id=str(subscription_id or ""),
+                            )
+                        )
                     paid_cancel_email_sent = bool(sent_ok)
-                    if (not sent_ok) and (not paid_cancel_email_skip_reason):
+                    if (not sent_ok) and (
+                            not paid_cancel_email_skip_reason):
                         paid_cancel_email_skip_reason = "smtp_failed_or_rejected"
                     logger.info(
                         "billing_cancel paid_cta user_id=%s attempted=%s sent=%s reason=%s email=%s",
@@ -11244,7 +13701,10 @@ def api_billing_cancel():
                     )
                     try:
                         table_client = get_users_table_client()
-                        prev_count_raw = prof.get("paid_reinstate_offer_email_sent_count", 0)
+                        prev_count_raw = prof.get(
+                            "paid_reinstate_offer_email_sent_count",
+                            0
+                        )
                         try:
                             prev_count = int(prev_count_raw or 0)
                         except Exception:
@@ -11254,100 +13714,180 @@ def api_billing_cancel():
                             "PartitionKey": str(user_id),
                             "RowKey": "profile",
                             "paid_reinstate_offer_email_last_attempt_at": now_iso,
-                            "paid_reinstate_offer_email_last_attempt_ok": bool(sent_ok),
-                            "paid_reinstate_offer_email_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                            "paid_reinstate_offer_email_last_attempt_ok": bool(
+                                sent_ok
+                            ),
+                            "paid_reinstate_offer_email_sent_count": (
+                                    prev_count + 1) if sent_ok else prev_count,
                         }
                         if sent_ok:
-                            entity["paid_reinstate_offer_email_last_sent_at"] = now_iso
-                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                            entity[
+                                "paid_reinstate_offer_email_last_sent_at"] = now_iso
+                        table_client.upsert_entity(
+                            entity,
+                            mode=UpdateMode.MERGE
+                        )
                     except Exception:
-                        logger.exception("Failed to persist paid reinstatement offer email audit fields")
+                        logger.exception(
+                            "Failed to persist paid reinstatement offer email audit fields"
+                        )
                 except Exception:
                     paid_cancel_email_skip_reason = "exception_during_send"
-                    logger.exception("Failed to send paid cancellation CTA email")
+                    logger.exception(
+                        "Failed to send paid cancellation CTA email"
+                    )
             cancel_message = "Your subscription will cancel at the end of your billing period. You'll keep access until then."
             if trial_hold_refunded:
                 cancel_message = "Your trial has been canceled and your recent charge has been refunded."
             elif trial_hold_released:
                 cancel_message = "Your trial has been canceled. The card authorization hold has been released."
-            return jsonify({
-                "success": True,
-                "cancel_at_period_end": True,
-                "message": cancel_message,
-                "trial_hold_refunded": bool(trial_hold_refunded),
-                "trial_hold_released": bool(trial_hold_released),
-                "cta_email_attempted": bool(cta_email_attempted),
-                "cta_email_sent": bool(cta_email_sent),
-                "cta_skip_reason": cta_skip_reason or "",
-                "paid_cancel_email_attempted": bool(paid_cancel_email_attempted),
-                "paid_cancel_email_sent": bool(paid_cancel_email_sent),
-                "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "cancel_at_period_end": True,
+                    "message": cancel_message,
+                    "trial_hold_refunded": bool(trial_hold_refunded),
+                    "trial_hold_released": bool(trial_hold_released),
+                    "cta_email_attempted": bool(cta_email_attempted),
+                    "cta_email_sent": bool(cta_email_sent),
+                    "cta_skip_reason": cta_skip_reason or "",
+                    "paid_cancel_email_attempted": bool(
+                        paid_cancel_email_attempted
+                    ),
+                    "paid_cancel_email_sent": bool(paid_cancel_email_sent),
+                    "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
+                }
+            )
         else:
             trial_hold_refunded = False
             trial_hold_released = False
             if is_trialing_before_cancel and sub_before:
                 try:
-                    hold_pi = _get_active_trial_authorization_payment_intent(prof, subscription_id)
+                    hold_pi = _get_active_trial_authorization_payment_intent(
+                        prof,
+                        subscription_id
+                    )
                     if hold_pi:
-                        if _subscription_authorization_hold_captured(sub_before):
-                            if _trial_cancel_eligible_for_capture_refund(prof, sub_before):
-                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(sub_before)
+                        if _subscription_authorization_hold_captured(
+                                sub_before
+                        ):
+                            if _trial_cancel_eligible_for_capture_refund(
+                                    prof,
+                                    sub_before
+                            ):
+                                refunded_ok, refund_reason = _refund_trial_authorization_capture_for_subscription(
+                                    sub_before
+                                )
                                 trial_hold_refunded = bool(refunded_ok)
                         else:
-                            released_ok, release_reason = _release_authorization_hold_for_subscription(sub_before)
+                            released_ok, release_reason = _release_authorization_hold_for_subscription(
+                                sub_before
+                            )
                             trial_hold_released = bool(released_ok)
-                        _revoke_trial_hold_profile(str(user_id), cancelled=True)
+                        _revoke_trial_hold_profile(
+                            str(user_id),
+                            cancelled=True
+                        )
                 except Exception:
-                    logger.exception("billing_cancel(immediate) trial hold release/refund failed")
-            # Immediate cancel. To keep the reason/explanation visible in Stripe Dashboard, first attach
-            # it to the subscription (metadata + cancellation_details) then delete.
-            if cancellation_details or cancellation_metadata:
+                    logger.exception(
+                        "billing_cancel(immediate) trial hold release/refund failed"
+                    )
+
+            # --- START FIX: IMMEDIATE CANCEL REWRITE ---
+            # 1. Attach metadata to the active subscription first.
+            if cancellation_metadata:
                 try:
-                    modify_params: dict = {}
-                    if cancellation_details:
-                        modify_params["cancellation_details"] = cancellation_details
-                    if cancellation_metadata:
-                        modify_params["metadata"] = cancellation_metadata
-                    if modify_params:
-                        stripe.Subscription.modify(subscription_id, **modify_params)
+                    stripe.Subscription.modify(
+                        subscription_id,
+                        metadata=cancellation_metadata
+                    )
                 except Exception as e:
                     logger.warning(
-                        "billing_cancel: unable to attach cancellation reason before delete: %s",
+                        "billing_cancel: unable to attach cancellation metadata before delete: %s",
                         str(e),
                     )
-            stripe.Subscription.delete(subscription_id)
+
+            # 2. Pass cancellation_details strictly to the delete method.
+            delete_kwargs = {}
+            if cancellation_details:
+                delete_kwargs[
+                    "cancellation_details"] = cancellation_details
+
+            stripe.Subscription.delete(
+                subscription_id,
+                **delete_kwargs
+            )
+
+            # 3. Database Cleanup (Orphaned ID Fix):
+            # Tell Azure right now that the subscription is gone to fix the settings UI bug.
+            try:
+                table_client = get_users_table_client()
+                entity = {
+                    "PartitionKey": str(user_id),
+                    "RowKey": "profile",
+                    "stripe_subscription_id": "",  # Clear the ID
+                    "plan_status": "free",
+                    # Force the local status to free
+                    "is_paid": False  # Remove paid status immediately
+                }
+                table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+            except Exception as e:
+                logger.error(
+                    f"billing_cancel: Failed to clear subscription ID from profile: {str(e)}"
+                    )
+            # --- END FIX ---
 
             if cancel_reason or cancel_reason_other:
                 try:
                     email = str(getattr(current_user, "email", "") or "")
                     logger.info(
                         "billing_cancel(immediate) reason user_id=%s subscription_id=%s reason=%s other=%s",
-                        user_id, subscription_id, cancel_reason, cancel_reason_other,
+                        user_id,
+                        subscription_id,
+                        cancel_reason,
+                        cancel_reason_other,
                     )
-                    _append_cancellation_feedback(user_id, subscription_id, cancel_reason, cancel_reason_other, email)
+                    _append_cancellation_feedback(
+                        user_id,
+                        subscription_id,
+                        cancel_reason,
+                        cancel_reason_other,
+                        email
+                    )
                 except Exception as e:
-                    logger.warning("billing_cancel(immediate) feedback save failed: %s", str(e))
+                    logger.warning(
+                        "billing_cancel(immediate) feedback save failed: %s",
+                        str(e)
+                    )
 
             if bool(paid_cancel_email_eligibility.get("eligible", False)):
                 try:
                     paid_cancel_email_attempted = True
-                    email = str(getattr(current_user, "email", "") or "").strip().lower()
+                    email = str(
+                        getattr(current_user, "email", "") or ""
+                    ).strip().lower()
                     if not email:
-                        email = str(prof.get("email") or "").strip().lower()
-                    name = str(getattr(current_user, "name", "") or "").strip()
+                        email = str(
+                            prof.get("email") or ""
+                        ).strip().lower()
+                    name = str(
+                        getattr(current_user, "name", "") or ""
+                    ).strip()
                     if not email:
                         paid_cancel_email_skip_reason = "missing_email"
                         sent_ok = False
                     else:
-                        sent_ok = bool(send_paid_cancellation_reinstate_email(
-                            email=email,
-                            user_name=name,
-                            user_id=str(user_id or ""),
-                            subscription_id=str(subscription_id or ""),
-                        ))
+                        sent_ok = bool(
+                            send_paid_cancellation_reinstate_email(
+                                email=email,
+                                user_name=name,
+                                user_id=str(user_id or ""),
+                                subscription_id=str(subscription_id or ""),
+                            )
+                        )
                     paid_cancel_email_sent = bool(sent_ok)
-                    if (not sent_ok) and (not paid_cancel_email_skip_reason):
+                    if (not sent_ok) and (
+                            not paid_cancel_email_skip_reason):
                         paid_cancel_email_skip_reason = "smtp_failed_or_rejected"
                     logger.info(
                         "billing_cancel(immediate) paid_cta user_id=%s attempted=%s sent=%s reason=%s email=%s",
@@ -11359,7 +13899,10 @@ def api_billing_cancel():
                     )
                     try:
                         table_client = get_users_table_client()
-                        prev_count_raw = prof.get("paid_reinstate_offer_email_sent_count", 0)
+                        prev_count_raw = prof.get(
+                            "paid_reinstate_offer_email_sent_count",
+                            0
+                        )
                         try:
                             prev_count = int(prev_count_raw or 0)
                         except Exception:
@@ -11369,38 +13912,61 @@ def api_billing_cancel():
                             "PartitionKey": str(user_id),
                             "RowKey": "profile",
                             "paid_reinstate_offer_email_last_attempt_at": now_iso,
-                            "paid_reinstate_offer_email_last_attempt_ok": bool(sent_ok),
-                            "paid_reinstate_offer_email_sent_count": (prev_count + 1) if sent_ok else prev_count,
+                            "paid_reinstate_offer_email_last_attempt_ok": bool(
+                                sent_ok
+                            ),
+                            "paid_reinstate_offer_email_sent_count": (
+                                    prev_count + 1) if sent_ok else prev_count,
                         }
                         if sent_ok:
-                            entity["paid_reinstate_offer_email_last_sent_at"] = now_iso
-                        table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
+                            entity[
+                                "paid_reinstate_offer_email_last_sent_at"] = now_iso
+                        table_client.upsert_entity(
+                            entity,
+                            mode=UpdateMode.MERGE
+                        )
                     except Exception:
-                        logger.exception("Failed to persist paid reinstatement offer email audit fields (immediate)")
+                        logger.exception(
+                            "Failed to persist paid reinstatement offer email audit fields (immediate)"
+                        )
                 except Exception:
                     paid_cancel_email_skip_reason = "exception_during_send"
-                    logger.exception("Failed to send paid cancellation CTA email (immediate)")
+                    logger.exception(
+                        "Failed to send paid cancellation CTA email (immediate)"
+                    )
             immediate_message = "Your subscription has been canceled."
             if trial_hold_refunded:
                 immediate_message = "Your trial has been canceled and your recent charge has been refunded."
             elif trial_hold_released:
                 immediate_message = "Your trial has been canceled. The card authorization hold has been released."
-            return jsonify({
-                "success": True,
-                "cancel_at_period_end": False,
-                "message": immediate_message,
-                "trial_hold_refunded": bool(trial_hold_refunded),
-                "trial_hold_released": bool(trial_hold_released),
-                "paid_cancel_email_attempted": bool(paid_cancel_email_attempted),
-                "paid_cancel_email_sent": bool(paid_cancel_email_sent),
-                "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "cancel_at_period_end": False,
+                    "message": immediate_message,
+                    "trial_hold_refunded": bool(trial_hold_refunded),
+                    "trial_hold_released": bool(trial_hold_released),
+                    "paid_cancel_email_attempted": bool(
+                        paid_cancel_email_attempted
+                    ),
+                    "paid_cancel_email_sent": bool(paid_cancel_email_sent),
+                    "paid_cancel_email_skip_reason": paid_cancel_email_skip_reason or "",
+                }
+            )
     except stripe.error.InvalidRequestError as e:
         logger.warning(f"api_billing_cancel Stripe error: {str(e)}")
-        return jsonify({"error": str(e.user_message) if getattr(e, "user_message", None) else "Invalid request"}), 400
+        return jsonify(
+            {"error": str(e.user_message) if getattr(
+                e,
+                "user_message",
+                None
+            ) else "Invalid request"}
+        ), 400
     except Exception as e:
         logger.error(f"api_billing_cancel error: {str(e)}")
-        return jsonify({"error": "Unable to cancel subscription. Please try again."}), 500
+        return jsonify(
+            {"error": "Unable to cancel subscription. Please try again."}
+        ), 500
 
 
 @app.route("/api/billing/reinstate", methods=["POST"])
@@ -11408,56 +13974,99 @@ def api_billing_cancel():
 def api_billing_reinstate():
     """Reinstate a scheduled-for-cancel subscription and extend trial by 2 weeks."""
     if not _stripe_enabled():
-        return jsonify({"success": False, "error": "Billing is not configured."}), 400
+        return jsonify(
+            {"success": False, "error": "Billing is not configured."}
+        ), 400
 
     user_id = getattr(current_user, "id", "")
     prof = get_user_profile_azure(user_id) or {}
-    reinstate_trial_bonus_used = bool(prof.get("reinstate_trial_bonus_used", False))
+    reinstate_trial_bonus_used = bool(
+        prof.get("reinstate_trial_bonus_used", False)
+    )
     data = request.get_json(silent=True) or {}
     apply_offer_399 = bool(data.get("apply_offer_399", False))
     subscription_id = _get_stripe_subscription_id_from_azure(user_id)
     if not subscription_id:
-        return jsonify({"success": False, "error": "No active subscription found."}), 404
-
+        return jsonify(
+            {"success": False, "error": "No active subscription found."}
+        ), 404
 
     try:
         if apply_offer_399:
-            result = _reinstate_paid_offer_subscription(str(user_id or ''), subscription_id)
+            result = _reinstate_paid_offer_subscription(
+                str(user_id or ''),
+                subscription_id
+            )
             if result.get('ok'):
                 if result.get('offer_applied'):
                     try:
                         table_client = get_users_table_client()
-                        prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                        prev_apply_raw = prof.get(
+                            "paid_reinstate_offer_apply_count",
+                            0
+                        )
                         try:
                             prev_apply = int(prev_apply_raw or 0)
                         except Exception:
                             prev_apply = 0
                         now_iso = datetime.now(timezone.utc).isoformat()
-                        table_client.upsert_entity({
-                            "PartitionKey": str(user_id),
-                            "RowKey": "profile",
-                            "paid_reinstate_offer_apply_count": prev_apply + 1,
-                            "paid_reinstate_offer_last_applied_at": now_iso,
-                        }, mode=UpdateMode.MERGE)
+                        table_client.upsert_entity(
+                            {
+                                "PartitionKey": str(user_id),
+                                "RowKey": "profile",
+                                "paid_reinstate_offer_apply_count": prev_apply + 1,
+                                "paid_reinstate_offer_last_applied_at": now_iso,
+                            }, mode=UpdateMode.MERGE
+                        )
                     except Exception:
-                        logger.exception("Failed to persist paid reinstatement offer apply audit fields")
-                return jsonify({
-                    "success": True,
-                    "message": str(result.get('message') or 'Subscription reinstated successfully.'),
-                    "offer_399_applied": bool(result.get('offer_applied')),
-                    "offer_399_message": str(result.get('message') or ''),
-                    "redirect_url": str(result.get('redirect_url') or url_for("settings_page")),
-                })
-            return jsonify({
-                "success": False,
-                "error": str(result.get('message') or 'Unable to reinstate subscription. Please try again.'),
-                "redirect_url": str(result.get('redirect_url') or ''),
-            }), 400
+                        logger.exception(
+                            "Failed to persist paid reinstatement offer apply audit fields"
+                        )
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": str(
+                            result.get(
+                                'message'
+                            ) or 'Subscription reinstated successfully.'
+                        ),
+                        "offer_399_applied": bool(
+                            result.get('offer_applied')
+                        ),
+                        "offer_399_message": str(
+                            result.get('message') or ''
+                        ),
+                        "redirect_url": str(
+                            result.get('redirect_url') or url_for(
+                                "settings_page"
+                            )
+                        ),
+                    }
+                )
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(
+                        result.get(
+                            'message'
+                        ) or 'Unable to reinstate subscription. Please try again.'
+                    ),
+                    "redirect_url": str(result.get('redirect_url') or ''),
+                }
+            ), 400
 
-        sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
-        status = str(_stripe_obj_get(sub, "status", "") or "").strip().lower()
+        sub = stripe.Subscription.retrieve(
+            subscription_id,
+            expand=["items.data.price"]
+        )
+        status = str(
+            _stripe_obj_get(sub, "status", "") or ""
+        ).strip().lower()
         if status not in ("active", "trialing"):
-            return jsonify({"success": False, "error": "Your subscription is not active."}), 400
+            return jsonify(
+                {"success": False,
+                 "error": "Your subscription is not active."}
+            ), 400
 
         modify_params: dict = {"cancel_at_period_end": False}
         extended_trial = False
@@ -11469,7 +14078,9 @@ def api_billing_reinstate():
                     now_ts = int(datetime.now(timezone.utc).timestamp())
                     base_ts = max(trial_end_ts, now_ts)
                     # Extend trial by 14 days from the later of current trial_end and now.
-                    modify_params["trial_end"] = int(base_ts + (14 * 24 * 60 * 60))
+                    modify_params["trial_end"] = int(
+                        base_ts + (14 * 24 * 60 * 60)
+                    )
                     extended_trial = True
             except Exception:
                 pass
@@ -11479,43 +14090,63 @@ def api_billing_reinstate():
         offer_applied = False
         offer_message = ""
         if apply_offer_399:
-            offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(sub, target_price_cents=399)
+            offer_ok, offer_msg, _ = _apply_reinstate_next_month_price_offer(
+                sub,
+                target_price_cents=399
+            )
             offer_applied = bool(offer_ok)
             offer_message = str(offer_msg or "")
             if offer_applied:
                 try:
                     table_client = get_users_table_client()
-                    prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                    prev_apply_raw = prof.get(
+                        "paid_reinstate_offer_apply_count",
+                        0
+                    )
                     try:
                         prev_apply = int(prev_apply_raw or 0)
                     except Exception:
                         prev_apply = 0
                     now_iso = datetime.now(timezone.utc).isoformat()
-                    table_client.upsert_entity({
-                        "PartitionKey": str(user_id),
-                        "RowKey": "profile",
-                        "paid_reinstate_offer_apply_count": prev_apply + 1,
-                        "paid_reinstate_offer_last_applied_at": now_iso,
-                    }, mode=UpdateMode.MERGE)
+                    table_client.upsert_entity(
+                        {
+                            "PartitionKey": str(user_id),
+                            "RowKey": "profile",
+                            "paid_reinstate_offer_apply_count": prev_apply + 1,
+                            "paid_reinstate_offer_last_applied_at": now_iso,
+                        }, mode=UpdateMode.MERGE
+                    )
                 except Exception:
-                    logger.exception("Failed to persist paid reinstatement offer apply audit fields")
+                    logger.exception(
+                        "Failed to persist paid reinstatement offer apply audit fields"
+                    )
         if extended_trial:
             try:
                 table_client = get_users_table_client()
-                table_client.upsert_entity({
-                    "PartitionKey": str(user_id),
-                    "RowKey": "profile",
-                    "reinstate_trial_bonus_used": True,
-                    "reinstate_trial_bonus_used_at": datetime.now(timezone.utc).isoformat(),
-                }, mode=UpdateMode.MERGE)
+                table_client.upsert_entity(
+                    {
+                        "PartitionKey": str(user_id),
+                        "RowKey": "profile",
+                        "reinstate_trial_bonus_used": True,
+                        "reinstate_trial_bonus_used_at": datetime.now(
+                            timezone.utc
+                        ).isoformat(),
+                    }, mode=UpdateMode.MERGE
+                )
             except Exception:
                 pass
         # Track reinstatement events and CTA conversion (best-effort).
         try:
             table_client = get_users_table_client()
             prof_after = get_user_profile_azure(user_id) or {}
-            prev_reinstate_raw = prof_after.get("trial_reinstate_conversion_count", 0)
-            prev_cta_sent_raw = prof_after.get("trial_reinstate_cta_sent_count", 0)
+            prev_reinstate_raw = prof_after.get(
+                "trial_reinstate_conversion_count",
+                0
+            )
+            prev_cta_sent_raw = prof_after.get(
+                "trial_reinstate_cta_sent_count",
+                0
+            )
             try:
                 prev_reinstate_count = int(prev_reinstate_raw or 0)
             except Exception:
@@ -11534,32 +14165,50 @@ def api_billing_reinstate():
             # Mark as converted-from-CTA when at least one CTA email was sent before.
             if prev_cta_sent_count > 0:
                 audit_patch["trial_reinstate_cta_converted"] = True
-                if not str(prof_after.get("trial_reinstate_cta_converted_at") or "").strip():
-                    audit_patch["trial_reinstate_cta_converted_at"] = now_iso
+                if not str(
+                        prof_after.get(
+                            "trial_reinstate_cta_converted_at"
+                        ) or ""
+                ).strip():
+                    audit_patch[
+                        "trial_reinstate_cta_converted_at"] = now_iso
             table_client.upsert_entity(audit_patch, mode=UpdateMode.MERGE)
         except Exception:
-            logger.exception("Failed to persist trial reinstatement conversion audit fields")
+            logger.exception(
+                "Failed to persist trial reinstatement conversion audit fields"
+            )
         msg = "Subscription reinstated successfully."
         if extended_trial:
             msg = "Subscription reinstated successfully. We added 2 weeks to your trial."
         if offer_message:
             msg = f"{msg} {offer_message}".strip()
-        return jsonify({
-            "success": True,
-            "message": msg,
-            "offer_399_applied": bool(offer_applied),
-            "offer_399_message": offer_message,
-            "redirect_url": url_for("settings_page"),
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": msg,
+                "offer_399_applied": bool(offer_applied),
+                "offer_399_message": offer_message,
+                "redirect_url": url_for("settings_page"),
+            }
+        )
     except stripe.error.InvalidRequestError as e:
         logger.warning(f"api_billing_reinstate Stripe error: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": str(e.user_message) if getattr(e, "user_message", None) else "Unable to reinstate subscription. Please try again.",
-        }), 400
+        return jsonify(
+            {
+                "success": False,
+                "error": str(e.user_message) if getattr(
+                    e,
+                    "user_message",
+                    None
+                ) else "Unable to reinstate subscription. Please try again.",
+            }
+        ), 400
     except Exception as e:
         logger.error(f"api_billing_reinstate error: {str(e)}")
-        return jsonify({"success": False, "error": "Unable to reinstate subscription. Please try again."}), 500
+        return jsonify(
+            {"success": False,
+             "error": "Unable to reinstate subscription. Please try again."}
+        ), 500
 
 
 @app.route("/billing/reinstate-paid-offer")
@@ -11574,9 +14223,13 @@ def billing_reinstate_paid_offer():
         _store_reinstate_paid_offer_token_in_session(token_arg)
 
     if not getattr(current_user, "is_authenticated", False):
-        return redirect(url_for("login", next=url_for("billing_reinstate_paid_offer")))
+        return redirect(
+            url_for("login", next=url_for("billing_reinstate_paid_offer"))
+        )
 
-    token = token_arg or str(session.get(_REINSTATE_OFFER_SESSION_KEY) or "").strip()
+    token = token_arg or str(
+        session.get(_REINSTATE_OFFER_SESSION_KEY) or ""
+    ).strip()
     if not token:
         flash("This offer link is invalid.", "danger")
         return redirect(url_for("settings_page"))
@@ -11596,8 +14249,16 @@ def billing_reinstate_paid_offer():
 
     subscription_id, resolve_err = _resolve_reinstate_offer_subscription_id(
         user_id,
-        token_subscription_id=str(payload.get("subscription_id") or "").strip(),
-        email=str(payload.get("email") or getattr(current_user, "email", "") or "").strip(),
+        token_subscription_id=str(
+            payload.get("subscription_id") or ""
+        ).strip(),
+        email=str(
+            payload.get("email") or getattr(
+                current_user,
+                "email",
+                ""
+            ) or ""
+        ).strip(),
     )
     if resolve_err:
         flash(resolve_err, "danger")
@@ -11614,55 +14275,95 @@ def billing_reinstate_paid_offer():
             prev_click = int(prev_click_raw or 0)
         except Exception:
             prev_click = 0
-        table_client.upsert_entity({
-            "PartitionKey": str(user_id),
-            "RowKey": "profile",
-            "paid_reinstate_offer_click_count": prev_click + 1,
-            "paid_reinstate_offer_last_clicked_at": datetime.now(timezone.utc).isoformat(),
-        }, mode=UpdateMode.MERGE)
+        table_client.upsert_entity(
+            {
+                "PartitionKey": str(user_id),
+                "RowKey": "profile",
+                "paid_reinstate_offer_click_count": prev_click + 1,
+                "paid_reinstate_offer_last_clicked_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+            }, mode=UpdateMode.MERGE
+        )
     except Exception:
-        logger.exception("Failed to persist paid reinstatement offer click audit fields")
-
+        logger.exception(
+            "Failed to persist paid reinstatement offer click audit fields"
+        )
 
     try:
-        result = _reinstate_paid_offer_subscription(user_id, subscription_id)
+        result = _reinstate_paid_offer_subscription(
+            user_id,
+            subscription_id
+        )
         if result.get('offer_applied'):
             try:
                 table_client = get_users_table_client()
                 prof = get_user_profile_azure(user_id) or {}
-                prev_apply_raw = prof.get("paid_reinstate_offer_apply_count", 0)
+                prev_apply_raw = prof.get(
+                    "paid_reinstate_offer_apply_count",
+                    0
+                )
                 try:
                     prev_apply = int(prev_apply_raw or 0)
                 except Exception:
                     prev_apply = 0
                 now_iso = datetime.now(timezone.utc).isoformat()
-                table_client.upsert_entity({
-                    "PartitionKey": str(user_id),
-                    "RowKey": "profile",
-                    "paid_reinstate_offer_apply_count": prev_apply + 1,
-                    "paid_reinstate_offer_last_applied_at": now_iso,
-                }, mode=UpdateMode.MERGE)
+                table_client.upsert_entity(
+                    {
+                        "PartitionKey": str(user_id),
+                        "RowKey": "profile",
+                        "paid_reinstate_offer_apply_count": prev_apply + 1,
+                        "paid_reinstate_offer_last_applied_at": now_iso,
+                    }, mode=UpdateMode.MERGE
+                )
             except Exception:
-                logger.exception("Failed to persist paid reinstatement offer apply audit fields (link)")
+                logger.exception(
+                    "Failed to persist paid reinstatement offer apply audit fields (link)"
+                )
 
         if result.get('ok'):
-            flash(str(result.get('message') or 'Subscription reinstated.'), "success")
+            flash(
+                str(result.get('message') or 'Subscription reinstated.'),
+                "success"
+            )
         else:
-            flash(str(result.get('message') or 'Unable to reinstate subscription. Please try again.'), "warning" if result.get('redirect_url') else "danger")
-        redirect_target = str(result.get('redirect_url') or url_for('settings_page'))
+            flash(
+                str(
+                    result.get(
+                        'message'
+                    ) or 'Unable to reinstate subscription. Please try again.'
+                ),
+                "warning" if result.get('redirect_url') else "danger"
+            )
+        redirect_target = str(
+            result.get('redirect_url') or url_for('settings_page')
+        )
         return redirect(redirect_target)
     except stripe.error.InvalidRequestError as e:
-        logger.warning("billing_reinstate_paid_offer Stripe error: %s", str(e))
-        flash(str(e.user_message) if getattr(e, "user_message", None) else "Unable to reinstate subscription. Please try again.", "danger")
+        logger.warning(
+            "billing_reinstate_paid_offer Stripe error: %s",
+            str(e)
+        )
+        flash(
+            str(e.user_message) if getattr(
+                e,
+                "user_message",
+                None
+            ) else "Unable to reinstate subscription. Please try again.",
+            "danger"
+        )
         return redirect(url_for("settings_page"))
     except Exception as e:
         logger.error("billing_reinstate_paid_offer error: %s", str(e))
-        flash("Unable to reinstate subscription. Please try again.", "danger")
+        flash(
+            "Unable to reinstate subscription. Please try again.",
+            "danger"
+        )
         return redirect(url_for("settings_page"))
 
 
 @app.route("/results", methods=["POST"])
-#login_required
+# login_required
 def results_route():
     _safe_print("=== results_route called ===")
     _safe_log_event('results_route POST: start')
@@ -11670,11 +14371,15 @@ def results_route():
         resume_text = ""
 
         # Enforce free tier revision limit (1) for authenticated non-paid users.
-        if current_user.is_authenticated and (not is_paid_user(current_user)):
+        if current_user.is_authenticated and (
+                not is_paid_user(current_user)):
             try:
                 used = len(get_user_revisions(current_user.id))
                 if used >= FREE_REVISION_LIMIT:
-                    flash("Free tier includes 1 resume revision. Upgrade to unlock unlimited revisions and PDF downloads.", "danger")
+                    flash(
+                        "Free tier includes 1 resume revision. Upgrade to unlock unlimited revisions and PDF downloads.",
+                        "danger"
+                    )
                     return redirect(url_for("plans", limit="1"))
             except Exception:
                 # If counting fails, do not block.
@@ -11685,18 +14390,30 @@ def results_route():
             file = request.files['resumeFile']
             if file and file.filename:
                 _safe_print(f"Processing uploaded file: {file.filename}")
-                _safe_log_event(f"results_route POST: received upload filename={secure_filename(file.filename)}")
+                _safe_log_event(
+                    f"results_route POST: received upload filename={secure_filename(file.filename)}"
+                )
                 try:
                     resume_text = extract_text_from_file(file)
-                    _safe_print(f"Extracted text length: {len(resume_text)}")
-                    _safe_log_event(f"results_route POST: extracted_text_len={len(resume_text)}")
+                    _safe_print(
+                        f"Extracted text length: {len(resume_text)}"
+                    )
+                    _safe_log_event(
+                        f"results_route POST: extracted_text_len={len(resume_text)}"
+                    )
                     if not resume_text or not resume_text.strip():
-                        _safe_print("Uploaded file parsed but contained no extractable text")
-                        _safe_log_event('results_route POST: extracted text empty')
+                        _safe_print(
+                            "Uploaded file parsed but contained no extractable text"
+                        )
+                        _safe_log_event(
+                            'results_route POST: extracted text empty'
+                        )
                         return redirect(url_for('paste_resume', error='1'))
                 except Exception as e:
                     _safe_log_exception('upload processing failed', e)
-                    _safe_log_event('results_route POST: upload processing failed (see exception block above)')
+                    _safe_log_event(
+                        'results_route POST: upload processing failed (see exception block above)'
+                    )
                     return redirect(url_for('paste_resume', error='1'))
 
         # If no file uploaded, check for text input
@@ -11705,18 +14422,32 @@ def results_route():
 
         # Validate that we have resume content
         if not resume_text:
-            flash("Please upload a resume file or paste your resume content", 'danger')
+            flash(
+                "Please upload a resume file or paste your resume content",
+                'danger'
+            )
             return redirect(url_for('index', scroll_to_form='true'))
 
         # Get job description (optional)
         job_description = request.form.get("jobDescription", "").strip()
 
         # Process the resume
-        _safe_print(f"Resume text preview (first 200 chars): {resume_text[:200]}...")
-        _safe_print(f"Job description preview: {job_description[:100] if job_description else 'None'}...")
-        _safe_log_event(f"results_route POST: calling revise_resume resume_len={len(resume_text)} jd_len={len(job_description)}")
-        revised_resume, feedback = revise_resume(resume_text, job_description)
-        _safe_log_event(f"results_route POST: revise_resume ok revised_len={len(revised_resume or '')}")
+        _safe_print(
+            f"Resume text preview (first 200 chars): {resume_text[:200]}..."
+        )
+        _safe_print(
+            f"Job description preview: {job_description[:100] if job_description else 'None'}..."
+        )
+        _safe_log_event(
+            f"results_route POST: calling revise_resume resume_len={len(resume_text)} jd_len={len(job_description)}"
+        )
+        revised_resume, feedback = revise_resume(
+            resume_text,
+            job_description
+        )
+        _safe_log_event(
+            f"results_route POST: revise_resume ok revised_len={len(revised_resume or '')}"
+        )
         _safe_print("=== FEEDBACK DATA ===")
         _safe_print(f"Feedback type: {type(feedback)}")
         try:
@@ -11728,6 +14459,7 @@ def results_route():
         source_revision_id = None
         if current_user.is_authenticated:
             import uuid
+
             source_revision_id = str(uuid.uuid4())
             try:
                 save_resume_revision(
@@ -11740,7 +14472,10 @@ def results_route():
                 )
             except FreeTierLimitReached:
                 # Still show results, but do not persist a new revision.
-                flash("You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.", "danger")
+                flash(
+                    "You've reached the free tier limit (1 revision). Upgrade to save unlimited revisions.",
+                    "danger"
+                )
                 source_revision_id = None
             except Exception:
                 source_revision_id = None
@@ -11754,7 +14489,10 @@ def results_route():
             }
 
         # Track conversion (resume submission)
-        conversion_info = analytics.track_conversion(session, "resume_submission")
+        conversion_info = analytics.track_conversion(
+            session,
+            "resume_submission"
+        )
         _safe_print(f"=== CONVERSION TRACKED ===")
         _safe_print(f"Conversion info: {conversion_info}")
 
@@ -11766,12 +14504,14 @@ def results_route():
             'job_description': job_description,
         }
         if source_revision_id:
-            session['results_data']['source_revision_id'] = source_revision_id
+            session['results_data'][
+                'source_revision_id'] = source_revision_id
         # Ensure session persistence + clear stale template data (prevents old template snapshot confusion)
         session.pop('template_data', None)
         session.modified = True
         # Bust caches (browser/service worker) for /results
         import time
+
         _safe_log_event('results_route POST: redirecting to results_get')
         return redirect(url_for('results_get', ts=int(time.time())))
     except Exception as e:
@@ -11779,12 +14519,12 @@ def results_route():
         _safe_print(f"Error type: {type(e).__name__}")
         _safe_print(f"Error message: {str(e)}")
         _safe_log_exception('results_route error', e)
-        _safe_log_event('results_route POST: unhandled exception (see results_route error block above)')
+        _safe_log_event(
+            'results_route POST: unhandled exception (see results_route error block above)'
+        )
         _safe_print("=== END ERROR DEBUG ===")
         flash(f"Error: {str(e)}", 'danger')
         return redirect(url_for('index'))
-
-
 
 
 @app.route("/results", methods=["GET"])
@@ -11801,19 +14541,24 @@ def results_get():
             f"results_get GET: has results_data keys={','.join(sorted([str(k) for k in (data or {}).keys()]))}"
         )
     except Exception:
-        _safe_log_event('results_get GET: has results_data (keys unavailable)')
+        _safe_log_event(
+            'results_get GET: has results_data (keys unavailable)'
+        )
     # Keep data in session for template selection
     # session.pop would remove it, so we use session.get and keep it available
-    resp = make_response(render_template(
-        "result.html",
-        original_resume=data.get('original_resume', ''),
-        revised_resume=data.get('revised_resume', ''),
-        feedback=data.get('feedback', {}),
-        job_description=data.get('job_description', ''),
-        error=None
-    ))
+    resp = make_response(
+        render_template(
+            "result.html",
+            original_resume=data.get('original_resume', ''),
+            revised_resume=data.get('revised_resume', ''),
+            feedback=data.get('feedback', {}),
+            job_description=data.get('job_description', ''),
+            error=None
+        )
+    )
     # Transactional page: never cache (prevents showing a previous resume after a new submission)
-    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers[
+        'Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
     resp.headers['Vary'] = 'Cookie'
@@ -11974,21 +14719,53 @@ def _load_structured_snapshot_for_template(entity: dict, template_id: str):
     tid = _canonical_template_id(template_id)
     plain_prop, gz_prop, _ = _template_snapshot_prop_names(tid)
 
-    raw_snapshot = str(_entity_get_ci((entity or {}), plain_prop, '') or '').strip()
-    raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), gz_prop, '') or '').strip()
+    raw_snapshot = str(
+        _entity_get_ci((entity or {}), plain_prop, '') or ''
+    ).strip()
+    raw_snapshot_gz_b64 = str(
+        _entity_get_ci((entity or {}), gz_prop, '') or ''
+    ).strip()
 
     # Backward compatibility: older saves stored only one snapshot on the revision entity.
     if not raw_snapshot and not raw_snapshot_gz_b64:
-        legacy_tid = _canonical_template_id(str(_entity_get_ci((entity or {}), 'template_id', '') or '').strip() or 'professional')
+        legacy_tid = _canonical_template_id(
+            str(
+                _entity_get_ci((entity or {}), 'template_id', '') or ''
+            ).strip() or 'professional'
+        )
         if legacy_tid == tid:
-            raw_snapshot = str(_entity_get_ci((entity or {}), 'template_structured_resume', '') or '').strip()
-            raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), 'template_structured_resume_gz_b64', '') or '').strip()
+            raw_snapshot = str(
+                _entity_get_ci(
+                    (entity or {}),
+                    'template_structured_resume',
+                    ''
+                ) or ''
+            ).strip()
+            raw_snapshot_gz_b64 = str(
+                _entity_get_ci(
+                    (entity or {}),
+                    'template_structured_resume_gz_b64',
+                    ''
+                ) or ''
+            ).strip()
 
             # Extra legacy aliases (defensive): camelCase keys from older experiments.
             if not raw_snapshot:
-                raw_snapshot = str(_entity_get_ci((entity or {}), 'templateStructuredResume', '') or '').strip()
+                raw_snapshot = str(
+                    _entity_get_ci(
+                        (entity or {}),
+                        'templateStructuredResume',
+                        ''
+                    ) or ''
+                ).strip()
             if not raw_snapshot_gz_b64:
-                raw_snapshot_gz_b64 = str(_entity_get_ci((entity or {}), 'templateStructuredResumeGzB64', '') or '').strip()
+                raw_snapshot_gz_b64 = str(
+                    _entity_get_ci(
+                        (entity or {}),
+                        'templateStructuredResumeGzB64',
+                        ''
+                    ) or ''
+                ).strip()
 
     if raw_snapshot:
         try:
@@ -12000,6 +14777,7 @@ def _load_structured_snapshot_for_template(entity: dict, template_id: str):
         try:
             import base64
             import gzip
+
             decoded = base64.b64decode(raw_snapshot_gz_b64.encode('ascii'))
             inflated = gzip.decompress(decoded).decode('utf-8')
             obj = json.loads(inflated)
@@ -12019,33 +14797,48 @@ def api_create_resume_draft():
         data = request.get_json(force=True, silent=True) or {}
         payload = data.get('payload')
         if not isinstance(payload, dict):
-            return jsonify({"success": False, "error": "Invalid payload"}), 400
+            return jsonify(
+                {"success": False, "error": "Invalid payload"}
+            ), 400
 
         draft_id = save_payload('resume_draft', payload)
-        return jsonify({
-            "success": True,
-            "draft_id": draft_id,
-            "ttl_seconds": int(DEFAULT_TTL_SECONDS),
-        }), 200
+        return jsonify(
+            {
+                "success": True,
+                "draft_id": draft_id,
+                "ttl_seconds": int(DEFAULT_TTL_SECONDS),
+            }
+        ), 200
     except Exception as e:
         logger.error(f"api_create_resume_draft error: {str(e)}")
         _safe_log_exception('api_create_resume_draft error', e)
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify(
+            {"success": False, "error": "Internal server error"}
+        ), 500
 
 
-@app.route("/api/resume-drafts/<draft_id>", methods=["GET", "PUT", "DELETE"])
+@app.route(
+    "/api/resume-drafts/<draft_id>",
+    methods=["GET", "PUT", "DELETE"]
+)
 def api_resume_draft(draft_id):
     """Get/update/delete a resume draft by id (same-origin for writes)."""
     token = str(draft_id or '').strip()
     if not token:
-        return jsonify({"success": False, "error": "Missing draft_id"}), 400
+        return jsonify(
+            {"success": False, "error": "Missing draft_id"}
+        ), 400
 
     try:
         if request.method == 'GET':
             payload = load_payload('resume_draft', token)
             if not payload:
-                return jsonify({"success": False, "error": "Not found"}), 404
-            return jsonify({"success": True, "draft_id": token, "payload": payload}), 200
+                return jsonify(
+                    {"success": False, "error": "Not found"}
+                ), 404
+            return jsonify(
+                {"success": True, "draft_id": token, "payload": payload}
+            ), 200
 
         if not _same_origin_post():
             return jsonify({"success": False, "error": "Forbidden"}), 403
@@ -12054,7 +14847,9 @@ def api_resume_draft(draft_id):
             data = request.get_json(force=True, silent=True) or {}
             payload = data.get('payload')
             if not isinstance(payload, dict):
-                return jsonify({"success": False, "error": "Invalid payload"}), 400
+                return jsonify(
+                    {"success": False, "error": "Invalid payload"}
+                ), 400
             save_payload('resume_draft', payload, token=token)
             return jsonify({"success": True, "draft_id": token}), 200
 
@@ -12062,19 +14857,28 @@ def api_resume_draft(draft_id):
             delete_payload('resume_draft', token)
             return jsonify({"success": True}), 200
 
-        return jsonify({"success": False, "error": "Method not allowed"}), 405
+        return jsonify(
+            {"success": False, "error": "Method not allowed"}
+        ), 405
     except Exception as e:
         logger.error(f"api_resume_draft error: {str(e)}")
         _safe_log_exception('api_resume_draft error', e)
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify(
+            {"success": False, "error": "Internal server error"}
+        ), 500
+
 
 @app.route("/api/parse-resume-for-template", methods=["POST"])
 def parse_resume_for_template():
     """Parse resume and store structured data in session for template viewing"""
     try:
         data = request.get_json(force=True, silent=True) or {}
-        template_name = _canonical_template_id(data.get('template', 'professional'))
-        requested_source_revision_id = str(data.get('source_revision_id') or '').strip()
+        template_name = _canonical_template_id(
+            data.get('template', 'professional')
+        )
+        requested_source_revision_id = str(
+            data.get('source_revision_id') or ''
+        ).strip()
 
         # Validate template name (canonical IDs only)
         valid_templates = {
@@ -12100,7 +14904,9 @@ def parse_resume_for_template():
         # Get revised resume from session
         results_data = session.get('results_data') or {}
         if not results_data:
-            return jsonify({"success": False, "error": "Resume data not found"}), 404
+            return jsonify(
+                {"success": False, "error": "Resume data not found"}
+            ), 404
 
         # If the client provided a source revision id, and the user is authenticated,
         # validate ownership and attach it to the session so template saves can persist.
@@ -12111,7 +14917,9 @@ def parse_resume_for_template():
                     partition_key=str(current_user.id),
                     row_key=str(requested_source_revision_id),
                 )
-                results_data['source_revision_id'] = str(requested_source_revision_id)
+                results_data['source_revision_id'] = str(
+                    requested_source_revision_id
+                )
                 session['results_data'] = results_data
                 session.modified = True
             except Exception:
@@ -12120,13 +14928,18 @@ def parse_resume_for_template():
 
         revised_resume = results_data.get('revised_resume', '')
         if not revised_resume:
-            return jsonify({"success": False, "error": "Revised resume not found"}), 404
+            return jsonify(
+                {"success": False, "error": "Revised resume not found"}
+            ), 404
 
         # Parse resume to get structured data.
         # If the resume was created via our builder, we already have a structured object.
         structured_resume = None
         try:
-            sr = results_data.get('structured_resume') if isinstance(results_data, dict) else None
+            sr = results_data.get('structured_resume') if isinstance(
+                results_data,
+                dict
+            ) else None
             if isinstance(sr, dict) and sr:
                 structured_resume = sr
         except Exception:
@@ -12140,9 +14953,12 @@ def parse_resume_for_template():
         session['template_data'] = {
             'structured_resume': structured_resume,
             'template_name': template_name,
-            'revised_resume': revised_resume,  # Keep original text as fallback
+            'revised_resume': revised_resume,
+            # Keep original text as fallback
             # Carry the hub linkage through the SPA so template saves can persist.
-            'source_revision_id': str(results_data.get('source_revision_id') or '').strip(),
+            'source_revision_id': str(
+                results_data.get('source_revision_id') or ''
+            ).strip(),
         }
         session.modified = True
 
@@ -12150,15 +14966,24 @@ def parse_resume_for_template():
         # revision card in /my_revisions shows the template version immediately, without
         # requiring edit-mode + "Save Changes".
         try:
-            source_revision_id = str(session.get('template_data', {}).get('source_revision_id') or '').strip()
+            source_revision_id = str(
+                session.get('template_data', {}).get(
+                    'source_revision_id'
+                ) or ''
+            ).strip()
             if (
-                source_revision_id
-                and getattr(current_user, 'is_authenticated', False)
-                and isinstance(structured_resume, dict)
-                and structured_resume
+                    source_revision_id
+                    and getattr(current_user, 'is_authenticated', False)
+                    and isinstance(structured_resume, dict)
+                    and structured_resume
             ):
-                template_id = _canonical_template_id(template_name or 'professional')
-                snapshot = json.dumps(structured_resume, ensure_ascii=False)
+                template_id = _canonical_template_id(
+                    template_name or 'professional'
+                )
+                snapshot = json.dumps(
+                    structured_resume,
+                    ensure_ascii=False
+                )
                 snapshot_bytes = snapshot.encode('utf-8')
 
                 table_client = get_table_client()
@@ -12172,29 +14997,42 @@ def parse_resume_for_template():
 
                 if existing is not None:
                     existing['template_id'] = template_id
-                    existing['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+                    existing['template_saved_at'] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
 
                     # Track all saved templates for this revision (small JSON list)
                     try:
-                        current_list_raw = str(existing.get('template_saved_templates') or '').strip()
-                        current_list = json.loads(current_list_raw) if current_list_raw else []
+                        current_list_raw = str(
+                            existing.get('template_saved_templates') or ''
+                        ).strip()
+                        current_list = json.loads(
+                            current_list_raw
+                        ) if current_list_raw else []
                         if not isinstance(current_list, list):
                             current_list = []
                     except Exception:
                         current_list = []
-                    saved_set = set([
-                        _canonical_template_id(t)
-                        for t in current_list
-                        if str(t or '').strip()
-                    ])
+                    saved_set = set(
+                        [
+                            _canonical_template_id(t)
+                            for t in current_list
+                            if str(t or '').strip()
+                        ]
+                    )
                     saved_set.add(template_id)
                     try:
-                        existing['template_saved_templates'] = json.dumps(sorted(saved_set), ensure_ascii=False)
+                        existing['template_saved_templates'] = json.dumps(
+                            sorted(saved_set),
+                            ensure_ascii=False
+                        )
                     except Exception:
                         pass
 
                     # Store per-template snapshot (allows multiple template versions per revision)
-                    per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
+                    per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(
+                        template_id
+                    )
                     existing[per_at_prop] = existing['template_saved_at']
 
                     # Azure Table Storage string properties have tight size limits.
@@ -12204,31 +15042,42 @@ def parse_resume_for_template():
                         existing['template_structured_resume_gz_b64'] = ''
                         existing[per_plain_prop] = snapshot
                         existing[per_gz_prop] = ''
-                        table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                        table_client.update_entity(
+                            existing,
+                            mode=UpdateMode.MERGE
+                        )
                     else:
                         import base64
                         import gzip
+
                         gz = gzip.compress(snapshot_bytes, compresslevel=9)
                         b64 = base64.b64encode(gz).decode('ascii')
                         if len(b64.encode('ascii')) <= 60_000:
                             existing['template_structured_resume'] = ''
-                            existing['template_structured_resume_gz_b64'] = b64
+                            existing[
+                                'template_structured_resume_gz_b64'] = b64
                             existing[per_plain_prop] = ''
                             existing[per_gz_prop] = b64
-                            table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                            table_client.update_entity(
+                                existing,
+                                mode=UpdateMode.MERGE
+                            )
         except Exception:
             # Do not block the user if template snapshot persistence fails.
             pass
 
-        return jsonify({
-            "success": True,
-            "template": template_name
-        })
+        return jsonify(
+            {
+                "success": True,
+                "template": template_name
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error parsing resume for template: {str(e)}")
         _safe_log_exception('parse_resume_for_template error', e)
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 _TRANSLATE_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
 
@@ -12237,22 +15086,36 @@ def _google_translate_request_auth():
     """Return (headers, query_params) for Translation v2: prefer OAuth2 (service account / ADC); optional API key fallback."""
     req = google.auth.transport.requests.Request()
 
-    sa_json = (os.environ.get("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON") or "").strip()
+    sa_json = (os.environ.get(
+        "GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON"
+    ) or "").strip()
     if sa_json:
         try:
             info = json.loads(sa_json)
         except json.JSONDecodeError as e:
-            raise RuntimeError("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON is not valid JSON.") from e
+            raise RuntimeError(
+                "GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON is not valid JSON."
+            ) from e
         if not isinstance(info, dict) or not info.get("private_key"):
-            raise RuntimeError("GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON must be a full service account key JSON object.")
-        creds = service_account.Credentials.from_service_account_info(info, scopes=_TRANSLATE_SCOPES)
+            raise RuntimeError(
+                "GOOGLE_TRANSLATE_SERVICE_ACCOUNT_JSON must be a full service account key JSON object."
+            )
+        creds = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=_TRANSLATE_SCOPES
+        )
         creds.refresh(req)
         return ({"Authorization": f"Bearer {creds.token}"}, {})
 
-    adc_path = (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+    adc_path = (os.environ.get(
+        "GOOGLE_APPLICATION_CREDENTIALS"
+    ) or "").strip()
     if adc_path and os.path.isfile(adc_path):
         try:
-            creds = service_account.Credentials.from_service_account_file(adc_path, scopes=_TRANSLATE_SCOPES)
+            creds = service_account.Credentials.from_service_account_file(
+                adc_path,
+                scopes=_TRANSLATE_SCOPES
+            )
             creds.refresh(req)
             return ({"Authorization": f"Bearer {creds.token}"}, {})
         except Exception:
@@ -12281,11 +15144,11 @@ def _google_translate_request_auth():
 
 
 def _call_google_translate_batch(
-    texts: list[str],
-    target_lang: str,
-    source_lang: Optional[str],
-    auth_headers: dict,
-    auth_params: dict,
+        texts: list[str],
+        target_lang: str,
+        source_lang: Optional[str],
+        auth_headers: dict,
+        auth_params: dict,
 ) -> list[str]:
     """Translate a list of strings (same order returned)."""
     if not texts:
@@ -12296,7 +15159,7 @@ def _call_google_translate_batch(
     batch_size = 80
 
     for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
+        batch = texts[i: i + batch_size]
         params = dict(auth_params)
         headers = {**auth_headers, "Content-Type": "application/json"}
         payload: dict = {"q": batch, "target": target_lang}
@@ -12305,7 +15168,13 @@ def _call_google_translate_batch(
             if re.match(r"^[a-z]{2,3}(-[a-z]{2,8})?$", sl):
                 payload["source"] = sl
 
-        r = requests.post(url, params=params or None, headers=headers, json=payload, timeout=90)
+        r = requests.post(
+            url,
+            params=params or None,
+            headers=headers,
+            json=payload,
+            timeout=90
+        )
         if not r.ok:
             try:
                 err_detail = r.json()
@@ -12316,7 +15185,9 @@ def _call_google_translate_batch(
         data = r.json()
         trans_list = data.get("data", {}).get("translations", [])
         if len(trans_list) != len(batch):
-            raise RuntimeError("Translation API returned an unexpected number of segments.")
+            raise RuntimeError(
+                "Translation API returned an unexpected number of segments."
+            )
 
         for t in trans_list:
             txt = t.get("translatedText", "")
@@ -12325,7 +15196,10 @@ def _call_google_translate_batch(
     return out
 
 
-def _resume_section_present_for_heading(resume: dict, section_key: str) -> bool:
+def _resume_section_present_for_heading(
+        resume: dict,
+        section_key: str
+) -> bool:
     """Whether the resume has content for a standard section (matches template visibility rules roughly)."""
     sk = str(section_key or "").strip()
     if sk == "summary":
@@ -12357,7 +15231,9 @@ def _resume_section_present_for_heading(resume: dict, section_key: str) -> bool:
             str(resume.get("email") or "").strip()
             or str(resume.get("phone") or "").strip()
             or str(resume.get("location") or "").strip()
-            or str(resume.get("website") or resume.get("portfolio") or "").strip()
+            or str(
+                resume.get("website") or resume.get("portfolio") or ""
+            ).strip()
         )
     if sk == "info":
         links = resume.get("links")
@@ -12463,16 +15339,18 @@ _SECTION_HEADING_DEFAULTS_EN: dict[str, dict[str, str]] = {
 
 
 def _inject_section_heading_defaults_for_preview(
-    out: dict,
-    template_raw: str,
-    target_lang: str,
-    source_lang: Optional[str],
-    auth_headers: dict,
-    auth_params: dict,
+        out: dict,
+        template_raw: str,
+        target_lang: str,
+        source_lang: Optional[str],
+        auth_headers: dict,
+        auth_params: dict,
 ) -> None:
     """Templates render English fallback titles from code when `section_headings` is missing — inject translated defaults."""
     canonical = _canonical_template_id(template_raw)
-    defaults = _SECTION_HEADING_DEFAULTS_EN.get(canonical) or _SECTION_HEADING_DEFAULTS_EN.get("professional") or {}
+    defaults = _SECTION_HEADING_DEFAULTS_EN.get(
+        canonical
+    ) or _SECTION_HEADING_DEFAULTS_EN.get("professional") or {}
 
     headings = out.get("section_headings")
     if not isinstance(headings, dict):
@@ -12502,11 +15380,11 @@ def _inject_section_heading_defaults_for_preview(
 
 
 def _translate_resume_strings_google(
-    resume: dict,
-    target_lang: str,
-    source_lang: Optional[str],
-    auth_headers: dict,
-    auth_params: dict,
+        resume: dict,
+        target_lang: str,
+        source_lang: Optional[str],
+        auth_headers: dict,
+        auth_params: dict,
 ) -> dict:
     """Deep-copy resume and translate user-facing string fields via Google Cloud Translation API v2."""
 
@@ -12517,11 +15395,15 @@ def _translate_resume_strings_google(
     out = copy.deepcopy(resume)
     refs: list[tuple] = []
 
-    SKIP_KEYS = frozenset({
-        "email", "phone", "website", "portfolio", "linkedin", "github",
-        "accentColor", "primaryColor", "secondaryColor", "template",
-    })
-    STYLE_SKIP_KEYS = frozenset({"templateViewerSettings", "templateViewerLayout"})
+    SKIP_KEYS = frozenset(
+        {
+            "email", "phone", "website", "portfolio", "linkedin", "github",
+            "accentColor", "primaryColor", "secondaryColor", "template",
+        }
+    )
+    STYLE_SKIP_KEYS = frozenset(
+        {"templateViewerSettings", "templateViewerLayout"}
+    )
 
     def looks_like_email(s: str) -> bool:
         s = s.strip()
@@ -12529,7 +15411,9 @@ def _translate_resume_strings_google(
 
     def looks_like_url(s: str) -> bool:
         s = s.strip().lower()
-        return s.startswith("http://") or s.startswith("https://") or s.startswith("www.")
+        return s.startswith("http://") or s.startswith(
+            "https://"
+        ) or s.startswith("www.")
 
     def looks_like_phone(s: str) -> bool:
         digits = re.sub(r"\D", "", s)
@@ -12559,7 +15443,9 @@ def _translate_resume_strings_google(
                     for sk, sv in v.items():
                         if sk in STYLE_SKIP_KEYS or sk in SKIP_KEYS:
                             continue
-                        if isinstance(sv, str) and should_translate_string(sv):
+                        if isinstance(sv, str) and should_translate_string(
+                                sv
+                        ):
                             refs.append((v, sk))
                         elif isinstance(sv, (dict, list)):
                             walk(sv)
@@ -12580,7 +15466,13 @@ def _translate_resume_strings_google(
         return out
 
     texts = [parent[key] for parent, key in refs]
-    translated_out = _call_google_translate_batch(texts, target_lang, source_lang, auth_headers, auth_params)
+    translated_out = _call_google_translate_batch(
+        texts,
+        target_lang,
+        source_lang,
+        auth_headers,
+        auth_params
+    )
 
     for idx, (parent, key) in enumerate(refs):
         parent[key] = translated_out[idx]
@@ -12594,16 +15486,24 @@ def api_translate_resume():
     try:
         body = request.get_json(force=True, silent=True) or {}
         resume = body.get("resume")
-        target = str(body.get("target") or body.get("target_lang") or "").strip()
+        target = str(
+            body.get("target") or body.get("target_lang") or ""
+        ).strip()
         source = str(body.get("source") or "").strip() or None
         template_raw = str(
-            body.get("template") or body.get("template_name") or body.get("template_id") or ""
+            body.get("template") or body.get("template_name") or body.get(
+                "template_id"
+            ) or ""
         ).strip()
 
         if not isinstance(resume, dict):
-            return jsonify({"success": False, "error": "Invalid resume payload."}), 400
+            return jsonify(
+                {"success": False, "error": "Invalid resume payload."}
+            ), 400
         if not target:
-            return jsonify({"success": False, "error": "Missing target language."}), 400
+            return jsonify(
+                {"success": False, "error": "Missing target language."}
+            ), 400
 
         # Frontend preview uses sentinel values for "no translation" / "reset to English".
         # Treat these as a no-op so older cached bundles never trigger a hard error.
@@ -12611,15 +15511,30 @@ def api_translate_resume():
             return jsonify({"success": True, "resume": resume})
 
         auth_headers, auth_params = _google_translate_request_auth()
-        out = _translate_resume_strings_google(resume, target, source, auth_headers, auth_params)
-        _inject_section_heading_defaults_for_preview(out, template_raw or "professional", target, source, auth_headers, auth_params)
+        out = _translate_resume_strings_google(
+            resume,
+            target,
+            source,
+            auth_headers,
+            auth_params
+        )
+        _inject_section_heading_defaults_for_preview(
+            out,
+            template_raw or "professional",
+            target,
+            source,
+            auth_headers,
+            auth_params
+        )
         return jsonify({"success": True, "resume": out})
     except RuntimeError as e:
         return jsonify({"success": False, "error": str(e)}), 503
     except Exception as e:
         logger.error("translate-resume failed: %s", e)
         _safe_log_exception("translate-resume", e)
-        return jsonify({"success": False, "error": "Translation failed."}), 500
+        return jsonify(
+            {"success": False, "error": "Translation failed."}
+        ), 500
 
 
 @app.route("/api/template-pdf/snapshot", methods=["POST"])
@@ -12630,16 +15545,26 @@ def api_template_pdf_snapshot():
         body = request.get_json(force=True, silent=True) or {}
         resume = body.get("resume")
         template_hint = str(
-            body.get("template") or body.get("template_name") or body.get("template_id") or ""
+            body.get("template") or body.get("template_name") or body.get(
+                "template_id"
+            ) or ""
         ).strip()
         if not isinstance(resume, dict):
-            return jsonify({"success": False, "error": "Invalid resume payload"}), 400
+            return jsonify(
+                {"success": False, "error": "Invalid resume payload"}
+            ), 400
 
-        token = _pdf_snapshot_store_put(resume, int(current_user.id), template_hint or None)
+        token = _pdf_snapshot_store_put(
+            resume,
+            int(current_user.id),
+            template_hint or None
+        )
         return jsonify({"success": True, "token": token})
     except Exception as e:
         logger.error("template_pdf snapshot store failed: %s", e)
-        return jsonify({"success": False, "error": "Could not store PDF snapshot."}), 500
+        return jsonify(
+            {"success": False, "error": "Could not store PDF snapshot."}
+        ), 500
 
 
 @app.route("/api/template-data", methods=["GET"])
@@ -12649,7 +15574,9 @@ def get_template_data():
     if snap_tok:
         ent = _pdf_snapshot_store_get(snap_tok)
         if not ent:
-            return jsonify({"error": "Invalid or expired PDF snapshot"}), 404
+            return jsonify(
+                {"error": "Invalid or expired PDF snapshot"}
+            ), 404
         if not current_user.is_authenticated:
             return jsonify({"error": "Authentication required"}), 401
         try:
@@ -12663,8 +15590,14 @@ def get_template_data():
             template_data = {}
         results_data = session.get("results_data") or {}
         source_revision_id = str(
-            (results_data.get("source_revision_id") if isinstance(results_data, dict) else None)
-            or (template_data.get("source_revision_id") if isinstance(template_data, dict) else None)
+            (results_data.get("source_revision_id") if isinstance(
+                results_data,
+                dict
+            ) else None)
+            or (template_data.get("source_revision_id") if isinstance(
+                template_data,
+                dict
+            ) else None)
             or ""
         ).strip()
 
@@ -12674,15 +15607,22 @@ def get_template_data():
 
         tmpl = str(ent.get("template_hint") or "").strip()
         if not tmpl:
-            tmpl = str(template_data.get("template_name") or "professional")
+            tmpl = str(
+                template_data.get("template_name") or "professional"
+            )
 
-        return jsonify({
-            "success": True,
-            "resume": resume_out,
-            "template": _canonical_template_id(tmpl),
-            "revised_resume": template_data.get("revised_resume", "") if isinstance(template_data, dict) else "",
-            "source_revision_id": source_revision_id,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "resume": resume_out,
+                "template": _canonical_template_id(tmpl),
+                "revised_resume": template_data.get(
+                    "revised_resume",
+                    ""
+                ) if isinstance(template_data, dict) else "",
+                "source_revision_id": source_revision_id,
+            }
+        )
 
     template_data = session.get('template_data')
     if not template_data:
@@ -12690,18 +15630,26 @@ def get_template_data():
 
     results_data = session.get('results_data') or {}
     source_revision_id = str(
-        (results_data.get('source_revision_id') if isinstance(results_data, dict) else None)
-        or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
+        (results_data.get('source_revision_id') if isinstance(
+            results_data,
+            dict
+        ) else None)
+        or (template_data.get('source_revision_id') if isinstance(
+            template_data,
+            dict
+        ) else None)
         or ''
     ).strip()
 
-    return jsonify({
-        "success": True,
-        "resume": template_data['structured_resume'],
-        "template": template_data['template_name'],
-        "revised_resume": template_data.get('revised_resume', ''),
-        "source_revision_id": source_revision_id,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "resume": template_data['structured_resume'],
+            "template": template_data['template_name'],
+            "revised_resume": template_data.get('revised_resume', ''),
+            "source_revision_id": source_revision_id,
+        }
+    )
 
 
 @app.route("/api/template-data", methods=["POST"])
@@ -12724,20 +15672,29 @@ def update_template_data():
             or ''
         ).strip()
         is_preview = bool(data.get('preview'))
-        requested_source_revision_id = str(data.get('source_revision_id') or '').strip()
+        requested_source_revision_id = str(
+            data.get('source_revision_id') or ''
+        ).strip()
         if not isinstance(resume, dict):
-            return jsonify({"success": False, "error": "Invalid resume payload"}), 400
+            return jsonify(
+                {"success": False, "error": "Invalid resume payload"}
+            ), 400
 
         # Allow the client to initialize a preview session even if parse-resume-for-template
         # has not run yet (e.g., live preview in the resume wizard).
         if not template_data:
             results_data = session.get('results_data') or {}
             source_revision_id = str(
-                (results_data.get('source_revision_id') if isinstance(results_data, dict) else None)
+                (results_data.get('source_revision_id') if isinstance(
+                    results_data,
+                    dict
+                ) else None)
                 or ''
             ).strip()
 
-            template_name = _canonical_template_id(requested_template_name or 'professional')
+            template_name = _canonical_template_id(
+                requested_template_name or 'professional'
+            )
             template_data = {
                 'structured_resume': resume,
                 'template_name': template_name,
@@ -12746,17 +15703,21 @@ def update_template_data():
             }
             session['template_data'] = template_data
             session.modified = True
-            return jsonify({
-                "success": True,
-                "template": template_name,
-                "persisted_to_hub": False,
-                "persist_reason": "preview" if is_preview else None,
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "template": template_name,
+                    "persisted_to_hub": False,
+                    "persist_reason": "preview" if is_preview else None,
+                }
+            )
 
         # Update only the structured resume. Keep template_name and revised_resume intact.
         template_data["structured_resume"] = resume
         if requested_template_name:
-            template_data["template_name"] = _canonical_template_id(requested_template_name)
+            template_data["template_name"] = _canonical_template_id(
+                requested_template_name
+            )
         session["template_data"] = template_data
         session.modified = True
 
@@ -12774,7 +15735,9 @@ def update_template_data():
                     results_data = session.get('results_data') or {}
                     source_revision_id = str(
                         results_data.get('source_revision_id')
-                        or (template_data.get('source_revision_id') if isinstance(template_data, dict) else None)
+                        or (template_data.get(
+                            'source_revision_id'
+                        ) if isinstance(template_data, dict) else None)
                         or ''
                     ).strip()
 
@@ -12786,13 +15749,17 @@ def update_template_data():
                             partition_key=str(current_user.id),
                             row_key=str(requested_source_revision_id),
                         )
-                        source_revision_id = str(requested_source_revision_id)
+                        source_revision_id = str(
+                            requested_source_revision_id
+                        )
                         # Repair session linkage for subsequent requests.
                         if isinstance(results_data, dict):
-                            results_data['source_revision_id'] = source_revision_id
+                            results_data[
+                                'source_revision_id'] = source_revision_id
                             session['results_data'] = results_data
                         if isinstance(template_data, dict):
-                            template_data['source_revision_id'] = source_revision_id
+                            template_data[
+                                'source_revision_id'] = source_revision_id
                             session['template_data'] = template_data
                         session.modified = True
                     except Exception:
@@ -12803,8 +15770,11 @@ def update_template_data():
                     # Auto-create a new revision for new resumes (created via template builder)
                     # that don't yet have a source_revision_id.
                     import uuid
+
                     source_revision_id = str(uuid.uuid4())
-                    revised_resume = str(template_data.get('revised_resume') or '')
+                    revised_resume = str(
+                        template_data.get('revised_resume') or ''
+                    )
 
                     try:
                         # Create a new revision entry in the database
@@ -12818,29 +15788,40 @@ def update_template_data():
                         )
                         # Update session to track the new revision ID for future saves
                         if isinstance(results_data, dict):
-                            results_data['source_revision_id'] = source_revision_id
+                            results_data[
+                                'source_revision_id'] = source_revision_id
                             session['results_data'] = results_data
                         if isinstance(template_data, dict):
-                            template_data['source_revision_id'] = source_revision_id
+                            template_data[
+                                'source_revision_id'] = source_revision_id
                             session['template_data'] = template_data
                     except FreeTierLimitReached:
                         # User has hit the free tier limit
                         persist_reason = 'free_tier_limit'
                         source_revision_id = None
                     except Exception as e:
-                        logger.error(f"Failed to auto-create revision: {str(e)}")
+                        logger.error(
+                            f"Failed to auto-create revision: {str(e)}"
+                        )
                         persist_reason = 'revision_creation_failed'
                         source_revision_id = None
 
                 if source_revision_id:
-                    template_id = _canonical_template_id(template_data.get('template_name') or 'professional')
+                    template_id = _canonical_template_id(
+                        template_data.get(
+                            'template_name'
+                        ) or 'professional'
+                    )
 
                     snapshot = json.dumps(resume, ensure_ascii=False)
                     snapshot_bytes = snapshot.encode('utf-8')
 
                     table_client = get_table_client()
                     try:
-                        existing = table_client.get_entity(partition_key=str(current_user.id), row_key=source_revision_id)
+                        existing = table_client.get_entity(
+                            partition_key=str(current_user.id),
+                            row_key=source_revision_id
+                        )
                     except Exception:
                         existing = None
 
@@ -12848,51 +15829,82 @@ def update_template_data():
                         persist_reason = 'revision_not_found'
                     else:
                         existing['template_id'] = template_id
-                        existing['template_saved_at'] = datetime.now(timezone.utc).isoformat()
+                        existing['template_saved_at'] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
 
                         # Track all saved templates for this revision (small JSON list)
                         try:
-                            current_list_raw = str(existing.get('template_saved_templates') or '').strip()
-                            current_list = json.loads(current_list_raw) if current_list_raw else []
+                            current_list_raw = str(
+                                existing.get(
+                                    'template_saved_templates'
+                                ) or ''
+                            ).strip()
+                            current_list = json.loads(
+                                current_list_raw
+                            ) if current_list_raw else []
                             if not isinstance(current_list, list):
                                 current_list = []
                         except Exception:
                             current_list = []
-                        saved_set = set([_canonical_template_id(t) for t in current_list if str(t or '').strip()])
+                        saved_set = set(
+                            [_canonical_template_id(t) for t in
+                             current_list if str(t or '').strip()]
+                        )
                         saved_set.add(template_id)
                         try:
-                            existing['template_saved_templates'] = json.dumps(sorted(saved_set), ensure_ascii=False)
+                            existing[
+                                'template_saved_templates'] = json.dumps(
+                                sorted(saved_set),
+                                ensure_ascii=False
+                            )
                         except Exception:
                             # Best effort; don't block saves
                             pass
 
                         # Store per-template snapshot (allows multiple template versions per revision)
-                        per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(template_id)
-                        existing[per_at_prop] = existing['template_saved_at']
+                        per_plain_prop, per_gz_prop, per_at_prop = _template_snapshot_prop_names(
+                            template_id
+                        )
+                        existing[per_at_prop] = existing[
+                            'template_saved_at']
 
                         # Azure Table Storage string properties have tight size limits.
                         # Prefer plain JSON when small; otherwise fall back to gzipped base64.
                         if len(snapshot_bytes) <= 60_000:
-                            existing['template_structured_resume'] = snapshot
-                            existing['template_structured_resume_gz_b64'] = ''
+                            existing[
+                                'template_structured_resume'] = snapshot
+                            existing[
+                                'template_structured_resume_gz_b64'] = ''
 
                             existing[per_plain_prop] = snapshot
                             existing[per_gz_prop] = ''
-                            table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                            table_client.update_entity(
+                                existing,
+                                mode=UpdateMode.MERGE
+                            )
                             persisted_to_hub = True
                             persisted_format = 'plain'
                         else:
                             import base64
                             import gzip
-                            gz = gzip.compress(snapshot_bytes, compresslevel=9)
+
+                            gz = gzip.compress(
+                                snapshot_bytes,
+                                compresslevel=9
+                            )
                             b64 = base64.b64encode(gz).decode('ascii')
                             if len(b64.encode('ascii')) <= 60_000:
                                 existing['template_structured_resume'] = ''
-                                existing['template_structured_resume_gz_b64'] = b64
+                                existing[
+                                    'template_structured_resume_gz_b64'] = b64
 
                                 existing[per_plain_prop] = ''
                                 existing[per_gz_prop] = b64
-                                table_client.update_entity(existing, mode=UpdateMode.MERGE)
+                                table_client.update_entity(
+                                    existing,
+                                    mode=UpdateMode.MERGE
+                                )
                                 persisted_to_hub = True
                                 persisted_format = 'gz_b64'
                             else:
@@ -12912,16 +15924,21 @@ def update_template_data():
         # Always return canonical template id so clients (e.g. create-resume iframe preview)
         # can navigate to /template-viewer/<id> even when this isn't the first POST in the session.
         resolved_template = _canonical_template_id(
-            (template_data.get('template_name') if isinstance(template_data, dict) else None)
+            (template_data.get('template_name') if isinstance(
+                template_data,
+                dict
+            ) else None)
             or 'professional'
         )
-        return jsonify({
-            "success": True,
-            "template": resolved_template,
-            "persisted_to_hub": bool(persisted_to_hub),
-            "persist_reason": persist_reason,
-            "persisted_format": persisted_format,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "template": resolved_template,
+                "persisted_to_hub": bool(persisted_to_hub),
+                "persist_reason": persist_reason,
+                "persisted_format": persisted_format,
+            }
+        )
     except Exception as e:
         logger.error(f"Error updating template data: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -12935,22 +15952,31 @@ def api_template_pdf(template_id):
     Client-side html2canvas/html2pdf fails on modern Tailwind color functions like oklab/oklch.
     This endpoint renders the existing React template route in Chromium and returns a PDF attachment.
     """
-    pdf_snap_tok_cleanup = str(request.args.get("pdfSnapshot") or "").strip()
+    pdf_snap_tok_cleanup = str(
+        request.args.get("pdfSnapshot") or ""
+    ).strip()
     step = "start"
     try:
         t0 = time.time()
+
         def _t() -> int:
             try:
                 return int((time.time() - t0) * 1000)
             except Exception:
                 return 0
 
-        logger.info("template_pdf start template=%s t=%sms", str(template_id or ''), _t())
+        logger.info(
+            "template_pdf start template=%s t=%sms",
+            str(template_id or ''),
+            _t()
+        )
         step = "paid_check"
         paid_flag = bool(is_paid_user(current_user))
         if _stripe_enabled():
             try:
-                paid_flag = bool(_refresh_paid_status_from_stripe_for_user(current_user))
+                paid_flag = bool(
+                    _refresh_paid_status_from_stripe_for_user(current_user)
+                )
             except Exception:
                 paid_flag = paid_flag
         if not paid_flag:
@@ -12974,6 +16000,7 @@ def api_template_pdf(template_id):
         if _ON_AZURE:
             try:
                 import ctypes
+
                 required_libs = [
                     "libglib-2.0.so.0",
                     "libnss3.so",
@@ -13001,7 +16028,10 @@ def api_template_pdf(template_id):
                     except Exception:
                         missing.append(lib)
                 if missing:
-                    logger.warning("template_pdf deps_missing missing=%s", ",".join(missing))
+                    logger.warning(
+                        "template_pdf deps_missing missing=%s",
+                        ",".join(missing)
+                    )
                     return (
                         "PDF dependencies are still installing on the server. "
                         "Please wait 2–3 minutes and try again.",
@@ -13011,18 +16041,26 @@ def api_template_pdf(template_id):
                 # If probe fails, continue and let Playwright report the real error.
                 pass
 
-
         step = "canonicalize"
         canonical = _canonical_template_id(template_id or 'professional')
 
         # Use public URL. 127.0.0.1 caused deadlock with 1 worker (worker busy can't serve Chromium's request).
         step = "build_target_url"
         base_url = request.host_url.rstrip('/')
-        target_url = base_url + url_for('react_app', subpath=f"template-download/{canonical}")
+        target_url = base_url + url_for(
+            'react_app',
+            subpath=f"template-download/{canonical}"
+        )
         if pdf_snap_tok_cleanup:
             join = "&" if ("?" in target_url) else "?"
-            target_url = target_url + join + urlencode({"pdf_snapshot": pdf_snap_tok_cleanup})
-        logger.info("template_pdf navigate url=%s t=%sms", target_url, _t())
+            target_url = target_url + join + urlencode(
+                {"pdf_snapshot": pdf_snap_tok_cleanup}
+            )
+        logger.info(
+            "template_pdf navigate url=%s t=%sms",
+            target_url,
+            _t()
+        )
 
         # Style overrides (match TemplateViewer sliders)
         def _clamp(v: float, lo: float, hi: float) -> float:
@@ -13037,9 +16075,21 @@ def api_template_pdf(template_id):
             return float(v)
 
         try:
-            font_scale = _clamp(request.args.get('fontScale', 1.0), 0.6, 1.6)
-            paragraph_gap_px = _clamp(request.args.get('paragraphGapPx', 0.0), -80, 300)
-            spacing_scale = _clamp(request.args.get('spacingScale', 1.0), 0.0, 6.0)
+            font_scale = _clamp(
+                request.args.get('fontScale', 1.0),
+                0.6,
+                1.6
+            )
+            paragraph_gap_px = _clamp(
+                request.args.get('paragraphGapPx', 0.0),
+                -80,
+                300
+            )
+            spacing_scale = _clamp(
+                request.args.get('spacingScale', 1.0),
+                0.0,
+                6.0
+            )
         except Exception:
             font_scale, paragraph_gap_px, spacing_scale = 1.0, 0.0, 1.0
         logger.info(
@@ -13052,11 +16102,15 @@ def api_template_pdf(template_id):
 
         _pdf_debug = False
         try:
-            _pdf_debug = str(request.args.get('debug') or '').strip().lower() in ('1', 'true', 'yes')
+            _pdf_debug = str(
+                request.args.get('debug') or ''
+            ).strip().lower() in ('1', 'true', 'yes')
         except Exception:
             _pdf_debug = False
         try:
-            _pdf_debug = _pdf_debug or (str(os.getenv('PDF_DEBUG') or '').strip().lower() in ('1', 'true', 'yes'))
+            _pdf_debug = _pdf_debug or (str(
+                os.getenv('PDF_DEBUG') or ''
+            ).strip().lower() in ('1', 'true', 'yes'))
         except Exception:
             _pdf_debug = _pdf_debug
 
@@ -13067,7 +16121,9 @@ def api_template_pdf(template_id):
         cookie_base = base_url + "/"
         for name, value in (request.cookies or {}).items():
             try:
-                cookies.append({"name": name, "value": value, "url": cookie_base})
+                cookies.append(
+                    {"name": name, "value": value, "url": cookie_base}
+                )
             except Exception:
                 pass
 
@@ -13100,11 +16156,36 @@ def api_template_pdf(template_id):
             if _ON_AZURE:
                 try:
                     import glob as _glob
-                    browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+
+                    browsers_path = (os.getenv(
+                        "PLAYWRIGHT_BROWSERS_PATH"
+                    ) or "/home/site/wwwroot/ms-playwright").strip()
                     candidates = []
-                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome"))
-                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome-wrapper"))
-                    candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "**", "chrome"), recursive=True)
+                    candidates += _glob.glob(
+                        os.path.join(
+                            browsers_path,
+                            "chromium-*",
+                            "chrome-linux",
+                            "chrome"
+                        )
+                    )
+                    candidates += _glob.glob(
+                        os.path.join(
+                            browsers_path,
+                            "chromium-*",
+                            "chrome-linux",
+                            "chrome-wrapper"
+                        )
+                    )
+                    candidates += _glob.glob(
+                        os.path.join(
+                            browsers_path,
+                            "chromium-*",
+                            "**",
+                            "chrome"
+                        ),
+                        recursive=True
+                    )
                     candidates = sorted({c for c in candidates if c})
                     if candidates:
                         chromium_executable_path = candidates[0]
@@ -13113,9 +16194,17 @@ def api_template_pdf(template_id):
 
             if _ON_AZURE and chromium_executable_path:
                 launch_kwargs["executable_path"] = chromium_executable_path
-                logger.info("template_pdf chromium_launch exec=%s t=%sms", chromium_executable_path, _t())
+                logger.info(
+                    "template_pdf chromium_launch exec=%s t=%sms",
+                    chromium_executable_path,
+                    _t()
+                )
             else:
-                logger.info("template_pdf chromium_launch exec=%s t=%sms", "(default)", _t())
+                logger.info(
+                    "template_pdf chromium_launch exec=%s t=%sms",
+                    "(default)",
+                    _t()
+                )
 
             # Reuse Chromium safely by keeping a browser per server thread.
             # This avoids expensive per-request launches while respecting Playwright sync thread affinity.
@@ -13141,6 +16230,7 @@ def api_template_pdf(template_id):
                 if "/static/fonts/" in url:
                     try:
                         from urllib.parse import unquote, urlparse
+
                         parsed = urlparse(req.url)
                         path = unquote(parsed.path)
                         if path.startswith("/static/fonts/"):
@@ -13148,38 +16238,67 @@ def api_template_pdf(template_id):
                             local_path = os.path.join(_fonts_dir, rel)
                             if rel == "inter.css" and _font_b64_cache:
                                 # Serve CSS with base64-embedded fonts (zero fetch, guaranteed load).
-                                css_path = os.path.join(_fonts_dir, "inter.css")
+                                css_path = os.path.join(
+                                    _fonts_dir,
+                                    "inter.css"
+                                )
                                 if os.path.isfile(css_path):
-                                    with open(css_path, "r", encoding="utf-8") as f:
+                                    with open(
+                                            css_path,
+                                            "r",
+                                            encoding="utf-8"
+                                    ) as f:
                                         css = f.read()
                                     for fname, b64 in _font_b64_cache.items():
                                         css = css.replace(
                                             f"url(/static/fonts/inter/{fname})",
                                             f"url(data:font/woff2;base64,{b64})",
                                         )
-                                    route.fulfill(status=200, body=css.encode("utf-8"), content_type="text/css")
+                                    route.fulfill(
+                                        status=200,
+                                        body=css.encode("utf-8"),
+                                        content_type="text/css"
+                                    )
                                     return
                             elif os.path.isfile(local_path):
                                 with open(local_path, "rb") as f:
                                     body = f.read()
-                                mime = "font/woff2" if local_path.endswith(".woff2") else "text/css"
-                                route.fulfill(status=200, body=body, content_type=mime)
+                                mime = "font/woff2" if local_path.endswith(
+                                    ".woff2"
+                                ) else "text/css"
+                                route.fulfill(
+                                    status=200,
+                                    body=body,
+                                    content_type=mime
+                                )
                                 return
                     except Exception as e:
-                        logger.warning("template_pdf font_fulfill url=%s err=%s", req.url, e)
+                        logger.warning(
+                            "template_pdf font_fulfill url=%s err=%s",
+                            req.url,
+                            e
+                        )
                 route.continue_()
+
             try:
                 page.route("**/*", _handle_route)
             except Exception:
                 pass
             step = "page_goto"
-            page.goto(target_url, wait_until="domcontentloaded", timeout=90000)
+            page.goto(
+                target_url,
+                wait_until="domcontentloaded",
+                timeout=90000
+            )
             logger.info("template_pdf domcontentloaded t=%sms", _t())
 
             # Prefer the dedicated export root, but be resilient to cached/older frontend builds.
             step = "wait_export_root"
             try:
-                page.wait_for_selector("#templatePrintContent", timeout=8000)
+                page.wait_for_selector(
+                    "#templatePrintContent",
+                    timeout=8000
+                )
             except Exception:
                 page.wait_for_selector(".tv-style-root", timeout=60000)
             logger.info("template_pdf selector_ready t=%sms", _t())
@@ -13622,7 +16741,9 @@ def api_template_pdf(template_id):
                                                                                         }
                       document.head.appendChild(style);
                     }""",
-                                {"fontScale": font_scale, "paragraphGapPx": paragraph_gap_px, "spacingScale": spacing_scale, "debug": _pdf_debug},
+                {"fontScale": font_scale,
+                 "paragraphGapPx": paragraph_gap_px,
+                 "spacingScale": spacing_scale, "debug": _pdf_debug},
             )
             logger.info("template_pdf print_css_ready t=%sms", _t())
 
@@ -13638,13 +16759,26 @@ def api_template_pdf(template_id):
             # If debug mode is enabled, save a screenshot + HTML of the rendered export.
             if _pdf_debug:
                 try:
-                    _pdf_debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_store', 'pdf_debug')
+                    _pdf_debug_dir = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        'temp_store',
+                        'pdf_debug'
+                    )
                     os.makedirs(_pdf_debug_dir, exist_ok=True)
 
-                    safe_id = ''.join([c for c in str(canonical or 'template') if c.isalnum() or c in ('-', '_')])
+                    safe_id = ''.join(
+                        [c for c in str(canonical or 'template') if
+                         c.isalnum() or c in ('-', '_')]
+                    )
                     ts = int(time.time())
-                    shot_path = os.path.join(_pdf_debug_dir, f'{safe_id}-render-{ts}.png')
-                    html_path = os.path.join(_pdf_debug_dir, f'{safe_id}-render-{ts}.html')
+                    shot_path = os.path.join(
+                        _pdf_debug_dir,
+                        f'{safe_id}-render-{ts}.png'
+                    )
+                    html_path = os.path.join(
+                        _pdf_debug_dir,
+                        f'{safe_id}-render-{ts}.html'
+                    )
 
                     # Screenshot the whole page; includes the magenta debug bar at y=0.
                     page.screenshot(path=shot_path, full_page=True)
@@ -13661,10 +16795,19 @@ def api_template_pdf(template_id):
                     except Exception:
                         pass
 
-                    logger.info('template_pdf debug_saved dir=%s files=%s t=%sms', _pdf_debug_dir, ';'.join(_pdf_debug_files), _t())
+                    logger.info(
+                        'template_pdf debug_saved dir=%s files=%s t=%sms',
+                        _pdf_debug_dir,
+                        ';'.join(_pdf_debug_files),
+                        _t()
+                    )
                 except Exception as _e:
                     try:
-                        logger.info('template_pdf debug_save_failed err=%r t=%sms', _e, _t())
+                        logger.info(
+                            'template_pdf debug_save_failed err=%r t=%sms',
+                            _e,
+                            _t()
+                        )
                     except Exception:
                         pass
 
@@ -13743,6 +16886,7 @@ def api_template_pdf(template_id):
                     )
 
                     import json as _json
+
                     try:
                         logger.info(
                             "template_pdf creative2_debug=%s t=%sms",
@@ -13750,47 +16894,88 @@ def api_template_pdf(template_id):
                             _t(),
                         )
                     except Exception as _e:
-                        logger.info("template_pdf creative2_debug_dump_failed err=%r t=%sms", _e, _t())
+                        logger.info(
+                            "template_pdf creative2_debug_dump_failed err=%r t=%sms",
+                            _e,
+                            _t()
+                        )
 
                     try:
-                        temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_store')
+                        temp_dir = os.path.join(
+                            os.path.dirname(os.path.abspath(__file__)),
+                            'temp_store'
+                        )
                         os.makedirs(temp_dir, exist_ok=True)
 
-                        dbg_path = os.path.join(temp_dir, 'creative2-debug.json')
+                        dbg_path = os.path.join(
+                            temp_dir,
+                            'creative2-debug.json'
+                        )
                         try:
-                            _dbg_payload = _json.dumps(dbg, ensure_ascii=False, indent=2, default=str)
+                            _dbg_payload = _json.dumps(
+                                dbg,
+                                ensure_ascii=False,
+                                indent=2,
+                                default=str
+                            )
                         except Exception as _e:
                             _dbg_payload = _json.dumps(
                                 {
                                     "error": repr(_e),
                                     "dbg_type": str(type(dbg)),
-                                    "dbg_keys": list(dbg.keys()) if isinstance(dbg, dict) else None,
+                                    "dbg_keys": list(
+                                        dbg.keys()
+                                    ) if isinstance(
+                                        dbg,
+                                        dict
+                                    ) else None,
                                 },
                                 ensure_ascii=False,
                                 indent=2,
                             )
                         with open(dbg_path, 'w', encoding='utf-8') as f:
                             f.write(_dbg_payload)
-                        logger.info("template_pdf creative2_debug_file=%s t=%sms", dbg_path, _t())
+                        logger.info(
+                            "template_pdf creative2_debug_file=%s t=%sms",
+                            dbg_path,
+                            _t()
+                        )
 
                         try:
                             import time as _time
+
                             _shot_ts = int(_time.time())
                         except Exception:
                             _shot_ts = 0
 
                         # If the previous PNG is open in an image viewer, overwriting can fail on Windows.
                         # Always write a timestamped screenshot, and also try to update the stable filename.
-                        shot_path = os.path.join(temp_dir, f'creative2-html-debug-{_shot_ts}.png' if _shot_ts else 'creative2-html-debug-new.png')
+                        shot_path = os.path.join(
+                            temp_dir,
+                            f'creative2-html-debug-{_shot_ts}.png' if _shot_ts else 'creative2-html-debug-new.png'
+                        )
                         page.screenshot(path=shot_path, full_page=True)
                         try:
-                            with open(os.path.join(temp_dir, 'creative2-html-debug-latest.txt'), 'w', encoding='utf-8') as _f:
+                            with open(
+                                    os.path.join(
+                                        temp_dir,
+                                        'creative2-html-debug-latest.txt'
+                                    ),
+                                    'w',
+                                    encoding='utf-8'
+                            ) as _f:
                                 _f.write(os.path.basename(shot_path))
                         except Exception:
                             pass
                         try:
-                            stable_path = os.path.join(temp_dir, 'creative2-html-debug.png')
-                            page.screenshot(path=stable_path, full_page=True)
+                            stable_path = os.path.join(
+                                temp_dir,
+                                'creative2-html-debug.png'
+                            )
+                            page.screenshot(
+                                path=stable_path,
+                                full_page=True
+                            )
                         except Exception:
                             stable_path = None
                         logger.info(
@@ -13800,7 +16985,11 @@ def api_template_pdf(template_id):
                             _t(),
                         )
                     except Exception as _e:
-                        logger.info("template_pdf creative2_debug_artifacts_failed err=%r t=%sms", _e, _t())
+                        logger.info(
+                            "template_pdf creative2_debug_artifacts_failed err=%r t=%sms",
+                            _e,
+                            _t()
+                        )
                 except Exception:
                     pass
 
@@ -13815,7 +17004,11 @@ def api_template_pdf(template_id):
                 format="Letter",
                 print_background=True,
             )
-            logger.info("template_pdf pdf_ready bytes=%s t=%sms", len(pdf_bytes or b""), _t())
+            logger.info(
+                "template_pdf pdf_ready bytes=%s t=%sms",
+                len(pdf_bytes or b""),
+                _t()
+            )
         finally:
             try:
                 if context:
@@ -13836,7 +17029,8 @@ def api_template_pdf(template_id):
         )
         # Prevent stale cached PDFs after template/CSS changes.
         try:
-            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers[
+                "Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         except Exception:
             pass
         try:
@@ -13853,7 +17047,11 @@ def api_template_pdf(template_id):
             resp.headers["X-Resumatic-Build"] = str(_BUILD_ID)
         except Exception as _e:
             try:
-                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Build", _e)
+                logger.info(
+                    "template_pdf header_set_failed key=%s err=%r",
+                    "X-Resumatic-Build",
+                    _e
+                )
             except Exception:
                 pass
 
@@ -13863,17 +17061,29 @@ def api_template_pdf(template_id):
         except Exception:
             pass
         try:
-            resp.headers["X-Resumatic-Template-Requested"] = str(template_id or "")
+            resp.headers["X-Resumatic-Template-Requested"] = str(
+                template_id or ""
+            )
         except Exception as _e:
             try:
-                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Template-Requested", _e)
+                logger.info(
+                    "template_pdf header_set_failed key=%s err=%r",
+                    "X-Resumatic-Template-Requested",
+                    _e
+                )
             except Exception:
                 pass
         try:
-            resp.headers["X-Resumatic-Template-Canonical"] = str(canonical or "")
+            resp.headers["X-Resumatic-Template-Canonical"] = str(
+                canonical or ""
+            )
         except Exception as _e:
             try:
-                logger.info("template_pdf header_set_failed key=%s err=%r", "X-Resumatic-Template-Canonical", _e)
+                logger.info(
+                    "template_pdf header_set_failed key=%s err=%r",
+                    "X-Resumatic-Template-Canonical",
+                    _e
+                )
             except Exception:
                 pass
         try:
@@ -13887,20 +17097,32 @@ def api_template_pdf(template_id):
 
         if _pdf_debug_dir:
             try:
-                resp.headers["X-Resumatic-PDF-Debug-Dir"] = str(_pdf_debug_dir)
+                resp.headers["X-Resumatic-PDF-Debug-Dir"] = str(
+                    _pdf_debug_dir
+                )
             except Exception:
                 pass
         if _pdf_debug_files:
             try:
-                resp.headers["X-Resumatic-PDF-Debug-Files"] = ';'.join([os.path.basename(p) for p in _pdf_debug_files if p])
+                resp.headers["X-Resumatic-PDF-Debug-Files"] = ';'.join(
+                    [os.path.basename(p) for p in _pdf_debug_files if p]
+                )
             except Exception:
                 pass
         return resp
     except Exception as e:
-        logger.exception("template_pdf failed template=%s step=%s", str(template_id or ''), str(step or ''))
+        logger.exception(
+            "template_pdf failed template=%s step=%s",
+            str(template_id or ''),
+            str(step or '')
+        )
         msg = f"{type(e).__name__}: {str(e) or 'PDF generation failed.'} (step={step})"
         # Missing libs or Chromium launch failure: return 503 so user can retry after startup finishes.
-        if any(x in msg for x in (".so", "libglib", "libnss", "libgtk", "libX11", "shared library", "Executable doesn't exist")):
+        if any(
+                x in msg for x in (
+                        ".so", "libglib", "libnss", "libgtk", "libX11",
+                        "shared library", "Executable doesn't exist")
+        ):
             return (
                 "PDF dependencies are still installing on the server. "
                 "Please wait 2–3 minutes after deploy and try again.",
@@ -13950,25 +17172,37 @@ def api_ai_resume_edit():
         }
         field = field_aliases.get(field, field)
 
-        allowed_fields = {'summary', 'experience_description', 'job_description', 'custom_section', 'project_description'}
+        allowed_fields = {'summary', 'experience_description',
+                          'job_description', 'custom_section',
+                          'project_description'}
         if field not in allowed_fields:
-            return jsonify({
-                "success": False,
-                "error": f"Invalid field: {field_raw.strip() or '(empty)'}",
-            }), 400
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Invalid field: {field_raw.strip() or '(empty)'}",
+                }
+            ), 400
 
         text = text.strip()
         if not text:
-            return jsonify({"success": False, "error": "Missing text"}), 400
+            return jsonify(
+                {"success": False, "error": "Missing text"}
+            ), 400
         if len(text) > 12000:
-            return jsonify({"success": False, "error": "Text too long"}), 400
+            return jsonify(
+                {"success": False, "error": "Text too long"}
+            ), 400
 
         api_key = (os.getenv('OPENAI_API_KEY') or '').strip()
         api_key = api_key.strip('"').strip("'").strip()
         if not api_key:
-            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+            return jsonify(
+                {"success": False,
+                 "error": "OPENAI_API_KEY not configured"}
+            ), 500
 
         from openai import OpenAI
+
         client = OpenAI(api_key=api_key, timeout=60.0, max_retries=2)
         model = (os.getenv('OPENAI_RESUME_EDIT_MODEL') or 'gpt-4o').strip()
 
@@ -13980,11 +17214,12 @@ def api_ai_resume_edit():
                 "Return ONLY the rewritten summary text (no commentary)."
             )
             user_msg = (
-                "Rewrite this Professional Summary. Keep it 2-4 lines (or 3-5 bullets). "
-                "Prefer strong action verbs and concrete skills mentioned in the original. "
-                "If a job description is provided, you may align wording to it WITHOUT adding new claims.\n\n"
-                + (f"JOB DESCRIPTION (context only):\n{jd}\n\n" if jd else "")
-                + f"SUMMARY:\n{text}"
+                    "Rewrite this Professional Summary. Keep it 2-4 lines (or 3-5 bullets). "
+                    "Prefer strong action verbs and concrete skills mentioned in the original. "
+                    "If a job description is provided, you may align wording to it WITHOUT adding new claims.\n\n"
+                    + (
+                        f"JOB DESCRIPTION (context only):\n{jd}\n\n" if jd else "")
+                    + f"SUMMARY:\n{text}"
             )
         elif field == 'job_description':
             sys_msg = (
@@ -13998,21 +17233,26 @@ def api_ai_resume_edit():
                 f"JOB DESCRIPTION:\n{text}"
             )
         elif field == 'custom_section':
-            heading = str(meta.get('heading') or meta.get('section') or '').strip()
+            heading = str(
+                meta.get('heading') or meta.get('section') or ''
+            ).strip()
             sys_msg = (
                 "You are a resume writing assistant. Rewrite content for a resume section to be concise, ATS-friendly, and truthful. "
                 "Do NOT invent facts, metrics, titles, dates, awards, credentials, or organizations. Preserve the user's meaning. "
                 "Return ONLY the rewritten content (no commentary)."
             )
             user_msg = (
-                "Rewrite the following resume section content to be more professional and scannable. "
-                "Prefer bullets where appropriate. Keep it consistent with a resume tone.\n\n"
-                + (f"SECTION TITLE (context): {heading}\n\n" if heading else "")
-                + f"ORIGINAL CONTENT:\n{text}"
+                    "Rewrite the following resume section content to be more professional and scannable. "
+                    "Prefer bullets where appropriate. Keep it consistent with a resume tone.\n\n"
+                    + (
+                        f"SECTION TITLE (context): {heading}\n\n" if heading else "")
+                    + f"ORIGINAL CONTENT:\n{text}"
             )
         elif field == 'project_description':
             title = str(meta.get('title') or '').strip()
-            tech = str(meta.get('technologies') or meta.get('tech') or '').strip()
+            tech = str(
+                meta.get('technologies') or meta.get('tech') or ''
+            ).strip()
             link = str(meta.get('link') or meta.get('url') or '').strip()
             ctx_bits = [b for b in [title, tech, link] if b]
             ctx = " | ".join(ctx_bits)
@@ -14022,15 +17262,19 @@ def api_ai_resume_edit():
                 "Return ONLY the rewritten project description (no commentary)."
             )
             user_msg = (
-                "Rewrite the following project description for a resume. Keep it short and scannable. "
-                "Prefer 2-4 bullets if the original looks like bullets or spans multiple lines; otherwise use 1-2 crisp sentences. "
-                "Keep the same meaning and technologies already mentioned.\n\n"
-                + (f"PROJECT CONTEXT: {ctx}\n\n" if ctx else "")
-                + f"ORIGINAL DESCRIPTION:\n{text}"
+                    "Rewrite the following project description for a resume. Keep it short and scannable. "
+                    "Prefer 2-4 bullets if the original looks like bullets or spans multiple lines; otherwise use 1-2 crisp sentences. "
+                    "Keep the same meaning and technologies already mentioned.\n\n"
+                    + (f"PROJECT CONTEXT: {ctx}\n\n" if ctx else "")
+                    + f"ORIGINAL DESCRIPTION:\n{text}"
             )
         else:
-            title = str(meta.get('title') or meta.get('role') or '').strip()
-            company = str(meta.get('company') or meta.get('organization') or '').strip()
+            title = str(
+                meta.get('title') or meta.get('role') or ''
+            ).strip()
+            company = str(
+                meta.get('company') or meta.get('organization') or ''
+            ).strip()
             dates = str(meta.get('dates') or '').strip()
             context = " · ".join([x for x in [title, company, dates] if x])
             sys_msg = (
@@ -14052,12 +17296,16 @@ def api_ai_resume_edit():
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.4,
-            max_tokens=700 if field in {'job_description', 'custom_section'} else (600 if field == 'project_description' else 500),
+            max_tokens=700 if field in {'job_description',
+                                        'custom_section'} else (
+                600 if field == 'project_description' else 500),
         )
 
         out = (resp.choices[0].message.content or '').strip()
         if not out:
-            return jsonify({"success": False, "error": "Empty AI response"}), 502
+            return jsonify(
+                {"success": False, "error": "Empty AI response"}
+            ), 502
 
         # Safety: keep responses bounded.
         if len(out) > 20000:
@@ -14066,7 +17314,9 @@ def api_ai_resume_edit():
 
     except Exception as e:
         try:
-            logger.error(f"AI resume edit failed: {type(e).__name__}: {str(e)}")
+            logger.error(
+                f"AI resume edit failed: {type(e).__name__}: {str(e)}"
+            )
         except Exception:
             pass
         return jsonify({"success": False, "error": "AI edit failed"}), 500
@@ -14105,7 +17355,8 @@ def _coach_chat_completion(client, messages):
         try:
             request_kwargs = {"model": model, "messages": messages}
             if model.startswith('gpt-5'):
-                request_kwargs["max_completion_tokens"] = _JOB_COACH_MAX_OUTPUT_TOKENS
+                request_kwargs[
+                    "max_completion_tokens"] = _JOB_COACH_MAX_OUTPUT_TOKENS
             else:
                 request_kwargs["temperature"] = 0.5
                 request_kwargs["max_tokens"] = _JOB_COACH_MAX_OUTPUT_TOKENS
@@ -14114,7 +17365,12 @@ def _coach_chat_completion(client, messages):
         except Exception as exc:
             last_exc = exc
             try:
-                logger.warning("Job search coach model %s failed: %s: %s", model, type(exc).__name__, str(exc)[:240])
+                logger.warning(
+                    "Job search coach model %s failed: %s: %s",
+                    model,
+                    type(exc).__name__,
+                    str(exc)[:240]
+                )
             except Exception:
                 pass
     if last_exc is not None:
@@ -14157,16 +17413,23 @@ def _admin_assistant_chat_completion(client, messages, tools=None):
                 request_kwargs["tools"] = tools
                 request_kwargs["tool_choice"] = "auto"
             if model.startswith('gpt-5'):
-                request_kwargs["max_completion_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
+                request_kwargs[
+                    "max_completion_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
             else:
                 request_kwargs["temperature"] = 0.2
-                request_kwargs["max_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
+                request_kwargs[
+                    "max_tokens"] = _ADMIN_ASSISTANT_MAX_OUTPUT_TOKENS
             resp = client.chat.completions.create(**request_kwargs)
             return resp, model
         except Exception as exc:
             last_exc = exc
             try:
-                logger.warning("Admin assistant model %s failed: %s: %s", model, type(exc).__name__, str(exc)[:240])
+                logger.warning(
+                    "Admin assistant model %s failed: %s: %s",
+                    model,
+                    type(exc).__name__,
+                    str(exc)[:240]
+                )
             except Exception:
                 pass
     if last_exc is not None:
@@ -14184,17 +17447,28 @@ def _read_admin_feedback_rows(limit: int = 100) -> list[dict]:
         with open(feedback_path, 'r', encoding='utf-8', newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                rows.append({
-                    'timestamp_iso': str(row.get('timestamp_iso') or '').strip(),
-                    'user_id': str(row.get('user_id') or '').strip(),
-                    'user_email': str(row.get('user_email') or '').strip(),
-                    'rating': str(row.get('rating') or '').strip(),
-                    'comment': str(row.get('comment') or '').strip(),
-                    'comparison': str(row.get('comparison') or '').strip(),
-                })
+                rows.append(
+                    {
+                        'timestamp_iso': str(
+                            row.get('timestamp_iso') or ''
+                        ).strip(),
+                        'user_id': str(row.get('user_id') or '').strip(),
+                        'user_email': str(
+                            row.get('user_email') or ''
+                        ).strip(),
+                        'rating': str(row.get('rating') or '').strip(),
+                        'comment': str(row.get('comment') or '').strip(),
+                        'comparison': str(
+                            row.get('comparison') or ''
+                        ).strip(),
+                    }
+                )
     except Exception as e:
         try:
-            logger.warning("Failed to read admin feedback rows: %s", str(e))
+            logger.warning(
+                "Failed to read admin feedback rows: %s",
+                str(e)
+            )
         except Exception:
             pass
         return []
@@ -14203,16 +17477,25 @@ def _read_admin_feedback_rows(limit: int = 100) -> list[dict]:
 
 def _admin_assistant_slim_user_row(row: dict) -> dict:
     return {
-        'user_id': str(row.get('user_id') or row.get('id') or row.get('PartitionKey') or '').strip(),
+        'user_id': str(
+            row.get('user_id') or row.get('id') or row.get(
+                'PartitionKey'
+            ) or ''
+        ).strip(),
         'email': str(row.get('email') or '').strip(),
         'name': str(row.get('name') or '').strip(),
         'provider': str(row.get('provider') or '').strip(),
         'plan_status': str(row.get('plan_status') or '').strip(),
-        'is_subscriber': str(row.get('is_subscriber') or '').strip() or ('yes' if _profile_indicates_paid(row) else 'no'),
+        'is_subscriber': str(row.get('is_subscriber') or '').strip() or (
+            'yes' if _profile_indicates_paid(row) else 'no'),
         'sign_up_date': str(row.get('sign_up_date') or '').strip(),
         'last_login_date': str(row.get('last_login_date') or '').strip(),
-        'last_login_method': str(row.get('last_login_method') or '').strip(),
-        'revision_count': int(row.get('revision_count') or row.get('revisions') or 0),
+        'last_login_method': str(
+            row.get('last_login_method') or ''
+        ).strip(),
+        'revision_count': int(
+            row.get('revision_count') or row.get('revisions') or 0
+        ),
     }
 
 
@@ -14221,14 +17504,17 @@ def _admin_assistant_json_safe(value):
         return value
     if isinstance(value, datetime):
         try:
-            dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            dt = value if value.tzinfo else value.replace(
+                tzinfo=timezone.utc
+            )
             return dt.isoformat()
         except Exception:
             return str(value)
     if isinstance(value, (list, tuple)):
         return [_admin_assistant_json_safe(v) for v in value]
     if isinstance(value, dict):
-        return {str(k): _admin_assistant_json_safe(v) for k, v in value.items()}
+        return {str(k): _admin_assistant_json_safe(v) for k, v in
+                value.items()}
     try:
         if hasattr(value, 'isoformat'):
             return value.isoformat()
@@ -14237,11 +17523,19 @@ def _admin_assistant_json_safe(value):
     return str(value)
 
 
-def _admin_assistant_row_matches_filters(row: dict, *, search: str = '', partition_key: str = '', row_key: str = '') -> bool:
+def _admin_assistant_row_matches_filters(
+        row: dict,
+        *,
+        search: str = '',
+        partition_key: str = '',
+        row_key: str = ''
+) -> bool:
     pk_filter = str(partition_key or '').strip().lower()
     rk_filter = str(row_key or '').strip().lower()
     needle = str(search or '').strip().lower()
-    pk = str(row.get('PartitionKey') or row.get('partition_key') or '').strip().lower()
+    pk = str(
+        row.get('PartitionKey') or row.get('partition_key') or ''
+    ).strip().lower()
     rk = str(row.get('RowKey') or row.get('row_key') or '').strip().lower()
     if pk_filter and pk != pk_filter:
         return False
@@ -14249,7 +17543,11 @@ def _admin_assistant_row_matches_filters(row: dict, *, search: str = '', partiti
         return False
     if needle:
         try:
-            haystack = json.dumps(_admin_assistant_json_safe(row), ensure_ascii=False, default=str).lower()
+            haystack = json.dumps(
+                _admin_assistant_json_safe(row),
+                ensure_ascii=False,
+                default=str
+            ).lower()
         except Exception:
             haystack = str(row).lower()
         if needle not in haystack:
@@ -14257,17 +17555,25 @@ def _admin_assistant_row_matches_filters(row: dict, *, search: str = '', partiti
     return True
 
 
-def _admin_assistant_get_login_audit_rows(limit: int = 25, offset: int = 0, partition_key: str = '', row_key: str = '', search: str = '') -> dict:
+def _admin_assistant_get_login_audit_rows(
+        limit: int = 25,
+        offset: int = 0,
+        partition_key: str = '',
+        row_key: str = '',
+        search: str = ''
+) -> dict:
     safe_limit = max(1, min(int(limit or 25), 100))
     safe_offset = max(0, int(offset or 0))
-    rows = _azure_login_audit_list(limit=0) if _azure_login_audit_enabled() else []
+    rows = _azure_login_audit_list(
+        limit=0
+    ) if _azure_login_audit_enabled() else []
     filtered = []
     for row in rows:
         if _admin_assistant_row_matches_filters(
-            row,
-            search=search,
-            partition_key=partition_key,
-            row_key=row_key,
+                row,
+                search=search,
+                partition_key=partition_key,
+                row_key=row_key,
         ):
             filtered.append(_admin_assistant_json_safe(dict(row)))
     total = len(filtered)
@@ -14283,22 +17589,34 @@ def _admin_assistant_get_login_audit_rows(limit: int = 25, offset: int = 0, part
     }
 
 
-def _admin_assistant_get_resume_revision_rows(limit: int = 25, offset: int = 0, partition_key: str = '', row_key: str = '', search: str = '') -> dict:
+def _admin_assistant_get_resume_revision_rows(
+        limit: int = 25,
+        offset: int = 0,
+        partition_key: str = '',
+        row_key: str = '',
+        search: str = ''
+) -> dict:
     safe_limit = max(1, min(int(limit or 25), 100))
     safe_offset = max(0, int(offset or 0))
     out = []
     try:
-        table_client = get_table_client('ResumeRevisions', create_if_missing=False)
+        table_client = get_table_client(
+            'ResumeRevisions',
+            create_if_missing=False
+        )
         for entity in table_client.list_entities():
             try:
-                row = dict(entity) if not isinstance(entity, dict) else dict(entity)
+                row = dict(entity) if not isinstance(
+                    entity,
+                    dict
+                ) else dict(entity)
             except Exception:
                 continue
             if _admin_assistant_row_matches_filters(
-                row,
-                search=search,
-                partition_key=partition_key,
-                row_key=row_key,
+                    row,
+                    search=search,
+                    partition_key=partition_key,
+                    row_key=row_key,
             ):
                 out.append(_admin_assistant_json_safe(row))
     except Exception as e:
@@ -14314,7 +17632,9 @@ def _admin_assistant_get_resume_revision_rows(limit: int = 25, offset: int = 0, 
         }
     try:
         out.sort(
-            key=lambda r: str(r.get('timestamp') or r.get('Timestamp') or ''),
+            key=lambda r: str(
+                r.get('timestamp') or r.get('Timestamp') or ''
+            ),
             reverse=True,
         )
     except Exception:
@@ -14349,7 +17669,15 @@ def _admin_assistant_normalize_select(select) -> list[str]:
     return out[:25]
 
 
-def _admin_assistant_query_table_rows(table_name: str, *, filter_text: str = '', select=None, top: int = 25, offset: int = 0, sort_field: str = '') -> dict:
+def _admin_assistant_query_table_rows(
+        table_name: str,
+        *,
+        filter_text: str = '',
+        select=None,
+        top: int = 25,
+        offset: int = 0,
+        sort_field: str = ''
+) -> dict:
     safe_top = max(1, min(int(top or 25), 100))
     safe_offset = max(0, min(int(offset or 0), 5000))
     safe_filter = str(filter_text or '').strip()
@@ -14358,25 +17686,43 @@ def _admin_assistant_query_table_rows(table_name: str, *, filter_text: str = '',
 
     try:
         if table_name == AZURE_LOGIN_AUDIT_TABLE:
-            table_client = _get_login_audit_table_client(create_if_missing=False)
+            table_client = _get_login_audit_table_client(
+                create_if_missing=False
+            )
         else:
-            table_client = get_table_client(table_name, create_if_missing=False)
+            table_client = get_table_client(
+                table_name,
+                create_if_missing=False
+            )
 
         if safe_filter:
-            pager = table_client.query_entities(safe_filter, select=safe_select or None)
+            pager = table_client.query_entities(
+                safe_filter,
+                select=safe_select or None
+            )
         else:
             pager = table_client.list_entities(select=safe_select or None)
 
         rows = []
         for entity in pager:
             try:
-                rows.append(_admin_assistant_json_safe(dict(entity) if not isinstance(entity, dict) else dict(entity)))
+                rows.append(
+                    _admin_assistant_json_safe(
+                        dict(entity) if not isinstance(
+                            entity,
+                            dict
+                        ) else dict(entity)
+                    )
+                )
             except Exception:
                 continue
 
         if safe_sort_field:
             try:
-                rows.sort(key=lambda r: str(r.get(safe_sort_field) or ''), reverse=True)
+                rows.sort(
+                    key=lambda r: str(r.get(safe_sort_field) or ''),
+                    reverse=True
+                )
             except Exception:
                 pass
 
@@ -14408,7 +17754,8 @@ def _admin_assistant_query_table_rows(table_name: str, *, filter_text: str = '',
         }
 
 
-def _admin_assistant_find_user_profile(user_identifier: str) -> Optional[dict]:
+def _admin_assistant_find_user_profile(user_identifier: str) -> Optional[
+    dict]:
     needle = str(user_identifier or '').strip().lower()
     if not needle:
         return None
@@ -14455,28 +17802,49 @@ def _admin_assistant_tool_inventory() -> dict:
 
 def _admin_assistant_get_stats_overview() -> dict:
     analytics_data = analytics.get_full_analytics() or {}
-    summary = analytics_data.get('summary') if isinstance(analytics_data, dict) else {}
+    summary = analytics_data.get('summary') if isinstance(
+        analytics_data,
+        dict
+    ) else {}
     login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
-    login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
+    login_summary = _build_login_new_vs_returning_summary(
+        login_audit_sessions
+    )
     feedback_rows = _read_admin_feedback_rows(limit=100)
     return {
         'visit_summary': {
             'total_visits': int((summary or {}).get('total_visits') or 0),
-            'facebook_ad_visits': int((summary or {}).get('facebook_ad_visits') or 0),
-            'organic_visits': int((summary or {}).get('organic_visits') or 0),
-            'total_conversions': int((summary or {}).get('total_conversions') or 0),
-            'facebook_ad_conversions': int((summary or {}).get('facebook_ad_conversions') or 0),
-            'last_updated': str((summary or {}).get('last_updated') or '').strip(),
+            'facebook_ad_visits': int(
+                (summary or {}).get('facebook_ad_visits') or 0
+            ),
+            'organic_visits': int(
+                (summary or {}).get('organic_visits') or 0
+            ),
+            'total_conversions': int(
+                (summary or {}).get('total_conversions') or 0
+            ),
+            'facebook_ad_conversions': int(
+                (summary or {}).get('facebook_ad_conversions') or 0
+            ),
+            'last_updated': str(
+                (summary or {}).get('last_updated') or ''
+            ).strip(),
         },
         'login_summary': login_summary,
         'feedback_summary': {
             'recent_feedback_rows_loaded': len(feedback_rows),
-            'latest_feedback_timestamp': str(feedback_rows[0].get('timestamp_iso') or '').strip() if feedback_rows else '',
+            'latest_feedback_timestamp': str(
+                feedback_rows[0].get('timestamp_iso') or ''
+            ).strip() if feedback_rows else '',
         },
     }
 
 
-def _admin_assistant_search_users(search: str = '', plan_status: str = '', limit: int = 10) -> dict:
+def _admin_assistant_search_users(
+        search: str = '',
+        plan_status: str = '',
+        limit: int = 10
+) -> dict:
     safe_limit = max(1, min(int(limit or 10), 25))
     needle = str(search or '').strip().lower()
     plan_filter = str(plan_status or '').strip().lower()
@@ -14486,13 +17854,15 @@ def _admin_assistant_search_users(search: str = '', plan_status: str = '', limit
         row_plan = str(row.get('plan_status') or '').strip().lower()
         if plan_filter and row_plan != plan_filter:
             continue
-        haystack = ' '.join([
-            str(row.get('user_id') or ''),
-            str(row.get('email') or ''),
-            str(row.get('name') or ''),
-            str(row.get('provider') or ''),
-            str(row.get('plan_status') or ''),
-        ]).lower()
+        haystack = ' '.join(
+            [
+                str(row.get('user_id') or ''),
+                str(row.get('email') or ''),
+                str(row.get('name') or ''),
+                str(row.get('provider') or ''),
+                str(row.get('plan_status') or ''),
+            ]
+        ).lower()
         if needle and needle not in haystack:
             continue
         matches.append(_admin_assistant_slim_user_row(row))
@@ -14506,31 +17876,48 @@ def _admin_assistant_search_users(search: str = '', plan_status: str = '', limit
     }
 
 
-def _admin_assistant_get_user_detail(user_identifier: str, revision_limit: int = 5) -> dict:
+def _admin_assistant_get_user_detail(
+        user_identifier: str,
+        revision_limit: int = 5
+) -> dict:
     safe_limit = max(1, min(int(revision_limit or 5), 10))
     profile = _admin_assistant_find_user_profile(user_identifier)
     if not profile:
         return {'found': False, 'user_identifier': user_identifier}
 
-    uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+    uid = str(
+        profile.get('id') or profile.get('PartitionKey') or ''
+    ).strip()
     signup_lookup = _build_signup_lookup_from_csv()
     login_lookup = _build_last_login_lookup()
     revisions = get_user_revisions(uid) or []
-    last_login_at, last_login_method = _resolve_user_last_login(uid, profile, login_lookup)
+    last_login_at, last_login_method = _resolve_user_last_login(
+        uid,
+        profile,
+        login_lookup
+    )
     applications = []
     total_applications = 0
     for rev in revisions:
         apps = rev.get('applications') or []
         total_applications += len(apps)
         for app in apps[:5]:
-            applications.append({
-                'revision_name': str(rev.get('revision_name') or '').strip(),
-                'company': str(app.get('company') or '').strip(),
-                'role': str(app.get('role') or '').strip(),
-                'status': str(app.get('status') or '').strip(),
-                'date_applied': str(app.get('date_applied') or '').strip(),
-                'follow_up_date': str(app.get('follow_up_date') or '').strip(),
-            })
+            applications.append(
+                {
+                    'revision_name': str(
+                        rev.get('revision_name') or ''
+                    ).strip(),
+                    'company': str(app.get('company') or '').strip(),
+                    'role': str(app.get('role') or '').strip(),
+                    'status': str(app.get('status') or '').strip(),
+                    'date_applied': str(
+                        app.get('date_applied') or ''
+                    ).strip(),
+                    'follow_up_date': str(
+                        app.get('follow_up_date') or ''
+                    ).strip(),
+                }
+            )
             if len(applications) >= 10:
                 break
         if len(applications) >= 10:
@@ -14538,14 +17925,22 @@ def _admin_assistant_get_user_detail(user_identifier: str, revision_limit: int =
 
     recent_revisions = []
     for rev in revisions[:safe_limit]:
-        recent_revisions.append({
-            'revision_id': str(rev.get('revision_id') or '').strip(),
-            'revision_name': str(rev.get('revision_name') or '').strip(),
-            'timestamp': _coerce_datetime_iso(rev.get('timestamp')),
-            'notes_present': bool(str(rev.get('notes') or '').strip()),
-            'job_description_present': bool(str(rev.get('job_description') or '').strip()),
-            'applications_count': int(rev.get('applications_count') or 0),
-        })
+        recent_revisions.append(
+            {
+                'revision_id': str(rev.get('revision_id') or '').strip(),
+                'revision_name': str(
+                    rev.get('revision_name') or ''
+                ).strip(),
+                'timestamp': _coerce_datetime_iso(rev.get('timestamp')),
+                'notes_present': bool(str(rev.get('notes') or '').strip()),
+                'job_description_present': bool(
+                    str(rev.get('job_description') or '').strip()
+                ),
+                'applications_count': int(
+                    rev.get('applications_count') or 0
+                ),
+            }
+        )
 
     return {
         'found': True,
@@ -14556,8 +17951,12 @@ def _admin_assistant_get_user_detail(user_identifier: str, revision_limit: int =
             'provider': str(profile.get('provider') or '').strip(),
             'plan_status': str(profile.get('plan_status') or '').strip(),
             'is_paid': bool(_profile_indicates_paid(profile)),
-            'sign_up_date': _format_any_datetime_pacific(_resolve_user_signup_date(uid, profile, signup_lookup)),
-            'last_login_date': _format_any_datetime_pacific(last_login_at) or str(last_login_at or '').strip(),
+            'sign_up_date': _format_any_datetime_pacific(
+                _resolve_user_signup_date(uid, profile, signup_lookup)
+            ),
+            'last_login_date': _format_any_datetime_pacific(
+                last_login_at
+            ) or str(last_login_at or '').strip(),
             'last_login_method': str(last_login_method or '').strip(),
             'revision_count': len(revisions),
             'application_count': total_applications,
@@ -14567,7 +17966,9 @@ def _admin_assistant_get_user_detail(user_identifier: str, revision_limit: int =
     }
 
 
-def _admin_assistant_get_subscription_reconciliation(limit: int = 10) -> dict:
+def _admin_assistant_get_subscription_reconciliation(
+        limit: int = 10
+) -> dict:
     safe_limit = max(1, min(int(limit or 10), 25))
     dashboard = _collect_admin_dashboard_data()
     subscribers = dashboard.get('subscribers') or []
@@ -14603,11 +18004,17 @@ def _admin_assistant_stripe_timestamp_to_iso(ts) -> str:
         return ''
 
 
-def _admin_assistant_stripe_metadata(meta, max_items: int = 12, max_value_len: int = 160) -> dict:
+def _admin_assistant_stripe_metadata(
+        meta,
+        max_items: int = 12,
+        max_value_len: int = 160
+) -> dict:
     if not meta:
         return {}
     try:
-        items = meta.items() if isinstance(meta, dict) else dict(meta).items()
+        items = meta.items() if isinstance(meta, dict) else dict(
+            meta
+        ).items()
     except Exception:
         return {}
     out = {}
@@ -14630,131 +18037,292 @@ def _admin_assistant_stripe_price_summary(price) -> dict:
     recurring = _stripe_obj_get(price, 'recurring', None) or {}
     return {
         'price_id': str(_stripe_obj_get(price, 'id', '') or '').strip(),
-        'nickname': str(_stripe_obj_get(price, 'nickname', '') or '').strip(),
-        'currency': str(_stripe_obj_get(price, 'currency', '') or '').strip().lower(),
+        'nickname': str(
+            _stripe_obj_get(price, 'nickname', '') or ''
+        ).strip(),
+        'currency': str(
+            _stripe_obj_get(price, 'currency', '') or ''
+        ).strip().lower(),
         'unit_amount': int(_stripe_obj_get(price, 'unit_amount', 0) or 0),
-        'product_id': _admin_assistant_stripe_object_id(_stripe_obj_get(price, 'product', None)),
-        'interval': str(_stripe_obj_get(recurring, 'interval', '') or '').strip(),
-        'interval_count': int(_stripe_obj_get(recurring, 'interval_count', 0) or 0),
+        'product_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(price, 'product', None)
+        ),
+        'interval': str(
+            _stripe_obj_get(recurring, 'interval', '') or ''
+        ).strip(),
+        'interval_count': int(
+            _stripe_obj_get(recurring, 'interval_count', 0) or 0
+        ),
     }
 
 
 def _admin_assistant_stripe_customer_summary(customer) -> dict:
     return {
-        'customer_id': str(_stripe_obj_get(customer, 'id', '') or '').strip(),
+        'customer_id': str(
+            _stripe_obj_get(customer, 'id', '') or ''
+        ).strip(),
         'email': str(_stripe_obj_get(customer, 'email', '') or '').strip(),
         'name': str(_stripe_obj_get(customer, 'name', '') or '').strip(),
-        'description': str(_stripe_obj_get(customer, 'description', '') or '').strip(),
-        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(customer, 'created', None)),
-        'currency': str(_stripe_obj_get(customer, 'currency', '') or '').strip().lower(),
+        'description': str(
+            _stripe_obj_get(customer, 'description', '') or ''
+        ).strip(),
+        'created': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(customer, 'created', None)
+        ),
+        'currency': str(
+            _stripe_obj_get(customer, 'currency', '') or ''
+        ).strip().lower(),
         'balance': int(_stripe_obj_get(customer, 'balance', 0) or 0),
         'delinquent': bool(_stripe_obj_get(customer, 'delinquent', False)),
-        'tax_exempt': str(_stripe_obj_get(customer, 'tax_exempt', '') or '').strip(),
-        'metadata': _admin_assistant_stripe_metadata(_stripe_obj_get(customer, 'metadata', {}) or {}),
+        'tax_exempt': str(
+            _stripe_obj_get(customer, 'tax_exempt', '') or ''
+        ).strip(),
+        'metadata': _admin_assistant_stripe_metadata(
+            _stripe_obj_get(customer, 'metadata', {}) or {}
+        ),
     }
 
 
 def _admin_assistant_stripe_subscription_summary(sub) -> dict:
     price_to_plan = _build_stripe_price_to_plan_map()
     items = []
-    items_data = _stripe_obj_get(_stripe_obj_get(sub, 'items', None), 'data', []) or []
+    items_data = _stripe_obj_get(
+        _stripe_obj_get(sub, 'items', None),
+        'data',
+        []
+    ) or []
     for item in list(items_data)[:5]:
-        items.append({
-            'item_id': str(_stripe_obj_get(item, 'id', '') or '').strip(),
-            'quantity': int(_stripe_obj_get(item, 'quantity', 0) or 0),
-            'price': _admin_assistant_stripe_price_summary(_stripe_obj_get(item, 'price', None)),
-        })
+        items.append(
+            {
+                'item_id': str(
+                    _stripe_obj_get(item, 'id', '') or ''
+                ).strip(),
+                'quantity': int(_stripe_obj_get(item, 'quantity', 0) or 0),
+                'price': _admin_assistant_stripe_price_summary(
+                    _stripe_obj_get(item, 'price', None)
+                ),
+            }
+        )
     return {
-        'subscription_id': str(_stripe_obj_get(sub, 'id', '') or '').strip(),
-        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'customer', None)),
-        'status': str(_stripe_obj_get(sub, 'status', '') or '').strip().lower(),
-        'product_purchased': _describe_stripe_subscription_product(sub, price_to_plan),
-        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'created', None)),
-        'current_period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'current_period_start', None)),
-        'current_period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'current_period_end', None)),
-        'trial_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'trial_start', None)),
-        'trial_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'trial_end', None)),
-        'cancel_at_period_end': bool(_stripe_obj_get(sub, 'cancel_at_period_end', False)),
-        'cancel_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'cancel_at', None)),
-        'canceled_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'canceled_at', None)),
-        'ended_at': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(sub, 'ended_at', None)),
+        'subscription_id': str(
+            _stripe_obj_get(sub, 'id', '') or ''
+        ).strip(),
+        'customer_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(sub, 'customer', None)
+        ),
+        'status': str(
+            _stripe_obj_get(sub, 'status', '') or ''
+        ).strip().lower(),
+        'product_purchased': _describe_stripe_subscription_product(
+            sub,
+            price_to_plan
+        ),
+        'created': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'created', None)
+        ),
+        'current_period_start': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'current_period_start', None)
+        ),
+        'current_period_end': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'current_period_end', None)
+        ),
+        'trial_start': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'trial_start', None)
+        ),
+        'trial_end': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'trial_end', None)
+        ),
+        'cancel_at_period_end': bool(
+            _stripe_obj_get(sub, 'cancel_at_period_end', False)
+        ),
+        'cancel_at': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'cancel_at', None)
+        ),
+        'canceled_at': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'canceled_at', None)
+        ),
+        'ended_at': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(sub, 'ended_at', None)
+        ),
         'schedule_id': _stripe_schedule_id_from_subscription(sub),
-        'latest_invoice_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'latest_invoice', None)),
-        'default_payment_method_id': _admin_assistant_stripe_object_id(_stripe_obj_get(sub, 'default_payment_method', None)),
-        'metadata': _admin_assistant_stripe_metadata(_stripe_obj_get(sub, 'metadata', {}) or {}),
+        'latest_invoice_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(sub, 'latest_invoice', None)
+        ),
+        'default_payment_method_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(sub, 'default_payment_method', None)
+        ),
+        'metadata': _admin_assistant_stripe_metadata(
+            _stripe_obj_get(sub, 'metadata', {}) or {}
+        ),
         'items': items,
     }
 
 
 def _admin_assistant_stripe_invoice_summary(inv) -> dict:
-    lines = _stripe_obj_get(_stripe_obj_get(inv, 'lines', None), 'data', []) or []
+    lines = _stripe_obj_get(
+        _stripe_obj_get(inv, 'lines', None),
+        'data',
+        []
+    ) or []
     line_items = []
     for line in list(lines)[:5]:
-        line_items.append({
-            'description': str(_stripe_obj_get(line, 'description', '') or '').strip(),
-            'amount': int(_stripe_obj_get(line, 'amount', 0) or 0),
-            'currency': str(_stripe_obj_get(line, 'currency', '') or '').strip().lower(),
-            'period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(_stripe_obj_get(line, 'period', None), 'start', None)),
-            'period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(_stripe_obj_get(line, 'period', None), 'end', None)),
-        })
+        line_items.append(
+            {
+                'description': str(
+                    _stripe_obj_get(line, 'description', '') or ''
+                ).strip(),
+                'amount': int(_stripe_obj_get(line, 'amount', 0) or 0),
+                'currency': str(
+                    _stripe_obj_get(line, 'currency', '') or ''
+                ).strip().lower(),
+                'period_start': _admin_assistant_stripe_timestamp_to_iso(
+                    _stripe_obj_get(
+                        _stripe_obj_get(line, 'period', None),
+                        'start',
+                        None
+                    )
+                ),
+                'period_end': _admin_assistant_stripe_timestamp_to_iso(
+                    _stripe_obj_get(
+                        _stripe_obj_get(line, 'period', None),
+                        'end',
+                        None
+                    )
+                ),
+            }
+        )
     return {
         'invoice_id': str(_stripe_obj_get(inv, 'id', '') or '').strip(),
-        'status': str(_stripe_obj_get(inv, 'status', '') or '').strip().lower(),
-        'collection_method': str(_stripe_obj_get(inv, 'collection_method', '') or '').strip(),
-        'billing_reason': str(_stripe_obj_get(inv, 'billing_reason', '') or '').strip(),
-        'currency': str(_stripe_obj_get(inv, 'currency', '') or '').strip().lower(),
+        'status': str(
+            _stripe_obj_get(inv, 'status', '') or ''
+        ).strip().lower(),
+        'collection_method': str(
+            _stripe_obj_get(inv, 'collection_method', '') or ''
+        ).strip(),
+        'billing_reason': str(
+            _stripe_obj_get(inv, 'billing_reason', '') or ''
+        ).strip(),
+        'currency': str(
+            _stripe_obj_get(inv, 'currency', '') or ''
+        ).strip().lower(),
         'amount_due': int(_stripe_obj_get(inv, 'amount_due', 0) or 0),
         'amount_paid': int(_stripe_obj_get(inv, 'amount_paid', 0) or 0),
-        'amount_remaining': int(_stripe_obj_get(inv, 'amount_remaining', 0) or 0),
+        'amount_remaining': int(
+            _stripe_obj_get(inv, 'amount_remaining', 0) or 0
+        ),
         'subtotal': int(_stripe_obj_get(inv, 'subtotal', 0) or 0),
         'total': int(_stripe_obj_get(inv, 'total', 0) or 0),
         'paid': bool(_stripe_obj_get(inv, 'paid', False)),
         'attempted': bool(_stripe_obj_get(inv, 'attempted', False)),
-        'attempt_count': int(_stripe_obj_get(inv, 'attempt_count', 0) or 0),
-        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'customer', None)),
-        'subscription_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'subscription', None)),
-        'charge_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'charge', None)),
-        'payment_intent_id': _admin_assistant_stripe_object_id(_stripe_obj_get(inv, 'payment_intent', None)),
-        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'created', None)),
-        'period_start': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'period_start', None)),
-        'period_end': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(inv, 'period_end', None)),
-        'hosted_invoice_url': str(_stripe_obj_get(inv, 'hosted_invoice_url', '') or '').strip(),
-        'invoice_pdf': str(_stripe_obj_get(inv, 'invoice_pdf', '') or '').strip(),
+        'attempt_count': int(
+            _stripe_obj_get(inv, 'attempt_count', 0) or 0
+        ),
+        'customer_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(inv, 'customer', None)
+        ),
+        'subscription_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(inv, 'subscription', None)
+        ),
+        'charge_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(inv, 'charge', None)
+        ),
+        'payment_intent_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(inv, 'payment_intent', None)
+        ),
+        'created': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(inv, 'created', None)
+        ),
+        'period_start': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(inv, 'period_start', None)
+        ),
+        'period_end': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(inv, 'period_end', None)
+        ),
+        'hosted_invoice_url': str(
+            _stripe_obj_get(inv, 'hosted_invoice_url', '') or ''
+        ).strip(),
+        'invoice_pdf': str(
+            _stripe_obj_get(inv, 'invoice_pdf', '') or ''
+        ).strip(),
         'line_items': line_items,
     }
 
 
 def _admin_assistant_stripe_charge_summary(charge) -> dict:
-    refunds = _stripe_obj_get(_stripe_obj_get(charge, 'refunds', None), 'data', []) or []
+    refunds = _stripe_obj_get(
+        _stripe_obj_get(charge, 'refunds', None),
+        'data',
+        []
+    ) or []
     refund_rows = []
     for refund in list(refunds)[:5]:
-        refund_rows.append({
-            'refund_id': str(_stripe_obj_get(refund, 'id', '') or '').strip(),
-            'status': str(_stripe_obj_get(refund, 'status', '') or '').strip(),
-            'amount': int(_stripe_obj_get(refund, 'amount', 0) or 0),
-            'currency': str(_stripe_obj_get(refund, 'currency', '') or '').strip().lower(),
-            'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(refund, 'created', None)),
-        })
-    billing_details = _stripe_obj_get(charge, 'billing_details', None) or {}
+        refund_rows.append(
+            {
+                'refund_id': str(
+                    _stripe_obj_get(refund, 'id', '') or ''
+                ).strip(),
+                'status': str(
+                    _stripe_obj_get(refund, 'status', '') or ''
+                ).strip(),
+                'amount': int(_stripe_obj_get(refund, 'amount', 0) or 0),
+                'currency': str(
+                    _stripe_obj_get(refund, 'currency', '') or ''
+                ).strip().lower(),
+                'created': _admin_assistant_stripe_timestamp_to_iso(
+                    _stripe_obj_get(refund, 'created', None)
+                ),
+            }
+        )
+    billing_details = _stripe_obj_get(
+        charge,
+        'billing_details',
+        None
+    ) or {}
     return {
         'charge_id': str(_stripe_obj_get(charge, 'id', '') or '').strip(),
-        'status': str(_stripe_obj_get(charge, 'status', '') or '').strip().lower(),
-        'currency': str(_stripe_obj_get(charge, 'currency', '') or '').strip().lower(),
+        'status': str(
+            _stripe_obj_get(charge, 'status', '') or ''
+        ).strip().lower(),
+        'currency': str(
+            _stripe_obj_get(charge, 'currency', '') or ''
+        ).strip().lower(),
         'amount': int(_stripe_obj_get(charge, 'amount', 0) or 0),
-        'amount_captured': int(_stripe_obj_get(charge, 'amount_captured', 0) or 0),
-        'amount_refunded': int(_stripe_obj_get(charge, 'amount_refunded', 0) or 0),
+        'amount_captured': int(
+            _stripe_obj_get(charge, 'amount_captured', 0) or 0
+        ),
+        'amount_refunded': int(
+            _stripe_obj_get(charge, 'amount_refunded', 0) or 0
+        ),
         'paid': bool(_stripe_obj_get(charge, 'paid', False)),
         'captured': bool(_stripe_obj_get(charge, 'captured', False)),
         'refunded': bool(_stripe_obj_get(charge, 'refunded', False)),
-        'customer_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'customer', None)),
-        'invoice_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'invoice', None)),
-        'payment_intent_id': _admin_assistant_stripe_object_id(_stripe_obj_get(charge, 'payment_intent', None)),
-        'created': _admin_assistant_stripe_timestamp_to_iso(_stripe_obj_get(charge, 'created', None)),
-        'description': str(_stripe_obj_get(charge, 'description', '') or '').strip(),
-        'failure_code': str(_stripe_obj_get(charge, 'failure_code', '') or '').strip(),
-        'failure_message': str(_stripe_obj_get(charge, 'failure_message', '') or '').strip(),
-        'receipt_url': str(_stripe_obj_get(charge, 'receipt_url', '') or '').strip(),
-        'billing_email': str(_stripe_obj_get(billing_details, 'email', '') or '').strip(),
+        'customer_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(charge, 'customer', None)
+        ),
+        'invoice_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(charge, 'invoice', None)
+        ),
+        'payment_intent_id': _admin_assistant_stripe_object_id(
+            _stripe_obj_get(charge, 'payment_intent', None)
+        ),
+        'created': _admin_assistant_stripe_timestamp_to_iso(
+            _stripe_obj_get(charge, 'created', None)
+        ),
+        'description': str(
+            _stripe_obj_get(charge, 'description', '') or ''
+        ).strip(),
+        'failure_code': str(
+            _stripe_obj_get(charge, 'failure_code', '') or ''
+        ).strip(),
+        'failure_message': str(
+            _stripe_obj_get(charge, 'failure_message', '') or ''
+        ).strip(),
+        'receipt_url': str(
+            _stripe_obj_get(charge, 'receipt_url', '') or ''
+        ).strip(),
+        'billing_email': str(
+            _stripe_obj_get(billing_details, 'email', '') or ''
+        ).strip(),
         'refunds': refund_rows,
     }
 
@@ -14765,12 +18333,19 @@ def _admin_assistant_pick_customer_subscription(customer_id: str):
         return None
     try:
 
-        res = stripe.Subscription.list(customer=cid, status='all', limit=10, expand=['data.items.data.price'])
+        res = stripe.Subscription.list(
+            customer=cid,
+            status='all',
+            limit=10,
+            expand=['data.items.data.price']
+        )
         subs = list(getattr(res, 'data', []) or [])
         if not subs:
             return None
         for sub in subs:
-            status = str(_stripe_obj_get(sub, 'status', '') or '').strip().lower()
+            status = str(
+                _stripe_obj_get(sub, 'status', '') or ''
+            ).strip().lower()
             if status in ('active', 'trialing', 'past_due', 'unpaid'):
                 return sub
         return subs[0]
@@ -14779,9 +18354,9 @@ def _admin_assistant_pick_customer_subscription(customer_id: str):
 
 
 def _admin_assistant_resolve_stripe_context(
-    user_identifier: str = '',
-    customer_id: str = '',
-    subscription_id: str = '',
+        user_identifier: str = '',
+        customer_id: str = '',
+        subscription_id: str = '',
 ) -> dict:
     profile = None
     email = ''
@@ -14789,16 +18364,22 @@ def _admin_assistant_resolve_stripe_context(
     if user_identifier:
         profile = _admin_assistant_find_user_profile(user_identifier)
         if profile:
-            uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+            uid = str(
+                profile.get('id') or profile.get('PartitionKey') or ''
+            ).strip()
             email = str(profile.get('email') or '').strip().lower()
 
     resolved_customer_id = str(customer_id or '').strip()
     resolved_subscription_id = str(subscription_id or '').strip()
 
     if not resolved_customer_id and profile:
-        resolved_customer_id = str(profile.get('stripe_customer_id') or '').strip()
+        resolved_customer_id = str(
+            profile.get('stripe_customer_id') or ''
+        ).strip()
     if not resolved_subscription_id and profile:
-        resolved_subscription_id = str(profile.get('stripe_subscription_id') or '').strip()
+        resolved_subscription_id = str(
+            profile.get('stripe_subscription_id') or ''
+        ).strip()
 
     if not resolved_customer_id and email:
         resolved_customer_id = _find_stripe_customer_id_by_email(
@@ -14808,9 +18389,13 @@ def _admin_assistant_resolve_stripe_context(
         )
 
     if not resolved_subscription_id and resolved_customer_id:
-        best_sub = _admin_assistant_pick_customer_subscription(resolved_customer_id)
+        best_sub = _admin_assistant_pick_customer_subscription(
+            resolved_customer_id
+        )
         if best_sub is not None:
-            resolved_subscription_id = str(_stripe_obj_get(best_sub, 'id', '') or '').strip()
+            resolved_subscription_id = str(
+                _stripe_obj_get(best_sub, 'id', '') or ''
+            ).strip()
 
     return {
         'profile_found': bool(profile),
@@ -14821,7 +18406,10 @@ def _admin_assistant_resolve_stripe_context(
     }
 
 
-def _admin_assistant_search_stripe_customers(search: str = '', limit: int = 10) -> dict:
+def _admin_assistant_search_stripe_customers(
+        search: str = '',
+        limit: int = 10
+) -> dict:
     safe_limit = max(1, min(int(limit or 10), 25))
     needle = str(search or '').strip().lower()
     if not _stripe_enabled():
@@ -14848,7 +18436,10 @@ def _admin_assistant_search_stripe_customers(search: str = '', limit: int = 10) 
 
         if '@' in needle:
             try:
-                exact = stripe.Customer.list(email=needle, limit=safe_limit)
+                exact = stripe.Customer.list(
+                    email=needle,
+                    limit=safe_limit
+                )
                 for customer in list(getattr(exact, 'data', []) or []):
                     _append(customer)
             except Exception:
@@ -14859,35 +18450,60 @@ def _admin_assistant_search_stripe_customers(search: str = '', limit: int = 10) 
             try:
                 recent = stripe.Customer.list(limit=fetch_limit)
                 for customer in list(getattr(recent, 'data', []) or []):
-                    haystack = ' '.join([
-                        str(_stripe_obj_get(customer, 'id', '') or ''),
-                        str(_stripe_obj_get(customer, 'email', '') or ''),
-                        str(_stripe_obj_get(customer, 'name', '') or ''),
-                        str(_stripe_obj_get(customer, 'description', '') or ''),
-                    ]).lower()
+                    haystack = ' '.join(
+                        [
+                            str(_stripe_obj_get(customer, 'id', '') or ''),
+                            str(
+                                _stripe_obj_get(
+                                    customer,
+                                    'email',
+                                    ''
+                                ) or ''
+                            ),
+                            str(
+                                _stripe_obj_get(customer, 'name', '') or ''
+                            ),
+                            str(
+                                _stripe_obj_get(
+                                    customer,
+                                    'description',
+                                    ''
+                                ) or ''
+                            ),
+                        ]
+                    ).lower()
                     if needle and needle not in haystack:
                         continue
                     _append(customer)
                     if len(candidates) >= safe_limit:
                         break
             except Exception as exc:
-                return {'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
+                return {
+                    'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
 
         return {
             'search': search,
             'returned': min(len(candidates), safe_limit),
-            'customers': [_admin_assistant_stripe_customer_summary(c) for c in candidates[:safe_limit]],
+            'customers': [_admin_assistant_stripe_customer_summary(c) for c
+                          in candidates[:safe_limit]],
             'search_window_limited': True,
         }
     except Exception as exc:
-        return {'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
+        return {
+            'error': f'Unable to search Stripe customers: {str(exc)[:220]}'}
 
 
-def _admin_assistant_get_stripe_customer_detail(customer_id: str = '', user_identifier: str = '') -> dict:
+def _admin_assistant_get_stripe_customer_detail(
+        customer_id: str = '',
+        user_identifier: str = ''
+) -> dict:
     if not _stripe_enabled():
         return _admin_assistant_stripe_unavailable()
 
-    ctx = _admin_assistant_resolve_stripe_context(user_identifier=user_identifier, customer_id=customer_id)
+    ctx = _admin_assistant_resolve_stripe_context(
+        user_identifier=user_identifier,
+        customer_id=customer_id
+    )
     cid = str(ctx.get('customer_id') or '').strip()
     if not cid:
         return {
@@ -14905,13 +18521,19 @@ def _admin_assistant_get_stripe_customer_detail(customer_id: str = '', user_iden
             'found': True,
             'resolved_from': ctx,
             'customer': _admin_assistant_stripe_customer_summary(customer),
-            'latest_subscription': _admin_assistant_stripe_subscription_summary(latest_sub) if latest_sub else None,
+            'latest_subscription': _admin_assistant_stripe_subscription_summary(
+                latest_sub
+            ) if latest_sub else None,
         }
     except Exception as exc:
-        return {'found': False, 'customer_id': cid, 'error': str(exc)[:220]}
+        return {'found': False, 'customer_id': cid,
+                'error': str(exc)[:220]}
 
 
-def _admin_assistant_get_stripe_subscription_detail(subscription_id: str = '', user_identifier: str = '') -> dict:
+def _admin_assistant_get_stripe_subscription_detail(
+        subscription_id: str = '',
+        user_identifier: str = ''
+) -> dict:
     if not _stripe_enabled():
         return _admin_assistant_stripe_unavailable()
 
@@ -14930,28 +18552,40 @@ def _admin_assistant_get_stripe_subscription_detail(subscription_id: str = '', u
 
     try:
 
-        sub = stripe.Subscription.retrieve(sid, expand=['items.data.price', 'latest_invoice'])
+        sub = stripe.Subscription.retrieve(
+            sid,
+            expand=['items.data.price', 'latest_invoice']
+        )
         latest_invoice = _stripe_obj_get(sub, 'latest_invoice', None)
         if latest_invoice and not isinstance(latest_invoice, str):
-            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(latest_invoice)
+            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(
+                latest_invoice
+            )
         else:
-            latest_invoice_obj = _stripe_latest_invoice_for_subscription(sid)
-            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(latest_invoice_obj) if latest_invoice_obj else None
+            latest_invoice_obj = _stripe_latest_invoice_for_subscription(
+                sid
+            )
+            latest_invoice_summary = _admin_assistant_stripe_invoice_summary(
+                latest_invoice_obj
+            ) if latest_invoice_obj else None
         return {
             'found': True,
             'resolved_from': ctx,
-            'subscription': _admin_assistant_stripe_subscription_summary(sub),
+            'subscription': _admin_assistant_stripe_subscription_summary(
+                sub
+            ),
             'latest_invoice': latest_invoice_summary,
         }
     except Exception as exc:
-        return {'found': False, 'subscription_id': sid, 'error': str(exc)[:220]}
+        return {'found': False, 'subscription_id': sid,
+                'error': str(exc)[:220]}
 
 
 def _admin_assistant_list_stripe_invoices(
-    customer_id: str = '',
-    subscription_id: str = '',
-    user_identifier: str = '',
-    limit: int = 10,
+        customer_id: str = '',
+        subscription_id: str = '',
+        user_identifier: str = '',
+        limit: int = 10,
 ) -> dict:
     safe_limit = max(1, min(int(limit or 10), 25))
     if not _stripe_enabled():
@@ -14973,27 +18607,30 @@ def _admin_assistant_list_stripe_invoices(
 
     try:
 
-        params = {'limit': safe_limit, 'expand': ['data.charge', 'data.payment_intent']}
+        params = {'limit': safe_limit,
+                  'expand': ['data.charge', 'data.payment_intent']}
         if sid:
             params['subscription'] = sid
         elif cid:
             params['customer'] = cid
         invoices = stripe.Invoice.list(**params)
-        rows = [_admin_assistant_stripe_invoice_summary(inv) for inv in list(getattr(invoices, 'data', []) or [])]
+        rows = [_admin_assistant_stripe_invoice_summary(inv) for inv in
+                list(getattr(invoices, 'data', []) or [])]
         return {
             'resolved_from': ctx,
             'returned': len(rows),
             'invoices': rows,
         }
     except Exception as exc:
-        return {'error': f'Unable to list Stripe invoices: {str(exc)[:220]}'}
+        return {
+            'error': f'Unable to list Stripe invoices: {str(exc)[:220]}'}
 
 
 def _admin_assistant_list_stripe_charges(
-    customer_id: str = '',
-    subscription_id: str = '',
-    user_identifier: str = '',
-    limit: int = 10,
+        customer_id: str = '',
+        subscription_id: str = '',
+        user_identifier: str = '',
+        limit: int = 10,
 ) -> dict:
     safe_limit = max(1, min(int(limit or 10), 25))
     if not _stripe_enabled():
@@ -15013,13 +18650,19 @@ def _admin_assistant_list_stripe_charges(
         seen = set()
 
         def _append(charge) -> None:
-            charge_id = str(_stripe_obj_get(charge, 'id', '') or '').strip()
+            charge_id = str(
+                _stripe_obj_get(charge, 'id', '') or ''
+            ).strip()
             if charge_id and charge_id not in seen:
                 seen.add(charge_id)
                 charges.append(charge)
 
         if sid:
-            invs = stripe.Invoice.list(subscription=sid, limit=min(max(safe_limit * 2, 10), 50), expand=['data.charge'])
+            invs = stripe.Invoice.list(
+                subscription=sid,
+                limit=min(max(safe_limit * 2, 10), 50),
+                expand=['data.charge']
+            )
             for inv in list(getattr(invs, 'data', []) or []):
                 charge_obj = _stripe_obj_get(inv, 'charge', None)
                 if charge_obj and not isinstance(charge_obj, str):
@@ -15047,14 +18690,16 @@ def _admin_assistant_list_stripe_charges(
                 'resolved_from': ctx,
             }
 
-        rows = [_admin_assistant_stripe_charge_summary(c) for c in charges[:safe_limit]]
+        rows = [_admin_assistant_stripe_charge_summary(c) for c in
+                charges[:safe_limit]]
         return {
             'resolved_from': ctx,
             'returned': len(rows),
             'charges': rows,
         }
     except Exception as exc:
-        return {'error': f'Unable to list Stripe charges: {str(exc)[:220]}'}
+        return {
+            'error': f'Unable to list Stripe charges: {str(exc)[:220]}'}
 
 
 def _admin_assistant_get_recent_feedback(limit: int = 10) -> dict:
@@ -15066,7 +18711,10 @@ def _admin_assistant_get_recent_feedback(limit: int = 10) -> dict:
     }
 
 
-def _admin_assistant_get_recent_logins(days: int = 7, limit: int = 20) -> dict:
+def _admin_assistant_get_recent_logins(
+        days: int = 7,
+        limit: int = 20
+) -> dict:
     safe_days = max(1, min(int(days or 7), 90))
     safe_limit = max(1, min(int(limit or 20), 50))
     sessions_list, _, _, _ = _load_login_audit_sessions_for_admin()
@@ -15076,15 +18724,21 @@ def _admin_assistant_get_recent_logins(days: int = 7, limit: int = 20) -> dict:
         login_dt = _login_at_from_audit_record(rec)
         if login_dt is None or login_dt < cutoff:
             continue
-        rows.append({
-            'user_id': str(rec.get('user_id') or '').strip(),
-            'email': str(rec.get('email') or '').strip(),
-            'login_at': _coerce_datetime_iso(login_dt),
-            'login_time_pacific': _format_any_datetime_pacific(login_dt),
-            'login_method': str(rec.get('login_method') or '').strip(),
-            'last_activity_at': _coerce_datetime_iso(rec.get('last_activity_at')),
-            'logout_at': _coerce_datetime_iso(rec.get('logout_at')),
-        })
+        rows.append(
+            {
+                'user_id': str(rec.get('user_id') or '').strip(),
+                'email': str(rec.get('email') or '').strip(),
+                'login_at': _coerce_datetime_iso(login_dt),
+                'login_time_pacific': _format_any_datetime_pacific(
+                    login_dt
+                ),
+                'login_method': str(rec.get('login_method') or '').strip(),
+                'last_activity_at': _coerce_datetime_iso(
+                    rec.get('last_activity_at')
+                ),
+                'logout_at': _coerce_datetime_iso(rec.get('logout_at')),
+            }
+        )
     rows.sort(key=lambda r: str(r.get('login_at') or ''), reverse=True)
     return {
         'days': safe_days,
@@ -15093,12 +18747,19 @@ def _admin_assistant_get_recent_logins(days: int = 7, limit: int = 20) -> dict:
     }
 
 
-def _admin_assistant_send_email(recipient: str, subject: str, body: str, confirm_send: bool = False) -> dict:
+def _admin_assistant_send_email(
+        recipient: str,
+        subject: str,
+        body: str,
+        confirm_send: bool = False
+) -> dict:
     email = str(recipient or '').strip().lower()
     subj = str(subject or '').strip()
     text_body = str(body or '').strip()
     admin_id = str(getattr(current_user, 'id', '') or '').strip()
-    admin_email = str(getattr(current_user, 'email', '') or '').strip().lower()
+    admin_email = str(
+        getattr(current_user, 'email', '') or ''
+    ).strip().lower()
 
     if not confirm_send:
         return {
@@ -15125,15 +18786,26 @@ def _admin_assistant_send_email(recipient: str, subject: str, body: str, confirm
 
         smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-        auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
+        auth_email = (
+                os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+            '"'
+        ).strip("'")
+        auth_password = (os.getenv(
+            'NEWSLETTER_PASSWORD',
+            ''
+        ) or '').strip().strip('"').strip("'").replace(' ', '')
         if not auth_email or not auth_password:
-            raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+            raise ValueError(
+                'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+            )
 
         html_body = (
-            "<html><body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">"
-            + ''.join(f"<p>{html_stdlib.escape(line)}</p>" for line in text_body.splitlines() if line.strip())
-            + "</body></html>"
+                "<html><body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">"
+                + ''.join(
+            f"<p>{html_stdlib.escape(line)}</p>" for line in
+            text_body.splitlines() if line.strip()
+        )
+                + "</body></html>"
         )
 
         msg = MIMEMultipart('alternative')
@@ -15197,11 +18869,11 @@ def _admin_assistant_send_email(recipient: str, subject: str, body: str, confirm
 
 
 def _admin_assistant_send_batch_email(
-    recipients,
-    subject: str,
-    body: str,
-    confirm_send: bool = False,
-    campaign_label: str = '',
+        recipients,
+        subject: str,
+        body: str,
+        confirm_send: bool = False,
+        campaign_label: str = '',
 ) -> dict:
     if not confirm_send:
         return {
@@ -15225,7 +18897,8 @@ def _admin_assistant_send_batch_email(
     if not normalized:
         return {'sent': False, 'error': 'no_valid_recipients'}
     if len(normalized) > 100:
-        return {'sent': False, 'error': 'too_many_recipients', 'max_allowed': 100}
+        return {'sent': False, 'error': 'too_many_recipients',
+                'max_allowed': 100}
 
     subj = str(subject or '').strip()
     text_body = str(body or '').strip()
@@ -15279,7 +18952,9 @@ def _admin_assistant_call_tool(name: str, args: dict) -> dict:
             revision_limit=args.get('revision_limit', 5),
         )
     if name == 'get_subscription_reconciliation':
-        return _admin_assistant_get_subscription_reconciliation(limit=args.get('limit', 10))
+        return _admin_assistant_get_subscription_reconciliation(
+            limit=args.get('limit', 10)
+        )
     if name == 'search_stripe_customers':
         return _admin_assistant_search_stripe_customers(
             search=args.get('search', ''),
@@ -15310,7 +18985,9 @@ def _admin_assistant_call_tool(name: str, args: dict) -> dict:
             limit=args.get('limit', 10),
         )
     if name == 'get_recent_feedback':
-        return _admin_assistant_get_recent_feedback(limit=args.get('limit', 10))
+        return _admin_assistant_get_recent_feedback(
+            limit=args.get('limit', 10)
+        )
     if name == 'get_recent_logins':
         return _admin_assistant_get_recent_logins(
             days=args.get('days', 7),
@@ -15396,7 +19073,8 @@ def _admin_assistant_tool_specs() -> list[dict]:
                     "properties": {
                         "search": {"type": "string"},
                         "plan_status": {"type": "string"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                 },
             },
@@ -15409,8 +19087,10 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "user_identifier": {"type": "string", "description": "User ID or exact/partial email"},
-                        "revision_limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                        "user_identifier": {"type": "string",
+                                            "description": "User ID or exact/partial email"},
+                        "revision_limit": {"type": "integer", "minimum": 1,
+                                           "maximum": 10},
                     },
                     "required": ["user_identifier"],
                 },
@@ -15424,7 +19104,8 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                 },
             },
@@ -15437,8 +19118,10 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "search": {"type": "string", "description": "Customer ID, email, name, or other text to match"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "search": {"type": "string",
+                                   "description": "Customer ID, email, name, or other text to match"},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                     "required": ["search"],
                 },
@@ -15453,7 +19136,8 @@ def _admin_assistant_tool_specs() -> list[dict]:
                     "type": "object",
                     "properties": {
                         "customer_id": {"type": "string"},
-                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                        "user_identifier": {"type": "string",
+                                            "description": "App user ID or exact/partial email"},
                     },
                 },
             },
@@ -15467,7 +19151,8 @@ def _admin_assistant_tool_specs() -> list[dict]:
                     "type": "object",
                     "properties": {
                         "subscription_id": {"type": "string"},
-                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
+                        "user_identifier": {"type": "string",
+                                            "description": "App user ID or exact/partial email"},
                     },
                 },
             },
@@ -15482,8 +19167,10 @@ def _admin_assistant_tool_specs() -> list[dict]:
                     "properties": {
                         "customer_id": {"type": "string"},
                         "subscription_id": {"type": "string"},
-                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "user_identifier": {"type": "string",
+                                            "description": "App user ID or exact/partial email"},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                 },
             },
@@ -15498,8 +19185,10 @@ def _admin_assistant_tool_specs() -> list[dict]:
                     "properties": {
                         "customer_id": {"type": "string"},
                         "subscription_id": {"type": "string"},
-                        "user_identifier": {"type": "string", "description": "App user ID or exact/partial email"},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "user_identifier": {"type": "string",
+                                            "description": "App user ID or exact/partial email"},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                 },
             },
@@ -15512,7 +19201,8 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 25},
                     },
                 },
             },
@@ -15525,8 +19215,10 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "days": {"type": "integer", "minimum": 1, "maximum": 90},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+                        "days": {"type": "integer", "minimum": 1,
+                                 "maximum": 90},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 50},
                     },
                 },
             },
@@ -15539,11 +19231,13 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 100},
                         "offset": {"type": "integer", "minimum": 0},
                         "partition_key": {"type": "string"},
                         "row_key": {"type": "string"},
-                        "search": {"type": "string", "description": "Substring search across the row JSON"},
+                        "search": {"type": "string",
+                                   "description": "Substring search across the row JSON"},
                     },
                 },
             },
@@ -15556,11 +19250,13 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "limit": {"type": "integer", "minimum": 1,
+                                  "maximum": 100},
                         "offset": {"type": "integer", "minimum": 0},
                         "partition_key": {"type": "string"},
                         "row_key": {"type": "string"},
-                        "search": {"type": "string", "description": "Substring search across the row JSON"},
+                        "search": {"type": "string",
+                                   "description": "Substring search across the row JSON"},
                     },
                 },
             },
@@ -15573,15 +19269,18 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "filter": {"type": "string", "description": "Azure Table/OData filter expression"},
+                        "filter": {"type": "string",
+                                   "description": "Azure Table/OData filter expression"},
                         "select": {
                             "type": "array",
                             "items": {"type": "string"},
                             "description": "Optional list of fields to return",
                         },
-                        "top": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "top": {"type": "integer", "minimum": 1,
+                                "maximum": 100},
                         "offset": {"type": "integer", "minimum": 0},
-                        "sort_field": {"type": "string", "description": "Optional client-side sort field for the returned rows"},
+                        "sort_field": {"type": "string",
+                                       "description": "Optional client-side sort field for the returned rows"},
                     },
                 },
             },
@@ -15594,15 +19293,18 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "filter": {"type": "string", "description": "Azure Table/OData filter expression"},
+                        "filter": {"type": "string",
+                                   "description": "Azure Table/OData filter expression"},
                         "select": {
                             "type": "array",
                             "items": {"type": "string"},
                             "description": "Optional list of fields to return",
                         },
-                        "top": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "top": {"type": "integer", "minimum": 1,
+                                "maximum": 100},
                         "offset": {"type": "integer", "minimum": 0},
-                        "sort_field": {"type": "string", "description": "Optional client-side sort field for the returned rows"},
+                        "sort_field": {"type": "string",
+                                       "description": "Optional client-side sort field for the returned rows"},
                     },
                 },
             },
@@ -15615,12 +19317,16 @@ def _admin_assistant_tool_specs() -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "recipient": {"type": "string", "description": "Single recipient email address"},
+                        "recipient": {"type": "string",
+                                      "description": "Single recipient email address"},
                         "subject": {"type": "string"},
-                        "body": {"type": "string", "description": "Plain-text email body"},
-                        "confirm_send": {"type": "boolean", "description": "Set true only when the admin explicitly asked to send the email now"},
+                        "body": {"type": "string",
+                                 "description": "Plain-text email body"},
+                        "confirm_send": {"type": "boolean",
+                                         "description": "Set true only when the admin explicitly asked to send the email now"},
                     },
-                    "required": ["recipient", "subject", "body", "confirm_send"],
+                    "required": ["recipient", "subject", "body",
+                                 "confirm_send"],
                 },
             },
         },
@@ -15638,11 +19344,14 @@ def _admin_assistant_tool_specs() -> list[dict]:
                             "description": "Explicit list of recipient email addresses, up to 100",
                         },
                         "subject": {"type": "string"},
-                        "body": {"type": "string", "description": "Plain-text email body sent to all recipients"},
+                        "body": {"type": "string",
+                                 "description": "Plain-text email body sent to all recipients"},
                         "campaign_label": {"type": "string"},
-                        "confirm_send": {"type": "boolean", "description": "Set true only when the admin explicitly asked to send the batch now"},
+                        "confirm_send": {"type": "boolean",
+                                         "description": "Set true only when the admin explicitly asked to send the batch now"},
                     },
-                    "required": ["recipients", "subject", "body", "confirm_send"],
+                    "required": ["recipients", "subject", "body",
+                                 "confirm_send"],
                 },
             },
         },
@@ -15656,14 +19365,22 @@ def api_job_search_coach():
     """Conversational job-search coach with dashboard context (latest resume + applications)."""
     try:
         if _requires_email_verification(current_user):
-            return jsonify({"success": False, "error": "Please verify your email to use the Job Search Coach."}), 403
+            return jsonify(
+                {"success": False,
+                 "error": "Please verify your email to use the Job Search Coach."}
+            ), 403
 
         payload = request.get_json(force=True, silent=True) or {}
         raw_messages = payload.get('messages')
         if not isinstance(raw_messages, list) or not raw_messages:
-            return jsonify({"success": False, "error": "Missing messages"}), 400
+            return jsonify(
+                {"success": False, "error": "Missing messages"}
+            ), 400
         if len(raw_messages) > 30:
-            return jsonify({"success": False, "error": "Conversation is too long. Start a new chat."}), 400
+            return jsonify(
+                {"success": False,
+                 "error": "Conversation is too long. Start a new chat."}
+            ), 400
 
         openai_messages = []
         for item in raw_messages[-20:]:
@@ -15680,16 +19397,26 @@ def api_job_search_coach():
             openai_messages.append({"role": role, "content": content})
 
         if not any(m.get('role') == 'user' for m in openai_messages):
-            return jsonify({"success": False, "error": "No user message provided"}), 400
+            return jsonify(
+                {"success": False, "error": "No user message provided"}
+            ), 400
 
-        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip('"').strip("'")
+        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip(
+            '"'
+        ).strip("'")
         if not api_key:
-            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+            return jsonify(
+                {"success": False,
+                 "error": "OPENAI_API_KEY not configured"}
+            ), 500
 
         from openai import OpenAI
+
         client = OpenAI(api_key=api_key, timeout=90.0, max_retries=2)
 
-        coach_ctx = _build_job_search_coach_context(getattr(current_user, 'id', ''))
+        coach_ctx = _build_job_search_coach_context(
+            getattr(current_user, 'id', '')
+        )
         context_block = _format_job_search_coach_context(coach_ctx)
         system_prompt = (
             "You are Scout, Resumatic AI's Job Search Coach — a practical, encouraging career advisor embedded in the user's "
@@ -15710,33 +19437,47 @@ def api_job_search_coach():
             f"{context_block}"
         )
 
-        chat_messages = [{"role": "system", "content": system_prompt}] + openai_messages
+        chat_messages = [{"role": "system",
+                          "content": system_prompt}] + openai_messages
         resp, model_used = _coach_chat_completion(client, chat_messages)
         reply = (resp.choices[0].message.content or '').strip()
         if not reply:
-            return jsonify({"success": False, "error": "Empty AI response"}), 502
+            return jsonify(
+                {"success": False, "error": "Empty AI response"}
+            ), 502
         if len(reply) > _JOB_COACH_MAX_REPLY_CHARS:
             reply = (
-                reply[:_JOB_COACH_MAX_REPLY_CHARS].rstrip()
-                + "\n\n*(Reply shortened — ask me to expand any part.)*"
+                    reply[:_JOB_COACH_MAX_REPLY_CHARS].rstrip()
+                    + "\n\n*(Reply shortened — ask me to expand any part.)*"
             )
 
-        return jsonify({
-            "success": True,
-            "reply": reply,
-            "model": model_used,
-            "context_summary": {
-                "revision_count": coach_ctx.get('revision_count', 0),
-                "application_count": coach_ctx.get('application_count', 0),
-                "latest_resume_name": (coach_ctx.get('latest_resume') or {}).get('revision_name') or '',
-            },
-        })
+        return jsonify(
+            {
+                "success": True,
+                "reply": reply,
+                "model": model_used,
+                "context_summary": {
+                    "revision_count": coach_ctx.get('revision_count', 0),
+                    "application_count": coach_ctx.get(
+                        'application_count',
+                        0
+                    ),
+                    "latest_resume_name": (coach_ctx.get(
+                        'latest_resume'
+                    ) or {}).get('revision_name') or '',
+                },
+            }
+        )
     except Exception as e:
         try:
-            logger.error(f"Job search coach failed: {type(e).__name__}: {str(e)}")
+            logger.error(
+                f"Job search coach failed: {type(e).__name__}: {str(e)}"
+            )
         except Exception:
             pass
-        return jsonify({"success": False, "error": _coach_openai_error_message(e)}), 500
+        return jsonify(
+            {"success": False, "error": _coach_openai_error_message(e)}
+        ), 500
 
 
 @app.route('/api/ai/admin-stats-assistant', methods=['POST'])
@@ -15750,9 +19491,14 @@ def api_admin_stats_assistant():
         payload = request.get_json(force=True, silent=True) or {}
         raw_messages = payload.get('messages')
         if not isinstance(raw_messages, list) or not raw_messages:
-            return jsonify({"success": False, "error": "Missing messages"}), 400
+            return jsonify(
+                {"success": False, "error": "Missing messages"}
+            ), 400
         if len(raw_messages) > 40:
-            return jsonify({"success": False, "error": "Conversation is too long. Start a new chat."}), 400
+            return jsonify(
+                {"success": False,
+                 "error": "Conversation is too long. Start a new chat."}
+            ), 400
 
         openai_messages = []
         for item in raw_messages[-40:]:
@@ -15769,13 +19515,21 @@ def api_admin_stats_assistant():
             openai_messages.append({"role": role, "content": content})
 
         if not any(m.get('role') == 'user' for m in openai_messages):
-            return jsonify({"success": False, "error": "No user message provided"}), 400
+            return jsonify(
+                {"success": False, "error": "No user message provided"}
+            ), 400
 
-        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip('"').strip("'")
+        api_key = (os.getenv('OPENAI_API_KEY') or '').strip().strip(
+            '"'
+        ).strip("'")
         if not api_key:
-            return jsonify({"success": False, "error": "OPENAI_API_KEY not configured"}), 500
+            return jsonify(
+                {"success": False,
+                 "error": "OPENAI_API_KEY not configured"}
+            ), 500
 
         from openai import OpenAI
+
         client = OpenAI(api_key=api_key, timeout=90.0, max_retries=2)
 
         system_prompt = (
@@ -15798,20 +19552,30 @@ def api_admin_stats_assistant():
         )
 
         tools = _admin_assistant_tool_specs()
-        messages = [{"role": "system", "content": system_prompt}] + openai_messages
+        messages = [{"role": "system",
+                     "content": system_prompt}] + openai_messages
         model_used = ''
 
         for _ in range(_ADMIN_ASSISTANT_MAX_TOOL_CALLS):
-            resp, model_used = _admin_assistant_chat_completion(client, messages, tools=tools)
+            resp, model_used = _admin_assistant_chat_completion(
+                client,
+                messages,
+                tools=tools
+            )
             msg = resp.choices[0].message
             tool_calls = getattr(msg, 'tool_calls', None) or []
             if not tool_calls:
                 reply = str(msg.content or '').strip()
                 if not reply:
-                    return jsonify({"success": False, "error": "Empty AI response"}), 502
+                    return jsonify(
+                        {"success": False, "error": "Empty AI response"}
+                    ), 502
                 if len(reply) > _ADMIN_ASSISTANT_MAX_REPLY_CHARS:
-                    reply = reply[:_ADMIN_ASSISTANT_MAX_REPLY_CHARS].rstrip() + "\n\n*(Reply shortened.)*"
-                return jsonify({"success": True, "reply": reply, "model": model_used})
+                    reply = reply[
+                            :_ADMIN_ASSISTANT_MAX_REPLY_CHARS].rstrip() + "\n\n*(Reply shortened.)*"
+                return jsonify(
+                    {"success": True, "reply": reply, "model": model_used}
+                )
 
             assistant_message = {
                 "role": "assistant",
@@ -15819,14 +19583,16 @@ def api_admin_stats_assistant():
                 "tool_calls": [],
             }
             for tc in tool_calls:
-                assistant_message["tool_calls"].append({
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                })
+                assistant_message["tool_calls"].append(
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                )
             messages.append(assistant_message)
 
             for tc in tool_calls:
@@ -15835,29 +19601,47 @@ def api_admin_stats_assistant():
                     parsed_args = json.loads(raw_args)
                 except Exception:
                     parsed_args = {}
-                result = _admin_assistant_call_tool(tc.function.name, parsed_args)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": json.dumps(result, ensure_ascii=False, default=str),
-                })
+                result = _admin_assistant_call_tool(
+                    tc.function.name,
+                    parsed_args
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": json.dumps(
+                            result,
+                            ensure_ascii=False,
+                            default=str
+                        ),
+                    }
+                )
 
-        return jsonify({"success": False, "error": "Tool-call limit reached. Please narrow the request."}), 400
+        return jsonify(
+            {"success": False,
+             "error": "Tool-call limit reached. Please narrow the request."}
+        ), 400
     except Exception as e:
         try:
-            logger.error(f"Admin stats assistant failed: {type(e).__name__}: {str(e)}")
+            logger.error(
+                f"Admin stats assistant failed: {type(e).__name__}: {str(e)}"
+            )
         except Exception:
             pass
-        return jsonify({"success": False, "error": _admin_assistant_error_message(e)}), 500
+        return jsonify(
+            {"success": False, "error": _admin_assistant_error_message(e)}
+        ), 500
 
 
 @app.route("/termsprivacy")
 def termsprivacy():
     return redirect(url_for('terms_privacy'), code=301)
 
+
 @app.route("/terms_privacy")
 def terms_privacy():
     return render_template("terms_privacy.html")
+
 
 @app.route("/privacy")
 def privacy():
@@ -15874,11 +19658,15 @@ def discounts():
     )
 
 
-
 @app.route("/about")
 def about():
     current_year = datetime.now().year
-    return render_template("about.html", year=current_year, user=current_user if current_user.is_authenticated else None)
+    return render_template(
+        "about.html",
+        year=current_year,
+        user=current_user if current_user.is_authenticated else None
+    )
+
 
 @app.route("/resume-org-alternative")
 def resume_org_alternative():
@@ -15889,10 +19677,16 @@ def resume_org_alternative():
         user=current_user if current_user.is_authenticated else None,
     )
 
+
 @app.route("/blog")
 def blog():
     current_year = datetime.now().year
-    return render_template("blog.html", year=current_year, user=current_user if current_user.is_authenticated else None)
+    return render_template(
+        "blog.html",
+        year=current_year,
+        user=current_user if current_user.is_authenticated else None
+    )
+
 
 # Blog post metadata for SEO optimization
 BLOG_POSTS_METADATA = {
@@ -15962,6 +19756,7 @@ BLOG_POSTS_METADATA = {
     }
 }
 
+
 @app.route("/blog/<post>")
 def blog_post(post):
     current_year = datetime.now().year
@@ -15976,8 +19771,8 @@ def blog_post(post):
         "resume-summary-examples": "Resume-objective",
         "no-experience": "no-experience",
         "power-words": "Power-words",
-    "resume-format-2025": "resume-format-2026",
-    "resume-format-2026": "resume-format-2026",
+        "resume-format-2025": "resume-format-2026",
+        "resume-format-2026": "resume-format-2026",
         "tailorresumejob": "tailorresumejob",
     }
 
@@ -15988,10 +19783,14 @@ def blog_post(post):
         canonical_slug = canonical_slug_map[normalized_slug]
         # Redirect variants to the canonical version for SEO consistency
         if requested_slug != canonical_slug:
-            return redirect(url_for("blog_post", post=canonical_slug), code=301)
+            return redirect(
+                url_for("blog_post", post=canonical_slug),
+                code=301
+            )
     else:
         # Unknown slug -> 404 instead of template error 500
         from flask import abort
+
         abort(404)
 
     # Get metadata for the blog post using the canonical slug
@@ -16017,7 +19816,6 @@ def blog_post(post):
         )
 
 
-
 @app.route("/subscribe", methods=["POST"])
 def subscribe():
     email = request.form.get("email")
@@ -16027,6 +19825,7 @@ def subscribe():
         try:
             # Create subscribers.csv if it doesn't exist
             import os
+
             if not os.path.exists("subscribers.csv"):
                 with open("subscribers.csv", "w") as f:
                     f.write("email\n")  # Header row
@@ -16035,16 +19834,23 @@ def subscribe():
             existing_emails = []
             try:
                 with open("subscribers.csv", "r") as f:
-                    existing_emails = [line.strip().lower() for line in f.readlines()]
+                    existing_emails = [line.strip().lower() for line in
+                                       f.readlines()]
             except FileNotFoundError:
                 pass
 
             if email.lower() in existing_emails:
-                flash("You're already subscribed to our newsletter!", "info")
+                flash(
+                    "You're already subscribed to our newsletter!",
+                    "info"
+                )
             else:
                 with open("subscribers.csv", "a") as f:
                     f.write(email + "\n")
-                flash("Thank you for subscribing! You'll receive our latest resume tips and career advice.", "success")
+                flash(
+                    "Thank you for subscribing! You'll receive our latest resume tips and career advice.",
+                    "success"
+                )
 
             # Smart redirect based on referrer
             if "/blog" in referrer:
@@ -16054,16 +19860,21 @@ def subscribe():
             else:
                 return redirect(url_for("thank_you"))
         except Exception as e:
-            flash("Something went wrong. Please try again later.", "danger")
+            flash(
+                "Something went wrong. Please try again later.",
+                "danger"
+            )
             print(f"Subscription error: {str(e)}")
             return redirect(referrer)
     else:
         flash("Please enter a valid email address.", "danger")
         return redirect(referrer)
 
+
 @app.route("/thank_you")
 def thank_you():
     return render_template("thank_you.html")
+
 
 @app.route("/users")
 @login_required
@@ -16078,6 +19889,7 @@ def view_users():
         return redirect(url_for("index"))
 
     return render_template("users.html", users=users.values())
+
 
 @app.route("/analytics")
 @login_required
@@ -16097,6 +19909,7 @@ def view_analytics():
 
     return render_template("analytics.html", analytics=analytics_data)
 
+
 @app.route("/api/track", methods=["POST"])
 def track_conversion():
     """API endpoint for tracking conversions and events from Facebook ads."""
@@ -16104,14 +19917,21 @@ def track_conversion():
         # Check if this is a duplicate tracking call in the same session
         if 'visit_tracked' in session:
             # Just track the conversion/event without counting as a new visit
-            source_info = session.get('traffic_source', {'type': 'unknown'})
-            app.logger.info("Facebook tracking call - visit already tracked, skipping duplicate")
+            source_info = session.get(
+                'traffic_source',
+                {'type': 'unknown'}
+            )
+            app.logger.info(
+                "Facebook tracking call - visit already tracked, skipping duplicate"
+            )
         else:
             # Track the visit/conversion (first time)
             source_info = analytics.track_visit(request)
             session['visit_tracked'] = True
             session['traffic_source'] = source_info
-            app.logger.info(f"Facebook tracking - new visit tracked: {source_info.get('type', 'unknown')}")
+            app.logger.info(
+                f"Facebook tracking - new visit tracked: {source_info.get('type', 'unknown')}"
+            )
 
         # Return JSON response for AJAX calls
         return {
@@ -16126,13 +19946,16 @@ def track_conversion():
             "message": str(e)
         }, 500
 
+
 @app.route("/api/track_visit", methods=["POST"])
 def track_visit():
     """API endpoint for tracking legitimate page visits (bot-filtered)."""
     try:
         # Check if visit already tracked in this session to prevent double counting
         if 'visit_tracked' in session:
-            app.logger.info("Visit already tracked in session, skipping duplicate API tracking")
+            app.logger.info(
+                "Visit already tracked in session, skipping duplicate API tracking"
+            )
             return {
                 "status": "success",
                 "message": "Visit already tracked in session",
@@ -16158,7 +19981,8 @@ def track_visit():
 
         # Check for required browser headers that bots often miss
         if not request.headers.get('Accept-Language'):
-            return {"status": "ignored", "message": "Missing browser headers"}, 200
+            return {"status": "ignored",
+                    "message": "Missing browser headers"}, 200
 
         # Track the legitimate visit using existing analytics
         source_info = analytics.track_visit(request)
@@ -16166,7 +19990,9 @@ def track_visit():
         session['traffic_source'] = source_info
 
         # Log the visit for debugging
-        app.logger.info(f"API visit tracked: {data.get('page', 'unknown')} from {request.remote_addr} - {source_info.get('type', 'unknown')}")
+        app.logger.info(
+            f"API visit tracked: {data.get('page', 'unknown')} from {request.remote_addr} - {source_info.get('type', 'unknown')}"
+        )
 
         return {
             "status": "success",
@@ -16180,6 +20006,7 @@ def track_visit():
             "status": "error",
             "message": "Internal server error"
         }, 500
+
 
 @app.route("/api/visit_count", methods=["GET"])
 def get_visit_count():
@@ -16198,7 +20025,10 @@ def get_visit_count():
                 "facebook_ad_visits": summary.get('facebook_ad_visits', 0),
                 "organic_visits": summary.get('organic_visits', 0),
                 "total_conversions": summary.get('total_conversions', 0),
-                "facebook_ad_conversions": summary.get('facebook_ad_conversions', 0),
+                "facebook_ad_conversions": summary.get(
+                    'facebook_ad_conversions',
+                    0
+                ),
                 "last_updated": summary.get('last_updated', 'unknown')
             }
         }, 200
@@ -16215,7 +20045,10 @@ def _collect_revision_counts_by_user() -> dict[str, int]:
     """Count resume revisions per user from Azure ResumeRevisions table."""
     counts: dict[str, int] = {}
     try:
-        revision_client = get_table_client('ResumeRevisions', create_if_missing=False)
+        revision_client = get_table_client(
+            'ResumeRevisions',
+            create_if_missing=False
+        )
         pager = revision_client.list_entities(select=["PartitionKey"])
         for entity in pager:
             uid = str(entity.get("PartitionKey") or '').strip()
@@ -16223,7 +20056,10 @@ def _collect_revision_counts_by_user() -> dict[str, int]:
                 counts[uid] = counts.get(uid, 0) + 1
     except Exception as e:
         try:
-            logger.warning("admin dashboard: failed to count revisions: %s", str(e))
+            logger.warning(
+                "admin dashboard: failed to count revisions: %s",
+                str(e)
+            )
         except Exception:
             pass
     return counts
@@ -16246,7 +20082,9 @@ def _coerce_datetime_iso(val) -> str:
 
 def _login_at_from_audit_record(rec: dict) -> datetime | None:
     """Resolve login timestamp for an audit record, recovering sub-second precision when possible."""
-    login_at = _parse_iso_datetime(_coerce_datetime_iso(rec.get('login_at')))
+    login_at = _parse_iso_datetime(
+        _coerce_datetime_iso(rec.get('login_at'))
+    )
     row_key = str(rec.get('row_key') or rec.get('RowKey') or '').strip()
     if not row_key:
         return login_at
@@ -16254,7 +20092,10 @@ def _login_at_from_audit_record(rec: dict) -> datetime | None:
     if not match:
         return login_at
     try:
-        rk_dt = datetime.strptime(match.group(1), '%Y%m%dT%H%M%S%f').replace(tzinfo=timezone.utc)
+        rk_dt = datetime.strptime(
+            match.group(1),
+            '%Y%m%dT%H%M%S%f'
+        ).replace(tzinfo=timezone.utc)
     except Exception:
         return login_at
     if login_at is None:
@@ -16265,7 +20106,11 @@ def _login_at_from_audit_record(rec: dict) -> datetime | None:
     return login_at
 
 
-def _format_pacific_login_time(dt: datetime, *, precise: bool = False) -> str:
+def _format_pacific_login_time(
+        dt: datetime,
+        *,
+        precise: bool = False
+) -> str:
     """Format a login datetime in Pacific time for admin exports."""
     try:
         pacific_dt = dt.astimezone(_get_pacific_tzinfo())
@@ -16289,9 +20134,15 @@ def _build_signup_lookup_from_csv() -> dict[str, str]:
     lookup: dict[str, str] = {}
     try:
         import csv
+
         if not os.path.exists('google_signups.csv'):
             return lookup
-        with open('google_signups.csv', 'r', encoding='utf-8', newline='') as f:
+        with open(
+                'google_signups.csv',
+                'r',
+                encoding='utf-8',
+                newline=''
+        ) as f:
             for row in csv.DictReader(f):
                 uid = str(row.get('user_id') or '').strip()
                 ts = str(row.get('timestamp_iso') or '').strip()
@@ -16315,9 +20166,13 @@ def _build_last_login_lookup() -> dict[str, dict]:
     if not sessions:
         try:
             store = _load_login_audit_store()
-            raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
+            raw_sessions = store.get('sessions') if isinstance(
+                store,
+                dict
+            ) else {}
             if isinstance(raw_sessions, dict):
-                sessions = [v for v in raw_sessions.values() if isinstance(v, dict)]
+                sessions = [v for v in raw_sessions.values() if
+                            isinstance(v, dict)]
         except Exception:
             sessions = []
 
@@ -16325,13 +20180,16 @@ def _build_last_login_lookup() -> dict[str, dict]:
         uid = str(rec.get('user_id') or '').strip()
         if not uid:
             continue
-        login_at = _coerce_datetime_iso(rec.get('last_activity_at') or rec.get('login_at'))
+        login_at = _coerce_datetime_iso(
+            rec.get('last_activity_at') or rec.get('login_at')
+        )
         if not login_at:
             continue
         login_dt = _parse_iso_dt(login_at)
         prev = lookup.get(uid)
         prev_dt = _parse_iso_dt(prev.get('login_at')) if prev else None
-        if prev is None or (login_dt and (prev_dt is None or login_dt > prev_dt)):
+        if prev is None or (
+                login_dt and (prev_dt is None or login_dt > prev_dt)):
             lookup[uid] = {
                 'login_at': login_at,
                 'login_method': str(rec.get('login_method') or '').strip(),
@@ -16351,13 +20209,16 @@ def _build_last_login_lookup() -> dict[str, dict]:
             uid = str(e.get('PartitionKey') or '').strip()
             if not uid:
                 continue
-            activity_at = _coerce_datetime_iso(e.get('last_activity_at') or e.get('login_at'))
+            activity_at = _coerce_datetime_iso(
+                e.get('last_activity_at') or e.get('login_at')
+            )
             if not activity_at:
                 continue
             activity_dt = _parse_iso_dt(activity_at)
             prev = lookup.get(uid)
             prev_dt = _parse_iso_dt(prev.get('login_at')) if prev else None
-            if prev is None or (activity_dt and (prev_dt is None or activity_dt > prev_dt)):
+            if prev is None or (activity_dt and (
+                    prev_dt is None or activity_dt > prev_dt)):
                 method = str(e.get('login_method') or '').strip()
                 if not method and prev:
                     method = str(prev.get('login_method') or '').strip()
@@ -16371,7 +20232,8 @@ def _build_last_login_lookup() -> dict[str, dict]:
     return lookup
 
 
-def _load_login_audit_sessions_for_admin() -> tuple[list[dict], bool, str | None, dict | None]:
+def _load_login_audit_sessions_for_admin() -> tuple[
+    list[dict], bool, str | None, dict | None]:
     """Load login audit sessions from Azure or JSON in a template-friendly shape."""
     file_present = False
     try:
@@ -16389,17 +20251,30 @@ def _load_login_audit_sessions_for_admin() -> tuple[list[dict], bool, str | None
             for e in rows:
                 if not isinstance(e, dict):
                     continue
-                sessions_list.append({
-                    'audit_id': str(e.get('audit_id') or ''),
-                    'user_id': str(e.get('user_id') or ''),
-                    'email': str(e.get('email') or ''),
-                    'login_at': _coerce_datetime_iso(e.get('login_at')),
-                    'last_activity_at': _coerce_datetime_iso(e.get('last_activity_at')),
-                    'logout_at': (_coerce_datetime_iso(e.get('logout_at')) or None),
-                    'duration_seconds': e.get('duration_seconds', None),
-                    'login_method': str(e.get('login_method') or '') or None,
-                    'row_key': str(e.get('RowKey') or ''),
-                })
+                sessions_list.append(
+                    {
+                        'audit_id': str(e.get('audit_id') or ''),
+                        'user_id': str(e.get('user_id') or ''),
+                        'email': str(e.get('email') or ''),
+                        'login_at': _coerce_datetime_iso(
+                            e.get('login_at')
+                        ),
+                        'last_activity_at': _coerce_datetime_iso(
+                            e.get('last_activity_at')
+                        ),
+                        'logout_at': (_coerce_datetime_iso(
+                            e.get('logout_at')
+                        ) or None),
+                        'duration_seconds': e.get(
+                            'duration_seconds',
+                            None
+                        ),
+                        'login_method': str(
+                            e.get('login_method') or ''
+                        ) or None,
+                        'row_key': str(e.get('RowKey') or ''),
+                    }
+                )
             source_label = f"Azure Table: {AZURE_LOGIN_AUDIT_TABLE}"
             store = {'version': _LOGIN_AUDIT_VERSION}
         except Exception:
@@ -16409,17 +20284,27 @@ def _load_login_audit_sessions_for_admin() -> tuple[list[dict], bool, str | None
 
     if not sessions_list:
         store = _load_login_audit_store()
-        raw_sessions = store.get('sessions') if isinstance(store, dict) else {}
+        raw_sessions = store.get('sessions') if isinstance(
+            store,
+            dict
+        ) else {}
         if not isinstance(raw_sessions, dict):
             raw_sessions = {}
-        sessions_list = [v for v in raw_sessions.values() if isinstance(v, dict)]
+        sessions_list = [v for v in raw_sessions.values() if
+                         isinstance(v, dict)]
         if file_present:
-            source_label = f"login_audit.json" + (f" (v{store.get('version')})" if isinstance(store, dict) and store.get('version') else "")
+            source_label = f"login_audit.json" + (
+                f" (v{store.get('version')})" if isinstance(
+                    store,
+                    dict
+                ) and store.get('version') else "")
         else:
             source_label = "login_audit.json (not created yet)"
 
     sessions_list.sort(
-        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+        key=lambda r: (_parse_iso_datetime(
+            r.get('login_at')
+        ) or datetime.min.replace(tzinfo=timezone.utc)),
         reverse=True,
     )
     return sessions_list, file_present, source_label, store
@@ -16458,11 +20343,20 @@ def _dedupe_login_audit_sessions(sessions_list: list[dict]) -> list[dict]:
         if prev is None or _score(rec) > _score(prev):
             best_by_key[dedupe_key] = rec
 
-    metrics_window_seconds = max(60, int(_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES) * 60)
-    onboarding_window_seconds = max(60, int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60)
+    metrics_window_seconds = max(
+        60,
+        int(_LOGIN_AUDIT_METRICS_DEDUPE_MINUTES) * 60
+    )
+    onboarding_window_seconds = max(
+        60,
+        int(_LOGIN_AUDIT_ONBOARDING_WINDOW_MINUTES) * 60
+    )
     collapsed = sorted(
         list(best_by_key.values()),
-        key=lambda r: (_login_at_from_audit_record(r) or datetime.min.replace(tzinfo=timezone.utc)),
+        key=lambda r: (
+                _login_at_from_audit_record(r) or datetime.min.replace(
+            tzinfo=timezone.utc
+        )),
     )
     kept: list[dict] = []
     last_kept_at_by_identity: dict[str, datetime] = {}
@@ -16498,12 +20392,17 @@ def _dedupe_login_audit_sessions(sessions_list: list[dict]) -> list[dict]:
     return kept
 
 
-def _build_classified_login_events(sessions_list: list[dict], days: int | None = None) -> list[dict]:
+def _build_classified_login_events(
+        sessions_list: list[dict],
+        days: int | None = None
+) -> list[dict]:
     """Return login events classified as new or returning, optionally filtered to recent Pacific dates."""
     sessions_list = _dedupe_login_audit_sessions(sessions_list)
     ordered = sorted(
         [s for s in (sessions_list or []) if isinstance(s, dict)],
-        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+        key=lambda r: (_parse_iso_datetime(
+            r.get('login_at')
+        ) or datetime.min.replace(tzinfo=timezone.utc)),
     )
 
     seen_identities: set[str] = set()
@@ -16514,8 +20413,12 @@ def _build_classified_login_events(sessions_list: list[dict], days: int | None =
     earliest_pacific_date = None
     if days is not None and int(days or 0) > 0:
         try:
-            pacific_today = datetime.now(timezone.utc).astimezone(_get_pacific_tzinfo()).date()
-            earliest_pacific_date = pacific_today - timedelta(days=max(int(days) - 1, 0))
+            pacific_today = datetime.now(timezone.utc).astimezone(
+                _get_pacific_tzinfo()
+            ).date()
+            earliest_pacific_date = pacific_today - timedelta(
+                days=max(int(days) - 1, 0)
+            )
         except Exception:
             pacific_today = None
             earliest_pacific_date = None
@@ -16574,9 +20477,18 @@ def _build_classified_login_events(sessions_list: list[dict], days: int | None =
             'email': email,
             'login_at': login_at.isoformat(),
             'login_date_pacific': pacific_day,
-            'login_time_pacific': _format_pacific_login_time(login_at, precise=True),
-            'login_time_pdt': _format_pacific_login_time(login_at, precise=True),
-            'login_time_pdt_precise': _format_pacific_login_time(login_at, precise=True),
+            'login_time_pacific': _format_pacific_login_time(
+                login_at,
+                precise=True
+            ),
+            'login_time_pdt': _format_pacific_login_time(
+                login_at,
+                precise=True
+            ),
+            'login_time_pdt_precise': _format_pacific_login_time(
+                login_at,
+                precise=True
+            ),
             'login_method': str(rec.get('login_method') or '').strip(),
             'login_type': login_type,
             'identity': identity,
@@ -16593,7 +20505,9 @@ def _build_classified_login_events(sessions_list: list[dict], days: int | None =
     return classified_events
 
 
-def _build_login_new_vs_returning_summary(sessions_list: list[dict]) -> dict:
+def _build_login_new_vs_returning_summary(
+        sessions_list: list[dict]
+) -> dict:
     """Classify recorded login events as first-time or returning by user/email identity."""
     classified_events = _build_classified_login_events(sessions_list)
     total_logins = 0
@@ -16635,9 +20549,15 @@ def _build_login_new_vs_returning_summary(sessions_list: list[dict]) -> dict:
             {
                 'date': day_key,
                 'total_logins': int(bucket.get('total_logins', 0) or 0),
-                'new_user_logins': int(bucket.get('new_user_logins', 0) or 0),
-                'returning_user_logins': int(bucket.get('returning_user_logins', 0) or 0),
-                'unique_users': len(bucket.get('unique_identities') or set()),
+                'new_user_logins': int(
+                    bucket.get('new_user_logins', 0) or 0
+                ),
+                'returning_user_logins': int(
+                    bucket.get('returning_user_logins', 0) or 0
+                ),
+                'unique_users': len(
+                    bucket.get('unique_identities') or set()
+                ),
             }
         )
 
@@ -16650,7 +20570,11 @@ def _build_login_new_vs_returning_summary(sessions_list: list[dict]) -> dict:
     }
 
 
-def _resolve_user_signup_date(uid: str, profile: dict, signup_lookup: dict[str, str]) -> str:
+def _resolve_user_signup_date(
+        uid: str,
+        profile: dict,
+        signup_lookup: dict[str, str]
+) -> str:
     """Best-effort sign-up date from Azure profile, in-memory users, or CSV."""
     created_at = _coerce_datetime_iso(profile.get('created_at'))
     if created_at:
@@ -16664,7 +20588,11 @@ def _resolve_user_signup_date(uid: str, profile: dict, signup_lookup: dict[str, 
     return signup_lookup.get(uid, '')
 
 
-def _resolve_user_last_login(uid: str, profile: dict, login_lookup: dict[str, dict]) -> tuple[str, str]:
+def _resolve_user_last_login(
+        uid: str,
+        profile: dict,
+        login_lookup: dict[str, dict]
+) -> tuple[str, str]:
     """Best-effort last login from Azure profile or login audit/session stores."""
     profile_login = _coerce_datetime_iso(profile.get('last_login_at'))
     profile_method = str(profile.get('last_login_method') or '').strip()
@@ -16681,16 +20609,21 @@ def _resolve_user_last_login(uid: str, profile: dict, login_lookup: dict[str, di
     return audit_login, audit_method
 
 
-def _collect_registered_users_activity_rows(table_override: str = None) -> list[dict]:
+def _collect_registered_users_activity_rows(table_override: str = None) -> \
+        list[dict]:
     """Build export rows with sign-up and last-login for all registered users."""
-    users_rows, _, _ = _collect_registered_users_from_azure_users_table(table_override)
+    users_rows, _, _ = _collect_registered_users_from_azure_users_table(
+        table_override
+    )
     revision_counts = _collect_revision_counts_by_user()
     signup_lookup = _build_signup_lookup_from_csv()
     login_lookup = _build_last_login_lookup()
 
     rows: list[dict] = []
     for profile in users_rows:
-        uid = str(profile.get('id') or profile.get('PartitionKey') or '').strip()
+        uid = str(
+            profile.get('id') or profile.get('PartitionKey') or ''
+        ).strip()
         email = str(profile.get('email') or '').strip()
         name = str(profile.get('name') or '').strip()
         provider = str(profile.get('provider') or '').strip()
@@ -16698,22 +20631,33 @@ def _collect_registered_users_activity_rows(table_override: str = None) -> list[
         is_paid = _profile_indicates_paid(profile)
 
         created_at = _resolve_user_signup_date(uid, profile, signup_lookup)
-        last_login_at, last_login_method = _resolve_user_last_login(uid, profile, login_lookup)
+        last_login_at, last_login_method = _resolve_user_last_login(
+            uid,
+            profile,
+            login_lookup
+        )
 
-        rows.append({
-            'user_id': uid,
-            'email': email,
-            'name': name,
-            'provider': provider,
-            'plan_status': plan_status or ('paid' if is_paid else 'free'),
-            'is_subscriber': 'yes' if is_paid else 'no',
-            'sign_up_date': _format_any_datetime_pacific(created_at) or created_at or '',
-            'sign_up_date_iso': created_at,
-            'last_login_date': _format_any_datetime_pacific(last_login_at) or last_login_at or '',
-            'last_login_date_iso': last_login_at,
-            'last_login_method': last_login_method,
-            'revision_count': revision_counts.get(uid, 0),
-        })
+        rows.append(
+            {
+                'user_id': uid,
+                'email': email,
+                'name': name,
+                'provider': provider,
+                'plan_status': plan_status or (
+                    'paid' if is_paid else 'free'),
+                'is_subscriber': 'yes' if is_paid else 'no',
+                'sign_up_date': _format_any_datetime_pacific(
+                    created_at
+                ) or created_at or '',
+                'sign_up_date_iso': created_at,
+                'last_login_date': _format_any_datetime_pacific(
+                    last_login_at
+                ) or last_login_at or '',
+                'last_login_date_iso': last_login_at,
+                'last_login_method': last_login_method,
+                'revision_count': revision_counts.get(uid, 0),
+            }
+        )
 
     rows.sort(key=lambda r: r.get('sign_up_date_iso') or '', reverse=True)
     return rows
@@ -16721,7 +20665,9 @@ def _collect_registered_users_activity_rows(table_override: str = None) -> list[
 
 def _collect_admin_dashboard_data(table_override: str = None) -> dict:
     """Build KPI summary and subscriber activity for admin dashboard (no full user list)."""
-    users_rows, resolved_table, _ = _collect_registered_users_from_azure_users_table(table_override)
+    users_rows, resolved_table, _ = _collect_registered_users_from_azure_users_table(
+        table_override
+    )
     revision_counts = _collect_revision_counts_by_user()
     signup_lookup = _build_signup_lookup_from_csv()
     login_lookup = _build_last_login_lookup()
@@ -16757,7 +20703,9 @@ def _collect_admin_dashboard_data(table_override: str = None) -> dict:
         is_paid = _profile_indicates_paid(row)
         ever_subscribed = _profile_ever_had_subscription(row, stripe_index)
         loose_match = _profile_ever_had_subscription_loose(row)
-        stored_sub_id = str(row.get('stripe_subscription_id') or '').strip()
+        stored_sub_id = str(
+            row.get('stripe_subscription_id') or ''
+        ).strip()
         stored_cid = str(row.get('stripe_customer_id') or '').strip()
 
         created_at = _resolve_user_signup_date(uid, row, signup_lookup)
@@ -16782,19 +20730,22 @@ def _collect_admin_dashboard_data(table_override: str = None) -> dict:
             kpis['active_subscribers'] += 1
         elif plan_status in ('trial', 'trialing'):
             kpis['trial_users'] += 1
-        elif plan_status in ('canceled', 'cancelled', 'past_due', 'unpaid'):
+        elif plan_status in (
+                'canceled', 'cancelled', 'past_due', 'unpaid'):
             kpis['canceled_subscribers'] += 1
         else:
             kpis['free_users'] += 1
 
         if loose_match and not ever_subscribed:
-            azure_only_profiles.append({
-                'email': email,
-                'plan_status': plan_status or '—',
-                'stripe_subscription_id': stored_sub_id or '—',
-                'stripe_customer_id': stored_cid or '—',
-                'reason': 'Azure profile marked as subscribed but no matching Stripe subscription',
-            })
+            azure_only_profiles.append(
+                {
+                    'email': email,
+                    'plan_status': plan_status or '—',
+                    'stripe_subscription_id': stored_sub_id or '—',
+                    'stripe_customer_id': stored_cid or '—',
+                    'reason': 'Azure profile marked as subscribed but no matching Stripe subscription',
+                }
+            )
 
     subscribers = _build_stripe_subscription_dashboard_rows(
         stripe_index,
@@ -16809,43 +20760,72 @@ def _collect_admin_dashboard_data(table_override: str = None) -> dict:
         for row in users_rows:
             if not str(row.get('stripe_subscription_id') or '').strip():
                 continue
-            uid = str(row.get('id') or row.get('PartitionKey') or '').strip()
+            uid = str(
+                row.get('id') or row.get('PartitionKey') or ''
+            ).strip()
             email = str(row.get('email') or '').strip()
             name = str(row.get('name') or '').strip()
             plan_status = str(row.get('plan_status') or '').strip().lower()
             is_paid = _profile_indicates_paid(row)
             paid_until = str(row.get('paid_until') or '').strip()
             created_at = _resolve_user_signup_date(uid, row, signup_lookup)
-            last_login_at, last_login_method = _resolve_user_last_login(uid, row, login_lookup)
-            revision_ts = row.get('revision_Timestamp') or row.get('revision_timestamp') or ''
+            last_login_at, last_login_method = _resolve_user_last_login(
+                uid,
+                row,
+                login_lookup
+            )
+            revision_ts = row.get('revision_Timestamp') or row.get(
+                'revision_timestamp'
+            ) or ''
             revision_ts_str = _coerce_datetime_iso(revision_ts)
-            status_label, status_badge = _subscription_status_for_dashboard(row, is_paid)
+            status_label, status_badge = _subscription_status_for_dashboard(
+                row,
+                is_paid
+            )
             azure_plan = _normalize_plan_id(plan_status)
-            product_purchased = _plan_id_to_product_label(azure_plan) if azure_plan else (plan_status or '—')
-            subscribers.append({
-                'id': uid or '—',
-                'email': email or '—',
-                'name': name or '—',
-                'product_purchased': product_purchased,
-                'plan_status': plan_status or '—',
-                'subscription_status': status_label,
-                'status_badge': status_badge,
-                'is_active': is_paid,
-                'stripe_subscription_id': str(row.get('stripe_subscription_id') or '').strip() or '—',
-                'stripe_customer_id': str(row.get('stripe_customer_id') or '').strip() or '—',
-                'azure_linked': True,
-                'match_source': 'azure_fallback',
-                'subscription_created_display': '—',
-                'paid_until_display': _format_paid_until(paid_until) if paid_until else '—',
-                'created_at_display': _format_any_datetime_pacific(created_at) or '—',
-                'last_login_display': _format_any_datetime_pacific(last_login_at) or '—',
-                'last_login_method': last_login_method or '—',
-                'revision_count': revision_counts.get(uid, 0),
-                'last_revision_display': _format_any_datetime_pacific(revision_ts_str) if revision_ts_str else '—',
-            })
+            product_purchased = _plan_id_to_product_label(
+                azure_plan
+            ) if azure_plan else (plan_status or '—')
+            subscribers.append(
+                {
+                    'id': uid or '—',
+                    'email': email or '—',
+                    'name': name or '—',
+                    'product_purchased': product_purchased,
+                    'plan_status': plan_status or '—',
+                    'subscription_status': status_label,
+                    'status_badge': status_badge,
+                    'is_active': is_paid,
+                    'stripe_subscription_id': str(
+                        row.get('stripe_subscription_id') or ''
+                    ).strip() or '—',
+                    'stripe_customer_id': str(
+                        row.get('stripe_customer_id') or ''
+                    ).strip() or '—',
+                    'azure_linked': True,
+                    'match_source': 'azure_fallback',
+                    'subscription_created_display': '—',
+                    'paid_until_display': _format_paid_until(
+                        paid_until
+                    ) if paid_until else '—',
+                    'created_at_display': _format_any_datetime_pacific(
+                        created_at
+                    ) or '—',
+                    'last_login_display': _format_any_datetime_pacific(
+                        last_login_at
+                    ) or '—',
+                    'last_login_method': last_login_method or '—',
+                    'revision_count': revision_counts.get(uid, 0),
+                    'last_revision_display': _format_any_datetime_pacific(
+                        revision_ts_str
+                    ) if revision_ts_str else '—',
+                }
+            )
 
     stripe_active_count = sum(1 for s in subscribers if s.get('is_active'))
-    azure_linked_count = sum(1 for s in subscribers if s.get('azure_linked'))
+    azure_linked_count = sum(
+        1 for s in subscribers if s.get('azure_linked')
+    )
     stripe_only_count = len(subscribers) - azure_linked_count
 
     kpis['stripe_subscriptions'] = len(subscribers)
@@ -16872,7 +20852,10 @@ def _collect_admin_dashboard_data(table_override: str = None) -> dict:
     }
 
 
-def _empty_admin_dashboard_data(error_message: str = '', table_name: str = 'Users') -> dict:
+def _empty_admin_dashboard_data(
+        error_message: str = '',
+        table_name: str = 'Users'
+) -> dict:
     """Fallback dashboard payload so the KPI page still renders on partial failures."""
     return {
         'kpis': {
@@ -16903,7 +20886,9 @@ def _empty_admin_dashboard_data(error_message: str = '', table_name: str = 'User
             'stripe_error': str(error_message or '').strip() or None,
         },
         'azure_table': str(table_name or 'Users'),
-        'generated_at': _format_datetime_pacific(datetime.now(timezone.utc).isoformat()),
+        'generated_at': _format_datetime_pacific(
+            datetime.now(timezone.utc).isoformat()
+        ),
     }
 
 
@@ -16914,8 +20899,10 @@ def _admin_users_activity_csv_response(table_override: str = None):
 
     rows = _collect_registered_users_activity_rows(table_override)
     columns = [
-        'user_id', 'email', 'name', 'provider', 'plan_status', 'is_subscriber',
-        'sign_up_date', 'last_login_date', 'last_login_method', 'revision_count',
+        'user_id', 'email', 'name', 'provider', 'plan_status',
+        'is_subscriber',
+        'sign_up_date', 'last_login_date', 'last_login_method',
+        'revision_count',
     ]
 
     buf = StringIO()
@@ -16929,7 +20916,8 @@ def _admin_users_activity_csv_response(table_override: str = None):
     return Response(
         csv_data,
         mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'},
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'},
     )
 
 
@@ -16969,7 +20957,8 @@ def _admin_login_breakdown_csv_response(days: int = 7):
     return Response(
         csv_data,
         mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'},
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'},
     )
 
 
@@ -17036,7 +21025,9 @@ def admin_dashboard():
             return _admin_users_activity_csv_response(table_name)
         dashboard = _collect_admin_dashboard_data(table_name)
         login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
-        login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
+        login_summary = _build_login_new_vs_returning_summary(
+            login_audit_sessions
+        )
         return render_template(
             "admin_dashboard.html",
             dashboard=dashboard,
@@ -17076,47 +21067,72 @@ def admin_stats():
         # Get comprehensive analytics data
         analytics_data = analytics.get_full_analytics()
         login_audit_sessions, _, _, _ = _load_login_audit_sessions_for_admin()
-        login_summary = _build_login_new_vs_returning_summary(login_audit_sessions)
+        login_summary = _build_login_new_vs_returning_summary(
+            login_audit_sessions
+        )
 
         # Registered Users are available on /admin/registered_users (Azure table: Users)
         # Load recent feedback submissions from CSV (if present)
         feedback_rows = []
         try:
             import csv
+
             feedback_path = 'download_feedback.csv'
             if os.path.exists(feedback_path):
-                with open(feedback_path, 'r', encoding='utf-8', newline='') as f:
+                with open(
+                        feedback_path,
+                        'r',
+                        encoding='utf-8',
+                        newline=''
+                ) as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        feedback_rows.append({
-                            'timestamp_iso': row.get('timestamp_iso', ''),
-                            'user_id': row.get('user_id', ''),
-                            'user_email': row.get('user_email', ''),
-                            'rating': row.get('rating', ''),
-                            'comment': row.get('comment', ''),
-                            'comparison': row.get('comparison', ''),
-                        })
+                        feedback_rows.append(
+                            {
+                                'timestamp_iso': row.get(
+                                    'timestamp_iso',
+                                    ''
+                                ),
+                                'user_id': row.get('user_id', ''),
+                                'user_email': row.get('user_email', ''),
+                                'rating': row.get('rating', ''),
+                                'comment': row.get('comment', ''),
+                                'comparison': row.get('comparison', ''),
+                            }
+                        )
                 # Keep only the last 100, newest first
                 feedback_rows = feedback_rows[-100:][::-1]
         except Exception as e:
-            app.logger.warning(f"Failed to read download_feedback.csv: {str(e)}")
+            app.logger.warning(
+                f"Failed to read download_feedback.csv: {str(e)}"
+            )
 
         # Debug logging to help troubleshoot
-        app.logger.info(f"Analytics data structure: {type(analytics_data)}")
-        if isinstance(analytics_data, dict) and 'summary' in analytics_data:
+        app.logger.info(
+            f"Analytics data structure: {type(analytics_data)}"
+        )
+        if isinstance(
+                analytics_data,
+                dict
+        ) and 'summary' in analytics_data:
             app.logger.info(f"Summary data: {analytics_data['summary']}")
         else:
-            app.logger.warning(f"Unexpected analytics data structure: {analytics_data}")
+            app.logger.warning(
+                f"Unexpected analytics data structure: {analytics_data}"
+            )
 
-        return render_template("admin_stats.html",
-                             analytics=analytics_data,
-                             user=current_user,
-                             feedback_rows=feedback_rows,
-                             login_summary=login_summary)
+        return render_template(
+            "admin_stats.html",
+            analytics=analytics_data,
+            user=current_user,
+            feedback_rows=feedback_rows,
+            login_summary=login_summary
+        )
     except Exception as e:
         app.logger.error(f"Error loading statistics: {str(e)}")
         flash(f"Error loading statistics: {str(e)}", "danger")
         return redirect(url_for("index"))
+
 
 @app.route('/admin/feedback.csv')
 @login_required
@@ -17129,12 +21145,25 @@ def admin_feedback_csv():
         if not os.path.exists(path):
             # Return an empty CSV with header for convenience
             from io import StringIO, BytesIO
-            buf = StringIO("timestamp_iso,user_id,user_email,rating,comment,comparison\n")
+
+            buf = StringIO(
+                "timestamp_iso,user_id,user_email,rating,comment,comparison\n"
+            )
             data = buf.getvalue().encode('utf-8')
             bio = BytesIO(data)
             bio.seek(0)
-            return send_file(bio, mimetype='text/csv', as_attachment=True, download_name='download_feedback.csv')
-        return send_file(path, mimetype='text/csv', as_attachment=True, download_name='download_feedback.csv')
+            return send_file(
+                bio,
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name='download_feedback.csv'
+            )
+        return send_file(
+            path,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='download_feedback.csv'
+        )
     except Exception as e:
         app.logger.error(f"Failed to serve feedback CSV: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
@@ -17157,7 +21186,9 @@ def admin_login_audit():
     login_summary = _build_login_new_vs_returning_summary(sessions_list)
 
     sessions_list.sort(
-        key=lambda r: (_parse_iso_datetime(r.get('login_at')) or datetime.min.replace(tzinfo=timezone.utc)),
+        key=lambda r: (_parse_iso_datetime(
+            r.get('login_at')
+        ) or datetime.min.replace(tzinfo=timezone.utc)),
         reverse=True,
     )
 
@@ -17165,19 +21196,30 @@ def admin_login_audit():
     formatted_sessions: list[dict] = []
     for rec in sessions_list:
         out = dict(rec)
-        out['login_time_pst'] = _format_datetime_pacific(rec.get('login_at'))
-        out['last_activity_time_pst'] = _format_datetime_pacific(rec.get('last_activity_at') or rec.get('login_at'))
-        out['logout_time_pst'] = _format_datetime_pacific(rec.get('logout_at'))
+        out['login_time_pst'] = _format_datetime_pacific(
+            rec.get('login_at')
+        )
+        out['last_activity_time_pst'] = _format_datetime_pacific(
+            rec.get('last_activity_at') or rec.get('login_at')
+        )
+        out['logout_time_pst'] = _format_datetime_pacific(
+            rec.get('logout_at')
+        )
 
         # If there is no explicit logout, estimate when the idle timeout would have logged them out.
         try:
             idle_seconds, _ = _auth_timeout_seconds()
             if not out.get('logout_at') and idle_seconds:
-                last_dt = _parse_iso_datetime(rec.get('last_activity_at') or rec.get('login_at'))
+                last_dt = _parse_iso_datetime(
+                    rec.get('last_activity_at') or rec.get('login_at')
+                )
                 if last_dt is not None:
                     est_dt = last_dt + timedelta(seconds=int(idle_seconds))
                     out['estimated_logout_at'] = est_dt.isoformat()
-                    out['estimated_logout_time_pst'] = _format_datetime_pacific(out.get('estimated_logout_at'))
+                    out[
+                        'estimated_logout_time_pst'] = _format_datetime_pacific(
+                        out.get('estimated_logout_at')
+                    )
                 else:
                     out['estimated_logout_time_pst'] = ''
             else:
@@ -17199,7 +21241,8 @@ def admin_login_audit():
         'admin_login_audit.html',
         sessions=formatted_sessions,
         login_summary=login_summary,
-        store_version=(store.get('version') if isinstance(store, dict) else None),
+        store_version=(
+            store.get('version') if isinstance(store, dict) else None),
         file_present=file_present,
         source_label=source_label,
     )
@@ -17222,7 +21265,11 @@ def admin_cancellation_feedback():
     try:
         if os.path.exists(CANCELLATION_FEEDBACK_FILE):
             file_present = True
-            with open(CANCELLATION_FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            with open(
+                    CANCELLATION_FEEDBACK_FILE,
+                    "r",
+                    encoding="utf-8"
+            ) as f:
                 data = json.load(f)
                 records = list(data.get("records") or [])
         records.reverse()
@@ -17239,7 +21286,10 @@ def admin_cancellation_feedback():
         "other": "Other",
     }
     for r in records:
-        r["reason_label"] = reason_labels.get(r.get("reason", ""), r.get("reason", "") or "—")
+        r["reason_label"] = reason_labels.get(
+            r.get("reason", ""),
+            r.get("reason", "") or "—"
+        )
         r["at_pacific"] = _format_datetime_pacific(r.get("at"))
 
     return render_template(
@@ -17254,17 +21304,18 @@ def admin_cancellation_feedback():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for Azure App Service monitoring"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'service': 'resumatic',
-        'build': _BUILD_ID,
-        'pid': os.getpid(),
-    }), 200
+    return jsonify(
+        {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'service': 'resumatic',
+            'build': _BUILD_ID,
+            'pid': os.getpid(),
+        }
+    ), 200
 
 
 from flask import Response
-
 
 
 @app.route('/api/debug/playwright-log', methods=['GET'])
@@ -17279,14 +21330,18 @@ def api_debug_playwright_log():
         if not expected or provided != expected:
             return jsonify({"error": "Forbidden"}), 403
 
-        log_path = (os.getenv("PLAYWRIGHT_INSTALL_LOG") or "/home/site/wwwroot/playwright-install.log").strip()
+        log_path = (os.getenv(
+            "PLAYWRIGHT_INSTALL_LOG"
+        ) or "/home/site/wwwroot/playwright-install.log").strip()
         max_bytes = 80_000
         if not os.path.exists(log_path):
-            return jsonify({
-                "ok": False,
-                "log_path": log_path,
-                "exists": False,
-            }), 200
+            return jsonify(
+                {
+                    "ok": False,
+                    "log_path": log_path,
+                    "exists": False,
+                }
+            ), 200
 
         size = 0
         try:
@@ -17301,12 +21356,14 @@ def api_debug_playwright_log():
                     f.seek(-max_bytes, os.SEEK_END)
                 data = f.read()
         except Exception as e:
-            return jsonify({
-                "ok": False,
-                "log_path": log_path,
-                "exists": True,
-                "error": f"{type(e).__name__}: {str(e)}",
-            }), 200
+            return jsonify(
+                {
+                    "ok": False,
+                    "log_path": log_path,
+                    "exists": True,
+                    "error": f"{type(e).__name__}: {str(e)}",
+                }
+            ), 200
 
         # Dependency probes for common Chromium/Playwright libs (missing libs cause TargetClosedError).
         deps = {}
@@ -17356,10 +21413,14 @@ def api_debug_playwright_log():
         browser_fs = {}
         try:
             import glob as _glob
-            browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+
+            browsers_path = (os.getenv(
+                "PLAYWRIGHT_BROWSERS_PATH"
+            ) or "/home/site/wwwroot/ms-playwright").strip()
             browser_fs["browsers_path"] = browsers_path
             browser_fs["entries"] = sorted(
-                [p.replace(browsers_path + "/", "") for p in _glob.glob(os.path.join(browsers_path, "*"))]
+                [p.replace(browsers_path + "/", "") for p in
+                 _glob.glob(os.path.join(browsers_path, "*"))]
             )[:200]
         except Exception as e:
             browser_fs["error"] = f"{type(e).__name__}: {str(e)}"
@@ -17371,15 +21432,41 @@ def api_debug_playwright_log():
             import shlex
             import glob as _glob
 
-            browsers_path = (os.getenv("PLAYWRIGHT_BROWSERS_PATH") or "/home/site/wwwroot/ms-playwright").strip()
+            browsers_path = (os.getenv(
+                "PLAYWRIGHT_BROWSERS_PATH"
+            ) or "/home/site/wwwroot/ms-playwright").strip()
             headless_shell = None
-            hs_candidates = sorted(_glob.glob(os.path.join(browsers_path, "chromium_headless_shell-*", "**", "chrome-headless-shell"), recursive=True))
+            hs_candidates = sorted(
+                _glob.glob(
+                    os.path.join(
+                        browsers_path,
+                        "chromium_headless_shell-*",
+                        "**",
+                        "chrome-headless-shell"
+                    ),
+                    recursive=True
+                )
+            )
             if hs_candidates:
                 headless_shell = hs_candidates[0]
             chromium_bin = None
             c_candidates = []
-            c_candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome"))
-            c_candidates += _glob.glob(os.path.join(browsers_path, "chromium-*", "chrome-linux", "chrome-wrapper"))
+            c_candidates += _glob.glob(
+                os.path.join(
+                    browsers_path,
+                    "chromium-*",
+                    "chrome-linux",
+                    "chrome"
+                )
+            )
+            c_candidates += _glob.glob(
+                os.path.join(
+                    browsers_path,
+                    "chromium-*",
+                    "chrome-linux",
+                    "chrome-wrapper"
+                )
+            )
             if c_candidates:
                 chromium_bin = sorted(c_candidates)[0]
 
@@ -17393,7 +21480,8 @@ def api_debug_playwright_log():
                     timeout=4,
                 )
                 out = (proc.stdout or "") + (proc.stderr or "")
-                not_found = [ln for ln in out.splitlines() if "not found" in ln]
+                not_found = [ln for ln in out.splitlines() if
+                             "not found" in ln]
                 return {
                     "path": path,
                     "exit_code": proc.returncode,
@@ -17405,18 +21493,22 @@ def api_debug_playwright_log():
         except Exception as e:
             ldd["error"] = f"{type(e).__name__}: {str(e)}"
 
-        return jsonify({
-            "ok": True,
-            "log_path": log_path,
-            "exists": True,
-            "size": size,
-            "tail": data.decode("utf-8", errors="replace"),
-            "deps": deps,
-            "missing_libs": missing_libs,
-            "browser_fs": browser_fs,
-            "ldd": ldd,
-            "playwright_browsers_path": os.getenv("PLAYWRIGHT_BROWSERS_PATH"),
-        }), 200
+        return jsonify(
+            {
+                "ok": True,
+                "log_path": log_path,
+                "exists": True,
+                "size": size,
+                "tail": data.decode("utf-8", errors="replace"),
+                "deps": deps,
+                "missing_libs": missing_libs,
+                "browser_fs": browser_fs,
+                "ldd": ldd,
+                "playwright_browsers_path": os.getenv(
+                    "PLAYWRIGHT_BROWSERS_PATH"
+                ),
+            }
+        ), 200
     except Exception as e:
         return jsonify({"error": f"{type(e).__name__}: {str(e)}"}), 500
 
@@ -17431,7 +21523,8 @@ def sitemap():
     public_endpoints = {
         'index': {'priority': '1.0', 'changefreq': 'daily'},
         'about': {'priority': '0.8', 'changefreq': 'monthly'},
-        'resume_org_alternative': {'priority': '0.9', 'changefreq': 'weekly'},
+        'resume_org_alternative': {'priority': '0.9',
+                                   'changefreq': 'weekly'},
         'blog': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_templates': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_builder': {'priority': '0.9', 'changefreq': 'weekly'},
@@ -17447,13 +21540,15 @@ def sitemap():
     for endpoint, config in public_endpoints.items():
         try:
             url = url_for(endpoint, _external=True, _scheme='https')
-            pages.append(f"""
+            pages.append(
+                f"""
                 <url>
                     <loc>{url}</loc>
                     <lastmod>{lastmod}</lastmod>
                     <changefreq>{config['changefreq']}</changefreq>
                     <priority>{config['priority']}</priority>
-                </url>""")
+                </url>"""
+            )
         except Exception:
             # Skip if endpoint doesn't exist
             continue
@@ -17471,14 +21566,21 @@ def sitemap():
 
     for post in blog_posts:
         try:
-            url = url_for('blog_post', post=post, _external=True, _scheme='https')
-            pages.append(f"""
+            url = url_for(
+                'blog_post',
+                post=post,
+                _external=True,
+                _scheme='https'
+            )
+            pages.append(
+                f"""
                 <url>
                     <loc>{url}</loc>
                     <lastmod>{lastmod}</lastmod>
                     <changefreq>monthly</changefreq>
                     <priority>0.8</priority>
-                </url>""")
+                </url>"""
+            )
         except Exception:
             continue
 
@@ -17488,7 +21590,8 @@ def sitemap():
     </urlset>"""
 
     response = Response(sitemap_xml, mimetype='application/xml')
-    response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+    response.headers[
+        'Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
     return response
 
 
@@ -17504,38 +21607,55 @@ def feedback_download_api():
         # Persist minimally to CSV; avoids DB schema work
         import csv
         from datetime import datetime, timezone
+
         filename = 'download_feedback.csv'
         file_exists = os.path.exists(filename)
         with open(filename, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['timestamp_iso', 'user_id', 'user_email', 'rating', 'comment', 'comparison'])
-            writer.writerow([
-                datetime.now(timezone.utc).isoformat(),
-                getattr(current_user, 'id', ''),
-                getattr(current_user, 'email', ''),
-                rating,
-                comment[:500],
-                comparison
-            ])
+                writer.writerow(
+                    ['timestamp_iso', 'user_id', 'user_email', 'rating',
+                     'comment', 'comparison']
+                )
+            writer.writerow(
+                [
+                    datetime.now(timezone.utc).isoformat(),
+                    getattr(current_user, 'id', ''),
+                    getattr(current_user, 'email', ''),
+                    rating,
+                    comment[:500],
+                    comparison
+                ]
+            )
         return jsonify({'status': 'ok'}), 200
     except Exception as e:
         logger.error(f"feedback_download_api error: {str(e)}")
         return jsonify({'status': 'error'}), 500
 
+
 # Azure Table Storage setup
 AZURE_TABLE_NAME = os.getenv('AZURE_TABLE_NAME', 'ResumeRevisions')
 AZURE_STORAGE_ACCOUNT = os.getenv('AZURE_STORAGE_ACCOUNT')
 
-def get_table_client(table_name: str = None, create_if_missing: bool = True):
+
+def get_table_client(
+        table_name: str = None,
+        create_if_missing: bool = True
+):
     connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
     if connection_string:
-        service = TableServiceClient.from_connection_string(conn_str=connection_string)
+        service = TableServiceClient.from_connection_string(
+            conn_str=connection_string
+        )
     else:
         # Import lazily: azure.identity import can be slow on some Windows hosts.
         from azure.identity import DefaultAzureCredential
+
         credential = DefaultAzureCredential()
-        service = TableServiceClient(endpoint=f"https://{AZURE_STORAGE_ACCOUNT}.table.core.windows.net", credential=credential)
+        service = TableServiceClient(
+            endpoint=f"https://{AZURE_STORAGE_ACCOUNT}.table.core.windows.net",
+            credential=credential
+        )
     table_client = service.get_table_client(table_name or AZURE_TABLE_NAME)
     if create_if_missing:
         try:
@@ -17544,13 +21664,21 @@ def get_table_client(table_name: str = None, create_if_missing: bool = True):
             pass  # Table may already exist
     return table_client
 
+
 # Azure Users table helpers
 AZURE_USERS_TABLE = os.getenv('AZURE_USERS_TABLE', 'Users')
 
-def get_users_table_client(*, create_if_missing: bool = True):
-    return get_table_client(AZURE_USERS_TABLE, create_if_missing=create_if_missing)
 
-def _collect_registered_users_from_azure_users_table(table_override: str = None):
+def get_users_table_client(*, create_if_missing: bool = True):
+    return get_table_client(
+        AZURE_USERS_TABLE,
+        create_if_missing=create_if_missing
+    )
+
+
+def _collect_registered_users_from_azure_users_table(
+        table_override: str = None
+):
     """Collect user profiles directly from the Azure Users table.
 
     Expected schema (as written by upsert_user_profile_azure):
@@ -17580,7 +21708,10 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
 
     for table_name in table_names:
         try:
-            table_client = get_table_client(table_name, create_if_missing=False)
+            table_client = get_table_client(
+                table_name,
+                create_if_missing=False
+            )
             results = []
             # Prefer server-side filtering; fallback to client-side filter.
             try:
@@ -17601,7 +21732,10 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
 
             # Join with ResumeRevisions: get all revisions for each user, pick latest
             revision_table_name = 'ResumeRevisions'
-            revision_client = get_table_client(revision_table_name, create_if_missing=False)
+            revision_client = get_table_client(
+                revision_table_name,
+                create_if_missing=False
+            )
             user_latest_revision = {}
             try:
                 rev_pager = revision_client.list_entities()
@@ -17612,7 +21746,10 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
                     # Pick latest revision by Timestamp
                     ts = entity.get('Timestamp')
                     prev = user_latest_revision.get(uid)
-                    if prev is None or (ts and prev.get('Timestamp') and ts > prev.get('Timestamp')):
+                    if prev is None or (
+                            ts and prev.get('Timestamp') and ts > prev.get(
+                        'Timestamp'
+                    )):
                         user_latest_revision[uid] = dict(entity)
             except Exception:
                 pass
@@ -17624,7 +21761,9 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
                 if revision:
                     for k, v in revision.items():
                         merged[f'revision_{k}'] = v
-                merged['revisions'] = sum(1 for r in user_latest_revision if r == uid)
+                merged['revisions'] = sum(
+                    1 for r in user_latest_revision if r == uid
+                )
                 results.append(merged)
 
             # Build all_keys from the union of all keys across all rows
@@ -17633,7 +21772,10 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
                 all_keys.update(row.keys())
 
             if results:
-                results.sort(key=lambda r: (r.get('created_at') or ''), reverse=True)
+                results.sort(
+                    key=lambda r: (r.get('created_at') or ''),
+                    reverse=True
+                )
                 return results, table_name, sorted(all_keys)
         except Exception as e:
             last_error = e
@@ -17641,16 +21783,25 @@ def _collect_registered_users_from_azure_users_table(table_override: str = None)
 
     if last_error:
         try:
-            logger.warning(f"Failed to read Azure users table profiles: {str(last_error)}")
+            logger.warning(
+                f"Failed to read Azure users table profiles: {str(last_error)}"
+            )
         except Exception:
             pass
-    return [], (table_names[0] if table_names else (os.getenv('AZURE_USERS_TABLE') or 'Users'))
+    return [], (table_names[0] if table_names else (
+            os.getenv('AZURE_USERS_TABLE') or 'Users'))
+
 
 FREE_REVISION_LIMIT = int(os.getenv('FREE_REVISION_LIMIT', '1'))
-PAID_EMAILS = set([e.strip().lower() for e in (os.getenv('PAID_EMAILS', '') or '').split(',') if e.strip()])
+PAID_EMAILS = set(
+    [e.strip().lower() for e in
+     (os.getenv('PAID_EMAILS', '') or '').split(',') if e.strip()]
+)
+
 
 class FreeTierLimitReached(Exception):
     pass
+
 
 def _parse_iso_dt(s: str):
     if not s:
@@ -17663,10 +21814,14 @@ def _parse_iso_dt(s: str):
     except Exception:
         return None
 
+
 def get_user_profile_azure(user_id: str) -> Optional[dict]:
     try:
         table_client = get_users_table_client()
-        return table_client.get_entity(partition_key=str(user_id), row_key='profile')
+        return table_client.get_entity(
+            partition_key=str(user_id),
+            row_key='profile'
+        )
     except Exception:
         return None
 
@@ -17694,13 +21849,17 @@ def _profile_indicates_paid(prof: Optional[dict]) -> bool:
         if _profile_has_active_trial_hold(prof):
             return True
         if bool(prof.get('is_paid', False)):
-            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
+            paid_until = _parse_iso_dt(
+                str(prof.get('paid_until') or '').strip()
+            )
             if paid_until is None:
                 return True
             return paid_until >= datetime.now(timezone.utc)
         plan_status = str(prof.get('plan_status') or '').strip().lower()
         if plan_status in ('paid', 'active', 'trial', 'monthly', 'annual'):
-            paid_until = _parse_iso_dt(str(prof.get('paid_until') or '').strip())
+            paid_until = _parse_iso_dt(
+                str(prof.get('paid_until') or '').strip()
+            )
             if paid_until is None:
                 return True
             return paid_until >= datetime.now(timezone.utc)
@@ -17709,12 +21868,14 @@ def _profile_indicates_paid(prof: Optional[dict]) -> bool:
         return False
 
 
-_SUBSCRIPTION_PLAN_STATUSES = frozenset({
-    'paid', 'active', 'trialing', 'trial', 'trial_7d',
-    'monthly', 'monthly_10_95', 'annual', 'annual_6_95',
-    'canceled', 'cancelled', 'past_due', 'unpaid',
-    'incomplete', 'incomplete_expired', 'paused',
-})
+_SUBSCRIPTION_PLAN_STATUSES = frozenset(
+    {
+        'paid', 'active', 'trialing', 'trial', 'trial_7d',
+        'monthly', 'monthly_10_95', 'annual', 'annual_6_95',
+        'canceled', 'cancelled', 'past_due', 'unpaid',
+        'incomplete', 'incomplete_expired', 'paused',
+    }
+)
 
 
 def _profile_ever_had_subscription_loose(prof: Optional[dict]) -> bool:
@@ -17729,20 +21890,30 @@ def _profile_ever_had_subscription_loose(prof: Optional[dict]) -> bool:
         plan_status = str(prof.get('plan_status') or '').strip().lower()
         if plan_status in _SUBSCRIPTION_PLAN_STATUSES:
             return True
-        if str(prof.get('stripe_customer_id') or '').strip() and plan_status and plan_status != 'free':
+        if str(
+                prof.get('stripe_customer_id') or ''
+        ).strip() and plan_status and plan_status != 'free':
             return True
         return False
     except Exception:
         return False
 
 
-def _profile_ever_had_subscription(prof: Optional[dict], stripe_index: Optional[dict] = None) -> bool:
+def _profile_ever_had_subscription(
+        prof: Optional[dict],
+        stripe_index: Optional[dict] = None
+) -> bool:
     """True when profile is linked to a real Stripe subscription."""
     try:
         if not prof:
             return False
-        if stripe_index is not None and _stripe_enabled() and not stripe_index.get('error'):
-            matched, _ = _match_user_to_stripe_subscriptions(prof, stripe_index)
+        if stripe_index is not None and _stripe_enabled() and not stripe_index.get(
+                'error'
+        ):
+            matched, _ = _match_user_to_stripe_subscriptions(
+                prof,
+                stripe_index
+            )
             return bool(matched)
         # Fallback when Stripe API unavailable: require stored subscription id.
         return bool(str(prof.get('stripe_subscription_id') or '').strip())
@@ -17751,9 +21922,9 @@ def _profile_ever_had_subscription(prof: Optional[dict], stripe_index: Optional[
 
 
 def _subscription_status_for_dashboard(
-    prof: Optional[dict],
-    is_paid_active: bool,
-    stripe_subs: Optional[list] = None,
+        prof: Optional[dict],
+        is_paid_active: bool,
+        stripe_subs: Optional[list] = None,
 ) -> tuple[str, str]:
     """Return (display label, badge css class) for subscription table."""
     if stripe_subs:
@@ -17768,7 +21939,9 @@ def _subscription_status_for_dashboard(
             return label, 'badge-canceled'
         return label, 'badge-free'
 
-    plan_status = str((prof or {}).get('plan_status') or '').strip().lower()
+    plan_status = str(
+        (prof or {}).get('plan_status') or ''
+    ).strip().lower()
     if is_paid_active:
         if plan_status in ('trial', 'trialing', 'trial_7d'):
             return 'Active (Trial)', 'badge-trial'
@@ -17788,7 +21961,11 @@ def _subscription_status_for_dashboard(
 
 def is_paid_user(user_obj: Optional['User']) -> bool:
     try:
-        if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+        if not user_obj or not getattr(
+                user_obj,
+                'is_authenticated',
+                False
+        ):
             return False
         if bool(getattr(user_obj, 'is_admin', False)):
             return True
@@ -17803,14 +21980,20 @@ def is_paid_user(user_obj: Optional['User']) -> bool:
         return False
 
 
-def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> bool:
+def _refresh_paid_status_from_stripe_for_user(
+        user_obj: Optional['User']
+) -> bool:
     """Best-effort: infer paid status from Stripe by email/customer and persist to Azure profile.
 
     This is a safety net for cases where Stripe webhooks are delayed/misconfigured, or when
     Payment Links complete but the webhook hasn't updated Azure yet.
     """
     try:
-        if not user_obj or not getattr(user_obj, 'is_authenticated', False):
+        if not user_obj or not getattr(
+                user_obj,
+                'is_authenticated',
+                False
+        ):
             return False
         if not _stripe_enabled():
             return False
@@ -17830,9 +22013,13 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
         except Exception:
             pass
 
-        stored_customer_id = str(prof.get('stripe_customer_id') or '').strip()
+        stored_customer_id = str(
+            prof.get('stripe_customer_id') or ''
+        ).strip()
         customer_id = stored_customer_id
-        subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
+        subscription_id = str(
+            prof.get('stripe_subscription_id') or ''
+        ).strip()
 
         try:
             if not customer_id:
@@ -17846,7 +22033,9 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
             days = int(plan.get('duration_days') or 31)
             if days < 1:
                 days = 31
-            return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+            return (datetime.now(timezone.utc) + timedelta(
+                days=days
+            )).isoformat()
 
         # Find best subscription for this customer (active > trialing > others).
         best_sub_id = subscription_id
@@ -17857,17 +22046,31 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
 
             best_sub_obj = None
             if best_sub_id:
-                best_sub_obj = stripe.Subscription.retrieve(best_sub_id, expand=['pending_setup_intent'])
-                best_status = str(getattr(best_sub_obj, 'status', '') or '').strip().lower()
+                best_sub_obj = stripe.Subscription.retrieve(
+                    best_sub_id,
+                    expand=['pending_setup_intent']
+                )
+                best_status = str(
+                    getattr(best_sub_obj, 'status', '') or ''
+                ).strip().lower()
                 cpe = getattr(best_sub_obj, 'current_period_end', None)
                 if cpe:
-                    paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+                    paid_until = datetime.fromtimestamp(
+                        int(cpe),
+                        tz=timezone.utc
+                    ).isoformat()
             elif customer_id:
-                subs = stripe.Subscription.list(customer=customer_id, status='all', limit=10)
+                subs = stripe.Subscription.list(
+                    customer=customer_id,
+                    status='all',
+                    limit=10
+                )
                 sdata = list(getattr(subs, 'data', []) or [])
 
                 def _rank(sub):
-                    status = str(getattr(sub, 'status', '') or '').strip().lower()
+                    status = str(
+                        getattr(sub, 'status', '') or ''
+                    ).strip().lower()
                     cpe = int(getattr(sub, 'current_period_end', 0) or 0)
                     sr = 0
                     if status == 'active':
@@ -17878,55 +22081,95 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
                         sr = 1
                     return (sr, cpe)
 
-                eligible = [s for s in sdata if _stripe_subscription_grants_access(s)]
+                eligible = [s for s in sdata if
+                            _stripe_subscription_grants_access(s)]
                 if eligible:
-                    best_sub_obj = sorted(eligible, key=_rank, reverse=True)[0]
-                    best_sub_id = str(getattr(best_sub_obj, 'id', '') or '').strip()
-                    best_status = str(getattr(best_sub_obj, 'status', '') or '').strip().lower()
+                    best_sub_obj = \
+                        sorted(eligible, key=_rank, reverse=True)[0]
+                    best_sub_id = str(
+                        getattr(best_sub_obj, 'id', '') or ''
+                    ).strip()
+                    best_status = str(
+                        getattr(best_sub_obj, 'status', '') or ''
+                    ).strip().lower()
                     cpe = getattr(best_sub_obj, 'current_period_end', None)
                     if cpe:
-                        paid_until = datetime.fromtimestamp(int(cpe), tz=timezone.utc).isoformat()
+                        paid_until = datetime.fromtimestamp(
+                            int(cpe),
+                            tz=timezone.utc
+                        ).isoformat()
         except Exception:
             # If Stripe is unreachable/misconfigured, don't crash gating.
             return bool(local_paid_fallback)
 
-        paid_flag = bool(best_sub_obj and _stripe_subscription_grants_access(best_sub_obj))
+        paid_flag = bool(
+            best_sub_obj and _stripe_subscription_grants_access(
+                best_sub_obj
+            )
+        )
 
         # Fallback for Payment Links / one-time checkout sessions:
         # If there is no subscription at all, we can grant temporary access based on a recent paid
         # checkout session while waiting for profile/webhook sync. Do not do this when Stripe
         # already reports a subscription state (e.g., canceled), or we can incorrectly re-grant access.
-        has_subscription_state = bool((best_sub_id or '').strip() or (best_status or '').strip())
-        if (not paid_flag) and customer_id and (not has_subscription_state):
+        has_subscription_state = bool(
+            (best_sub_id or '').strip() or (best_status or '').strip()
+        )
+        if (not paid_flag) and customer_id and (
+                not has_subscription_state):
             try:
 
-                sessions = stripe.checkout.Session.list(customer=customer_id, limit=10)
+                sessions = stripe.checkout.Session.list(
+                    customer=customer_id,
+                    limit=10
+                )
                 sdata = list(getattr(sessions, 'data', []) or [])
                 # Prefer the most recent *paid* session.
-                sdata = sorted(sdata, key=lambda s: int(getattr(s, 'created', 0) or 0), reverse=True)
+                sdata = sorted(
+                    sdata,
+                    key=lambda s: int(getattr(s, 'created', 0) or 0),
+                    reverse=True
+                )
                 now_ts = int(time.time())
-                recovery_window_secs = int(os.getenv('STRIPE_CHECKOUT_RECOVERY_WINDOW_SECS', '21600') or '21600')
+                recovery_window_secs = int(
+                    os.getenv(
+                        'STRIPE_CHECKOUT_RECOVERY_WINDOW_SECS',
+                        '21600'
+                    ) or '21600'
+                )
                 if recovery_window_secs < 300:
                     recovery_window_secs = 300
                 for s in sdata:
-                    status = str(getattr(s, 'status', '') or '').strip().lower()
-                    pay_status = str(getattr(s, 'payment_status', '') or '').strip().lower()
-                    mode = str(getattr(s, 'mode', '') or '').strip().lower()
+                    status = str(
+                        getattr(s, 'status', '') or ''
+                    ).strip().lower()
+                    pay_status = str(
+                        getattr(s, 'payment_status', '') or ''
+                    ).strip().lower()
+                    mode = str(
+                        getattr(s, 'mode', '') or ''
+                    ).strip().lower()
                     created_ts = int(getattr(s, 'created', 0) or 0)
                     # One-time Checkout fallback is only for webhook lag shortly after purchase.
                     # Old paid sessions should not grant ongoing access after cancellation.
-                    if created_ts <= 0 or (now_ts - created_ts) > recovery_window_secs:
+                    if created_ts <= 0 or (
+                            now_ts - created_ts) > recovery_window_secs:
                         continue
-                    if status == 'complete' and pay_status in ('paid', 'no_payment_required'):
+                    if status == 'complete' and pay_status in (
+                            'paid', 'no_payment_required'):
                         meta = getattr(s, 'metadata', None) or {}
                         plan_id = str(meta.get('plan_id') or '').strip()
                         # If metadata is missing, still treat as paid (default ~monthly duration).
                         plan_status_guess = plan_id or 'paid'
-                        paid_until = paid_until or _paid_until_from_plan_id(plan_id or 'monthly_10_95')
+                        paid_until = paid_until or _paid_until_from_plan_id(
+                            plan_id or 'monthly_10_95'
+                        )
                         paid_flag = True
                         # If this session actually created a subscription, store it too.
                         try:
-                            sid = str(getattr(s, 'subscription', '') or '').strip()
+                            sid = str(
+                                getattr(s, 'subscription', '') or ''
+                            ).strip()
                             if sid:
                                 best_sub_id = sid
                         except Exception:
@@ -17942,10 +22185,10 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
             entity["email"] = email
             should_persist_customer_id = bool(stored_customer_id)
             if not should_persist_customer_id and customer_id and (
-                paid_flag
-                or bool(best_sub_id)
-                or bool(plan_status_guess)
-                or bool(best_status)
+                    paid_flag
+                    or bool(best_sub_id)
+                    or bool(plan_status_guess)
+                    or bool(best_status)
             ):
                 should_persist_customer_id = True
             if should_persist_customer_id and customer_id:
@@ -17957,10 +22200,23 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
                 entity["paid_until"] = paid_until
             elif not paid_flag:
                 entity["paid_until"] = ""
-            if paid_flag:
-                entity["plan_status"] = plan_status_guess or best_status or "active"
+            if paid_flag and paid_until:
+                entity["paid_until"] = paid_until
+            elif not paid_flag:
+                entity["paid_until"] = ""
+
+            raw_status = plan_status_guess or best_status or "active"
+
+            if raw_status.lower() == 'trialing':
+                final_status = 'trial'
             else:
-                entity["plan_status"] = best_status or "free"
+                final_status = raw_status
+
+            if paid_flag:
+                entity["plan_status"] = final_status
+            else:
+                entity[
+                    "plan_status"] = final_status if final_status != 'active' else 'free'
             table_client.upsert_entity(entity, mode=UpdateMode.MERGE)
         except Exception:
             # Ignore Azure persistence errors; still return the computed paid flag.
@@ -17969,6 +22225,7 @@ def _refresh_paid_status_from_stripe_for_user(user_obj: Optional['User']) -> boo
         return bool(paid_flag)
     except Exception:
         return False
+
 
 def is_paid_user_id(user_id: str) -> bool:
     try:
@@ -17985,10 +22242,14 @@ def is_paid_user_id(user_id: str) -> bool:
     except Exception:
         return False
 
+
 def upsert_user_profile_azure(user_obj: 'User') -> None:
     try:
         table_client = get_users_table_client()
-        provider = "google" if str(user_obj.id).isdigit() else ("facebook" if str(user_obj.id).startswith("facebook_") else "other")
+        provider = "google" if str(user_obj.id).isdigit() else (
+            "facebook" if str(user_obj.id).startswith(
+                "facebook_"
+            ) else "other")
         entity = {
             'PartitionKey': str(user_obj.id),
             'RowKey': 'profile',
@@ -18000,27 +22261,43 @@ def upsert_user_profile_azure(user_obj: 'User') -> None:
         }
         if getattr(user_obj, 'password_hash', None):
             entity['password_hash'] = user_obj.password_hash
-        entity['email_verified'] = bool(getattr(user_obj, 'email_verified', True))
+        entity['email_verified'] = bool(
+            getattr(user_obj, 'email_verified', True)
+        )
         if getattr(user_obj, 'email_verified_at', None):
             entity['email_verified_at'] = user_obj.email_verified_at
         if getattr(user_obj, 'email_verification_sent_at', None):
-            entity['email_verification_sent_at'] = user_obj.email_verification_sent_at
+            entity[
+                'email_verification_sent_at'] = user_obj.email_verification_sent_at
         if getattr(user_obj, 'welcome_email_sent_at', None):
-            entity['welcome_email_sent_at'] = user_obj.welcome_email_sent_at
+            entity[
+                'welcome_email_sent_at'] = user_obj.welcome_email_sent_at
         table_client.upsert_entity(entity)
     except Exception as e:
         logger.error(f"Failed to upsert user profile to Azure: {str(e)}")
 
+
 # Save a revision to Azure Table Storage
-def save_resume_revision(user_id, revision_id, resume_content, feedback=None, original_resume=None, notes=None, job_description=None):
+def save_resume_revision(
+        user_id,
+        revision_id,
+        resume_content,
+        feedback=None,
+        original_resume=None,
+        notes=None,
+        job_description=None
+):
     from datetime import datetime, timezone
+
     # Enforce free tier cap (1 revision) for non-paid users.
     # Note: We enforce here as a safety net; primary gating happens earlier in /results.
     if not is_paid_user_id(user_id):
         try:
             existing = get_user_revisions(user_id)
             if len(existing) >= FREE_REVISION_LIMIT:
-                raise FreeTierLimitReached("Free tier revision limit reached")
+                raise FreeTierLimitReached(
+                    "Free tier revision limit reached"
+                )
         except FreeTierLimitReached:
             raise
         except Exception:
@@ -18040,6 +22317,7 @@ def save_resume_revision(user_id, revision_id, resume_content, feedback=None, or
         'applications': '[]',
     }
     table_client.upsert_entity(entity)
+
 
 def _parse_applications(raw):
     """Parse stored applications JSON safely into a list of dicts."""
@@ -18067,7 +22345,8 @@ def _parse_applications(raw):
             'link': str(item.get('link', '') or '')[:500],
             'notes': str(item.get('notes', '') or '')[:4000],
             'next_action': str(item.get('next_action', '') or '')[:500],
-            'follow_up_date': str(item.get('follow_up_date', '') or '')[:32],
+            'follow_up_date': str(item.get('follow_up_date', '') or '')[
+                              :32],
             'updated_at': str(item.get('updated_at', '') or '')[:32],
         }
         msgs = item.get('messages')
@@ -18076,15 +22355,24 @@ def _parse_applications(raw):
             for m in msgs:
                 if not isinstance(m, dict):
                     continue
-                body = str(m.get('body') or m.get('rewritten_text') or m.get('original_text') or '').strip()
+                body = str(
+                    m.get('body') or m.get('rewritten_text') or m.get(
+                        'original_text'
+                    ) or ''
+                ).strip()
                 if not body:
                     continue
-                cleaned_msgs.append({
-                    'type': str(m.get('type') or m.get('message_type') or '')[:40],
-                    'subject': str(m.get('subject', '') or '')[:200],
-                    'body': body[:4000],
-                    'created_at': str(m.get('created_at', '') or '')[:32],
-                })
+                cleaned_msgs.append(
+                    {
+                        'type': str(
+                            m.get('type') or m.get('message_type') or ''
+                        )[:40],
+                        'subject': str(m.get('subject', '') or '')[:200],
+                        'body': body[:4000],
+                        'created_at': str(m.get('created_at', '') or '')[
+                                      :32],
+                    }
+                )
             if cleaned_msgs:
                 entry['messages'] = cleaned_msgs[-20:]
         cleaned.append(entry)
@@ -18116,25 +22404,50 @@ def _build_job_search_coach_context(user_id):
 
     latest_resume = None
     if latest:
-        feedback = latest.get('feedback') if isinstance(latest.get('feedback'), dict) else {}
+        feedback = latest.get('feedback') if isinstance(
+            latest.get('feedback'),
+            dict
+        ) else {}
         latest_resume = {
             'revision_id': str(latest.get('revision_id') or ''),
-            'revision_name': str(latest.get('revision_name') or '').strip() or 'Latest resume',
-            'created_at': _format_revision_timestamp_for_coach(latest.get('timestamp')),
-            'job_description': _truncate_coach_text(latest.get('job_description') or '', 6000),
-            'resume_content': _truncate_coach_text(latest.get('resume_content') or '', 12000),
-            'revision_notes': _truncate_coach_text(latest.get('notes') or '', 2000),
+            'revision_name': str(
+                latest.get('revision_name') or ''
+            ).strip() or 'Latest resume',
+            'created_at': _format_revision_timestamp_for_coach(
+                latest.get('timestamp')
+            ),
+            'job_description': _truncate_coach_text(
+                latest.get('job_description') or '',
+                6000
+            ),
+            'resume_content': _truncate_coach_text(
+                latest.get('resume_content') or '',
+                12000
+            ),
+            'revision_notes': _truncate_coach_text(
+                latest.get('notes') or '',
+                2000
+            ),
             'feedback_overall_score': feedback.get('overall_score'),
             'template_versions': [
-                str(tv.get('template_display_name') or tv.get('template_id') or '').strip()
+                str(
+                    tv.get('template_display_name') or tv.get(
+                        'template_id'
+                    ) or ''
+                ).strip()
                 for tv in (latest.get('template_versions') or [])
-                if isinstance(tv, dict) and (tv.get('template_display_name') or tv.get('template_id'))
+                if isinstance(tv, dict) and (
+                        tv.get('template_display_name') or tv.get(
+                    'template_id'
+                ))
             ],
         }
 
     applications = []
     for rev in revisions:
-        rev_name = str(rev.get('revision_name') or '').strip() or 'Untitled resume'
+        rev_name = str(
+            rev.get('revision_name') or ''
+        ).strip() or 'Untitled resume'
         rev_id = str(rev.get('revision_id') or '')
         for idx, app in enumerate(rev.get('applications') or []):
             if not isinstance(app, dict):
@@ -18147,10 +22460,15 @@ def _build_job_search_coach_context(user_id):
                 'role': str(app.get('role') or '').strip(),
                 'date_applied': str(app.get('date_applied') or '').strip(),
                 'status': str(app.get('status') or '').strip(),
-                'follow_up_date': str(app.get('follow_up_date') or '').strip(),
+                'follow_up_date': str(
+                    app.get('follow_up_date') or ''
+                ).strip(),
                 'next_action': str(app.get('next_action') or '').strip(),
                 'link': str(app.get('link') or '').strip(),
-                'notes': _truncate_coach_text(app.get('notes') or '', 1500),
+                'notes': _truncate_coach_text(
+                    app.get('notes') or '',
+                    1500
+                ),
             }
             msgs = app.get('messages') or []
             if isinstance(msgs, list) and msgs:
@@ -18158,10 +22476,14 @@ def _build_job_search_coach_context(user_id):
                     {
                         'type': str(m.get('type') or '').strip(),
                         'subject': str(m.get('subject') or '').strip(),
-                        'body_preview': _truncate_coach_text(m.get('body') or '', 400),
+                        'body_preview': _truncate_coach_text(
+                            m.get('body') or '',
+                            400
+                        ),
                     }
                     for m in msgs[-5:]
-                    if isinstance(m, dict) and (m.get('body') or '').strip()
+                    if
+                    isinstance(m, dict) and (m.get('body') or '').strip()
                 ]
             applications.append(app_entry)
 
@@ -18183,24 +22505,35 @@ def _format_job_search_coach_context(ctx):
 
     latest = ctx.get('latest_resume')
     if latest:
-        lines.extend([
-            "LATEST RESUME REVISION (most recent):",
-            f"- Name: {latest.get('revision_name')}",
-            f"- Revision ID: {latest.get('revision_id')}",
-            f"- Created: {latest.get('created_at') or 'unknown'}",
-        ])
+        lines.extend(
+            [
+                "LATEST RESUME REVISION (most recent):",
+                f"- Name: {latest.get('revision_name')}",
+                f"- Revision ID: {latest.get('revision_id')}",
+                f"- Created: {latest.get('created_at') or 'unknown'}",
+            ]
+        )
         score = latest.get('feedback_overall_score')
         if score is not None:
             lines.append(f"- Resume feedback score: {score}")
         templates = latest.get('template_versions') or []
         if templates:
-            lines.append(f"- Saved template versions: {', '.join(templates)}")
+            lines.append(
+                f"- Saved template versions: {', '.join(templates)}"
+            )
         if latest.get('revision_notes'):
-            lines.append(f"- Revision notes: {latest.get('revision_notes')}")
+            lines.append(
+                f"- Revision notes: {latest.get('revision_notes')}"
+            )
         if latest.get('job_description'):
-            lines.extend(["- Target job description:", latest.get('job_description')])
+            lines.extend(
+                ["- Target job description:",
+                 latest.get('job_description')]
+            )
         if latest.get('resume_content'):
-            lines.extend(["- Resume content:", latest.get('resume_content')])
+            lines.extend(
+                ["- Resume content:", latest.get('resume_content')]
+            )
     else:
         lines.append("LATEST RESUME REVISION: none saved yet.")
 
@@ -18209,14 +22542,20 @@ def _format_job_search_coach_context(ctx):
     if apps:
         lines.append("TRACKED JOB APPLICATIONS:")
         for i, app in enumerate(apps, start=1):
-            lines.append(f"{i}. {app.get('company') or 'Unknown company'} — {app.get('role') or 'Unknown role'}")
-            lines.append(f"   Resume version: {app.get('revision_name')} (revision {app.get('revision_id')})")
+            lines.append(
+                f"{i}. {app.get('company') or 'Unknown company'} — {app.get('role') or 'Unknown role'}"
+            )
+            lines.append(
+                f"   Resume version: {app.get('revision_name')} (revision {app.get('revision_id')})"
+            )
             if app.get('status'):
                 lines.append(f"   Status: {app.get('status')}")
             if app.get('date_applied'):
                 lines.append(f"   Date applied: {app.get('date_applied')}")
             if app.get('follow_up_date'):
-                lines.append(f"   Follow-up date: {app.get('follow_up_date')}")
+                lines.append(
+                    f"   Follow-up date: {app.get('follow_up_date')}"
+                )
             if app.get('next_action'):
                 lines.append(f"   Next action: {app.get('next_action')}")
             if app.get('link'):
@@ -18229,13 +22568,16 @@ def _format_job_search_coach_context(ctx):
                 subject = msg.get('subject') or ''
                 preview = msg.get('body_preview') or ''
                 if subject:
-                    lines.append(f"   Saved {label} ({subject}): {preview}")
+                    lines.append(
+                        f"   Saved {label} ({subject}): {preview}"
+                    )
                 else:
                     lines.append(f"   Saved {label}: {preview}")
     else:
         lines.append("TRACKED JOB APPLICATIONS: none yet.")
 
     return "\n".join(lines)
+
 
 # Get all revisions for a user
 def get_user_revisions(user_id):
@@ -18244,10 +22586,15 @@ def get_user_revisions(user_id):
         table_client = get_table_client()
         try:
             # Materialize to isolate downstream template rendering from paging/iteration errors.
-            entities = list(table_client.query_entities(f"PartitionKey eq '{user_id}'"))
+            entities = list(
+                table_client.query_entities(f"PartitionKey eq '{user_id}'")
+            )
         except Exception:
             try:
-                logger.exception("get_user_revisions query_entities failed (user_id=%s)", str(user_id))
+                logger.exception(
+                    "get_user_revisions query_entities failed (user_id=%s)",
+                    str(user_id)
+                )
             except Exception:
                 pass
             return []
@@ -18256,9 +22603,13 @@ def get_user_revisions(user_id):
             try:
                 timestamp_str = e.get('timestamp')
                 if not timestamp_str:
-                    timestamp_str = str(e.get('Timestamp')) if e.get('Timestamp') else None
+                    timestamp_str = str(e.get('Timestamp')) if e.get(
+                        'Timestamp'
+                    ) else None
                 try:
-                    timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else None
+                    timestamp = datetime.fromisoformat(
+                        timestamp_str
+                    ) if timestamp_str else None
                     if timestamp and timestamp.tzinfo is None:
                         timestamp = timestamp.replace(tzinfo=timezone.utc)
                 except Exception:
@@ -18274,7 +22625,9 @@ def get_user_revisions(user_id):
                 # Gather saved template versions (multi-template support)
                 template_versions = []
                 try:
-                    raw_saved = str(e.get('template_saved_templates', '') or '').strip()
+                    raw_saved = str(
+                        e.get('template_saved_templates', '') or ''
+                    ).strip()
                     saved_list = json.loads(raw_saved) if raw_saved else []
                     if not isinstance(saved_list, list):
                         saved_list = []
@@ -18293,29 +22646,77 @@ def get_user_revisions(user_id):
 
                 seen = set()
                 for tid in candidates:
-                    plain_prop, gz_prop, at_prop = _template_snapshot_prop_names(tid)
-                    if str(e.get(plain_prop, '') or '').strip() or str(e.get(gz_prop, '') or '').strip():
-                        template_versions.append({
-                            'template_id': tid,
-                            'template_display_name': _format_template_display_name(tid),
-                            'template_saved_at': str(e.get(at_prop, '') or '').strip(),
-                        })
+                    plain_prop, gz_prop, at_prop = _template_snapshot_prop_names(
+                        tid
+                    )
+                    if str(e.get(plain_prop, '') or '').strip() or str(
+                            e.get(gz_prop, '') or ''
+                    ).strip():
+                        template_versions.append(
+                            {
+                                'template_id': tid,
+                                'template_display_name': _format_template_display_name(
+                                    tid
+                                ),
+                                'template_saved_at': str(
+                                    e.get(at_prop, '') or ''
+                                ).strip(),
+                            }
+                        )
                         seen.add(tid)
 
                 # Backward compatibility: legacy single-snapshot field.
                 legacy_has = bool(
-                    str(_entity_get_ci(e, 'template_structured_resume', '') or '').strip()
-                    or str(_entity_get_ci(e, 'template_structured_resume_gz_b64', '') or '').strip()
-                    or str(_entity_get_ci(e, 'templateStructuredResume', '') or '').strip()
-                    or str(_entity_get_ci(e, 'templateStructuredResumeGzB64', '') or '').strip()
+                    str(
+                        _entity_get_ci(
+                            e,
+                            'template_structured_resume',
+                            ''
+                        ) or ''
+                    ).strip()
+                    or str(
+                        _entity_get_ci(
+                            e,
+                            'template_structured_resume_gz_b64',
+                            ''
+                        ) or ''
+                    ).strip()
+                    or str(
+                        _entity_get_ci(
+                            e,
+                            'templateStructuredResume',
+                            ''
+                        ) or ''
+                    ).strip()
+                    or str(
+                        _entity_get_ci(
+                            e,
+                            'templateStructuredResumeGzB64',
+                            ''
+                        ) or ''
+                    ).strip()
                 )
-                legacy_tid = _canonical_template_id(str(_entity_get_ci(e, 'template_id', '') or '').strip() or 'professional')
+                legacy_tid = _canonical_template_id(
+                    str(
+                        _entity_get_ci(e, 'template_id', '') or ''
+                    ).strip() or 'professional'
+                )
                 if legacy_has and legacy_tid not in seen:
-                    template_versions.append({
-                        'template_id': legacy_tid,
-                        'template_display_name': _format_template_display_name(legacy_tid),
-                        'template_saved_at': str(_entity_get_ci(e, 'template_saved_at', '') or '').strip(),
-                    })
+                    template_versions.append(
+                        {
+                            'template_id': legacy_tid,
+                            'template_display_name': _format_template_display_name(
+                                legacy_tid
+                            ),
+                            'template_saved_at': str(
+                                _entity_get_ci(
+                                    e,
+                                    'template_saved_at',
+                                    ''
+                                ) or ''
+                            ).strip(),
+                        }
+                    )
 
                 revision_name = str(
                     _entity_get_ci(e, 'revision_name', '')
@@ -18324,39 +22725,59 @@ def get_user_revisions(user_id):
                     or ''
                 ).strip()
 
-                revisions.append({
-                    'revision_id': e.get('RowKey') or e.get('rowKey') or '',
-                    'timestamp': timestamp,
-                    'resume_content': e.get('resume_content', ''),
-                    'feedback': feedback,
-                    'original_resume': e.get('original_resume', ''),
-                    'revision_name': revision_name,
-                    'notes': e.get('notes', ''),
-                    'job_description': e.get('job_description', ''),
-                    'applications': _parse_applications(e.get('applications', '')),
-                    # Optional: persisted template edit-mode snapshot
-                    'template_id': str(e.get('template_id', '') or '').strip(),
-                    'template_saved_at': str(e.get('template_saved_at', '') or '').strip(),
-                    'has_template_snapshot': bool(template_versions),
-                    'template_versions': template_versions,
-                })
+                revisions.append(
+                    {
+                        'revision_id': e.get('RowKey') or e.get(
+                            'rowKey'
+                        ) or '',
+                        'timestamp': timestamp,
+                        'resume_content': e.get('resume_content', ''),
+                        'feedback': feedback,
+                        'original_resume': e.get('original_resume', ''),
+                        'revision_name': revision_name,
+                        'notes': e.get('notes', ''),
+                        'job_description': e.get('job_description', ''),
+                        'applications': _parse_applications(
+                            e.get('applications', '')
+                        ),
+                        # Optional: persisted template edit-mode snapshot
+                        'template_id': str(
+                            e.get('template_id', '') or ''
+                        ).strip(),
+                        'template_saved_at': str(
+                            e.get('template_saved_at', '') or ''
+                        ).strip(),
+                        'has_template_snapshot': bool(template_versions),
+                        'template_versions': template_versions,
+                    }
+                )
             except Exception:
                 try:
                     rk = str(e.get('RowKey') or e.get('rowKey') or '')
-                    logger.exception("get_user_revisions failed parsing entity (user_id=%s row_key=%s)", str(user_id), rk)
+                    logger.exception(
+                        "get_user_revisions failed parsing entity (user_id=%s row_key=%s)",
+                        str(user_id),
+                        rk
+                    )
                 except Exception:
                     pass
                 continue
     except Exception:
         try:
-            logger.exception("get_user_revisions failed (user_id=%s)", str(user_id))
+            logger.exception(
+                "get_user_revisions failed (user_id=%s)",
+                str(user_id)
+            )
         except Exception:
             pass
         return []
 
     utc_min = datetime.min.replace(tzinfo=timezone.utc)
     try:
-        revisions.sort(key=lambda x: x['timestamp'] or utc_min, reverse=True)
+        revisions.sort(
+            key=lambda x: x['timestamp'] or utc_min,
+            reverse=True
+        )
     except Exception:
         pass
 
@@ -18372,6 +22793,7 @@ def get_user_revisions(user_id):
             r['applications_count'] = 0
     return revisions
 
+
 # Route: My Revisions
 @app.route('/my_revisions')
 @app.route('/my_revisions/', strict_slashes=False)
@@ -18379,7 +22801,12 @@ def get_user_revisions(user_id):
 def my_revisions():
     if _requires_email_verification(current_user):
         flash('Please verify your email to access your account.', 'danger')
-        return redirect(url_for('verify_email', email=getattr(current_user, 'email', '')))
+        return redirect(
+            url_for(
+                'verify_email',
+                email=getattr(current_user, 'email', '')
+            )
+        )
     revisions = []
     try:
         revisions = get_user_revisions(current_user.id) or []
@@ -18388,8 +22815,13 @@ def my_revisions():
     if revisions == []:
         # Best-effort hint; underlying error is logged in get_user_revisions.
         try:
-            if not os.getenv('AZURE_STORAGE_CONNECTION_STRING') and not os.getenv('AZURE_STORAGE_ACCOUNT'):
-                flash('Resume history is temporarily unavailable (storage not configured).', 'warning')
+            if not os.getenv(
+                    'AZURE_STORAGE_CONNECTION_STRING'
+            ) and not os.getenv('AZURE_STORAGE_ACCOUNT'):
+                flash(
+                    'Resume history is temporarily unavailable (storage not configured).',
+                    'warning'
+                )
         except Exception:
             pass
     today_iso = datetime.now(timezone.utc).date().isoformat()
@@ -18419,13 +22851,13 @@ def settings_page():
             url_for(
                 'verify_email',
                 email=getattr(current_user, 'email', '')
-                )
             )
+        )
     if str(request.args.get('canceled') or '').strip() == '1':
         flash(
             'Your subscription has been canceled. You\'ll keep access until the end of your billing period.',
             'success'
-            )
+        )
 
     prof = get_user_profile_azure(getattr(current_user, 'id', '')) or {}
     paid_until_raw = str(prof.get('paid_until') or '').strip()
@@ -18434,6 +22866,8 @@ def settings_page():
     subscription_id = str(prof.get('stripe_subscription_id') or '').strip()
     plan_status_raw = str(prof.get('plan_status') or '').strip()
     debug = str(request.args.get('debug') or '').strip() == '1'
+
+
 
     try:
         host = str(getattr(request, "host", "") or "").lower()
@@ -18446,7 +22880,7 @@ def settings_page():
                 or host.startswith("localhost")
                 or (os.getenv(
             "ENABLE_SETTINGS_DEBUG"
-            ) or "").strip() == "1"
+        ) or "").strip() == "1"
         )
     )
     debug_info = None
@@ -18460,19 +22894,19 @@ def settings_page():
             _refresh_paid_status_from_stripe_for_user(current_user)
             prof = get_user_profile_azure(
                 getattr(current_user, 'id', '')
-                ) or prof
+            ) or prof
             plan_status_raw = str(
                 prof.get('plan_status') or plan_status_raw
-                ).strip()
+            ).strip()
             paid_until_raw = str(
                 prof.get('paid_until') or paid_until_raw
-                ).strip()
+            ).strip()
             customer_id = str(
                 prof.get('stripe_customer_id') or customer_id
-                ).strip()
+            ).strip()
             subscription_id = str(
                 prof.get('stripe_subscription_id') or subscription_id
-                ).strip()
+            ).strip()
             paid_flag = bool(is_paid_user(current_user))
         except Exception:
             pass
@@ -18484,24 +22918,24 @@ def settings_page():
                 customer_id = _find_stripe_customer_id_by_email(
                     (getattr(current_user, 'email', '') or '').strip(),
                     require_subscription_history=False
-                    )
+                )
 
             # Subscriptions recovery block
             if customer_id and not subscription_id and plan_status_raw not in (
-            'trial', 'trial_7d'):
+                    'trial', 'trial_7d'):
                 subs = stripe.Subscription.list(
                     customer=customer_id,
                     status='all',
                     limit=10
-                    )
+                )
                 sdata = list(getattr(subs, 'data', []) or [])
 
                 def _rank(sub):
                     status = str(getattr(sub, 'status', '') or '').lower()
                     cpe = int(getattr(sub, 'current_period_end', 0) or 0)
                     return (
-                    3 if status == 'active' else 2 if status == 'trialing' else 1,
-                    cpe)
+                        3 if status == 'active' else 2 if status == 'trialing' else 1,
+                        cpe)
 
                 if sdata:
                     eligible = [s for s in sdata if
@@ -18510,7 +22944,7 @@ def settings_page():
                         best = sorted(eligible, key=_rank, reverse=True)[0]
                         subscription_id = str(
                             getattr(best, 'id', '') or ''
-                            ).strip()
+                        ).strip()
                         paid_flag = True
 
             # Backfill changes safely
@@ -18528,18 +22962,18 @@ def settings_page():
 
     # Load defaults assuming standard dates
     stripe_dates = _get_stripe_plan_dates_for_customer(customer_id) if (
-                paid_flag and customer_id) else {}
+            paid_flag and customer_id) else {}
     if paid_flag and not stripe_dates and subscription_id:
         stripe_dates = _get_stripe_plan_dates_for_subscription(
             subscription_id
-            )
+        )
 
     next_billing_iso = str(
         stripe_dates.get('next_billing_iso') or ''
-        ).strip()
+    ).strip()
     paid_through_est_iso = str(
         stripe_dates.get('paid_through_est_iso') or ''
-        ).strip()
+    ).strip()
     interval_label = str(stripe_dates.get('interval_label') or '').strip()
     stripe_status = str(stripe_dates.get('status') or '').strip().lower()
 
@@ -18551,16 +22985,21 @@ def settings_page():
             next_billing_iso = paid_until_raw
             paid_through_est_iso = paid_until_raw
 
+        is_canceled_status = stripe_status in (
+        'canceled', 'past_due') or plan_status_raw.lower() == 'canceled'
+        if is_canceled_status:
+            cancel_scheduled = True
+
     # Compute values from standard subscriptions if subscription ID is present
     try:
         if paid_flag and subscription_id and _stripe_enabled() and not is_standalone_trial:
             sub_obj = stripe.Subscription.retrieve(
                 subscription_id,
                 expand=["items.data.price"]
-                )
+            )
             cancel_scheduled = bool(
                 _stripe_subscription_cancel_scheduled(sub_obj)
-                )
+            )
 
             si_price_id = ""
             try:
@@ -18568,7 +23007,7 @@ def settings_page():
                     subscription=subscription_id,
                     limit=1,
                     expand=["data.price"]
-                    )
+                )
                 si_data = list(getattr(si, "data", []) or [])
                 if si_data:
                     p = getattr(si_data[0], "price", None)
@@ -18577,34 +23016,34 @@ def settings_page():
                             p,
                             "id",
                             p
-                            ) or ""
-                        ).strip()
+                        ) or ""
+                    ).strip()
             except Exception:
                 pass
 
             status = str(
                 _stripe_obj_get(sub_obj, "status", "") or ""
-                ).strip().lower()
+            ).strip().lower()
             stripe_status = status or stripe_status
             trial_end = _stripe_obj_get(sub_obj, "trial_end", None)
             current_period_end = _stripe_obj_get(
                 sub_obj,
                 "current_period_end",
                 None
-                )
+            )
 
             price_id, interval, interval_count = _get_subscription_price_id_and_recurring(
                 sub_obj
-                )
+            )
             if not price_id and si_price_id:
                 price_id = si_price_id
 
             annual_ids = _configured_stripe_price_ids_for_plan(
                 'annual_6_95'
-                )
+            )
             monthly_ids = _configured_stripe_price_ids_for_plan(
                 'monthly_10_95'
-                )
+            )
 
             if not interval and price_id and price_id in annual_ids:
                 interval, interval_count = 'year', 1
@@ -18616,13 +23055,13 @@ def settings_page():
             else:
                 next_ts = int(
                     current_period_end
-                    ) if current_period_end else None
+                ) if current_period_end else None
 
             if next_ts:
                 next_billing_iso = datetime.fromtimestamp(
                     next_ts,
                     tz=timezone.utc
-                    ).isoformat()
+                ).isoformat()
                 paid_through_est_iso = next_billing_iso
 
             if interval == 'year':
@@ -18643,32 +23082,35 @@ def settings_page():
         interval_label = ''
 
     return render_template(
-            'settings.html',
-            user=current_user,
-            email=(getattr(current_user, 'email', '') or '').strip(),
-            name=(getattr(current_user, 'name', '') or '').strip(),
-            is_paid=has_active_access,
-            is_trial=is_standalone_trial or (stripe_status == 'trialing'),
-            is_standalone_trial=is_standalone_trial,
-            cancel_scheduled=bool(cancel_scheduled),
-            plan_status=plan_status_raw,
-            interval_label=interval_label,
-            next_billing_display=_format_paid_until(next_billing_iso),
-            paid_through_display=_format_paid_until(paid_until_raw),
-            debug_info=debug_info if debug_allowed else None,
-        )
+        'settings.html',
+        user=current_user,
+        email=(getattr(current_user, 'email', '') or '').strip(),
+        name=(getattr(current_user, 'name', '') or '').strip(),
+        is_paid=has_active_access,
+        is_trial=is_standalone_trial or (stripe_status == 'trialing'),
+        is_standalone_trial=is_standalone_trial,
+        cancel_scheduled=bool(cancel_scheduled),
+        plan_status=plan_status_raw,
+        interval_label=interval_label,
+        next_billing_display=_format_paid_until(next_billing_iso),
+        paid_through_display=_format_paid_until(paid_until_raw),
+        debug_info=debug_info if debug_allowed else None,
+    )
+
 
 @app.route('/api/me')
 def api_me():
     """Lightweight user info for the React frontend (plan gating, limits)."""
     try:
         if not current_user.is_authenticated:
-            return jsonify({
-                "is_authenticated": False,
-                "is_paid": False,
-                "free_revision_limit": FREE_REVISION_LIMIT,
-                "revisions_used": 0,
-            })
+            return jsonify(
+                {
+                    "is_authenticated": False,
+                    "is_paid": False,
+                    "free_revision_limit": FREE_REVISION_LIMIT,
+                    "revisions_used": 0,
+                }
+            )
         paid = is_paid_user(current_user)
         # Safety net: if webhooks haven't updated Azure yet, try to recover paid status from Stripe.
         if (not paid) and _stripe_enabled():
@@ -18679,7 +23121,11 @@ def api_me():
                 if now_ts - last_ts > 30:
                     session['stripe_paid_refresh_at'] = now_ts
                     session.modified = True
-                    paid = bool(_refresh_paid_status_from_stripe_for_user(current_user)) or paid
+                    paid = bool(
+                        _refresh_paid_status_from_stripe_for_user(
+                            current_user
+                        )
+                    ) or paid
             except Exception:
                 pass
         used = 0
@@ -18687,25 +23133,33 @@ def api_me():
             used = len(get_user_revisions(current_user.id))
         except Exception:
             used = 0
-        return jsonify({
-            "is_authenticated": True,
-            "is_paid": bool(paid),
-            "free_revision_limit": FREE_REVISION_LIMIT,
-            "revisions_used": used,
-        })
+        return jsonify(
+            {
+                "is_authenticated": True,
+                "is_paid": bool(paid),
+                "free_revision_limit": FREE_REVISION_LIMIT,
+                "revisions_used": used,
+            }
+        )
     except Exception:
-        return jsonify({
-            "is_authenticated": False,
-            "is_paid": False,
-            "free_revision_limit": FREE_REVISION_LIMIT,
-            "revisions_used": 0,
-        })
+        return jsonify(
+            {
+                "is_authenticated": False,
+                "is_paid": False,
+                "free_revision_limit": FREE_REVISION_LIMIT,
+                "revisions_used": 0,
+            }
+        )
+
 
 @app.route('/view_revision/<revision_id>')
 @login_required
 def view_revision(revision_id):
     revisions = get_user_revisions(current_user.id)
-    rev = next((r for r in revisions if r['revision_id'] == revision_id), None)
+    rev = next(
+        (r for r in revisions if r['revision_id'] == revision_id),
+        None
+    )
     if not rev:
         flash('Revision not found.', 'danger')
         return redirect(url_for('my_revisions'))
@@ -18737,16 +23191,34 @@ def view_revision(revision_id):
 
 
 @app.route('/update_revision_name', methods=['GET', 'POST'])
-@app.route('/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+@app.route(
+    '/update_revision_name/<revision_id>',
+    methods=['GET', 'POST'],
+    strict_slashes=False
+)
 @app.route('/path/update_revision_name', methods=['GET', 'POST'])
-@app.route('/path/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
-
+@app.route(
+    '/path/update_revision_name/<revision_id>',
+    methods=['GET', 'POST'],
+    strict_slashes=False
+)
 # Extra robustness: if the browser resolves the relative form action under a trailing-slash
 # my_revisions URL, it may post to /my_revisions/update_revision_name/<id>.
 @app.route('/my_revisions/update_revision_name', methods=['GET', 'POST'])
-@app.route('/my_revisions/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
-@app.route('/path/my_revisions/update_revision_name', methods=['GET', 'POST'])
-@app.route('/path/my_revisions/update_revision_name/<revision_id>', methods=['GET', 'POST'], strict_slashes=False)
+@app.route(
+    '/my_revisions/update_revision_name/<revision_id>',
+    methods=['GET', 'POST'],
+    strict_slashes=False
+)
+@app.route(
+    '/path/my_revisions/update_revision_name',
+    methods=['GET', 'POST']
+)
+@app.route(
+    '/path/my_revisions/update_revision_name/<revision_id>',
+    methods=['GET', 'POST'],
+    strict_slashes=False
+)
 @login_required
 def update_revision_name(revision_id=None):
     """Persist a user-defined label for a saved resume revision.
@@ -18757,17 +23229,24 @@ def update_revision_name(revision_id=None):
     - /update_revision_name + revision_id in form/query (fallback)
     """
     wants_json = (
-        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        or 'application/json' in (request.headers.get('Accept') or '')
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or 'application/json' in (request.headers.get('Accept') or '')
     )
     try:
         if not revision_id:
-            revision_id = (request.form.get('revision_id') or request.args.get('revision_id') or '').strip()
+            revision_id = (request.form.get(
+                'revision_id'
+            ) or request.args.get('revision_id') or '').strip()
 
         if not revision_id:
             if wants_json:
-                return jsonify({'ok': False, 'error': 'Missing revision id'}), 400
-            flash('Error updating resume name. Please try again.', 'danger')
+                return jsonify(
+                    {'ok': False, 'error': 'Missing revision id'}
+                ), 400
+            flash(
+                'Error updating resume name. Please try again.',
+                'danger'
+            )
             return redirect(request.referrer or url_for('my_revisions'))
 
         # We only update on POST; GET requests are redirected back.
@@ -18779,14 +23258,23 @@ def update_revision_name(revision_id=None):
         revision_name = revision_name[:80]
 
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity = table_client.get_entity(
+            partition_key=current_user.id,
+            row_key=revision_id
+        )
         entity['revision_name'] = revision_name
         table_client.update_entity(entity, mode=UpdateMode.MERGE)
         if wants_json:
-            return jsonify({'ok': True, 'revision_id': revision_id, 'revision_name': revision_name}), 200
+            return jsonify(
+                {'ok': True, 'revision_id': revision_id,
+                 'revision_name': revision_name}
+            ), 200
     except Exception:
         if wants_json:
-            return jsonify({'ok': False, 'error': 'Error updating resume name. Please try again.'}), 500
+            return jsonify(
+                {'ok': False,
+                 'error': 'Error updating resume name. Please try again.'}
+            ), 500
         flash('Error updating resume name. Please try again.', 'danger')
     return redirect(request.referrer or url_for('my_revisions'))
 
@@ -18802,7 +23290,10 @@ def edit_revision_template(revision_id):
     template_id = str(request.args.get('template') or '').strip() or None
     try:
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(revision_id))
+        entity = table_client.get_entity(
+            partition_key=str(current_user.id),
+            row_key=str(revision_id)
+        )
     except Exception:
         flash('Revision not found.', 'danger')
         return redirect(url_for('my_revisions'))
@@ -18823,7 +23314,10 @@ def edit_revision_template(revision_id):
     template_id = _canonical_template_id(template_id)
 
     structured_resume = None
-    structured_resume = _load_structured_snapshot_for_template(entity, template_id)
+    structured_resume = _load_structured_snapshot_for_template(
+        entity,
+        template_id
+    )
     if structured_resume is None:
         try:
             structured_resume = parse_resume(resume_text).get('resume', {})
@@ -18845,7 +23339,9 @@ def edit_revision_template(revision_id):
         'source_revision_id': str(revision_id),
     }
     session.modified = True
-    return redirect(url_for('react_app', subpath=f"template-viewer/{template_id}"))
+    return redirect(
+        url_for('react_app', subpath=f"template-viewer/{template_id}")
+    )
 
 
 @app.route('/download_revision_template_pdf/<revision_id>')
@@ -18858,7 +23354,10 @@ def download_revision_template_pdf(revision_id):
     template_id = str(request.args.get('template') or '').strip() or None
     try:
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=str(current_user.id), row_key=str(revision_id))
+        entity = table_client.get_entity(
+            partition_key=str(current_user.id),
+            row_key=str(revision_id)
+        )
     except Exception:
         flash('Revision not found.', 'danger')
         return redirect(url_for('my_revisions'))
@@ -18879,7 +23378,10 @@ def download_revision_template_pdf(revision_id):
     template_id = _canonical_template_id(template_id)
 
     structured_resume = None
-    structured_resume = _load_structured_snapshot_for_template(entity, template_id)
+    structured_resume = _load_structured_snapshot_for_template(
+        entity,
+        template_id
+    )
     if structured_resume is None:
         try:
             structured_resume = parse_resume(resume_text).get('resume', {})
@@ -18904,6 +23406,7 @@ def download_revision_template_pdf(revision_id):
     # Server-side PDF generation (avoids html2canvas issues with OKLAB/OKLCH colors).
     return redirect(url_for('api_template_pdf', template_id=template_id))
 
+
 @app.route('/update_notes/<revision_id>', methods=['POST'])
 @login_required
 def update_notes(revision_id):
@@ -18912,7 +23415,10 @@ def update_notes(revision_id):
 
         # Get the current revision to preserve existing data
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity = table_client.get_entity(
+            partition_key=current_user.id,
+            row_key=revision_id
+        )
 
         # Update only the notes field
         entity['notes'] = notes
@@ -18923,6 +23429,7 @@ def update_notes(revision_id):
         flash('Error updating notes. Please try again.', 'danger')
 
     return redirect(url_for('my_revisions'))
+
 
 @app.route('/application/add/<revision_id>', methods=['POST'])
 @login_required
@@ -18935,19 +23442,27 @@ def add_application(revision_id):
         link = (request.form.get('link') or '').strip()
 
         if not any([company, role, date_applied, status, link]):
-            flash('Please fill at least one field before adding an application.', 'danger')
+            flash(
+                'Please fill at least one field before adding an application.',
+                'danger'
+            )
             return redirect(url_for('my_revisions'))
 
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity = table_client.get_entity(
+            partition_key=current_user.id,
+            row_key=revision_id
+        )
         apps = _parse_applications(entity.get('applications', ''))
-        apps.append({
-            'company': company,
-            'role': role,
-            'date_applied': date_applied,
-            'status': status,
-            'link': link,
-        })
+        apps.append(
+            {
+                'company': company,
+                'role': role,
+                'date_applied': date_applied,
+                'status': status,
+                'link': link,
+            }
+        )
         # Prevent unbounded growth
         apps = apps[-200:]
         entity['applications'] = json.dumps(apps)
@@ -18957,12 +23472,16 @@ def add_application(revision_id):
         flash('Error adding application. Please try again.', 'danger')
     return redirect(url_for('my_revisions'))
 
+
 @app.route('/application/delete/<revision_id>/<int:idx>', methods=['POST'])
 @login_required
 def delete_application(revision_id, idx: int):
     try:
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity = table_client.get_entity(
+            partition_key=current_user.id,
+            row_key=revision_id
+        )
         apps = _parse_applications(entity.get('applications', ''))
         if idx < 0 or idx >= len(apps):
             flash('Application not found.', 'danger')
@@ -18982,7 +23501,10 @@ def update_application_notes(revision_id, idx: int):
     """Update tracked application status, follow-up fields, and notes."""
     try:
         table_client = get_table_client()
-        entity = table_client.get_entity(partition_key=current_user.id, row_key=revision_id)
+        entity = table_client.get_entity(
+            partition_key=current_user.id,
+            row_key=revision_id
+        )
         apps = _parse_applications(entity.get('applications', ''))
         if idx < 0 or idx >= len(apps):
             flash('Application not found.', 'danger')
@@ -18990,13 +23512,20 @@ def update_application_notes(revision_id, idx: int):
 
         app_item = apps[idx] if isinstance(apps[idx], dict) else {}
         if 'status' in request.form:
-            app_item['status'] = (request.form.get('status') or '').strip()[:40]
+            app_item['status'] = (request.form.get(
+                'status'
+            ) or '').strip()[:40]
         if 'follow_up_date' in request.form:
-            app_item['follow_up_date'] = (request.form.get('follow_up_date') or '').strip()[:32]
+            app_item['follow_up_date'] = (request.form.get(
+                'follow_up_date'
+            ) or '').strip()[:32]
         if 'next_action' in request.form:
-            app_item['next_action'] = (request.form.get('next_action') or '').strip()[:500]
+            app_item['next_action'] = (request.form.get(
+                'next_action'
+            ) or '').strip()[:500]
         if 'notes' in request.form:
-            app_item['notes'] = (request.form.get('notes') or '').strip()[:4000]
+            app_item['notes'] = (request.form.get('notes') or '').strip()[
+                                :4000]
 
         app_item['updated_at'] = datetime.now(timezone.utc).isoformat()
         apps[idx] = app_item
@@ -19006,6 +23535,7 @@ def update_application_notes(revision_id, idx: int):
     except Exception:
         flash('Error updating application. Please try again.', 'danger')
     return redirect(url_for('my_revisions'))
+
 
 #############################################
 # Admin: Registered Users from Azure Revisions
@@ -19028,17 +23558,21 @@ def _collect_registered_users(table_override: str = None):
         user_obj = users.get(uid)
         email = getattr(user_obj, "email", "") if user_obj else ""
         name = getattr(user_obj, "name", "") if user_obj else ""
-        provider = "google" if str(uid).isdigit() else ("facebook" if str(uid).startswith("facebook_") else "other")
-        results.append({
-            "id": uid,
-            "email": email,
-            "name": name,
-            "provider": provider,
-            "revisions": n,
-        })
+        provider = "google" if str(uid).isdigit() else (
+            "facebook" if str(uid).startswith("facebook_") else "other")
+        results.append(
+            {
+                "id": uid,
+                "email": email,
+                "name": name,
+                "provider": provider,
+                "revisions": n,
+            }
+        )
 
     results.sort(key=lambda x: x["revisions"], reverse=True)
     return results
+
 
 @app.route('/admin/registered_users.json')
 @login_required
@@ -19046,7 +23580,9 @@ def registered_users_json():
     if not getattr(current_user, "is_admin", False):
         return jsonify({"error": "Forbidden"}), 403
     table_name = (request.args.get('table') or '').strip() or 'Users'
-    users_rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    users_rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(
+        table_name
+    )
     cta_sent_total = 0
     cta_sent_users = 0
     cta_converted_users = 0
@@ -19058,24 +23594,36 @@ def registered_users_json():
     paid_offer_applied_users = 0
     for row in users_rows:
         try:
-            sent_count = int(row.get("trial_reinstate_cta_sent_count", 0) or 0)
+            sent_count = int(
+                row.get("trial_reinstate_cta_sent_count", 0) or 0
+            )
         except Exception:
             sent_count = 0
         try:
-            conv_count = int(row.get("trial_reinstate_conversion_count", 0) or 0)
+            conv_count = int(
+                row.get("trial_reinstate_conversion_count", 0) or 0
+            )
         except Exception:
             conv_count = 0
-        converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        converted_flag = bool(
+            row.get("trial_reinstate_cta_converted", False)
+        )
         try:
-            paid_sent_count = int(row.get("paid_reinstate_offer_email_sent_count", 0) or 0)
+            paid_sent_count = int(
+                row.get("paid_reinstate_offer_email_sent_count", 0) or 0
+            )
         except Exception:
             paid_sent_count = 0
         try:
-            paid_click_count = int(row.get("paid_reinstate_offer_click_count", 0) or 0)
+            paid_click_count = int(
+                row.get("paid_reinstate_offer_click_count", 0) or 0
+            )
         except Exception:
             paid_click_count = 0
         try:
-            paid_apply_count = int(row.get("paid_reinstate_offer_apply_count", 0) or 0)
+            paid_apply_count = int(
+                row.get("paid_reinstate_offer_apply_count", 0) or 0
+            )
         except Exception:
             paid_apply_count = 0
         cta_sent_total += max(sent_count, 0)
@@ -19091,30 +23639,47 @@ def registered_users_json():
             cta_converted_users += 1
         if paid_apply_count > 0:
             paid_offer_applied_users += 1
-    cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
-    cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
-    paid_offer_click_rate = (float(paid_offer_click_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
-    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
-    return jsonify({
-        "table": resolved_table,
-        "columns": all_keys,
-        "users": users_rows,
-        "conversion_summary": {
-            "cta_sent_total": cta_sent_total,
-            "cta_sent_users": cta_sent_users,
-            "cta_converted_users": cta_converted_users,
-            "cta_conversion_events": cta_conversion_events,
-            "cta_user_conversion_rate": round(cta_user_conversion_rate, 1),
-            "cta_event_conversion_rate": round(cta_event_conversion_rate, 1),
-            "paid_offer_sent_total": paid_offer_sent_total,
-            "paid_offer_sent_users": paid_offer_sent_users,
-            "paid_offer_click_total": paid_offer_click_total,
-            "paid_offer_apply_total": paid_offer_apply_total,
-            "paid_offer_applied_users": paid_offer_applied_users,
-            "paid_offer_click_rate": round(paid_offer_click_rate, 1),
-            "paid_offer_apply_rate": round(paid_offer_apply_rate, 1),
-        },
-    })
+    cta_user_conversion_rate = (float(cta_converted_users) / float(
+        cta_sent_users
+    ) * 100.0) if cta_sent_users > 0 else 0.0
+    cta_event_conversion_rate = (float(cta_conversion_events) / float(
+        cta_sent_total
+    ) * 100.0) if cta_sent_total > 0 else 0.0
+    paid_offer_click_rate = (float(paid_offer_click_total) / float(
+        paid_offer_sent_total
+    ) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(
+        paid_offer_sent_total
+    ) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    return jsonify(
+        {
+            "table": resolved_table,
+            "columns": all_keys,
+            "users": users_rows,
+            "conversion_summary": {
+                "cta_sent_total": cta_sent_total,
+                "cta_sent_users": cta_sent_users,
+                "cta_converted_users": cta_converted_users,
+                "cta_conversion_events": cta_conversion_events,
+                "cta_user_conversion_rate": round(
+                    cta_user_conversion_rate,
+                    1
+                ),
+                "cta_event_conversion_rate": round(
+                    cta_event_conversion_rate,
+                    1
+                ),
+                "paid_offer_sent_total": paid_offer_sent_total,
+                "paid_offer_sent_users": paid_offer_sent_users,
+                "paid_offer_click_total": paid_offer_click_total,
+                "paid_offer_apply_total": paid_offer_apply_total,
+                "paid_offer_applied_users": paid_offer_applied_users,
+                "paid_offer_click_rate": round(paid_offer_click_rate, 1),
+                "paid_offer_apply_rate": round(paid_offer_apply_rate, 1),
+            },
+        }
+    )
+
 
 def _format_value_pacific_if_datetime(val):
     """Format datetime values to Pacific time for display."""
@@ -19122,7 +23687,8 @@ def _format_value_pacific_if_datetime(val):
         return val
     if hasattr(val, "isoformat"):
         return _format_datetime_pacific(val.isoformat())
-    if isinstance(val, str) and ("T" in val or (len(val) >= 19 and val[4] == "-" and val[7] == "-")):
+    if isinstance(val, str) and ("T" in val or (
+            len(val) >= 19 and val[4] == "-" and val[7] == "-")):
         return _format_datetime_pacific(val)
     return val
 
@@ -19134,11 +23700,14 @@ def registered_users_view():
         flash("You do not have permission to view this page.", "danger")
         return redirect(url_for("index"))
     table_name = (request.args.get('table') or '').strip() or 'Users'
-    data, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    data, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(
+        table_name
+    )
     for row in data:
         for k in list(row.keys()):
             v = row.get(k)
-            if v is not None and (hasattr(v, "isoformat") or (isinstance(v, str) and "T" in v)):
+            if v is not None and (hasattr(v, "isoformat") or (
+                    isinstance(v, str) and "T" in v)):
                 row[k] = _format_value_pacific_if_datetime(v)
     # CTA conversion summary (trial cancellation reinstate email).
     cta_sent_total = 0
@@ -19153,7 +23722,9 @@ def registered_users_view():
     for row in data:
         sent_raw = row.get("trial_reinstate_cta_sent_count", 0)
         conv_raw = row.get("trial_reinstate_conversion_count", 0)
-        converted_flag = bool(row.get("trial_reinstate_cta_converted", False))
+        converted_flag = bool(
+            row.get("trial_reinstate_cta_converted", False)
+        )
         paid_sent_raw = row.get("paid_reinstate_offer_email_sent_count", 0)
         paid_click_raw = row.get("paid_reinstate_offer_click_count", 0)
         paid_apply_raw = row.get("paid_reinstate_offer_apply_count", 0)
@@ -19193,10 +23764,18 @@ def registered_users_view():
         if paid_apply_count > 0:
             paid_offer_applied_users += 1
 
-    cta_user_conversion_rate = (float(cta_converted_users) / float(cta_sent_users) * 100.0) if cta_sent_users > 0 else 0.0
-    cta_event_conversion_rate = (float(cta_conversion_events) / float(cta_sent_total) * 100.0) if cta_sent_total > 0 else 0.0
-    paid_offer_click_rate = (float(paid_offer_click_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
-    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(paid_offer_sent_total) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    cta_user_conversion_rate = (float(cta_converted_users) / float(
+        cta_sent_users
+    ) * 100.0) if cta_sent_users > 0 else 0.0
+    cta_event_conversion_rate = (float(cta_conversion_events) / float(
+        cta_sent_total
+    ) * 100.0) if cta_sent_total > 0 else 0.0
+    paid_offer_click_rate = (float(paid_offer_click_total) / float(
+        paid_offer_sent_total
+    ) * 100.0) if paid_offer_sent_total > 0 else 0.0
+    paid_offer_apply_rate = (float(paid_offer_apply_total) / float(
+        paid_offer_sent_total
+    ) * 100.0) if paid_offer_sent_total > 0 else 0.0
 
     conversion_summary = {
         "cta_sent_total": cta_sent_total,
@@ -19222,26 +23801,32 @@ def registered_users_view():
         conversion_summary=conversion_summary,
     )
 
+
 @app.route('/admin/registered_users.csv')
 @login_required
 def registered_users_csv():
     if not getattr(current_user, "is_admin", False):
         return jsonify({"error": "Forbidden"}), 403
     table_name = (request.args.get('table') or '').strip() or 'Users'
-    rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(table_name)
+    rows, resolved_table, all_keys = _collect_registered_users_from_azure_users_table(
+        table_name
+    )
     # Build CSV in-memory
     lines = [','.join([f'"{k}"' for k in all_keys])]
     for r in rows:
         def esc(v):
             s = str(v or "")
-            s = s.replace('"','""')
+            s = s.replace('"', '""')
             return f'"{s}"'
+
         line = ','.join([esc(r.get(k, '')) for k in all_keys])
         lines.append(line)
     csv_data = "\r\n".join(lines) + "\r\n"
-    return Response(csv_data, mimetype='text/csv', headers={
-        'Content-Disposition': f'attachment; filename=registered_users_{resolved_table}.csv'
-    })
+    return Response(
+        csv_data, mimetype='text/csv', headers={
+            'Content-Disposition': f'attachment; filename=registered_users_{resolved_table}.csv'
+        }
+    )
 
 
 @app.route('/admin/registered_users_activity.csv')
@@ -19269,15 +23854,18 @@ def google_emails_json():
         if os.path.exists(USERS_FILE):
             with open(USERS_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-        emails = sorted({
-            (u.get('email') or '').strip().lower()
-            for u in data.values()
-            if u and u.get('email') and str(u.get('id', '')).isdigit()
-        })
+        emails = sorted(
+            {
+                (u.get('email') or '').strip().lower()
+                for u in data.values()
+                if u and u.get('email') and str(u.get('id', '')).isdigit()
+            }
+        )
         return jsonify({"count": len(emails), "emails": emails})
     except Exception as e:
         logger.error(f"google_emails_json error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route('/admin/google_emails.csv')
 @login_required
@@ -19290,18 +23878,23 @@ def google_emails_csv():
         if os.path.exists(USERS_FILE):
             with open(USERS_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-        emails = sorted({
-            (u.get('email') or '').strip().lower()
-            for u in data.values()
-            if u and u.get('email') and str(u.get('id', '')).isdigit()
-        })
+        emails = sorted(
+            {
+                (u.get('email') or '').strip().lower()
+                for u in data.values()
+                if u and u.get('email') and str(u.get('id', '')).isdigit()
+            }
+        )
         csv_data = "email\n" + "\n".join(emails) + "\n"
-        return Response(csv_data, mimetype='text/csv', headers={
-            'Content-Disposition': 'attachment; filename=google_emails.csv'
-        })
+        return Response(
+            csv_data, mimetype='text/csv', headers={
+                'Content-Disposition': 'attachment; filename=google_emails.csv'
+            }
+        )
     except Exception as e:
         logger.error(f"google_emails_csv error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 # Admin: Users from Azure Users table
 @app.route('/admin/users_azure.json')
@@ -19319,26 +23912,34 @@ def users_azure_json():
             provider = (e.get('provider') or '').lower()
             if provider_filter and provider != provider_filter:
                 continue
-            users_list.append({
-                'id': e.get('PartitionKey'),
-                'name': e.get('name') or '',
-                'email': e.get('email') or '',
-                'provider': provider or 'other',
-                'created_at': e.get('created_at') or '',
-                'is_admin': bool(e.get('is_admin', False)),
-            })
+            users_list.append(
+                {
+                    'id': e.get('PartitionKey'),
+                    'name': e.get('name') or '',
+                    'email': e.get('email') or '',
+                    'provider': provider or 'other',
+                    'created_at': e.get('created_at') or '',
+                    'is_admin': bool(e.get('is_admin', False)),
+                }
+            )
         # Sort by created_at desc if present
         from datetime import datetime
+
         def parse_dt(s):
             try:
                 return datetime.fromisoformat(s)
             except Exception:
                 return datetime.min
-        users_list.sort(key=lambda x: parse_dt(x.get('created_at') or ''), reverse=True)
+
+        users_list.sort(
+            key=lambda x: parse_dt(x.get('created_at') or ''),
+            reverse=True
+        )
         return jsonify({"count": len(users_list), "users": users_list})
     except Exception as e:
         logger.error(f"users_azure_json error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route('/admin/users_azure.csv')
 @login_required
@@ -19355,27 +23956,37 @@ def users_azure_csv():
             provider = (e.get('provider') or '').lower()
             if provider_filter and provider != provider_filter:
                 continue
-            rows.append({
-                'id': e.get('PartitionKey'),
-                'name': e.get('name') or '',
-                'email': e.get('email') or '',
-                'provider': provider or 'other',
-                'created_at': e.get('created_at') or '',
-                'is_admin': 'true' if e.get('is_admin', False) else 'false',
-            })
+            rows.append(
+                {
+                    'id': e.get('PartitionKey'),
+                    'name': e.get('name') or '',
+                    'email': e.get('email') or '',
+                    'provider': provider or 'other',
+                    'created_at': e.get('created_at') or '',
+                    'is_admin': 'true' if e.get(
+                        'is_admin',
+                        False
+                    ) else 'false',
+                }
+            )
+
         def esc(v):
             s = str(v or "")
-            if any(c in s for c in [',','"','\n','\r']):
-                s = '"' + s.replace('"','""') + '"'
+            if any(c in s for c in [',', '"', '\n', '\r']):
+                s = '"' + s.replace('"', '""') + '"'
             return s
-        header = ['id','name','email','provider','created_at','is_admin']
+
+        header = ['id', 'name', 'email', 'provider', 'created_at',
+                  'is_admin']
         lines = [','.join(header)]
         for r in rows:
             lines.append(','.join([esc(r[h]) for h in header]))
         csv_data = "\n".join(lines) + "\n"
-        return Response(csv_data, mimetype='text/csv', headers={
-            'Content-Disposition': 'attachment; filename=users_azure.csv'
-        })
+        return Response(
+            csv_data, mimetype='text/csv', headers={
+                'Content-Disposition': 'attachment; filename=users_azure.csv'
+            }
+        )
     except Exception as e:
         logger.error(f"users_azure_csv error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
@@ -19418,7 +24029,9 @@ def user_sessions_azure_json():
                 pager = None
         else:
             try:
-                pager = table_client.query_entities("record_type eq 'session'")
+                pager = table_client.query_entities(
+                    "record_type eq 'session'"
+                )
             except Exception:
                 pager = None
 
@@ -19429,39 +24042,54 @@ def user_sessions_azure_json():
             try:
                 if str(e.get('record_type') or '') != 'session':
                     continue
-                if user_id and str(e.get('PartitionKey') or '').strip() != user_id:
+                if user_id and str(
+                        e.get('PartitionKey') or ''
+                ).strip() != user_id:
                     continue
-                sessions.append({
-                    'user_id': str(e.get('PartitionKey') or ''),
-                    'row_key': str(e.get('RowKey') or ''),
-                    'email': e.get('email') or '',
-                    'login_at': e.get('login_at') or '',
-                    'last_activity_at': e.get('last_activity_at') or '',
-                    'logout_at': e.get('logout_at') or '',
-                    'duration_seconds': e.get('duration_seconds', None),
-                    'login_method': e.get('login_method') or '',
-                    'ip': e.get('ip') or '',
-                    # Keep UA/referer for debugging; can be large.
-                    'user_agent': e.get('user_agent') or '',
-                    'referer': e.get('referer') or '',
-                    'login_audit_pk': e.get('login_audit_pk') or '',
-                    'login_audit_rk': e.get('login_audit_rk') or '',
-                })
+                sessions.append(
+                    {
+                        'user_id': str(e.get('PartitionKey') or ''),
+                        'row_key': str(e.get('RowKey') or ''),
+                        'email': e.get('email') or '',
+                        'login_at': e.get('login_at') or '',
+                        'last_activity_at': e.get(
+                            'last_activity_at'
+                        ) or '',
+                        'logout_at': e.get('logout_at') or '',
+                        'duration_seconds': e.get(
+                            'duration_seconds',
+                            None
+                        ),
+                        'login_method': e.get('login_method') or '',
+                        'ip': e.get('ip') or '',
+                        # Keep UA/referer for debugging; can be large.
+                        'user_agent': e.get('user_agent') or '',
+                        'referer': e.get('referer') or '',
+                        'login_audit_pk': e.get('login_audit_pk') or '',
+                        'login_audit_rk': e.get('login_audit_rk') or '',
+                    }
+                )
             except Exception:
                 continue
             if limit and len(sessions) >= limit:
                 break
 
         # Sort by login_at descending (ISO strings are sortable when consistently formatted).
-        sessions.sort(key=lambda r: str(r.get('login_at') or ''), reverse=True)
-        return jsonify({
-            'count': len(sessions),
-            'user_id': user_id or None,
-            'sessions': sessions,
-        })
+        sessions.sort(
+            key=lambda r: str(r.get('login_at') or ''),
+            reverse=True
+        )
+        return jsonify(
+            {
+                'count': len(sessions),
+                'user_id': user_id or None,
+                'sessions': sessions,
+            }
+        )
     except Exception as e:
         logger.error(f"user_sessions_azure_json error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 # Admin: set plan/subscription fields on Azure Users profile (manual override until Stripe is integrated)
 @app.route('/admin/set_user_plan', methods=['POST'])
@@ -19474,8 +24102,12 @@ def admin_set_user_plan():
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
     # Supported fields
-    plan_status = str((data.get('plan_status') or '')).strip().lower()  # free|trial|paid|active|canceled
-    paid_until = str((data.get('paid_until') or '')).strip()  # ISO timestamp optional
+    plan_status = str(
+        (data.get('plan_status') or '')
+    ).strip().lower()  # free|trial|paid|active|canceled
+    paid_until = str(
+        (data.get('paid_until') or '')
+    ).strip()  # ISO timestamp optional
     is_paid_flag = data.get('is_paid', None)  # boolean optional
     try:
         table_client = get_users_table_client()
@@ -19515,7 +24147,11 @@ def _same_origin_post() -> bool:
         referer = (request.headers.get('Referer') or '').strip()
 
         # Prefer forwarded host if present (Azure proxy), else fall back.
-        req_host = host_only((request.headers.get('X-Forwarded-Host') or request.host or urlparse(request.host_url).netloc))
+        req_host = host_only(
+            (request.headers.get(
+                'X-Forwarded-Host'
+            ) or request.host or urlparse(request.host_url).netloc)
+        )
         if not req_host:
             req_host = host_only(urlparse(request.host_url).netloc)
 
@@ -19536,6 +24172,7 @@ def _get_admin_csrf_token() -> str:
         if tok:
             return tok
         import secrets
+
         tok = secrets.token_urlsafe(32)
         session['admin_csrf'] = tok
         session.modified = True
@@ -19544,13 +24181,20 @@ def _get_admin_csrf_token() -> str:
         return ""
 
 
-def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = True) -> dict:
+def _admin_delete_user_impl(
+        email: str,
+        user_id: str,
+        delete_revisions: bool = True
+) -> dict:
     email = (email or '').strip().lower()
     user_id = (user_id or '').strip()
-    delete_revisions = True if delete_revisions is None else bool(delete_revisions)
+    delete_revisions = True if delete_revisions is None else bool(
+        delete_revisions
+    )
 
     if not email and not user_id:
-        return {"ok": False, "status": 400, "error": "Missing email or user_id"}
+        return {"ok": False, "status": 400,
+                "error": "Missing email or user_id"}
 
     resolved_ids: list[str] = []
 
@@ -19596,10 +24240,12 @@ def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = T
 
     # De-dupe
     seen = set()
-    resolved_ids = [x for x in resolved_ids if x and not (x in seen or seen.add(x))]
+    resolved_ids = [x for x in resolved_ids if
+                    x and not (x in seen or seen.add(x))]
 
     if not resolved_ids:
-        return {"ok": False, "status": 404, "error": "User not found", "azure_resolve_error": azure_resolve_error}
+        return {"ok": False, "status": 404, "error": "User not found",
+                "azure_resolve_error": azure_resolve_error}
 
     deleted_local = 0
     # Remove from runtime dict first
@@ -19628,7 +24274,9 @@ def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = T
                 changed = True
                 continue
             if email:
-                e = str((data.get(uid) or {}).get('email') or '').strip().lower()
+                e = str(
+                    (data.get(uid) or {}).get('email') or ''
+                ).strip().lower()
                 if e and e == email:
                     data.pop(uid, None)
                     deleted_from_file += 1
@@ -19652,18 +24300,26 @@ def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = T
         table_client = get_users_table_client()
         for uid in resolved_ids:
             try:
-                table_client.delete_entity(partition_key=str(uid), row_key='profile')
+                table_client.delete_entity(
+                    partition_key=str(uid),
+                    row_key='profile'
+                )
                 deleted_azure_profiles += 1
             except Exception as e:
                 deleted_azure_profile_errors.append(f"{uid}: {str(e)}")
             # Delete any other rows for the same PK (rare, but keep clean)
             try:
-                for ent in table_client.query_entities(f"PartitionKey eq '{str(uid)}'"):
+                for ent in table_client.query_entities(
+                        f"PartitionKey eq '{str(uid)}'"
+                ):
                     rk = str(ent.get('RowKey') or '').strip()
                     if not rk or rk == 'profile':
                         continue
                     try:
-                        table_client.delete_entity(partition_key=str(uid), row_key=rk)
+                        table_client.delete_entity(
+                            partition_key=str(uid),
+                            row_key=rk
+                        )
                     except Exception:
                         pass
             except Exception:
@@ -19676,15 +24332,23 @@ def _admin_delete_user_impl(email: str, user_id: str, delete_revisions: bool = T
     revision_delete_errors: list[str] = []
     if delete_revisions:
         try:
-            rev_client = get_table_client('ResumeRevisions', create_if_missing=False)
+            rev_client = get_table_client(
+                'ResumeRevisions',
+                create_if_missing=False
+            )
             for uid in resolved_ids:
                 try:
-                    for ent in rev_client.query_entities(f"PartitionKey eq '{str(uid)}'"):
+                    for ent in rev_client.query_entities(
+                            f"PartitionKey eq '{str(uid)}'"
+                    ):
                         rk = str(ent.get('RowKey') or '').strip()
                         if not rk:
                             continue
                         try:
-                            rev_client.delete_entity(partition_key=str(uid), row_key=rk)
+                            rev_client.delete_entity(
+                                partition_key=str(uid),
+                                row_key=rk
+                            )
                             deleted_revisions += 1
                         except Exception:
                             pass
@@ -19721,21 +24385,32 @@ def admin_delete_user():
         _get_admin_csrf_token()
         prefill_email = (request.args.get('email') or '').strip()
         prefill_user_id = (request.args.get('user_id') or '').strip()
-        return render_template('admin_delete_user.html', prefill_email=prefill_email, prefill_user_id=prefill_user_id)
+        return render_template(
+            'admin_delete_user.html',
+            prefill_email=prefill_email,
+            prefill_user_id=prefill_user_id
+        )
 
     # POST
     # Validate CSRF token (do not rely on Origin/Referer — Azure proxies can break it)
     posted_csrf = ""
     if request.is_json:
         payload = request.get_json(silent=True) or {}
-        posted_csrf = str(payload.get('admin_csrf') or request.headers.get('X-Admin-CSRF') or '').strip()
+        posted_csrf = str(
+            payload.get('admin_csrf') or request.headers.get(
+                'X-Admin-CSRF'
+            ) or ''
+        ).strip()
     else:
         posted_csrf = str(request.form.get('admin_csrf') or '').strip()
     expected_csrf = str(session.get('admin_csrf') or '').strip()
     if not expected_csrf or not posted_csrf or posted_csrf != expected_csrf:
         if request.is_json:
             return jsonify({"error": "Forbidden"}), 403
-        flash("Forbidden (CSRF check failed). Please refresh and try again.", "danger")
+        flash(
+            "Forbidden (CSRF check failed). Please refresh and try again.",
+            "danger"
+        )
         return redirect(url_for("admin_stats"))
 
     if request.is_json:
@@ -19743,17 +24418,29 @@ def admin_delete_user():
         email = str((data.get('email') or '')).strip()
         user_id = str((data.get('user_id') or '')).strip()
         delete_revisions = data.get('delete_revisions', True)
-        res = _admin_delete_user_impl(email=email, user_id=user_id, delete_revisions=delete_revisions)
+        res = _admin_delete_user_impl(
+            email=email,
+            user_id=user_id,
+            delete_revisions=delete_revisions
+        )
         return jsonify(res), int(res.get("status") or 200)
 
     # HTML form submit
     email = (request.form.get('email') or '').strip()
     user_id = (request.form.get('user_id') or '').strip()
-    delete_revisions = bool(request.form.get('delete_revisions') in ('1', 'true', 'on', 'yes'))
+    delete_revisions = bool(
+        request.form.get('delete_revisions') in ('1', 'true', 'on', 'yes')
+    )
     return_to = (request.form.get('return_to') or '').strip()
-    res = _admin_delete_user_impl(email=email, user_id=user_id, delete_revisions=delete_revisions)
+    res = _admin_delete_user_impl(
+        email=email,
+        user_id=user_id,
+        delete_revisions=delete_revisions
+    )
     if res.get("ok"):
-        errs = len(res.get('deleted_azure_profile_errors') or []) + len(res.get('revision_delete_errors') or []) + len(res.get('file_errors') or [])
+        errs = len(res.get('deleted_azure_profile_errors') or []) + len(
+            res.get('revision_delete_errors') or []
+        ) + len(res.get('file_errors') or [])
         flash(
             f"Deleted user_id(s): {', '.join(res.get('resolved_user_ids') or [])}. "
             f"Deleted revisions: {res.get('deleted_revisions', 0)}. "
@@ -19764,14 +24451,22 @@ def admin_delete_user():
         flash(f"Delete failed: {res.get('error')}", "danger")
     if return_to and _is_safe_next_url(return_to):
         return redirect(return_to)
-    return render_template('admin_delete_user.html', prefill_email=email, prefill_user_id=user_id, result=res)
+    return render_template(
+        'admin_delete_user.html',
+        prefill_email=email,
+        prefill_user_id=user_id,
+        result=res
+    )
+
 
 def extract_text_from_file(file):
     """Extract text from uploaded file (PDF or DOCX), using fallback for complex Word docs."""
     try:
         filename = secure_filename(file.filename)
         file_extension = filename.lower().split('.')[-1]
-        _safe_print(f"Processing file: {filename}, extension: {file_extension}")
+        _safe_print(
+            f"Processing file: {filename}, extension: {file_extension}"
+        )
 
         if file_extension == 'pdf':
             text = ""
@@ -19782,7 +24477,9 @@ def extract_text_from_file(file):
                         page_text = page.extract_text()
                         if page_text:
                             text += page_text + "\n"
-                            _safe_print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
+                            _safe_print(
+                                f"Page {page_num + 1}: {len(page_text)} characters extracted"
+                            )
             except Exception as e:
                 _safe_print(f"pdfplumber failed: {str(e)}, trying PyPDF2")
                 file.seek(0)
@@ -19790,13 +24487,16 @@ def extract_text_from_file(file):
                 for page_num, page in enumerate(pdf_reader.pages):
                     page_text = page.extract_text()
                     text += page_text + "\n"
-                    _safe_print(f"Page {page_num + 1}: {len(page_text)} characters extracted")
+                    _safe_print(
+                        f"Page {page_num + 1}: {len(page_text)} characters extracted"
+                    )
 
-            _safe_print(f"Total PDF text extracted: {len(text)} characters")
+            _safe_print(
+                f"Total PDF text extracted: {len(text)} characters"
+            )
             return text.strip()
 
         elif file_extension == 'docx':
-
 
             # Try python-docx first
             try:
@@ -19808,21 +24508,31 @@ def extract_text_from_file(file):
                 for para_num, paragraph in enumerate(doc.paragraphs):
                     text += paragraph.text + "\n"
 
-                _safe_print(f"Total DOC text extracted: {len(text)} characters")
+                _safe_print(
+                    f"Total DOC text extracted: {len(text)} characters"
+                )
 
                 # Fallback if too little text
                 if len(text.strip()) < 75:
-                    _safe_print("Text too short, falling back to mammoth...")
+                    _safe_print(
+                        "Text too short, falling back to mammoth..."
+                    )
                     docx_buffer.seek(0)
                     result = mammoth.extract_raw_text(docx_buffer)
                     text = result.value
-                    _safe_print(f"Text extracted using mammoth: {len(text)} characters")
+                    _safe_print(
+                        f"Text extracted using mammoth: {len(text)} characters"
+                    )
             except Exception as e:
-                _safe_print(f"python-docx failed: {str(e)}, trying mammoth as fallback")
+                _safe_print(
+                    f"python-docx failed: {str(e)}, trying mammoth as fallback"
+                )
                 docx_buffer.seek(0)
                 result = mammoth.extract_raw_text(docx_buffer)
                 text = result.value
-                _safe_print(f"Text extracted using mammoth: {len(text)} characters")
+                _safe_print(
+                    f"Text extracted using mammoth: {len(text)} characters"
+                )
 
             return text.strip()
 
@@ -19834,23 +24544,32 @@ def extract_text_from_file(file):
         _safe_log_exception('extract_text_from_file error', e)
         raise ValueError(f"Failed to extract text from file: {str(e)}")
 
+
 @app.route('/increment_counter', methods=['POST'])
 def increment_counter():
     """API endpoint to increment resume counter (conversion tracking)"""
     try:
         # Use analytics module to track conversion
-        conversion_result = analytics.track_conversion(session, "resume_submission")
+        conversion_result = analytics.track_conversion(
+            session,
+            "resume_submission"
+        )
 
         if conversion_result.get("status") == "success":
             # Get updated total conversions count
             analytics_data = analytics.get_full_analytics()
-            count = analytics_data.get('summary', {}).get('total_conversions', 0)
+            count = analytics_data.get('summary', {}).get(
+                'total_conversions',
+                0
+            )
             return {"success": True, "count": count}
         else:
-            return {"success": False, "error": "Failed to track conversion"}, 500
+            return {"success": False,
+                    "error": "Failed to track conversion"}, 500
 
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
+
 
 @app.route('/counter')
 def counter_page():
@@ -19858,7 +24577,10 @@ def counter_page():
     try:
         # Use the analytics module to get the total conversion count
         analytics_data = analytics.get_full_analytics()
-        count = analytics_data.get('summary', {}).get('total_conversions', 0)
+        count = analytics_data.get('summary', {}).get(
+            'total_conversions',
+            0
+        )
 
         # Fallback to legacy counter.json format if analytics doesn't work
         if count == 0:
@@ -19867,7 +24589,10 @@ def counter_page():
                 with open(counter_file, 'r') as f:
                     data = json.load(f)
                     # Try new format first (total_conversions), then legacy format (count)
-                    count = data.get('total_conversions', data.get('count', 0))
+                    count = data.get(
+                        'total_conversions',
+                        data.get('count', 0)
+                    )
 
         return render_template('counter.html', count=count)
     except Exception as e:
@@ -19875,10 +24600,12 @@ def counter_page():
         print(f"Counter page error: {str(e)}")
         return render_template('counter.html', count=0)
 
+
 @app.route('/counter.html')
 def counter_html_legacy():
     """Redirect old /counter.html URL to the canonical /counter route."""
     return redirect(url_for('counter_page'), code=301)
+
 
 @app.route('/robots.txt')
 def robots_txt():
@@ -19886,8 +24613,10 @@ def robots_txt():
     try:
         response = send_file('robots.txt', mimetype='text/plain')
         if not app.debug:
-            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-            response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+            response.headers[
+                'Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers[
+                'Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
         return response
     except Exception as e:
         # Fallback content if file is not found
@@ -19900,28 +24629,34 @@ Sitemap: https://resumaticai.com/sitemap.xml
 Host: https://resumaticai.com"""
         response = Response(content, mimetype='text/plain')
         if not app.debug:
-            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers[
+                'Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
+
 
 @app.route('/sitemap-static.xml')
 def sitemap_static():
     """Serve static sitemap.xml file as backup"""
     try:
         response = send_file('sitemap.xml', mimetype='application/xml')
-        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+        response.headers[
+            'Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
         return response
     except Exception as e:
         # Fallback to dynamic sitemap
         return redirect(url_for('sitemap'))
+
 
 @app.route('/ads.txt')
 def ads_txt():
     """Serve ads.txt file"""
     response = send_file('ads.txt', mimetype='text/plain')
     if not app.debug:
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers[
+            'Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         response.headers['Cache-Control'] = 'public, max-age=86400'
     return response
+
 
 @app.route('/llms.txt')
 def llms_txt():
@@ -19929,9 +24664,11 @@ def llms_txt():
     response = send_file('llms.txt', mimetype='text/plain')
     # Add security headers to ensure HTTPS preference
     if not app.debug:
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers[
+            'Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         response.headers['Cache-Control'] = 'public, max-age=86400'
     return response
+
 
 @app.route('/subscribers')
 @login_required
@@ -19951,28 +24688,37 @@ def subscribers():
             with open("subscribers.csv", "r") as f:
                 lines = f.readlines()
                 # Skip header row if present
-                for line in lines[1:] if lines and lines[0].strip().lower() == 'email' else lines:
+                for line in lines[1:] if lines and lines[
+                    0].strip().lower() == 'email' else lines:
                     email = line.strip()
                     if email:  # Only add non-empty emails
-                        subscriber_list.append({
-                            'email': email,
-                            'date_added': 'Unknown'  # CSV doesn't store dates
-                        })
+                        subscriber_list.append(
+                            {
+                                'email': email,
+                                'date_added': 'Unknown'
+                                # CSV doesn't store dates
+                            }
+                        )
                         subscriber_count += 1
 
         # Sort subscribers alphabetically
         subscriber_list.sort(key=lambda x: x['email'].lower())
 
-        return render_template('subscribers.html',
-                             subscribers=subscriber_list,
-                             total_count=subscriber_count,
-                             user=current_user)
+        return render_template(
+            'subscribers.html',
+            subscribers=subscriber_list,
+            total_count=subscriber_count,
+            user=current_user
+        )
     except Exception as e:
         flash(f"Error loading subscribers: {str(e)}", "danger")
-        return render_template('subscribers.html',
-                             subscribers=[],
-                             total_count=0,
-                             user=current_user)
+        return render_template(
+            'subscribers.html',
+            subscribers=[],
+            total_count=0,
+            user=current_user
+        )
+
 
 @app.route('/signup')
 def signup():
@@ -19980,6 +24726,7 @@ def signup():
     _set_auth_next_from_request()
     next_url = str(session.get('auth_next') or '').strip()
     return render_template('signup.html', next_url=next_url)
+
 
 # Newsletter Management Routes
 @app.route('/admin/newsletter')
@@ -20003,46 +24750,64 @@ def newsletter_admin():
             for filename in os.listdir("newsletters"):
                 if filename.endswith(".json"):
                     try:
-                        with open(os.path.join("newsletters", filename), "r") as f:
+                        with open(
+                                os.path.join("newsletters", filename),
+                                "r"
+                        ) as f:
                             data = json.load(f)
-                        newsletter_files.append({
-                            "filename": filename,
-                            "month": data.get("month"),
-                            "year": data.get("year"),
-                            "subject": data.get("subject"),
-                            "generated_at": data.get("generated_at"),
-                            "send_stats": data.get("send_stats", {})
-                        })
+                        newsletter_files.append(
+                            {
+                                "filename": filename,
+                                "month": data.get("month"),
+                                "year": data.get("year"),
+                                "subject": data.get("subject"),
+                                "generated_at": data.get("generated_at"),
+                                "send_stats": data.get("send_stats", {})
+                            }
+                        )
                     except Exception as e:
-                        logger.error(f"Error reading newsletter file {filename}: {str(e)}")
+                        logger.error(
+                            f"Error reading newsletter file {filename}: {str(e)}"
+                        )
 
         # Sort by year and month (newest first)
-        newsletter_files.sort(key=lambda x: (x.get("year", 0), x.get("month", "")), reverse=True)
+        newsletter_files.sort(
+            key=lambda x: (x.get("year", 0), x.get("month", "")),
+            reverse=True
+        )
 
         # Get subscriber count
         subscriber_count = 0
         if os.path.exists("subscribers.csv"):
             with open("subscribers.csv", "r") as f:
                 lines = f.readlines()
-                subscriber_count = len([line for line in lines[1:] if line.strip()]) if lines else 0
+                subscriber_count = len(
+                    [line for line in lines[1:] if line.strip()]
+                ) if lines else 0
 
         email_history = read_email_events(limit=500)
 
-        return render_template('newsletter_admin.html',
-                             newsletters=newsletter_files,
-                             subscriber_count=subscriber_count,
-                             email_history=email_history,
-                             user=current_user)
+        return render_template(
+            'newsletter_admin.html',
+            newsletters=newsletter_files,
+            subscriber_count=subscriber_count,
+            email_history=email_history,
+            user=current_user
+        )
     except Exception as e:
         flash(f"Error loading newsletter dashboard: {str(e)}", "danger")
         return redirect(url_for("admin_stats"))
+
 
 @app.route('/admin/newsletter/generate', methods=['POST'])
 @login_required
 def generate_newsletter():
     """Generate a new newsletter"""
     if not getattr(current_user, "is_admin", False):
-        flash("You do not have permission to access this feature.", "danger")
+        flash(
+            "You do not have permission to access this feature.",
+            "danger"
+        )
         return redirect(url_for("index"))
 
     try:
@@ -20066,7 +24831,8 @@ def generate_newsletter():
         # Parse custom topics
         custom_topics = None
         if custom_topics_str:
-            custom_topics = [topic.strip() for topic in custom_topics_str.split(',') if topic.strip()]
+            custom_topics = [topic.strip() for topic in
+                             custom_topics_str.split(',') if topic.strip()]
 
         # Initialize newsletter manager
         newsletter_manager = NewsletterManager()
@@ -20080,10 +24846,16 @@ def generate_newsletter():
         )
 
         if preview_only:
-            flash(f"Newsletter preview generated for {month} {year}! Check the archives to view it.", "success")
+            flash(
+                f"Newsletter preview generated for {month} {year}! Check the archives to view it.",
+                "success"
+            )
         else:
             send_stats = result.get('send_stats', {})
-            flash(f"Newsletter sent! {send_stats.get('sent', 0)} emails sent successfully, {send_stats.get('failed', 0)} failed.", "success")
+            flash(
+                f"Newsletter sent! {send_stats.get('sent', 0)} emails sent successfully, {send_stats.get('failed', 0)} failed.",
+                "success"
+            )
 
         return redirect(url_for('newsletter_admin'))
 
@@ -20092,12 +24864,16 @@ def generate_newsletter():
         flash(f"Error generating newsletter: {str(e)}", "danger")
         return redirect(url_for('newsletter_admin'))
 
+
 @app.route('/admin/newsletter/preview/<path:filename>')
 @login_required
 def preview_newsletter(filename):
     """Preview a newsletter"""
     if not getattr(current_user, "is_admin", False):
-        flash("You do not have permission to access this feature.", "danger")
+        flash(
+            "You do not have permission to access this feature.",
+            "danger"
+        )
         return redirect(url_for("index"))
 
     try:
@@ -20119,12 +24895,16 @@ def preview_newsletter(filename):
         flash("Error loading newsletter preview.", "danger")
         return redirect(url_for('newsletter_admin'))
 
+
 @app.route('/admin/newsletter/send/<path:filename>', methods=['POST'])
 @login_required
 def send_existing_newsletter(filename):
     """Send an existing newsletter"""
     if not getattr(current_user, "is_admin", False):
-        flash("You do not have permission to access this feature.", "danger")
+        flash(
+            "You do not have permission to access this feature.",
+            "danger"
+        )
         return redirect(url_for("index"))
 
     try:
@@ -20153,18 +24933,24 @@ def send_existing_newsletter(filename):
 
         # Update the newsletter file with send stats
         newsletter_data["send_stats"] = send_stats
-        newsletter_data["last_sent"] = datetime.now(timezone.utc).isoformat()
+        newsletter_data["last_sent"] = datetime.now(
+            timezone.utc
+        ).isoformat()
 
         with open(filepath, "w") as f:
             json.dump(newsletter_data, f, indent=2)
 
-        flash(f"Newsletter sent! {send_stats.get('sent', 0)} emails sent successfully, {send_stats.get('failed', 0)} failed.", "success")
+        flash(
+            f"Newsletter sent! {send_stats.get('sent', 0)} emails sent successfully, {send_stats.get('failed', 0)} failed.",
+            "success"
+        )
 
     except Exception as e:
         logger.error(f"Error sending newsletter: {str(e)}")
         flash(f"Error sending newsletter: {str(e)}", "danger")
 
     return redirect(url_for('newsletter_admin'))
+
 
 @app.route('/api/newsletter/test', methods=['POST'])
 @login_required
@@ -20178,49 +24964,65 @@ def test_newsletter_config():
 
         # Check if credentials are configured
         if not config.sender_email or not config.sender_password:
-            return jsonify({
-                "status": "error",
-                "message": "Email credentials not configured. Please add NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD to your .env file."
-            }), 400
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Email credentials not configured. Please add NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD to your .env file."
+                }
+            ), 400
 
         # Log the configuration for debugging (without password)
-        logger.info(f"Testing email config - Email: {config.sender_email}, SMTP: {config.smtp_server}:{config.smtp_port}")
+        logger.info(
+            f"Testing email config - Email: {config.sender_email}, SMTP: {config.smtp_server}:{config.smtp_port}"
+        )
 
         # Test SMTP connection
         import smtplib
+
         server = smtplib.SMTP(config.smtp_server, config.smtp_port)
         server.starttls()
         server.login(config.sender_email, config.sender_password)
         server.quit()
 
-        return jsonify({
-            "status": "success",
-            "message": f"Email configuration is working correctly! Connected to {config.smtp_server} with {config.sender_email}"
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Email configuration is working correctly! Connected to {config.smtp_server} with {config.sender_email}"
+            }
+        )
 
     except smtplib.SMTPAuthenticationError as e:
         error_msg = str(e)
         if "Username and Password not accepted" in error_msg:
-            return jsonify({
-                "status": "error",
-                "message": "Authentication failed. For Gmail, make sure you're using an App Password, not your regular password. See newsletter_config.txt for setup instructions."
-            }), 400
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Authentication failed. For Gmail, make sure you're using an App Password, not your regular password. See newsletter_config.txt for setup instructions."
+                }
+            ), 400
         else:
-            return jsonify({
-                "status": "error",
-                "message": f"SMTP Authentication Error: {error_msg}"
-            }), 400
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": f"SMTP Authentication Error: {error_msg}"
+                }
+            ), 400
     except smtplib.SMTPException as e:
-        return jsonify({
-            "status": "error",
-            "message": f"SMTP Error: {str(e)}"
-        }), 400
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"SMTP Error: {str(e)}"
+            }
+        ), 400
     except Exception as e:
         logger.error(f"Newsletter config test error: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": f"Configuration error: {str(e)}"
-        }), 400
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"Configuration error: {str(e)}"
+            }
+        ), 400
+
 
 @app.route('/api/newsletter/debug', methods=['POST'])
 @login_required
@@ -20239,21 +25041,29 @@ def debug_newsletter_config():
             "smtp_server": config.smtp_server,
             "smtp_port": config.smtp_port,
             "env_vars": {
-                "NEWSLETTER_EMAIL": "Set" if os.getenv("NEWSLETTER_EMAIL") else "Not set",
-                "NEWSLETTER_PASSWORD": "Set" if os.getenv("NEWSLETTER_PASSWORD") else "Not set"
+                "NEWSLETTER_EMAIL": "Set" if os.getenv(
+                    "NEWSLETTER_EMAIL"
+                ) else "Not set",
+                "NEWSLETTER_PASSWORD": "Set" if os.getenv(
+                    "NEWSLETTER_PASSWORD"
+                ) else "Not set"
             }
         }
 
         return jsonify({"status": "success", "debug_info": debug_info})
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Debug error: {str(e)}"}), 400
+        return jsonify(
+            {"status": "error", "message": f"Debug error: {str(e)}"}
+        ), 400
+
 
 @app.route('/unsubscribe')
 def unsubscribe():
     """Unsubscribe page for newsletter"""
     email = (request.args.get('email') or '').strip().lower()
     return render_template('unsubscribe.html', email=email)
+
 
 @app.route('/unsubscribe', methods=['POST'])
 def unsubscribe_post():
@@ -20269,15 +25079,20 @@ def unsubscribe_post():
         subscribers = []
         if os.path.exists("subscribers.csv"):
             with open("subscribers.csv", "r") as f:
-                subscribers = [line.strip().lower() for line in f.readlines()]
+                subscribers = [line.strip().lower() for line in
+                               f.readlines()]
 
         # Check if email exists
         if email not in subscribers:
-            flash("Email address not found in our subscriber list.", "info")
+            flash(
+                "Email address not found in our subscriber list.",
+                "info"
+            )
             return redirect(url_for('unsubscribe'))
 
         # Remove email from list
-        updated_subscribers = [sub for sub in subscribers if sub != email and sub != 'email']
+        updated_subscribers = [sub for sub in subscribers if
+                               sub != email and sub != 'email']
 
         # Write back to file
         with open("subscribers.csv", "w") as f:
@@ -20286,16 +25101,22 @@ def unsubscribe_post():
                 if subscriber:  # Skip empty lines
                     f.write(subscriber + "\n")
 
-        flash("You have been successfully unsubscribed from our newsletter.", "success")
+        flash(
+            "You have been successfully unsubscribed from our newsletter.",
+            "success"
+        )
 
     except Exception as e:
         logger.error(f"Error unsubscribing email: {str(e)}")
         flash("An error occurred. Please try again later.", "danger")
 
     return redirect(url_for('unsubscribe'))
+
+
 def _load_email_config_if_missing() -> None:
     """Load/override SMTP creds from newsletter_config.txt into environment."""
     import os
+
     try:
         # Respect App Service / process env vars; do not override them from a file.
         # This avoids shipping stale creds and breaking production SMTP.
@@ -20316,10 +25137,14 @@ def _load_email_config_if_missing() -> None:
                         key, val = line.split('=', 1)
                         key = key.strip()
                         val = val.strip()
-                        if key in already_set and val and not already_set.get(key, False):
+                        if key in already_set and val and not already_set.get(
+                                key,
+                                False
+                        ):
                             os.environ[key] = val
     except Exception as e:
         logger.error(f"Failed to load newsletter_config.txt: {str(e)}")
+
 
 # Contact form email helper
 def send_contact_email(name: str, sender_email: str, message: str) -> None:
@@ -20336,12 +25161,22 @@ def send_contact_email(name: str, sender_email: str, message: str) -> None:
     _load_email_config_if_missing()
     smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.getenv('SMTP_PORT', '587'))
-    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-    auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
-    recipient = os.getenv('CONTACT_RECIPIENT', 'yaronyaronlid@gmail.com').strip()
+    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+        '"'
+    ).strip("'")
+    auth_password = (
+            os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip(
+        '"'
+    ).strip("'").replace(' ', '')
+    recipient = os.getenv(
+        'CONTACT_RECIPIENT',
+        'yaronyaronlid@gmail.com'
+    ).strip()
 
     if not auth_email or not auth_password:
-        raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+        raise ValueError(
+            'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+        )
 
     subject = 'New Contact Form Submission - ResumaticAI'
     text_body = (
@@ -20366,24 +25201,40 @@ def send_contact_email(name: str, sender_email: str, message: str) -> None:
     server.quit()
 
 
-def save_contact_message(name: str, sender_email: str, message: str) -> None:
+def save_contact_message(
+        name: str,
+        sender_email: str,
+        message: str
+) -> None:
     """Persist contact messages locally if email delivery fails."""
     import csv
     from datetime import datetime
+
     filename = 'contact_messages.csv'
     try:
         file_exists = os.path.exists(filename)
         with open(filename, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['timestamp_iso', 'name', 'email', 'message'])
-            writer.writerow([datetime.utcnow().isoformat(), name or '', sender_email or '', message or ''])
+                writer.writerow(
+                    ['timestamp_iso', 'name', 'email', 'message']
+                )
+            writer.writerow(
+                [datetime.utcnow().isoformat(), name or '',
+                 sender_email or '', message or '']
+            )
     except Exception as e:
         logger.error(f'Failed to save contact message fallback: {str(e)}')
 
 
 # Feedback form email helper
-def send_feedback_email(sender_email: str, rating: str, category: str, message: str, source_url: str = '') -> None:
+def send_feedback_email(
+        sender_email: str,
+        rating: str,
+        category: str,
+        message: str,
+        source_url: str = ''
+) -> None:
     """Send feedback form submission to the site owner via SMTP.
 
     Uses the same SMTP auth + recipient as the contact form (CONTACT_RECIPIENT).
@@ -20396,12 +25247,22 @@ def send_feedback_email(sender_email: str, rating: str, category: str, message: 
     _load_email_config_if_missing()
     smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.getenv('SMTP_PORT', '587'))
-    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip('"').strip("'")
-    auth_password = (os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip('"').strip("'").replace(' ', '')
-    recipient = os.getenv('CONTACT_RECIPIENT', 'yaronyaronlid@gmail.com').strip()
+    auth_email = (os.getenv('NEWSLETTER_EMAIL', '') or '').strip().strip(
+        '"'
+    ).strip("'")
+    auth_password = (
+            os.getenv('NEWSLETTER_PASSWORD', '') or '').strip().strip(
+        '"'
+    ).strip("'").replace(' ', '')
+    recipient = os.getenv(
+        'CONTACT_RECIPIENT',
+        'yaronyaronlid@gmail.com'
+    ).strip()
 
     if not auth_email or not auth_password:
-        raise ValueError('Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.')
+        raise ValueError(
+            'Email credentials not configured. Set NEWSLETTER_EMAIL and NEWSLETTER_PASSWORD.'
+        )
 
     subject = 'New Feedback Submission - ResumaticAI'
     text_body = (
@@ -20427,27 +25288,40 @@ def send_feedback_email(sender_email: str, rating: str, category: str, message: 
     server.quit()
 
 
-def save_feedback_message(sender_email: str, rating: str, category: str, message: str, source_url: str = '') -> None:
+def save_feedback_message(
+        sender_email: str,
+        rating: str,
+        category: str,
+        message: str,
+        source_url: str = ''
+) -> None:
     """Persist feedback messages locally if email delivery fails."""
     import csv
     from datetime import datetime
+
     filename = 'feedback_messages.csv'
     try:
         file_exists = os.path.exists(filename)
         with open(filename, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['timestamp_iso', 'email', 'rating', 'category', 'message', 'source_url'])
-            writer.writerow([
-                datetime.utcnow().isoformat(),
-                (sender_email or '').strip(),
-                str(rating or '').strip(),
-                str(category or '').strip(),
-                message or '',
-                str(source_url or '').strip(),
-            ])
+                writer.writerow(
+                    ['timestamp_iso', 'email', 'rating', 'category',
+                     'message', 'source_url']
+                )
+            writer.writerow(
+                [
+                    datetime.utcnow().isoformat(),
+                    (sender_email or '').strip(),
+                    str(rating or '').strip(),
+                    str(category or '').strip(),
+                    message or '',
+                    str(source_url or '').strip(),
+                ]
+            )
     except Exception as e:
         logger.error(f'Failed to save feedback message fallback: {str(e)}')
+
 
 # Contact form route
 @app.route('/contact', methods=['GET', 'POST'])
@@ -20465,28 +25339,44 @@ def contact():
             except ValueError:
                 form_ts = 0
             import time
+
             now_s = int(time.time())
             # Lower threshold to reduce false positives from autofill
             too_fast = (now_s - form_ts) < 1 if form_ts else False
 
             if website.strip() or too_fast:
-                logger.info('Contact form blocked by spam checks (honeypot/timing).')
+                logger.info(
+                    'Contact form blocked by spam checks (honeypot/timing).'
+                )
                 flash('Thank you for contacting us!', 'success')
-                return render_template('contact.html', form_ts=int(time.time()))
+                return render_template(
+                    'contact.html',
+                    form_ts=int(time.time())
+                )
 
             send_contact_email(name, email, message)
-            flash('Thank you for contacting us! Your message has been sent.', 'success')
+            flash(
+                'Thank you for contacting us! Your message has been sent.',
+                'success'
+            )
         except Exception as e:
             logger.error(f"Contact form email failed: {str(e)}")
             # Fallback: persist the message so it's not lost
             try:
                 save_contact_message(name, email, message)
-                flash('Thank you for contacting us! We received your message.', 'info')
+                flash(
+                    'Thank you for contacting us! We received your message.',
+                    'info'
+                )
             except Exception:
-                flash('We could not send your message due to a server error. Please try again later.', 'danger')
+                flash(
+                    'We could not send your message due to a server error. Please try again later.',
+                    'danger'
+                )
         return render_template('contact.html', form_ts=int(time.time()))
     # GET: set initial timestamp
     import time
+
     return render_template('contact.html', form_ts=int(time.time()))
 
 
@@ -20514,36 +25404,74 @@ def feedback():
             too_fast = (now_s - form_ts) < 1 if form_ts else False
 
             if website.strip() or too_fast:
-                logger.info('Feedback form blocked by spam checks (honeypot/timing).')
+                logger.info(
+                    'Feedback form blocked by spam checks (honeypot/timing).'
+                )
                 flash('Thank you for your feedback!', 'success')
-                return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+                return render_template(
+                    'feedback.html',
+                    form_ts=int(time.time()),
+                    source_url=source_url
+                )
 
             # Minimal validation: require either a message or a rating
             if not message and not rating:
-                flash('Please add a message or a rating before submitting.', 'danger')
-                return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+                flash(
+                    'Please add a message or a rating before submitting.',
+                    'danger'
+                )
+                return render_template(
+                    'feedback.html',
+                    form_ts=int(time.time()),
+                    source_url=source_url
+                )
 
-            send_feedback_email(sender_email, rating, category, message, source_url=source_url)
+            send_feedback_email(
+                sender_email,
+                rating,
+                category,
+                message,
+                source_url=source_url
+            )
             flash('Thanks! Your feedback has been sent.', 'success')
         except Exception as e:
             logger.error(f"Feedback form email failed: {str(e)}")
             try:
-                save_feedback_message(sender_email, rating, category, message, source_url=source_url)
+                save_feedback_message(
+                    sender_email,
+                    rating,
+                    category,
+                    message,
+                    source_url=source_url
+                )
                 flash('Thanks! We received your feedback.', 'info')
             except Exception:
-                flash('We could not send your feedback due to a server error. Please try again later.', 'danger')
+                flash(
+                    'We could not send your feedback due to a server error. Please try again later.',
+                    'danger'
+                )
 
-        return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+        return render_template(
+            'feedback.html',
+            form_ts=int(time.time()),
+            source_url=source_url
+        )
 
     # GET
     source_url = request.args.get('from') or request.referrer or ''
-    return render_template('feedback.html', form_ts=int(time.time()), source_url=source_url)
+    return render_template(
+        'feedback.html',
+        form_ts=int(time.time()),
+        source_url=source_url
+    )
+
 
 # Offline page route
 @app.route('/offline.html')
 def offline():
     """Offline page for PWA functionality"""
     return render_template('offline.html')
+
 
 # 410 Gone for legacy/old thin URLs
 @app.route('/index_old')
@@ -20552,7 +25480,12 @@ def offline():
 @app.route('/indexfiver.html')
 @app.route('/templates.html')
 def gone_legacy_urls():
-    return Response('This URL has been permanently removed.', status=410, mimetype='text/plain')
+    return Response(
+        'This URL has been permanently removed.',
+        status=410,
+        mimetype='text/plain'
+    )
+
 
 # Minimal site search endpoint to support Sitelinks SearchBox
 @app.route('/search')
@@ -20563,6 +25496,7 @@ def site_search():
 <html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"robots\" content=\"noindex, nofollow\">\n<title>Search | ResumaticAI</title></head>
 <body style=\"font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px;\">\n<h1>Search</h1>\n<p>Showing results for: <strong>{query}</strong></p>\n<p>We don't have on-site search yet. Try exploring our <a href=\"/blog\">blog</a> or the <a href=\"/\">homepage</a>.</p>\n</body></html>"""
     return Response(html, mimetype='text/html')
+
 
 # Explicitly set X-Robots-Tag for low-value or transactional routes
 @app.after_request
@@ -20586,13 +25520,12 @@ def add_robots_headers(response):
             '/counter',
             '/counter.html',
         }
-        if (request.endpoint in noindex_endpoints) or (request.path in noindex_paths):
+        if (request.endpoint in noindex_endpoints) or (
+                request.path in noindex_paths):
             response.headers['X-Robots-Tag'] = 'noindex, nofollow'
     except Exception:
         pass
     return response
-
-
 
 
 #########################################################
@@ -20746,7 +25679,10 @@ import os
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FILE_PATH = os.path.join(BASE_DIR, '610528eb-2434-4e0c-b4c5-1f54f21877ea.html')
+FILE_PATH = os.path.join(
+    BASE_DIR,
+    '610528eb-2434-4e0c-b4c5-1f54f21877ea.html'
+)
 
 
 @app.route('/610528eb-2434-4e0c-b4c5-1f54f21877ea.html')
@@ -20757,14 +25693,8 @@ def serve_file():
     )
 
 
-
-
 import os
 from flask import send_file
-
-
-
-
 
 # Schema definitions
 RESUME_STRUCTURE_SCHEMA = """
@@ -20856,7 +25786,8 @@ Rules:
         parsing_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a data extraction engine. Output only valid JSON."},
+                {"role": "system",
+                 "content": "You are a data extraction engine. Output only valid JSON."},
                 {"role": "user", "content": parsing_prompt}
             ],
             response_format={"type": "json_object"}
@@ -20867,14 +25798,21 @@ Rules:
         # Remove markdown backticks if present (similar to revise_resume function)
         if parsing_content.startswith("```"):
             import re
-            parsing_content = re.sub(r"^```(?:json)?\n", "", parsing_content)
+
+            parsing_content = re.sub(
+                r"^```(?:json)?\n",
+                "",
+                parsing_content
+            )
             parsing_content = re.sub(r"\n```$", "", parsing_content)
 
         try:
             structured_resume = json.loads(parsing_content)
         except json.JSONDecodeError as e:
             logging.error(f"JSON Parse Error in parse_resume: {str(e)}")
-            logging.error(f"Raw parsing content: {parsing_content[:500]}...")
+            logging.error(
+                f"Raw parsing content: {parsing_content[:500]}..."
+            )
             raise ValueError(f"Failed to parse resume structure: {str(e)}")
         return {"resume": structured_resume}
     except Exception as e:
@@ -20883,17 +25821,20 @@ Rules:
         raise
 
 
-
 if __name__ == "__main__":
     # Default to a single-process dev server (avoids confusing duplicate side-effects).
     # If you want auto-reload while iterating locally, set `FLASK_USE_RELOADER=1`.
     try:
-        use_reloader = str(os.getenv('FLASK_USE_RELOADER', '') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+        use_reloader = str(
+            os.getenv('FLASK_USE_RELOADER', '') or ''
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
     except Exception:
         use_reloader = False
 
     try:
-        host = str(os.getenv('FLASK_HOST', '127.0.0.1') or '127.0.0.1').strip()
+        host = str(
+            os.getenv('FLASK_HOST', '127.0.0.1') or '127.0.0.1'
+        ).strip()
     except Exception:
         host = '127.0.0.1'
 
@@ -20902,5 +25843,12 @@ if __name__ == "__main__":
     except Exception:
         port = 5000
 
-    logger.info('Dev server starting (build=%s pid=%s host=%s port=%s reloader=%s)', _BUILD_ID, os.getpid(), host, port, use_reloader)
+    logger.info(
+        'Dev server starting (build=%s pid=%s host=%s port=%s reloader=%s)',
+        _BUILD_ID,
+        os.getpid(),
+        host,
+        port,
+        use_reloader
+    )
     app.run(debug=True, host=host, port=port, use_reloader=use_reloader)

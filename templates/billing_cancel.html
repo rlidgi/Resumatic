@@ -315,6 +315,8 @@
                 modalConfirm.addEventListener('click', async function () {
                     const checked = document.querySelector('input[name="cancelReason"]:checked');
                     const reason = checked ? checked.value : '';
+                    const isTrial = {{ "true" if is_trialing else "false" }};
+                    const cancelAtPeriodEnd = !isTrial;
                     let reasonLabel = '';
                     try {
                         const wrap = checked ? checked.closest('label') : null;
@@ -331,7 +333,7 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                cancel_at_period_end: true,
+                                cancel_at_period_end: cancelAtPeriodEnd,
                                 cancel_reason: reason,
                                 cancel_reason_other: reasonOther,
                                 cancel_reason_label: reasonLabel
