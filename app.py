@@ -9003,19 +9003,44 @@ def _fulfill_trial_deposit_checkout(
 
     trial_period_days = 7
     if plan_id.startswith("price"):
-        plan = _get_plan_by_price_id(plan_id) if plan_id.startswith(
-            "price"
-        ) else None
-        plan_id = plan.get("product_id")
+        plan = _get_plan_by_price_id(plan_id) or {}
 
-        trial_period_days = plan.get("trial_period_days")
+        product_id = plan.get("product_id")
+        trial_period_days = plan.get("trial_period_days") or 7
 
-        price_id = (
-                (plan.get("price_id") if plan else None)
-                or plan_id
-        )
+        price_id = plan.get("price_id") or product_id
+        plan_id = product_id or plan_id
     else:
         price_id = _get_plan_by_price_id(plan_id) or plan_id
+
+    # --- Ensure price_id is a recurring subscription price ---
+    if price_id and price_id.startswith("price_"):
+        try:
+            stripe_price = stripe.Price.retrieve(price_id)
+            if stripe_price.type == "one_time":
+                # It's a deposit/one-time price. Look up the recurring price for this product.
+                target_product_id = stripe_price.product
+
+                # 1. Try to find an active recurring price explicitly
+                recurring_prices = stripe.Price.list(
+                    product=target_product_id,
+                    type="recurring",
+                    active=True,
+                    limit=1
+                )
+
+                if recurring_prices.data:
+                    price_id = recurring_prices.data[0].id
+                else:
+                    # 2. Fallback to the product's default price
+                    prod_obj = stripe.Product.retrieve(target_product_id)
+                    if getattr(prod_obj, 'default_price', None):
+                        price_id = prod_obj.default_price
+        except Exception as e:
+            logger.warning(
+                "Price type safety check failed, proceeding with original price_id: %s",
+                str(e)
+                )
 
     if not price_id:
         logger.error(
@@ -9040,6 +9065,7 @@ def _fulfill_trial_deposit_checkout(
             'use_trial_hold': 'true',
         },
     }
+
     try:
         sub = stripe.Subscription.create(**subscription_params)
     except Exception as e:
@@ -9063,14 +9089,15 @@ def _fulfill_trial_deposit_checkout(
         logger.exception(
             'trial deposit fulfillment: failed to apply customer balance credit'
         )
+
     _persist_stripe_subscription_to_profile(
         uid,
         sub,
         plan_id=plan_id,
         force_access=True
     )
-    return sub_id or None
 
+    return sub_id or None
 
 def _refund_trial_deposit_for_subscription(subscription_id: str) -> tuple[
     bool, str]:
