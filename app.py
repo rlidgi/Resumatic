@@ -267,7 +267,16 @@ def _pdf_snapshot_store_pop(tok: str) -> None:
             pass
 
 
-app = Flask(__name__)
+# This line gets the absolute path of the directory containing app.py
+# (which is /home/site/wwwroot/extracted/)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# This creates the path: /home/site/wwwroot/extracted/templates/
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+STATIC_DIR = os.path.join(BASE_DIR, 'static')
+# Initialize Flask with the dynamic path
+# app = Flask(__name__, template_folder=TEMPLATE_DIR)
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 
 # App Service runs behind a reverse proxy. Trust standard forwarding headers so
 # Flask sees the correct scheme/host (important for redirects and health probes).
