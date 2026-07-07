@@ -156,28 +156,44 @@ function Test-Node {
     return $true
 }
 
+$FRONTEND_DIRS = @("frontend", "resume_builder_frontend")
+
 function Install-NodeDeps {
-    if (-not (Test-Path "node_modules")) {
-        Write-Info "Installing Node dependencies (first run)..."
-        npm install --silent
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "npm install failed."
-            exit 1
+    foreach ($dir in $FRONTEND_DIRS) {
+        if (Test-Path $dir) {
+            Write-Info "Checking Node deps for $dir..."
+            $nodeModules = Join-Path $dir "node_modules"
+            if (-not (Test-Path $nodeModules)) {
+                Write-Info "Installing Node dependencies in $dir (first run)..."
+                Push-Location $dir
+                npm install --silent
+                Pop-Location
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Err "npm install failed in $dir."
+                    exit 1
+                }
+                Write-Success "Node dependencies installed in $dir."
+            } else {
+                Write-Info "Node deps      : $dir\node_modules\ already present."
+            }
         }
-        Write-Success "Node dependencies installed."
-    } else {
-        Write-Info "Node deps      : node_modules\ already present."
     }
 }
 
 function Build-React {
-    Write-Info "Building React frontend..."
-    npm run build
-    if ($LASTEXITCODE -ne 0) {
-        Write-Err "React build failed. Check the output above."
-        exit 1
+    foreach ($dir in $FRONTEND_DIRS) {
+        if (Test-Path $dir) {
+            Write-Info "Building React frontend in $dir..."
+            Push-Location $dir
+            npm run build
+            Pop-Location
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err "React build failed in $dir."
+                exit 1
+            }
+            Write-Success "React build complete for $dir."
+        }
     }
-    Write-Success "React build complete -> static\react\"
 }
 
 # ── Stripe CLI helper ─────────────────────────────────────────────
