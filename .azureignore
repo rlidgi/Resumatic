@@ -1,23 +1,21 @@
 # Environment variables
 .env
 .env.local
+*.env
+*.env.*
 
 # Node / frontend dependencies
 node_modules/
 frontend/node_modules/
 resume_builder_frontend/node_modules/
-# If the build process generates static assets in a folder,
-# keep the final build but exclude the source node_modules.
 
-# OAuth Credentials
+# OAuth Credentials & GCP Keys
 #client_secret.json
-
-# Google Cloud service account keys
 *-service-account*.json
 *serviceaccount*.json
 google-application-credentials*.json
 
-# Python
+# Python (Removed dist/ to protect frontend build)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -25,7 +23,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -45,6 +42,7 @@ ENV/
 env/
 .venv/
 .venv_clean/
+antenv/
 
 # IDE
 .idea/
@@ -55,13 +53,15 @@ env/
 # Local dev certificates / runtime logs
 .dev_certs/
 *.log
+local_errors.log
+importtime.log
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Flask session and storage
-.flask_session/
+flask_session/
 
 # Local temp uploads / script outputs
 temp_uploads/
@@ -69,3 +69,8 @@ scripts/temp_uploads/
 scripts/counter.json
 cancellation_feedback.json
 config.bat
+temp_store/
+
+# Backups
+*data_backups*
+*/data_backups/*

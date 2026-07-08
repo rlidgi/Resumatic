@@ -266,6 +266,15 @@ def _pdf_snapshot_store_pop(tok: str) -> None:
         except Exception:
             pass
 
+try:
+    print(f"DEBUG: Files in current app directory: {os.listdir('.')}")
+    if os.path.exists('templates'):
+        print(f"DEBUG: Files in templates folder: {os.listdir('templates')}")
+    else:
+        print("DEBUG: Templates folder NOT found in the app directory!")
+except Exception as e:
+    print(f"DEBUG: Error checking files: {e}")
+
 
 # This line gets the absolute path of the directory containing app.py
 # (which is /home/site/wwwroot/extracted/)
@@ -432,11 +441,13 @@ except Exception:
         return dict(current_user=_Anon())
 
 ################################
-load_dotenv()
-load_dotenv(
-    ".env.local",
-    override=True
-)  # .env.local overrides when present locally
+# 1. Only load local files if we are NOT running on Azure
+if not os.getenv('WEBSITE_INSTANCE_ID'):
+    load_dotenv()
+    # .env.local overrides .env when present locally
+    load_dotenv(".env.local", override=True)
+
+# 2. Azure App Settings are now safe from being overwritten
 stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
 
 # Configure logging
@@ -12288,10 +12299,27 @@ def dev_reset_trial():
 @app.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     """Combined Stripe webhook handler."""
+    # 1. Grab raw bytes immediately. Do not call request.json before this!
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature", "")
     webhook_secret = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
+
+    # --- NEW DEBUG LOGGING ---
+    # We safely mask the secret so we don't accidentally leak it into Azure logs
+    secret_prefix = webhook_secret[:8] if webhook_secret else "NONE"
+    secret_len = len(webhook_secret) if webhook_secret else 0
+
+    logger.info("=== Webhook Debug Start ===")
+    logger.info(f"Configured Secret Prefix: {secret_prefix}...")
+    logger.info(f"Configured Secret Length: {secret_len} chars")
+    logger.info(f"Stripe-Signature Header Present: {bool(sig_header)}")
+    if sig_header:
+        # Log the first bit of the header (t=timestamp, v1=signature...)
+        logger.info(f"Header Structure: {sig_header[:40]}...")
+    logger.info(f"Payload Size: {len(payload)} bytes")
+
     if not webhook_secret:
+        logger.error("Webhook failed: STRIPE_WEBHOOK_SECRET is missing.")
         return ("Webhook not configured", 400)
 
     try:
@@ -12300,9 +12328,14 @@ def stripe_webhook():
             sig_header,
             webhook_secret
         )
-    except Exception as e:
-        logger.error(f"stripe_webhook signature error: {str(e)}")
+        logger.info("=== Webhook Verified Successfully! ===")
+
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Signature Verification Failed: {str(e)}")
         return ("Invalid signature", 400)
+    except Exception as e:
+        logger.error(f"Unexpected webhook error: {str(e)}")
+        return ("Webhook error", 400)
 
     try:
         etype = _stripe_obj_get(event, "type", "")
