@@ -605,12 +605,12 @@
                 </article>
 
                 <label class="plan-option {% if not trial_unavailable %}selected{% endif %}" data-plan-option
-                    data-plan="trial_7d">
-                    <input type="radio" name="plan" value="trial_7d" {% if not trial_unavailable %}checked{% else
+                    data-plan="price_1TqJNn7wXBqOcDQ3mVlz4Cx7">
+                    <input type="radio" name="plan" value="price_1TqJNn7wXBqOcDQ3mVlz4Cx7" {% if not trial_unavailable %}checked{% else
                         %}disabled{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if not trial_unavailable %}✓{% endif %}</span>
-                        <p class="plan-text">{{ trial_hold_days }} Day Free Trial</p>
+                        <p class="plan-text">7-Day Free Trial</p>
                         <div class="price-wrap">
                             <span class="plan-title">$0</span>
                         </div>
@@ -621,8 +621,8 @@
                 </label>
 
                 <label class="plan-option simple {% if trial_unavailable %}selected{% endif %}" data-plan-option
-                    data-plan="monthly_10_95">
-                    <input type="radio" name="plan" value="monthly_10_95" {% if trial_unavailable %}checked{% endif %}>
+                    data-plan="price_1TpkGY7wXBqOcDQ3aSDy30Zk">
+                    <input type="radio" name="plan" value="price_1TpkGY7wXBqOcDQ3aSDy30Zk" {% if trial_unavailable %}checked{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if trial_unavailable %}✓{% endif %}</span>
                         <p class="plan-text">Monthly Access</p>
@@ -633,8 +633,8 @@
                     </div>
                 </label>
 
-                <label class="plan-option simple" data-plan-option data-plan="annual_6_95">
-                    <input type="radio" name="plan" value="annual_6_95">
+                <label class="plan-option simple" data-plan-option data-plan="price_1TpkGS7wXBqOcDQ3OAPw06Da">
+                    <input type="radio" name="plan" value="price_1TpkGS7wXBqOcDQ3OAPw06Da">
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true"></span>
                         <div class="plan-title-wrap">
@@ -665,7 +665,7 @@
                 <p class="cancel-note"><strong>Cancel anytime</strong> online or by email</p>
 
                 <a id="continueButton" class="cta-btn {% if trial_unavailable and not next_url %}disabled{% endif %}"
-                    href="/checkout?plan={% if trial_unavailable %}monthly_10_95{% else %}trial_7d{% endif %}">
+                    href="/checkout?plan={% if trial_unavailable %}price_1TpkGY7wXBqOcDQ3aSDy30Zk{% else %}price_1TqJNn7wXBqOcDQ3mVlz4Cx7{% endif %}">
                     Continue
                 </a>
 
@@ -740,7 +740,7 @@
                 option.addEventListener('click', function () {
                     const input = option.querySelector('input[type="radio"]');
                     if (!input || input.disabled) return;
-                    setSelected(String(input.value || 'monthly_10_95'));
+                    setSelected(String(input.value || 'price_1TpkGY7wXBqOcDQ3aSDy30Zk'));
                 });
             });
         })();

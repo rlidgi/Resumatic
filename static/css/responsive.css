@@ -75,12 +75,19 @@ Small Screen - Tablate
     /*=== Header start ===*/
 
     .hero__item h2 {
-        font-size: 46px;
+        font-size: 42px;
+        text-align: center;
+    }
+
+    .hero__item p {
+        text-align: center;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .hero__top {
         grid-template-columns: 1fr;
-        gap: 32px;
+        gap: 28px;
     }
 
     .hero__item--split,
@@ -91,14 +98,19 @@ Small Screen - Tablate
     }
 
     .hero__content {
-        max-width: none;
+        max-width: 560px;
         padding-left: 0;
+        margin: 0 auto;
+    }
+
+    .faq__bottom a {
+        margin: 0 auto;
     }
 
     .hero__item--split .hero-animation-container {
         margin: 0 auto;
-        max-width: 330px;
-        height: 330px;
+        max-width: 320px;
+        height: 320px;
     }
 
     .hero__item--split .hero__item-image {
@@ -305,6 +317,30 @@ Small Screen - Mobile
         display: none;
     }
 
+    /*=== carousel mobile ===*/
+
+    .templates-strip {
+        padding: 20px 16px;
+    }
+
+    .templates-strip__grid {
+        gap: 12px;
+    }
+
+    .carousel-arrow {
+        width: 36px;
+        height: 36px;
+        font-size: 0.85rem;
+    }
+
+    .carousel-track {
+        gap: 12px;
+    }
+
+    .template-card {
+        flex: 0 0 calc(50% - 6px);
+    }
+
     /*=== resume start ===*/
 
     .resume {
@@ -465,6 +501,81 @@ Small Screen - Mobile
 
     .footer__bottom p span {
         margin-left: 20px;
+    }
+
+    /*=== features section mobile ===*/
+
+    .feature-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .feature-card {
+        padding: 20px;
+    }
+
+    .feature-card i {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+
+    .feature-visual__sheet {
+        margin-top: 4px;
+        min-height: 280px;
+        padding: 20px;
+    }
+
+    .feature-visual__float {
+        position: relative;
+        width: 100%;
+        margin-top: 12px;
+    }
+
+    .feature-visual__float::before {
+        display: none;
+    }
+
+    .feature-visual__float h4 {
+        font-size: 0.95rem;
+    }
+
+    .feature-visual__float p {
+        font-size: 0.85rem;
+    }
+
+    .feature-visual__image {
+        min-height: 200px;
+    }
+
+    .score-card {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        margin: 0 auto 12px;
+        width: auto;
+        border-radius: 14px;
+        top: auto;
+        left: auto;
+    }
+
+    .score-ring {
+        width: 44px;
+        height: 44px;
+        font-size: 0.95rem;
+        margin: 0;
+        border-width: 5px;
+    }
+
+    .score-card strong {
+        font-size: 0.8rem;
+    }
+
+    .feature-visual {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
 

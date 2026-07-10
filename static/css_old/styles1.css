@@ -1,0 +1,325 @@
+/* Global Styles */
+body {
+    font-family: 'Roboto', sans-serif;
+    /* Use a modern and clean font */
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+    line-height: 1.6;
+}
+
+h2,
+h3 {
+    color: #2c3e50;
+    /* Darker color for headings */
+}
+
+/* Resume Container */
+.resume-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    animation: fadeIn 1s ease-in;
+    /* Fade in animation */
+}
+
+/* Headings */
+.resume-main-heading,
+.resume-subheading {
+    text-align: center;
+    margin: 10px 0;
+    transition: transform 0.3s;
+    /* Smooth transition on hover */
+}
+
+.resume-main-heading:hover {
+    transform: scale(1.05);
+    /* Slightly enlarge on hover */
+}
+
+/* Image Layout */
+.image-layout {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.left-image,
+.right-image {
+    flex: 1;
+    margin: 10px;
+    position: relative;
+    /* For hover effect */
+    overflow: hidden;
+    /* To clip the image */
+}
+
+.left-image img,
+.right-image img {
+    width: 100%;
+    border-radius: 10px;
+    transition: transform 0.4s;
+    /* Smooth scale transition */
+}
+
+.left-image:hover img,
+.right-image:hover img {
+    transform: scale(1.1);
+    /* Zoom effect on hover */
+}
+
+.caption {
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* What We Do Section */
+.what-we-do-section {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 10px;
+    animation: slideIn 0.5s ease-in;
+    /* Slide in animation */
+}
+
+.services {
+    display: flex;
+    justify-content: space-between;
+}
+
+.service-item {
+    flex: 1;
+    margin: 10px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    /* Animation effects */
+}
+
+.service-item:hover {
+    transform: translateY(-5px);
+    /* Lift effect on hover */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    /* Deepen shadow on hover */
+}
+
+/* Form Styles */
+form {
+    margin: 20px 0;
+    text-align: center;
+}
+
+textarea {
+    width: 80%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    resize: none;
+    transition: border-color 0.3s;
+    /* Smooth border color transition */
+}
+
+textarea:focus {
+    border-color: #3498db;
+    /* Change border color on focus */
+}
+
+button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    /* Smooth background color transition */
+}
+
+button:hover {
+    background-color: #2980b9;
+    /* Darker blue on hover */
+}
+
+/* Work Together Section */
+.work-together {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 1s ease-in;
+    /* Fade in animation */
+}
+
+/* FAQ Section */
+.faq-section {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.faq-question {
+    background-color: #fff;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    /* Smooth background color transition */
+}
+
+.faq-question:hover {
+    background-color: #3498db;
+    /* Change background color on hover */
+    color: white;
+    /* Change text color on hover */
+}
+
+/* Footer Styles */
+footer {
+    background-color: #34495e;
+    /* Dark footer */
+    color: white;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+}
+
+.footer-content a {
+    color: #ecf0f1;
+    /* Lighter color for links */
+    text-decoration: none;
+}
+
+.footer-content a:hover {
+    text-decoration: underline;
+    /* Underline on hover */
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .resume-container {
+        padding: 10px;
+    }
+
+    .image-layout {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .resume-container {
+        padding: 5px;
+    }
+
+    .image-layout {
+        flex-direction: column;
+    }
+}
+
+/* Title  */
+
+/* .resume-container {
+    /* height: 170vh; 
+    background: linear-gradient(135deg, #f090aa, #92dde0);
+    background-size: cover;
+    background-attachment: fixed;
+  }
+  
+  .resume-header {
+    padding: 40px 0px 30px 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f4f4f9;
+    height: 150px;
+    position: relative;
+    overflow: hidden; 
+  }
+  
+  .resume-header h1 {
+    font-size: 4rem;
+    color: #2c3e50;
+    font-family: 'Passion One', sans-serif; 
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    position: relative;
+    opacity: 0; 
+    transform: translateY(100px);
+    animation: slideFromBottom 1s forwards ease-in-out;
+  }
+  
+  @keyframes slideFromBottom {
+    to {
+      opacity: 1;
+      transform: translateY(0); 
+    }
+  }
+  
+  .resume-header h2 {
+    font-size: 1.5rem;
+    color: #34495e;
+    font-family: 'Poppins', sans-serif; 
+    margin-top: 20px;
+    opacity: 0;
+    transform: translateX(-100px); 
+    animation: slideFromLeft 1.5s forwards ease-in-out;
+    animation-delay: 0.5s; 
+  }
+  
+  @keyframes slideFromLeft {
+    to {
+      opacity: 1;
+      transform: translateX(0); 
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .resume-header {
+      padding: 20px 10px;
+      justify-content: center;
+      height: auto;
+    }
+  
+    .resume-header h1 {
+      font-size: 2.5rem;
+    }
+  
+    .resume-header h2 {
+      font-size: 1.2rem;
+    }
+  } */

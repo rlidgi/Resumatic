@@ -2023,7 +2023,7 @@ def send_welcome_email(email: str, user_name: str) -> bool:
             </p>
 
             <p>
-                For a limited time we are offering a free 3-day trial of the premium plan, which you can find on our plans page:
+                For a limited time we are offering a free 7-day trial of the premium plan, which you can find on our plans page:
                 <a href="https://resumaticai.com/plans" style="color: #2563eb;">https://resumaticai.com/plans</a>.
             </p>
 
@@ -2075,7 +2075,7 @@ def send_welcome_email(email: str, user_name: str) -> bool:
                 'https://www.trustpilot.com/review/resumaticai.com',
                 'Your support truly means a lot to us.',
                 '',
-                'For a limited time we are offering a free 3-day trial of the premium plan, which you can find on our plans page:',
+                'For a limited time we are offering a free 7-day trial of the premium plan, which you can find on our plans page:',
                 'https://resumaticai.com/plans',
                 '',
                 "Let's build a resume that gets you interviews!",
@@ -6150,7 +6150,11 @@ def plans():
             "product_id": plan["product_id"],
             "role": plan["role"],
             # Added role pass-through to template context
-            "label": plan["label"],
+            "label": (
+                "7-Day Free Trial"
+                if plan.get("role") == "trial"
+                else plan["label"]
+            ),
             "note": plan["note"],
             "micro_note": plan["micro_note"],
             "features": plan["features"],
@@ -7439,6 +7443,17 @@ def _stripe_subscription_grants_access(sub) -> bool:
             except Exception:
                 dpm = None
         if dpm:
+            return True
+        allow_trial_without_pm = False
+        try:
+            raw = str(
+                os.getenv('STRIPE_ALLOW_TRIALING_WITHOUT_PAYMENT_METHOD') or ''
+            ).strip().lower()
+            allow_trial_without_pm = raw in ('1', 'true', 'yes', 'on')
+        except Exception:
+            allow_trial_without_pm = False
+        # Local development should not block template PDF testing on pending SetupIntent.
+        if allow_trial_without_pm or (not _ON_AZURE):
             return True
         pending_si = _stripe_obj_get(sub, 'pending_setup_intent', None)
         if not pending_si:
@@ -16041,7 +16056,18 @@ def api_template_pdf(template_id):
             _t()
         )
         step = "paid_check"
+        user_id_for_log = str(getattr(current_user, 'id', '') or '')
+        user_email_for_log = str(
+            getattr(current_user, 'email', '') or ''
+        ).strip().lower()
         paid_flag = bool(is_paid_user(current_user))
+        logger.info(
+            "template_pdf entitlement stage=profile user_id=%s email=%s paid=%s t=%sms",
+            user_id_for_log,
+            user_email_for_log,
+            paid_flag,
+            _t(),
+        )
         if _stripe_enabled():
             try:
                 paid_flag = bool(
@@ -16049,8 +16075,65 @@ def api_template_pdf(template_id):
                 )
             except Exception:
                 paid_flag = paid_flag
+            logger.info(
+                "template_pdf entitlement stage=refresh user_id=%s email=%s paid=%s t=%sms",
+                user_id_for_log,
+                user_email_for_log,
+                paid_flag,
+                _t(),
+            )
+        if (not paid_flag) and _stripe_enabled():
+            # Last-resort entitlement check for PDF download. This protects paid users
+            # when Azure profile sync lags or stored Stripe ids are stale.
+            try:
+                user_email = str(
+                    getattr(current_user, 'email', '') or ''
+                ).strip()
+                if user_email:
+                    fallback_customer_id = _find_stripe_customer_id_by_email(
+                        user_email,
+                        require_subscription_history=True
+                    )
+                    if fallback_customer_id:
+                        sub = _find_access_granting_subscription_for_customer(
+                            fallback_customer_id
+                        )
+                        if sub and _stripe_subscription_grants_access(sub):
+                            paid_flag = True
+                            try:
+                                plan_id = ''
+                                meta = getattr(sub, 'metadata', None) or {}
+                                if isinstance(meta, dict):
+                                    plan_id = str(meta.get('plan_id') or '').strip()
+                                else:
+                                    plan_id = str(
+                                        getattr(meta, 'plan_id', '') or ''
+                                    ).strip()
+                                _persist_stripe_subscription_to_profile(
+                                    str(getattr(current_user, 'id', '') or ''),
+                                    sub,
+                                    plan_id=plan_id
+                                )
+                            except Exception:
+                                pass
+                        logger.info(
+                            "template_pdf entitlement stage=fallback user_id=%s email=%s customer_id=%s paid=%s t=%sms",
+                            user_id_for_log,
+                            user_email_for_log,
+                            str(fallback_customer_id or ''),
+                            paid_flag,
+                            _t(),
+                        )
+            except Exception:
+                pass
         if not paid_flag:
-            return "Paid plan required.", 402
+            logger.warning(
+                "template_pdf entitlement denied user_id=%s email=%s t=%sms",
+                user_id_for_log,
+                user_email_for_log,
+                _t(),
+            )
+            return "Paid plan required. [DBG-PDF-ENT-20260707]", 402
 
         template_data = session.get('template_data')
         if not template_data:
@@ -21808,7 +21891,9 @@ def _collect_registered_users_from_azure_users_table(
             )
             user_latest_revision = {}
             try:
-                rev_pager = revision_client.list_entities()
+                rev_pager = revision_client.list_entities(
+                    select=["PartitionKey", "Timestamp"]
+                )
                 for entity in rev_pager:
                     uid = str(entity.get("PartitionKey") or '').strip()
                     if not uid:
@@ -21859,7 +21944,7 @@ def _collect_registered_users_from_azure_users_table(
         except Exception:
             pass
     return [], (table_names[0] if table_names else (
-            os.getenv('AZURE_USERS_TABLE') or 'Users'))
+            os.getenv('AZURE_USERS_TABLE') or 'Users')), []
 
 
 FREE_REVISION_LIMIT = int(os.getenv('FREE_REVISION_LIMIT', '1'))
@@ -22107,6 +22192,36 @@ def _refresh_paid_status_from_stripe_for_user(
                 days=days
             )).isoformat()
 
+        def _best_access_sub_for_customer(cid: str):
+            cid = str(cid or '').strip()
+            if not cid:
+                return None
+            subs = stripe.Subscription.list(
+                customer=cid,
+                status='all',
+                limit=10
+            )
+            sdata = list(getattr(subs, 'data', []) or [])
+
+            def _rank(sub):
+                status = str(
+                    getattr(sub, 'status', '') or ''
+                ).strip().lower()
+                cpe = int(getattr(sub, 'current_period_end', 0) or 0)
+                sr = 0
+                if status == 'active':
+                    sr = 3
+                elif status == 'trialing':
+                    sr = 2
+                elif status in ('past_due', 'unpaid'):
+                    sr = 1
+                return (sr, cpe)
+
+            eligible = [s for s in sdata if _stripe_subscription_grants_access(s)]
+            if not eligible:
+                return None
+            return sorted(eligible, key=_rank, reverse=True)[0]
+
         # Find best subscription for this customer (active > trialing > others).
         best_sub_id = subscription_id
         best_status = ''
@@ -22116,46 +22231,37 @@ def _refresh_paid_status_from_stripe_for_user(
 
             best_sub_obj = None
             if best_sub_id:
-                best_sub_obj = stripe.Subscription.retrieve(
-                    best_sub_id,
-                    expand=['pending_setup_intent']
-                )
-                best_status = str(
-                    getattr(best_sub_obj, 'status', '') or ''
-                ).strip().lower()
-                cpe = getattr(best_sub_obj, 'current_period_end', None)
-                if cpe:
-                    paid_until = datetime.fromtimestamp(
-                        int(cpe),
-                        tz=timezone.utc
-                    ).isoformat()
-            elif customer_id:
-                subs = stripe.Subscription.list(
-                    customer=customer_id,
-                    status='all',
-                    limit=10
-                )
-                sdata = list(getattr(subs, 'data', []) or [])
-
-                def _rank(sub):
-                    status = str(
-                        getattr(sub, 'status', '') or ''
+                try:
+                    best_sub_obj = stripe.Subscription.retrieve(
+                        best_sub_id,
+                        expand=['pending_setup_intent']
+                    )
+                    best_status = str(
+                        getattr(best_sub_obj, 'status', '') or ''
                     ).strip().lower()
-                    cpe = int(getattr(sub, 'current_period_end', 0) or 0)
-                    sr = 0
-                    if status == 'active':
-                        sr = 3
-                    elif status == 'trialing':
-                        sr = 2
-                    elif status in ('past_due', 'unpaid'):
-                        sr = 1
-                    return (sr, cpe)
+                    cpe = getattr(
+                        best_sub_obj,
+                        'current_period_end',
+                        None
+                    )
+                    if cpe:
+                        paid_until = datetime.fromtimestamp(
+                            int(cpe),
+                            tz=timezone.utc
+                        ).isoformat()
+                except Exception:
+                    best_sub_obj = None
+                    best_sub_id = ''
+                    best_status = ''
 
-                eligible = [s for s in sdata if
-                            _stripe_subscription_grants_access(s)]
-                if eligible:
-                    best_sub_obj = \
-                        sorted(eligible, key=_rank, reverse=True)[0]
+            # If profile points to a stale/canceled subscription, fall back to scanning
+            # all customer subscriptions and pick the best access-granting one.
+            if customer_id and (
+                    (best_sub_obj is None)
+                    or (not _stripe_subscription_grants_access(best_sub_obj))
+            ):
+                best_sub_obj = _best_access_sub_for_customer(customer_id)
+                if best_sub_obj:
                     best_sub_id = str(
                         getattr(best_sub_obj, 'id', '') or ''
                     ).strip()
@@ -22168,6 +22274,36 @@ def _refresh_paid_status_from_stripe_for_user(
                             int(cpe),
                             tz=timezone.utc
                         ).isoformat()
+
+            # Recovery path: stored customer id can be stale/wrong after account merges
+            # or historical checkout flows. Retry by email and prefer a customer that
+            # has subscription history.
+            if (not best_sub_obj) and email:
+                fallback_cid = ''
+                try:
+                    fallback_cid = _find_stripe_customer_id_by_email(
+                        email,
+                        require_subscription_history=True
+                    )
+                except Exception:
+                    fallback_cid = ''
+                if fallback_cid and fallback_cid != customer_id:
+                    customer_id = fallback_cid
+                    alt_sub = _best_access_sub_for_customer(customer_id)
+                    if alt_sub:
+                        best_sub_obj = alt_sub
+                        best_sub_id = str(
+                            getattr(best_sub_obj, 'id', '') or ''
+                        ).strip()
+                        best_status = str(
+                            getattr(best_sub_obj, 'status', '') or ''
+                        ).strip().lower()
+                        cpe = getattr(best_sub_obj, 'current_period_end', None)
+                        if cpe:
+                            paid_until = datetime.fromtimestamp(
+                                int(cpe),
+                                tz=timezone.utc
+                            ).isoformat()
         except Exception:
             # If Stripe is unreachable/misconfigured, don't crash gating.
             return bool(local_paid_fallback)

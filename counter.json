@@ -1,8 +1,8 @@
 {
-  "total_visits": 1377,
+  "total_visits": 1401,
   "facebook_ad_visits": 0,
-  "organic_visits": 672,
-  "total_conversions": 433,
+  "organic_visits": 686,
+  "total_conversions": 441,
   "facebook_ad_conversions": 0,
   "daily_stats": {
     "2025-07-22": {
@@ -1755,9 +1755,97 @@
       "facebook_ad_conversions": 0
     },
     "2026-06-30": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 2,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-01": {
+      "total": 1,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-04": {
       "total": 1,
       "facebook_ad": 0,
       "organic": 1,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-05": {
+      "total": 4,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 4,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-06": {
+      "total": 3,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 3,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-07": {
+      "total": 3,
+      "facebook_ad": 0,
+      "organic": 3,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 2,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-08": {
+      "total": 10,
+      "facebook_ad": 0,
+      "organic": 8,
+      "direct": 2,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 3,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-09": {
+      "total": 1,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-10": {
+      "total": 0,
+      "facebook_ad": 0,
+      "organic": 0,
       "direct": 0,
       "search": 0,
       "social": 0,
@@ -1769,16 +1857,16 @@
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 704,
+      "count": 714,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-06-28"
+      "last_seen": "2026-07-08"
     },
     "http://127.0.0.1:5000/": {
-      "count": 303,
-      "conversions": 52,
-      "conversion_rate": 17.16171617161716,
-      "last_seen": "2026-06-30"
+      "count": 305,
+      "conversions": 55,
+      "conversion_rate": 18.0327868852459,
+      "last_seen": "2026-07-09"
     },
     "http://127.0.0.1:5000/my_revisions": {
       "count": 181,
@@ -2021,10 +2109,10 @@
       "last_seen": "2026-04-29"
     },
     "http://127.0.0.1:5000/react/template-viewer/boldprofessional": {
-      "count": 4,
-      "conversions": 2,
-      "conversion_rate": 66.66666666666666,
-      "last_seen": "2026-06-27"
+      "count": 8,
+      "conversions": 3,
+      "conversion_rate": 37.5,
+      "last_seen": "2026-07-07"
     },
     "http://127.0.0.1:5000/view_revision/6279d47b-1f24-4598-b7c3-6034e4991950": {
       "count": 1,
@@ -2055,7 +2143,37 @@
       "conversions": 1,
       "conversion_rate": 100.0,
       "last_seen": "2026-06-26"
+    },
+    "http://127.0.0.1:5001/my_revisions/": {
+      "count": 3,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-07-08"
+    },
+    "http://127.0.0.1:5001/my_revisions": {
+      "count": 2,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-07-08"
+    },
+    "http://127.0.0.1:5001/": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-07-08"
+    },
+    "http://127.0.0.1:5001/react/template-viewer/classicrose": {
+      "count": 1,
+      "conversions": 2,
+      "conversion_rate": 200.0,
+      "last_seen": "2026-07-08"
+    },
+    "http://127.0.0.1:5001/react/template-viewer/boldprofessional": {
+      "count": 1,
+      "conversions": 0,
+      "conversion_rate": 0.0,
+      "last_seen": "2026-07-08"
     }
   },
-  "last_updated": "2026-06-30"
+  "last_updated": "2026-07-10"
 }

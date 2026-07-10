@@ -5952,3 +5952,327 @@ werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_
 [2026-06-30T01:57:15.734229+00:00] local_errors.log initialized
 
 [2026-06-30T02:25:28.101018+00:00] local_errors.log initialized
+
+[2026-07-08T01:09:36.969063+00:00] local_errors.log initialized
+
+[2026-07-08T01:13:55.773650+00:00] local_errors.log initialized
+
+[2026-07-08T01:22:03.422477+00:00] local_errors.log initialized
+
+[2026-07-08T01:22:14.111641+00:00] local_errors.log initialized
+
+[2026-07-08T01:41:50.103018+00:00] local_errors.log initialized
+
+[2026-07-08T01:41:53.363575+00:00] local_errors.log initialized
+
+[2026-07-08T01:49:14.368143+00:00] local_errors.log initialized
+
+[2026-07-08T01:49:18.026697+00:00] local_errors.log initialized
+
+[2026-07-08T01:51:43.462029+00:00] local_errors.log initialized
+
+[2026-07-08T01:51:48.018539+00:00] local_errors.log initialized
+
+[2026-07-08T01:59:15.807516+00:00] local_errors.log initialized
+
+[2026-07-08T01:59:18.739400+00:00] local_errors.log initialized
+
+[2026-07-08T02:02:42.262175+00:00] local_errors.log initialized
+
+[2026-07-08T02:02:48.375801+00:00] local_errors.log initialized
+
+[2026-07-08T02:07:13.722544+00:00] local_errors.log initialized
+
+[2026-07-08T02:07:24.332546+00:00] local_errors.log initialized
+[2026-07-08T02:14:36.620574Z] results_route POST: start
+[2026-07-08T02:14:37.184844Z] results_route POST: calling revise_resume resume_len=8 jd_len=0
+[2026-07-08T02:14:57.663522Z] results_route POST: revise_resume ok revised_len=2166
+[2026-07-08T02:14:58.638948Z] results_route POST: redirecting to results_get
+[2026-07-08T02:14:58.685813Z] results_get GET: start
+[2026-07-08T02:14:58.687814Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-07-08T02:53:33.057039+00:00] local_errors.log initialized
+
+[2026-07-08T02:57:32.711686+00:00] local_errors.log initialized
+
+[2026-07-08T02:57:40.320791+00:00] local_errors.log initialized
+
+[2026-07-08T03:01:44.768363+00:00] local_errors.log initialized
+
+[2026-07-08T03:02:48.932687+00:00] local_errors.log initialized
+
+[2026-07-08T03:03:53.436838+00:00] local_errors.log initialized
+
+[2026-07-08T03:07:31.064076+00:00] local_errors.log initialized
+
+[2026-07-08T03:07:46.234113+00:00] local_errors.log initialized
+
+[2026-07-08T03:10:42.773778+00:00] local_errors.log initialized
+
+[2026-07-08T03:15:46.945350+00:00] local_errors.log initialized
+[2026-07-08T03:20:13.531757Z] results_route POST: start
+
+[2026-07-08T03:38:29.538147+00:00] local_errors.log initialized
+
+[2026-07-08T03:38:58.512396+00:00] local_errors.log initialized
+
+[2026-07-08T03:45:52.828432+00:00] local_errors.log initialized
+
+[2026-07-08T03:46:59.400525+00:00] local_errors.log initialized
+
+[2026-07-08T03:48:36.292228+00:00] local_errors.log initialized
+
+[2026-07-08T03:49:34.481054+00:00] local_errors.log initialized
+
+[2026-07-08T03:50:09.013304+00:00] local_errors.log initialized
+
+[2026-07-08T03:55:57.210813+00:00] local_errors.log initialized
+
+[2026-07-08T03:56:37.699460+00:00] local_errors.log initialized
+
+[2026-07-08T03:57:07.613997+00:00] local_errors.log initialized
+
+[2026-07-08T03:59:47.230697+00:00] local_errors.log initialized
+
+[2026-07-08T04:06:47.260597+00:00] local_errors.log initialized
+
+[2026-07-08T04:19:35.136077+00:00] local_errors.log initialized
+
+[2026-07-08T04:19:41.599799+00:00] local_errors.log initialized
+[2026-07-08T04:37:21.040328Z] results_route POST: start
+[2026-07-08T04:37:25.217210Z] results_route POST: calling revise_resume resume_len=4 jd_len=0
+[2026-07-08T04:37:40.855639Z] results_route POST: revise_resume ok revised_len=2301
+[2026-07-08T04:37:47.122554Z] results_route POST: redirecting to results_get
+[2026-07-08T04:37:47.146264Z] results_get GET: start
+[2026-07-08T04:37:47.146264Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-07-08T04:54:49.356183+00:00] local_errors.log initialized
+
+[2026-07-08T05:16:02.544123+00:00] local_errors.log initialized
+
+[2026-07-08T05:19:30.591304+00:00] local_errors.log initialized
+
+[2026-07-08T05:19:38.472723+00:00] local_errors.log initialized
+
+[2026-07-08T05:23:03.973775+00:00] local_errors.log initialized
+
+[2026-07-08T05:23:46.754979+00:00] local_errors.log initialized
+
+[2026-07-08T08:19:07.524082+00:00] local_errors.log initialized
+
+[2026-07-08T08:19:16.998496+00:00] local_errors.log initialized
+
+[2026-07-08T08:45:31.559298+00:00] local_errors.log initialized
+
+[2026-07-08T21:41:58.199425+00:00] local_errors.log initialized
+
+[2026-07-08T21:42:10.528930+00:00] local_errors.log initialized
+
+[2026-07-08T22:56:31.027826+00:00] local_errors.log initialized
+
+[2026-07-08T22:57:35.370225+00:00] local_errors.log initialized
+
+[2026-07-08T22:59:21.784289+00:00] local_errors.log initialized
+
+[2026-07-08T22:59:27.694555+00:00] local_errors.log initialized
+
+[2026-07-08T23:03:05.889309+00:00] local_errors.log initialized
+
+[2026-07-09T00:56:24.367985+00:00] local_errors.log initialized
+
+[2026-07-09T01:40:14.043532+00:00] local_errors.log initialized
+
+[2026-07-09T01:40:29.145174Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'load'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 5367, in index
+    render_template(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\index.html", line 1, in template
+    {% load static %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
+
+
+[2026-07-09T01:40:39.672030Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'load'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 5367, in index
+    render_template(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\index.html", line 1, in template
+    {% load static %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
+
+
+[2026-07-09T01:40:43.848788Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'load'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 5367, in index
+    render_template(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\index.html", line 1, in template
+    {% load static %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
+
+
+[2026-07-09T01:43:56.390152+00:00] local_errors.log initialized
+
+[2026-07-09T01:44:34.041463Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'load'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 5367, in index
+    render_template(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\index.html", line 1, in template
+    {% load static %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
+
+
+[2026-07-09T01:44:56.262162Z] unhandled exception
+TemplateSyntaxError: Encountered unknown tag 'load'.
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 5367, in index
+    render_template(
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\loaders.py", line 138, in load
+    code = environment.compile(source, name, filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\index.html", line 1, in template
+    {% load static %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
+
+
+[2026-07-09T01:49:59.629806+00:00] local_errors.log initialized
+
+[2026-07-09T07:42:14.659848+00:00] local_errors.log initialized
+
+[2026-07-09T07:43:56.822716+00:00] local_errors.log initialized
+
+[2026-07-09T08:08:08.686324+00:00] local_errors.log initialized
+
+[2026-07-09T08:13:21.263761+00:00] local_errors.log initialized
+
+[2026-07-09T08:39:41.588256+00:00] local_errors.log initialized
+
+[2026-07-09T08:41:53.263910+00:00] local_errors.log initialized
+
+[2026-07-10T08:10:24.997013+00:00] local_errors.log initialized
+
+[2026-07-10T09:10:51.013501+00:00] local_errors.log initialized

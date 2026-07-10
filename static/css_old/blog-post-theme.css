@@ -1,0 +1,94 @@
+/* Shared theme overrides for blog post templates.
+   These blog posts currently define a custom dark palette via CSS variables.
+   We override the variables + a few key components to align with the site-wide light look.
+
+   Loaded after each post's inline <style>, so variable overrides take effect.
+*/
+
+:root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --muted: #6b7280;
+    --text: #111827;
+
+    /* Align accents with the rest of the site */
+    --brand: #4F46E5;
+    --brand-2: #10B981;
+
+    --ok: #10B981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+
+    --border: #e5e7eb;
+    --shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+}
+
+html,
+body {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%) !important;
+    color: var(--text) !important;
+}
+
+a {
+    color: var(--brand) !important;
+}
+
+/* Top nav in blog post templates was designed for dark backgrounds */
+.blog-nav {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border-bottom: 1px solid var(--border) !important;
+    backdrop-filter: saturate(120%) blur(8px);
+}
+
+.blog-nav a {
+    color: var(--text) !important;
+}
+
+.blog-nav a.home-btn {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* Ensure main sections that use the panel variable read as light cards */
+.hero {
+    background:
+        linear-gradient(140deg,
+            rgba(79, 70, 229, 0.10),
+            rgba(16, 185, 129, 0.10) 40%,
+            transparent 70%),
+        var(--panel) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* Code blocks/tables in posts were tuned for dark UI */
+pre,
+code {
+    background: #f3f4f6 !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+
+pre code {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+table {
+    border-color: var(--border) !important;
+}
+
+th {
+    color: var(--muted) !important;
+}
+
+/* Back-to-top button */
+.to-top {
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* Share buttons: keep gradient but ensure readable text */
+.share-article a {
+    color: #ffffff !important;
+}

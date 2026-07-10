@@ -1463,8 +1463,31 @@ export default function TemplateViewer() {
         });
     }
 
+    const redirectingToPlansRef = useRef(false);
+
+    function redirectToPlansForPdfDownload() {
+        if (redirectingToPlansRef.current) return;
+        redirectingToPlansRef.current = true;
+        setRedirectingToPlans(true);
+        const next = `${window.location.pathname}${window.location.search || ''}`;
+        void persistStyleSettingsBestEffort();
+        window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
+    }
+
+    /** Returns false when the user cannot download (unpaid or plan status still loading). */
+    function ensurePaidForPdfDownload(): boolean {
+        const user = meRef.current ?? me;
+        if (!user) return false;
+        if (!user.is_paid) {
+            redirectToPlansForPdfDownload();
+            return false;
+        }
+        return true;
+    }
+
     async function downloadPdf() {
         if (downloadingPdf) return;
+        if (!ensurePaidForPdfDownload()) return;
         setDownloadingPdf(true);
         try {
             // Print the unscaled resume DOM (not the scaled mobile wrapper) so the PDF export logic stays deterministic.
@@ -1491,6 +1514,7 @@ export default function TemplateViewer() {
 
     async function downloadPdfAsFile() {
         if (downloadingPdf) return;
+        if (!ensurePaidForPdfDownload()) return false;
         if (previewLangActive && translateLoading) {
             alert('Wait for the preview to finish translating, then download the PDF.');
             return;
@@ -1567,6 +1591,10 @@ export default function TemplateViewer() {
                 signal: controller.signal,
             });
             window.clearTimeout(t);
+            if (res.status === 402) {
+                redirectToPlansForPdfDownload();
+                return false;
+            }
             if (!res.ok) {
                 const text = await res.text().catch(() => '');
                 throw new Error(text || `HTTP ${res.status}`);
@@ -1828,6 +1856,7 @@ export default function TemplateViewer() {
         if (autoDownloadTriggeredRef.current) return;
         if (loading || error) return;
         if (!resumeData) return;
+        if (!me) return;
 
         const params = new URLSearchParams(window.location.search);
         const shouldAutoDownload = params.get('autodownload') === '1';
@@ -1841,6 +1870,11 @@ export default function TemplateViewer() {
             window.history.replaceState({}, '', newUrl);
         } catch (_) {
             // ignore
+        }
+
+        if (!me.is_paid) {
+            redirectToPlansForPdfDownload();
+            return;
         }
 
         if (isDownloadOnly) {
@@ -1858,20 +1892,17 @@ export default function TemplateViewer() {
                 pdfPreviewMeasureInnerRef.current ||
                 document.getElementById('templatePrintRoot');
             if (root) {
-                // In download-only mode, do a real file download (no print dialog).
-                if (isDownloadOnly) {
-                    (async () => {
-                        try {
-                            await downloadPdfAsFile();
-                            setDownloadOnlyStatus('done');
-                        } catch (e: any) {
+                (async () => {
+                    try {
+                        const ok = await downloadPdfAsFile();
+                        if (ok && isDownloadOnly) setDownloadOnlyStatus('done');
+                    } catch (e: any) {
+                        if (isDownloadOnly) {
                             setDownloadOnlyStatus('failed');
                             setDownloadOnlyError(String(e?.message || 'Download failed.'));
                         }
-                    })();
-                } else {
-                    downloadPdf();
-                }
+                    }
+                })();
                 return;
             }
             if (attempts < maxAttempts) {
@@ -1879,7 +1910,7 @@ export default function TemplateViewer() {
             }
         };
         window.setTimeout(attemptDownload, 100);
-    }, [resumeData, loading, error, isDownloadOnly]);
+    }, [resumeData, loading, error, isDownloadOnly, me]);
 
     const saveEditedResume = React.useCallback(
         async (
@@ -3075,14 +3106,7 @@ export default function TemplateViewer() {
                                         className={`px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         disabled={downloadingPdf || redirectingToPlans}
                                         onClick={async () => {
-                                            if (me && !me.is_paid) {
-                                                if (redirectingToPlans) return;
-                                                setRedirectingToPlans(true);
-                                                const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                persistStyleSettingsBestEffort();
-                                                window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
-                                                return;
-                                            }
+                                            if (!ensurePaidForPdfDownload()) return;
                                             setDownloadOnlyStatus('starting');
                                             setDownloadOnlyError('');
                                             downloadPdfAsFile()
@@ -3162,14 +3186,7 @@ export default function TemplateViewer() {
                                                     onClick={async () => {
                                                         if (downloadingPdf) return;
                                                         if (redirectingToPlans) return;
-                                                        if (!me) return;
-                                                        if (!me?.is_paid) {
-                                                            setRedirectingToPlans(true);
-                                                            const next = `${window.location.pathname}${window.location.search || ''}`;
-                                                            persistStyleSettingsBestEffort();
-                                                            window.location.href = `/plans/template-pdf?next=${encodeURIComponent(next)}`;
-                                                            return;
-                                                        }
+                                                        if (!ensurePaidForPdfDownload()) return;
                                                         try {
                                                             await downloadPdfAsFile();
                                                         } catch (e: any) {

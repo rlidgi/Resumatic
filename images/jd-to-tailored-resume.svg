@@ -1,0 +1,524 @@
+<svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Cutesy job description to tailored resume animation</title>
+  <desc id="desc">
+    A smiling job description page sends little keyword bubbles through a cute tailoring machine, producing a happy tailored resume with sparkles and checkmarks.
+  </desc>
+
+  <style>
+    :root {
+      --accent: #6366f1;
+      /* cute indigo */
+      --accent2: #22c55e;
+      /* friendly green */
+      --pink: #fb7185;
+      /* blush */
+      --ink: #111827;
+      --muted: #64748b;
+      --bg: #fff7ed;
+      /* warm cream */
+      --card: #ffffff;
+      --stroke: #e2e8f0;
+      --soft: #f1f5f9;
+    }
+
+    .font {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .panel {
+      fill: var(--bg);
+      stroke: var(--stroke);
+      stroke-width: 2;
+      rx: 16;
+      ry: 16;
+    }
+
+    .card {
+      fill: var(--card);
+      stroke: var(--stroke);
+      stroke-width: 2;
+      rx: 16;
+      ry: 16;
+    }
+
+    .title {
+      font-size: 13px;
+      font-weight: 800;
+      fill: var(--ink);
+    }
+
+    .label {
+      font-size: 10px;
+      font-weight: 650;
+      fill: var(--muted);
+    }
+
+    .tiny {
+      font-size: 9px;
+      fill: #6b7280;
+    }
+
+    .line {
+      stroke: #cbd5e1;
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    .line.accent {
+      stroke: var(--accent);
+    }
+
+    /* Cute faces */
+    .face-eye {
+      fill: var(--ink);
+    }
+
+    .face-smile {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 2.2;
+      stroke-linecap: round;
+    }
+
+    .blush {
+      fill: var(--pink);
+      opacity: .35;
+    }
+
+    /* Waving animation (JD page wiggle) */
+    .wiggle {
+      transform-origin: 140px 120px;
+      animation: wiggle 3.2s ease-in-out infinite;
+    }
+
+    @keyframes wiggle {
+      0%,
+      100% {
+        transform: rotate(0deg);
+      }
+
+      15% {
+        transform: rotate(-1.2deg);
+      }
+
+      30% {
+        transform: rotate(1.2deg);
+      }
+
+      45% {
+        transform: rotate(-0.6deg);
+      }
+
+      60% {
+        transform: rotate(0.6deg);
+      }
+    }
+
+    /* Cute conveyor flow */
+    .flow {
+      fill: none;
+      stroke: #94a3b8;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 5 7;
+      animation: dash 2.1s linear infinite;
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -26;
+      }
+    }
+
+    /* Keyword bubbles (float across) */
+    .bubble {
+      fill: #eef2ff;
+      stroke: #c7d2fe;
+      stroke-width: 1.5;
+    }
+
+    .bubble-text {
+      font-size: 9px;
+      font-weight: 750;
+      fill: #4338ca;
+    }
+
+    .bubble-group {
+      opacity: 0;
+      animation: floaty 3.2s ease-in-out infinite;
+    }
+
+    .bubble-group.b2 {
+      animation-delay: .55s;
+    }
+
+    .bubble-group.b3 {
+      animation-delay: 1.1s;
+    }
+
+    /* Path: JD -> machine -> resume */
+    @keyframes floaty {
+      0% {
+        opacity: 0;
+        transform: translate(0px, 0px) scale(.9);
+      }
+
+      10% {
+        opacity: 1;
+      }
+
+      45% {
+        opacity: 1;
+        transform: translate(220px, 0px) scale(1.0);
+      }
+
+      58% {
+        opacity: 1;
+        transform: translate(260px, 0px) scale(.92);
+      }
+
+      78% {
+        opacity: 1;
+        transform: translate(410px, 0px) scale(1.0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate(410px, 0px) scale(1.0);
+      }
+    }
+
+    /* Tailor machine */
+    .machine {
+      fill: #f8fafc;
+      stroke: #cbd5e1;
+      stroke-width: 2;
+      rx: 18;
+      ry: 18;
+    }
+
+    .machine-top {
+      fill: #eef2ff;
+    }
+
+    .gear {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      transform-origin: 0px 0px;
+      animation: spin 2.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .bar-track {
+      fill: #e2e8f0;
+      rx: 10;
+      ry: 10;
+    }
+
+    .bar-fill {
+      fill: var(--accent);
+      rx: 10;
+      ry: 10;
+      transform-origin: 0px 0px;
+      animation: fill 3.2s ease-in-out infinite;
+    }
+
+    @keyframes fill {
+      0% {
+        transform: scaleX(.08);
+        opacity: .5;
+      }
+
+      25% {
+        transform: scaleX(.35);
+        opacity: 1;
+      }
+
+      60% {
+        transform: scaleX(.75);
+        opacity: 1;
+      }
+
+      82% {
+        transform: scaleX(1.0);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scaleX(1.0);
+        opacity: .65;
+      }
+    }
+
+    /* Resume glow + happy */
+    .glow {
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      stroke-opacity: .15;
+      animation: glow 3.2s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+      0%,
+      55% {
+        stroke-opacity: .10;
+      }
+
+      72% {
+        stroke-opacity: .65;
+      }
+
+      100% {
+        stroke-opacity: .18;
+      }
+    }
+
+    .out-highlight {
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-opacity: .18;
+      animation: outPulse 3.2s ease-in-out infinite;
+    }
+
+    .out-highlight.h2 {
+      animation-delay: .55s;
+    }
+
+    .out-highlight.h3 {
+      animation-delay: 1.1s;
+    }
+
+    @keyframes outPulse {
+      0%,
+      60% {
+        stroke-opacity: .15;
+      }
+
+      74% {
+        stroke-opacity: 1;
+      }
+
+      100% {
+        stroke-opacity: .2;
+      }
+    }
+
+    .check {
+      fill: none;
+      stroke: var(--accent2);
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 16;
+      stroke-dashoffset: 16;
+      animation: draw 3.2s ease-in-out infinite;
+    }
+
+    .check.c2 {
+      animation-delay: .55s;
+    }
+
+    .check.c3 {
+      animation-delay: 1.1s;
+    }
+
+    @keyframes draw {
+      0%,
+      66% {
+        stroke-dashoffset: 16;
+        opacity: 0;
+      }
+
+      72% {
+        opacity: 1;
+      }
+
+      82% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+
+      100% {
+        stroke-dashoffset: 0;
+        opacity: .95;
+      }
+    }
+
+    /* Sparkles */
+    .sparkle {
+      fill: var(--accent);
+      opacity: 0;
+      animation: sparkle 3.2s ease-in-out infinite;
+    }
+
+    .sparkle.s2 {
+      animation-delay: .2s;
+    }
+
+    .sparkle.s3 {
+      animation-delay: .4s;
+    }
+
+    @keyframes sparkle {
+      0%,
+      63% {
+        opacity: 0;
+        transform: scale(.7);
+      }
+
+      74% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+
+      92% {
+        opacity: 0;
+        transform: scale(.8);
+      }
+
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Respect user/system reduced-motion preferences */
+    @media (prefers-reduced-motion: reduce) {
+      .wiggle,
+      .flow,
+      .bubble-group,
+      .gear,
+      .bar-fill,
+      .glow,
+      .out-highlight,
+      .check,
+      .sparkle {
+        animation: none !important;
+      }
+    }
+  </style>
+
+  <!-- LEFT: Cute Job Description -->
+  <g class="wiggle" transform="translate(28, 40)">
+    <rect class="panel" width="250" height="170" />
+    <text class="font title" x="18" y="28">Job Description</text>
+    <text class="font label" x="18" y="46">Input friend ✨</text>
+
+    <!-- "page" icon inside -->
+    <rect x="18" y="58" width="214" height="96" rx="14" ry="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" />
+
+    <!-- Face -->
+    <circle class="blush" cx="70" cy="96" r="7" />
+    <circle class="blush" cx="112" cy="96" r="7" />
+    <circle class="face-eye" cx="78" cy="90" r="2.2" />
+    <circle class="face-eye" cx="104" cy="90" r="2.2" />
+    <path class="face-smile" d="M 84 98 Q 91 105 98 98" />
+
+    <!-- Lines -->
+    <line class="line accent" x1="62" y1="118" x2="210" y2="118" />
+    <line class="line" x1="62" y1="132" x2="185" y2="132" />
+    <line class="line accent" x1="62" y1="146" x2="200" y2="146" />
+  </g>
+
+  <!-- Cute flow paths -->
+  <path class="flow" d="M 278 128 C 320 98, 350 98, 380 118" />
+  <path class="flow" d="M 278 138 C 320 164, 350 164, 380 142" />
+
+  <!-- CENTER: Tailor Machine (cute) -->
+  <g transform="translate(370, 70)">
+    <rect class="machine" width="160" height="130" />
+    <rect class="machine-top" x="0" y="0" width="160" height="36" rx="18" ry="18" />
+    <text class="font title" x="14" y="23" style="font-size:12px;">Tailor Bot</text>
+    <text class="font tiny" x="14" y="34">*beep boop*</text>
+
+    <!-- tiny gear -->
+    <g transform="translate(132, 20)">
+      <circle class="gear" cx="0" cy="0" r="10" />
+      <line class="gear" x1="0" y1="-14" x2="0" y2="-10" />
+      <line class="gear" x1="0" y1="14" x2="0" y2="10" />
+      <line class="gear" x1="-14" y1="0" x2="-10" y2="0" />
+      <line class="gear" x1="14" y1="0" x2="10" y2="0" />
+      <line class="gear" x1="10" y1="10" x2="7" y2="7" />
+      <line class="gear" x1="-10" y1="10" x2="-7" y2="7" />
+      <line class="gear" x1="10" y1="-10" x2="7" y2="-7" />
+      <line class="gear" x1="-10" y1="-10" x2="-7" y2="-7" />
+    </g>
+
+    <!-- progress -->
+    <rect class="bar-track" x="14" y="52" width="132" height="16" />
+    <rect class="bar-fill" x="14" y="52" width="132" height="16" />
+
+    <!-- little "mouth" -->
+    <circle class="face-eye" cx="38" cy="92" r="2.1" />
+    <circle class="face-eye" cx="52" cy="92" r="2.1" />
+    <path class="face-smile" d="M 40 100 Q 45 104 50 100" />
+    <circle class="blush" cx="31" cy="98" r="5" />
+    <circle class="blush" cx="59" cy="98" r="5" />
+
+    <text class="font label" x="72" y="96">Tailoring…</text>
+    <text class="font tiny" x="72" y="112">matching keywords</text>
+  </g>
+
+  <!-- RIGHT: Cute Resume -->
+  <g transform="translate(548, 40)">
+    <rect class="card glow" width="150" height="170" />
+    <rect x="0" y="0" width="150" height="34" rx="16" ry="16" fill="#f0fdf4" />
+    <text class="font title" x="14" y="22" style="font-size:12px;">Resume</text>
+    <text class="font label" x="14" y="34" style="transform: translateY(-6px);">Happy output ✅</text>
+
+    <!-- Face on resume -->
+    <circle class="face-eye" cx="118" cy="18" r="2.2" />
+    <circle class="face-eye" cx="130" cy="18" r="2.2" />
+    <path class="face-smile" d="M 120 24 Q 124 28 128 24" />
+    <circle class="blush" cx="112" cy="22" r="5" />
+    <circle class="blush" cx="136" cy="22" r="5" />
+
+    <!-- Lines -->
+    <line class="line out-highlight" x1="14" y1="64" x2="120" y2="64" />
+    <line class="line" x1="14" y1="80" x2="102" y2="80" />
+
+    <line class="line out-highlight h2" x1="14" y1="100" x2="114" y2="100" />
+    <line class="line" x1="14" y1="116" x2="98" y2="116" />
+
+    <line class="line out-highlight h3" x1="14" y1="136" x2="124" y2="136" />
+    <line class="line" x1="14" y1="152" x2="92" y2="152" />
+
+    <!-- Checks -->
+    <g transform="translate(124, 58)">
+      <path class="check" d="M 0 7 L 5 12 L 13 0" />
+    </g>
+    <g transform="translate(124, 94)">
+      <path class="check c2" d="M 0 7 L 5 12 L 13 0" />
+    </g>
+    <g transform="translate(124, 130)">
+      <path class="check c3" d="M 0 7 L 5 12 L 13 0" />
+    </g>
+
+    <!-- Sparkles -->
+    <path class="sparkle" d="M 20 52 L 23 58 L 29 61 L 23 64 L 20 70 L 17 64 L 11 61 L 17 58 Z" />
+    <path class="sparkle s2" d="M 46 50 L 48 54 L 52 56 L 48 58 L 46 62 L 44 58 L 40 56 L 44 54 Z" />
+    <path class="sparkle s3" d="M 38 160 L 41 166 L 47 169 L 41 172 L 38 178 L 35 172 L 29 169 L 35 166 Z" />
+  </g>
+
+  <!-- Keyword bubbles (cutesy) -->
+  <g class="bubble-group" transform="translate(120, 110)">
+    <path class="bubble" d="M 0 12 a12 12 0 0 1 12-12 h68 a12 12 0 0 1 12 12 v1 a12 12 0 0 1-12 12 H40 l-10 8 2-8 H12 a12 12 0 0 1-12-12 z" />
+    <text class="font bubble-text" x="12" y="15">Python</text>
+  </g>
+
+  <g class="bubble-group b2" transform="translate(120, 140)">
+    <path class="bubble" d="M 0 12 a12 12 0 0 1 12-12 h78 a12 12 0 0 1 12 12 v1 a12 12 0 0 1-12 12 H46 l-10 8 2-8 H12 a12 12 0 0 1-12-12 z" />
+    <text class="font bubble-text" x="12" y="15">Leadership</text>
+  </g>
+
+  <g class="bubble-group b3" transform="translate(120, 170)">
+    <path class="bubble" d="M 0 12 a12 12 0 0 1 12-12 h62 a12 12 0 0 1 12 12 v1 a12 12 0 0 1-12 12 H36 l-10 8 2-8 H12 a12 12 0 0 1-12-12 z" />
+    <text class="font bubble-text" x="12" y="15">Metrics</text>
+  </g>
+</svg>
