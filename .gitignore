@@ -16,6 +16,7 @@ resume_builder_frontend/node_modules/
 *-service-account*.json
 *serviceaccount*.json
 google-application-credentials*.json
+cosmic-facility-*.json
 
 # Python
 __pycache__/

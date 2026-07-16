@@ -2,6 +2,7 @@ from flask import (
     Flask, request, render_template, redirect, url_for, session, flash,
     send_file, send_from_directory,
     jsonify, Response, make_response, abort, has_request_context,
+    copy_current_request_context,
 )
 from jinja2 import TemplateNotFound
 from io import BytesIO
@@ -449,6 +450,22 @@ if not os.getenv('WEBSITE_INSTANCE_ID'):
 
 # 2. Azure App Settings are now safe from being overwritten
 stripe.api_key = (os.getenv('STRIPE_SECRET_KEY') or '').strip()
+# Keep local/dev Stripe calls from hanging the single-threaded Flask server.
+try:
+    stripe.max_network_retries = int(
+        (os.getenv('STRIPE_MAX_NETWORK_RETRIES') or '0').strip() or '0'
+    )
+except Exception:
+    stripe.max_network_retries = 0
+try:
+    _stripe_timeout = float(
+        (os.getenv('STRIPE_HTTP_TIMEOUT_SECONDS') or '8').strip() or '8'
+    )
+    stripe.default_http_client = stripe.http_client.RequestsClient(
+        timeout=max(2.0, _stripe_timeout)
+    )
+except Exception:
+    pass
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -2603,13 +2620,8 @@ def load_users():
     return {}
 
 
-def save_users():
-    """Persist the in-memory user cache to Azure profiles and local fallback."""
-    try:
-        for user in users.values():
-            upsert_user_profile_azure(user)
-    except Exception:
-        logger.exception("Error saving users to Azure")
+def _save_users_local():
+    """Write the in-memory user cache to the local auth JSON fallback."""
     try:
         payload = {}
         for user_id, user in users.items():
@@ -2622,6 +2634,24 @@ def save_users():
         logger.exception("Error saving users to local auth store")
 
 
+def save_users(user=None):
+    """Persist user profiles to Azure and the local fallback.
+
+    When ``user`` is provided, only that profile is upserted to Azure.
+    A full Azure sweep is reserved for explicit save_users() callers that
+    need a complete sync (avoids O(N) upserts on every signup/update).
+    """
+    try:
+        if user is not None:
+            upsert_user_profile_azure(user)
+        else:
+            for cached_user in users.values():
+                upsert_user_profile_azure(cached_user)
+    except Exception:
+        logger.exception("Error saving users to Azure")
+    _save_users_local()
+
+
 def add_user(user):
     """Add a user and persist to Azure-backed storage plus local fallback."""
     if user and not getattr(user, 'password_hash', None):
@@ -2630,11 +2660,7 @@ def add_user(user):
         )
     users[user.id] = user
     try:
-        upsert_user_profile_azure(user)
-    except Exception:
-        logger.exception("Error upserting user to Azure")
-    try:
-        save_users()
+        save_users(user)
     except Exception:
         logger.exception("Error persisting users after add_user")
     try:
@@ -2645,6 +2671,18 @@ def add_user(user):
         )
     except Exception:
         pass
+
+
+def _run_in_background(fn, *, name: str | None = None):
+    """Fire-and-forget a daemon thread (best-effort side effects)."""
+    try:
+        threading.Thread(
+            target=fn,
+            name=name or getattr(fn, '__name__', 'bg-task'),
+            daemon=True,
+        ).start()
+    except Exception:
+        logger.exception("Failed to start background task %s", name)
 
 
 def _normalize_email(email: str) -> str:
@@ -2703,7 +2741,11 @@ def _get_auth_user_by_email(email: str):
     try:
         user = User.from_dict(record)
         users[user.id] = user
-        save_users()
+        # Cache only — Azure already has this profile; avoid a full re-upsert.
+        try:
+            _save_users_local()
+        except Exception:
+            pass
         return user
     except Exception:
         return None
@@ -3195,16 +3237,36 @@ def _table_safe_str(value: object, *, max_len: int = 1024) -> str:
 
 def _best_effort_client_ip() -> str:
     """Best-effort client IP (supports Azure/App Service reverse proxy)."""
-    try:
-        xff = _table_safe_str(
-            request.headers.get('X-Forwarded-For', ''),
-            max_len=256
-        )
-        if xff:
-            # XFF can be a comma-separated chain; keep the left-most.
-            return (xff.split(',', 1)[0] or '').strip()
-    except Exception:
-        pass
+    header_names = (
+        'X-Azure-ClientIP',
+        'X-Azure-SocketIP',
+        'CF-Connecting-IP',
+        'True-Client-IP',
+        'X-Real-IP',
+        'X-Client-IP',
+        'X-Forwarded-For',
+    )
+    for hdr in header_names:
+        try:
+            raw = _table_safe_str(
+                request.headers.get(hdr, ''),
+                max_len=256
+            )
+        except Exception:
+            raw = ''
+        if not raw:
+            continue
+        # XFF (and some proxies) can be a comma-separated chain; keep the left-most.
+        candidate = (raw.split(',', 1)[0] or '').strip()
+        if not candidate:
+            continue
+        try:
+            ipa = ipaddress.ip_address(candidate)
+            if ipa.is_private or ipa.is_loopback or ipa.is_link_local or ipa.is_multicast or ipa.is_reserved:
+                continue
+            return candidate
+        except Exception:
+            continue
     try:
         return _table_safe_str(
             getattr(request, 'remote_addr', ''),
@@ -3216,6 +3278,69 @@ def _best_effort_client_ip() -> str:
 
 _GEOIP_COUNTRY_SESSION_KEY = 'geoip_country'
 _GEOIP_COUNTRY_AT_SESSION_KEY = 'geoip_country_at'
+_GEOIP_UNKNOWN_COUNTRY_CODES = frozenset({'XX', 'T1', 'A1', 'A2'})
+
+
+def _cache_geoip_country(code: str) -> str:
+    v = str(code or '').strip().upper()
+    if len(v) != 2 or not v.isalpha() or v in _GEOIP_UNKNOWN_COUNTRY_CODES:
+        return ''
+    try:
+        session[_GEOIP_COUNTRY_SESSION_KEY] = v
+        session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
+        session.modified = True
+    except Exception:
+        pass
+    return v
+
+
+def _lookup_country_code_from_ip(ip: str) -> str:
+    """Best-effort country lookup. Tries multiple providers; never raises."""
+    ip = str(ip or '').strip()
+    if not ip:
+        return ''
+    try:
+        timeout_seconds = float(
+            (os.getenv('GEOIP_TIMEOUT_SECONDS') or '1.5').strip() or '1.5'
+        )
+    except Exception:
+        timeout_seconds = 1.5
+    timeout_seconds = max(0.2, timeout_seconds)
+
+    # 1) ipapi.co
+    try:
+        resp = requests.get(
+            f"https://ipapi.co/{ip}/json/",
+            timeout=timeout_seconds,
+            headers={"Accept": "application/json",
+                     "User-Agent": "resumatic/geoip"},
+        )
+        data = resp.json() if getattr(resp, 'ok', False) else {}
+        v = str(
+            (data or {}).get('country') or (data or {}).get(
+                'country_code'
+            ) or ''
+        ).strip().upper()
+        if len(v) == 2 and v.isalpha() and v not in _GEOIP_UNKNOWN_COUNTRY_CODES:
+            return v
+    except Exception:
+        pass
+
+    # 2) country.is (simple JSON: {"country":"IN"})
+    try:
+        resp = requests.get(
+            f"https://api.country.is/{ip}",
+            timeout=timeout_seconds,
+            headers={"Accept": "application/json",
+                     "User-Agent": "resumatic/geoip"},
+        )
+        data = resp.json() if getattr(resp, 'ok', False) else {}
+        v = str((data or {}).get('country') or '').strip().upper()
+        if len(v) == 2 and v.isalpha() and v not in _GEOIP_UNKNOWN_COUNTRY_CODES:
+            return v
+    except Exception:
+        pass
+    return ''
 
 
 def _best_effort_country_code() -> str:
@@ -3229,16 +3354,13 @@ def _best_effort_country_code() -> str:
 
     # Manual override for testing / VPN edge-cases.
     try:
-        if str(
-                request.args.get('currency') or ''
-        ).strip().lower() == 'inr':
-            try:
-                session[_GEOIP_COUNTRY_SESSION_KEY] = 'IN'
-                session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
-                session.modified = True
-            except Exception:
-                pass
-            return 'IN'
+        currency_override = str(
+            request.args.get('currency') or ''
+        ).strip().lower()
+        if currency_override == 'inr':
+            return _cache_geoip_country('IN') or 'IN'
+        if currency_override == 'usd':
+            return _cache_geoip_country('US') or 'US'
     except Exception:
         pass
 
@@ -3253,30 +3375,33 @@ def _best_effort_country_code() -> str:
         )
         if cached and cached_at and (time.time() - cached_at) < (
                 max(1, cache_hours) * 3600):
-            if len(cached) == 2 and cached.isalpha():
+            if (
+                    len(cached) == 2
+                    and cached.isalpha()
+                    and cached not in _GEOIP_UNKNOWN_COUNTRY_CODES
+            ):
                 return cached
     except Exception:
         pass
 
-    # Header-based (Cloudflare/CloudFront/etc.)
+    # Header-based (Cloudflare/CloudFront/Azure Front Door custom rules/etc.)
     try:
-        for hdr in ('CF-IPCountry', 'CloudFront-Viewer-Country',
-                    'X-AppEngine-Country'):
-            v = str(request.headers.get(hdr) or '').strip().upper()
-            if len(v) == 2 and v.isalpha():
-                try:
-                    session[_GEOIP_COUNTRY_SESSION_KEY] = v
-                    session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(
-                        time.time()
-                    )
-                    session.modified = True
-                except Exception:
-                    pass
+        for hdr in (
+                'CF-IPCountry',
+                'CloudFront-Viewer-Country',
+                'X-AppEngine-Country',
+                'X-Azure-ClientCountry',
+                'X-Country-Code',
+        ):
+            v = _cache_geoip_country(
+                str(request.headers.get(hdr) or '')
+            )
+            if v:
                 return v
     except Exception:
         pass
 
-    # GeoIP fallback (ipapi.co; no key). Best-effort and failure-tolerant.
+    # GeoIP fallback from client IP.
     ip = ''
     try:
         ip = str(_best_effort_client_ip() or '').strip()
@@ -3291,36 +3416,9 @@ def _best_effort_country_code() -> str:
     except Exception:
         return ''
 
-    try:
-        timeout_seconds = float(
-            (os.getenv('GEOIP_TIMEOUT_SECONDS') or '1.5').strip() or '1.5'
-        )
-    except Exception:
-        timeout_seconds = 1.5
-
-    try:
-        resp = requests.get(
-            f"https://ipapi.co/{ip}/json/",
-            timeout=max(0.2, timeout_seconds),
-            headers={"Accept": "application/json",
-                     "User-Agent": "resumatic/geoip"},
-        )
-        data = resp.json() if getattr(resp, 'ok', False) else {}
-        v = str(
-            (data or {}).get('country') or (data or {}).get(
-                'country_code'
-            ) or ''
-        ).strip().upper()
-        if len(v) == 2 and v.isalpha():
-            try:
-                session[_GEOIP_COUNTRY_SESSION_KEY] = v
-                session[_GEOIP_COUNTRY_AT_SESSION_KEY] = int(time.time())
-                session.modified = True
-            except Exception:
-                pass
-            return v
-    except Exception:
-        pass
+    v = _lookup_country_code_from_ip(ip)
+    if v:
+        return _cache_geoip_country(v) or v
     return ''
 
 
@@ -3331,27 +3429,77 @@ def _is_india_pricing_region() -> bool:
         return False
 
 
+def _plans_catalog_currency() -> str:
+    """Currency for /plans Stripe catalog cards (INR in India, USD elsewhere)."""
+    return 'inr' if _is_india_pricing_region() else 'usd'
+
+
+def _filter_stripe_plans_for_region(plans: list) -> list:
+    """Keep only prices in the visitor's currency so USD+INR on one product don't collide."""
+    if not plans:
+        return plans
+    preferred = _plans_catalog_currency()
+    matching = [
+        p for p in plans
+        if str(p.get('currency') or '').strip().lower() == preferred
+    ]
+    if matching:
+        return matching
+    # Do not silently show USD to India visitors when INR prices are missing from
+    # the display catalog — return empty so the template fallback + INR copy can
+    # take over (checkout still uses STRIPE_PRICE_*_INR via region detection).
+    if preferred == 'inr':
+        return []
+    return list(plans)
+
+
+def _money_display_parts(
+        unit_amount: int,
+        currency: str,
+        *,
+        per_month_from_year: bool = False,
+) -> tuple[str, str, str]:
+    """Return (strong_label, pdf_main, pdf_decimals) for plan cards."""
+    amount = float(unit_amount or 0) / 100.0
+    if per_month_from_year:
+        amount = amount / 12.0
+    cur = str(currency or 'usd').strip().lower()
+    if cur == 'usd':
+        whole = int(amount)
+        cents = int(round((amount - whole) * 100))
+        if cents >= 100:
+            whole += 1
+            cents = 0
+        strong = f"${amount:,.2f}"
+        return strong, f"${whole}", f".{cents:02d} / month"
+    if cur == 'inr':
+        if abs(amount - round(amount)) < 0.001:
+            strong = f"₹{int(round(amount)):,}"
+        else:
+            strong = f"₹{amount:,.2f}"
+        return strong, strong, " / month"
+    strong = f"{cur.upper()} {amount:,.2f}"
+    return strong, strong, " / month"
+
+
 def _plans_price_display_context() -> dict:
-    """Marketing copy for /plans cards. INR labels use PLANS_DISPLAY_* env vars when the visitor is in India."""
-    base_usd = {
-        'currency_mode': 'usd',
-        'monthly_strong': '$10.95',
-        'annual_strong': '$6.95',
-        'annual_equiv': 'Equivalent to $6.95/month.',
-        'monthly_pdf_main': '$10',
-        'monthly_pdf_decimals': '.95 / month',
-        'annual_pdf_main': '$6',
-        'annual_pdf_decimals': '.95 / month',
-        'note': '',
-    }
-    if not _is_india_pricing_region():
-        return dict(base_usd)
-    monthly = (os.getenv('PLANS_DISPLAY_MONTHLY_INR') or '').strip()
-    annual_pm = (os.getenv(
-        'PLANS_DISPLAY_ANNUAL_PER_MONTH_INR'
-    ) or '').strip()
-    if monthly and annual_pm:
-        return {
+    """Marketing copy for /plans and /plans/template-pdf.
+
+    Prefers live Stripe catalog amounts for the visitor's currency so both pages match.
+    Falls back to env/defaults when the catalog is empty.
+    """
+    india = False
+    try:
+        india = _is_india_pricing_region()
+    except Exception:
+        india = False
+
+    if india:
+        monthly = (os.getenv('PLANS_DISPLAY_MONTHLY_INR') or '').strip() or '₹899'
+        annual_pm = (
+            os.getenv('PLANS_DISPLAY_ANNUAL_PER_MONTH_INR') or ''
+        ).strip() or '₹575'
+        out = {
             'currency_mode': 'inr',
             'monthly_strong': monthly,
             'annual_strong': annual_pm,
@@ -3360,11 +3508,83 @@ def _plans_price_display_context() -> dict:
             'monthly_pdf_decimals': ' / month',
             'annual_pdf_main': annual_pm,
             'annual_pdf_decimals': ' / month',
+            'trial_zero_label': '₹0',
             'note': '',
         }
-    out = dict(base_usd)
-    out['note'] = (
-        'If you are in India, your card is charged in INR at checkout (exact amount is shown on Stripe).'
+    else:
+        out = {
+            'currency_mode': 'usd',
+            'monthly_strong': '$10.95',
+            'annual_strong': '$6.95',
+            'annual_equiv': 'Equivalent to $6.95/month.',
+            'monthly_pdf_main': '$10',
+            'monthly_pdf_decimals': '.95 / month',
+            'annual_pdf_main': '$6',
+            'annual_pdf_decimals': '.95 / month',
+            'trial_zero_label': '$0',
+            'note': '',
+        }
+
+    # Prefer the same filtered Stripe catalog /plans uses.
+    try:
+        plans = _filter_stripe_plans_for_region(
+            _get_active_stripe_plans(force_refresh=False, blocking=False)
+        )
+    except Exception:
+        plans = []
+
+    monthly_plan = None
+    annual_plan = None
+    for plan in list(plans or []):
+        role = str(plan.get('role') or '').strip().lower()
+        interval = str(plan.get('interval') or '').strip().lower()
+        if interval == 'year' and annual_plan is None:
+            annual_plan = plan
+            continue
+        if (
+                interval == 'month'
+                and role != 'trial'
+                and monthly_plan is None
+        ):
+            monthly_plan = plan
+
+    try:
+        if monthly_plan is not None:
+            strong, main, decimals = _money_display_parts(
+                int(monthly_plan.get('unit_amount') or 0),
+                str(monthly_plan.get('currency') or out['currency_mode']),
+            )
+            out['currency_mode'] = str(
+                monthly_plan.get('currency') or out['currency_mode']
+            ).lower()
+            out['monthly_strong'] = strong
+            out['monthly_pdf_main'] = main
+            out['monthly_pdf_decimals'] = decimals
+            if out['currency_mode'] == 'inr':
+                out['trial_zero_label'] = '₹0'
+            else:
+                out['trial_zero_label'] = '$0'
+        if annual_plan is not None:
+            strong, main, decimals = _money_display_parts(
+                int(annual_plan.get('unit_amount') or 0),
+                str(annual_plan.get('currency') or out['currency_mode']),
+                per_month_from_year=True,
+            )
+            out['annual_strong'] = strong
+            out['annual_pdf_main'] = main
+            out['annual_pdf_decimals'] = decimals
+            out['annual_equiv'] = f'Equivalent to {strong}/month.'
+    except Exception:
+        pass
+
+    try:
+        exit_cents = _get_trial_exit_offer_target_cents()
+    except Exception:
+        exit_cents = 57500 if india else 649
+    out['exit_offer_cents'] = exit_cents
+    out['exit_offer_label'] = _format_exit_offer_price_label(
+        exit_cents,
+        out.get('currency_mode') or ('inr' if india else 'usd'),
     )
     return out
 
@@ -4203,37 +4423,50 @@ def login():
             except Exception:
                 pass
 
-            # Persist profile to Azure Users table
-            try:
-                upsert_user_profile_azure(user)
-            except Exception:
-                pass
-
-            # Send verification email
+            # Send verification email off the request path so the confirmation
+            # screen can render immediately (SMTP is often multi-second).
             token = generate_email_verification_token(user)
-            sent_ok = send_email_verification_email(
-                user.email,
-                token,
-                user.name,
-                next_url=str(
-                    session.get('auth_next') or ''
-                ).strip() or None,
-            )
-            user.email_verification_sent_at = datetime.now(
-                timezone.utc
-            ).isoformat()
-            add_user(user)  # persist sent timestamp + verified flag
+            next_url = str(session.get('auth_next') or '').strip() or None
+            verify_user_id = user.id
+            verify_email_addr = user.email
+            verify_name = user.name
 
-            if sent_ok:
-                flash(
-                    'Account created! Please click verification link sent to your email address to activate account.',
-                    'success'
-                )
-            else:
-                flash(
-                    'Account created, but we could not send a verification email. Please try resending below or contact support.',
-                    'danger'
-                )
+            @copy_current_request_context
+            def _send_verification_async():
+                try:
+                    sent_ok = send_email_verification_email(
+                        verify_email_addr,
+                        token,
+                        verify_name,
+                        next_url=next_url,
+                    )
+                    if sent_ok:
+                        cached = users.get(verify_user_id)
+                        if cached:
+                            cached.email_verification_sent_at = datetime.now(
+                                timezone.utc
+                            ).isoformat()
+                            add_user(cached)
+                    else:
+                        logger.warning(
+                            "Background verification email failed for %s",
+                            _normalize_email(verify_email_addr),
+                        )
+                except Exception:
+                    logger.exception(
+                        "Unexpected error sending verification email for %s",
+                        _normalize_email(verify_email_addr),
+                    )
+
+            _run_in_background(
+                _send_verification_async,
+                name='send-verification-email',
+            )
+
+            flash(
+                'Account created! Please click verification link sent to your email address to activate account.',
+                'success'
+            )
 
             nxt = str(session.get('auth_next') or '').strip()
             if nxt and _is_safe_next_url(nxt):
@@ -4288,6 +4521,26 @@ def verify_email_token(token):
     email = str(payload.get('email') or '').strip().lower()
     user = users.get(user_id)
 
+    # Multi-worker / cold cache: fall back to Azure profile by user_id.
+    if (not user or (
+            str(getattr(user, 'email', '') or '').strip().lower() != email
+    )) and user_id:
+        try:
+            prof = get_user_profile_azure(user_id) or {}
+            if prof and _normalize_email(prof.get('email', '')) == email:
+                record = dict(prof)
+                record['id'] = str(
+                    record.get('PartitionKey') or record.get('id') or user_id
+                ).strip()
+                if record.get('id'):
+                    user = User.from_dict(record)
+                    users[user.id] = user
+        except Exception:
+            logger.exception(
+                "verify_email_token: failed Azure profile fallback for %s",
+                user_id,
+            )
+
     if not user or (str(
             getattr(user, 'email', '') or ''
     ).strip().lower() != email):
@@ -4327,56 +4580,60 @@ def verify_email_token(token):
         user.email_verified_at = datetime.now(timezone.utc).isoformat()
         add_user(user)
 
-    # Send a welcome email once, after verification succeeds.
-    # Local debug: allow forcing resend with `?resend_welcome=1`.
+    # Welcome email is best-effort and must not delay login / redirect.
     try:
-        if _normalize_email(getattr(user, 'email', '')) and (
+        welcome_email = _normalize_email(getattr(user, 'email', ''))
+        welcome_name = getattr(user, 'name', '') or ''
+        welcome_user_id = str(getattr(user, 'id', '') or '')
+        should_send_welcome = bool(welcome_email) and (
                 _force_resend_welcome or not getattr(
             user,
             'welcome_email_sent_at',
             None
-        )):
+        )
+        )
+        if should_send_welcome:
             logger.info(
                 "Attempting welcome email after verification for %s (force_resend=%s)",
-                _normalize_email(getattr(user, 'email', '')),
+                welcome_email,
                 _force_resend_welcome,
             )
-            try:
-                logging.getLogger().info(
-                    "verify_email_token: welcome gate passed for %s (force_resend=%s)",
-                    _normalize_email(getattr(user, 'email', '')),
-                    _force_resend_welcome,
-                )
-                if not _ON_AZURE:
-                    print(
-                        f"[verify_email_token] welcome gate passed for {_normalize_email(getattr(user, 'email', ''))} force_resend={_force_resend_welcome}"
+
+            @copy_current_request_context
+            def _send_welcome_async():
+                try:
+                    sent_ok = send_welcome_email(welcome_email, welcome_name)
+                    if sent_ok:
+                        cached = users.get(welcome_user_id)
+                        if cached:
+                            cached.welcome_email_sent_at = datetime.now(
+                                timezone.utc
+                            ).isoformat()
+                            add_user(cached)
+                    else:
+                        logger.warning(
+                            "Welcome email not sent after verification for %s",
+                            welcome_email,
+                        )
+                except Exception:
+                    logger.exception(
+                        "Unexpected error during welcome-email attempt after verification"
                     )
-            except Exception:
-                pass
-            sent_ok = send_welcome_email(
-                user.email,
-                getattr(user, 'name', '') or ''
+
+            _run_in_background(
+                _send_welcome_async,
+                name='send-welcome-email',
             )
-            if sent_ok:
-                user.welcome_email_sent_at = datetime.now(
-                    timezone.utc
-                ).isoformat()
-                add_user(user)
-            else:
-                logger.warning(
-                    "Welcome email not sent after verification for %s",
-                    _normalize_email(getattr(user, 'email', '')),
-                )
         else:
             try:
                 logging.getLogger().info(
                     "verify_email_token: welcome gate SKIPPED (email=%s welcome_email_sent_at=%s)",
-                    _normalize_email(getattr(user, 'email', '')),
+                    welcome_email,
                     getattr(user, 'welcome_email_sent_at', None),
                 )
                 if not _ON_AZURE:
                     print(
-                        f"[verify_email_token] welcome gate skipped email={_normalize_email(getattr(user, 'email', ''))} welcome_email_sent_at={getattr(user, 'welcome_email_sent_at', None)}"
+                        f"[verify_email_token] welcome gate skipped email={welcome_email} welcome_email_sent_at={getattr(user, 'welcome_email_sent_at', None)}"
                     )
             except Exception:
                 pass
@@ -4458,21 +4715,44 @@ def resend_verification():
         return redirect(url_for('login'))
 
     token = generate_email_verification_token(user)
-    sent_ok = send_email_verification_email(
-        user.email,
-        token,
-        user.name,
-        next_url=str(session.get('auth_next') or '').strip() or None
-    )
-    user.email_verification_sent_at = datetime.now(
-        timezone.utc
-    ).isoformat()
-    add_user(user)
+    resend_user_id = user.id
+    resend_email = user.email
+    resend_name = user.name
+    next_url = str(session.get('auth_next') or '').strip() or None
 
-    flash(
-        generic_msg if sent_ok else 'We could not send a verification email right now. Please try again later.',
-        'success' if sent_ok else 'danger'
+    @copy_current_request_context
+    def _resend_verification_async():
+        try:
+            sent_ok = send_email_verification_email(
+                resend_email,
+                token,
+                resend_name,
+                next_url=next_url,
+            )
+            if sent_ok:
+                cached = users.get(resend_user_id)
+                if cached:
+                    cached.email_verification_sent_at = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                    add_user(cached)
+            else:
+                logger.warning(
+                    "Background resend verification email failed for %s",
+                    _normalize_email(resend_email),
+                )
+        except Exception:
+            logger.exception(
+                "Unexpected error resending verification email for %s",
+                _normalize_email(resend_email),
+            )
+
+    _run_in_background(
+        _resend_verification_async,
+        name='resend-verification-email',
     )
+
+    flash(generic_msg, 'success')
     return redirect(url_for('verify_email', email=email))
 
 
@@ -6132,7 +6412,9 @@ def plans():
             'warning'
         )
 
-    raw_plans = _get_active_stripe_plans(force_refresh=True)
+    raw_plans = _filter_stripe_plans_for_region(
+        _get_active_stripe_plans(force_refresh=False, blocking=False)
+    )
 
     from collections import OrderedDict
 
@@ -6245,10 +6527,16 @@ def plans():
 #          within the desktop toggle grids.
 # ══════════════════════════════════════════════════════════════════════════════════════════
 
-_STRIPE_PLAN_CACHE = {"plans": [], "fetched_at": 0.0}
+_STRIPE_PLAN_CACHE = {
+    "plans": [],
+    "fetched_at": 0.0,
+    "fetch_attempted": False,
+    "refreshing": False,
+}
 _STRIPE_PLAN_CACHE_TTL_SECONDS = (
     300  # 5 min - Dashboard changes show up without a deploy
 )
+_STRIPE_PLAN_REFRESH_LOCK = threading.Lock()
 _DEFAULT_CTA_BY_ROLE = {
     "trial": "Start trial",
     "monthly": "Go monthly",
@@ -6364,6 +6652,9 @@ def _normalize_stripe_plan(price) -> Optional[dict]:
             "trial_fee_price_id": str(
                 metadata.get("trial_fee_price_id") or ""
             ).strip(),
+            "trial_fee_price": str(
+                metadata.get("trial_fee_price") or ""
+            ).strip(),
             "sort_order": sort_order,
         }
     except Exception:
@@ -6376,7 +6667,12 @@ def _format_plan_price_parts(plan: dict) -> tuple[str, str]:
     # Standard Plan Calculations
     amount = (plan.get("unit_amount") or 0) / 100.0
     currency = str(plan.get("currency") or "usd").upper()
-    symbol = "$" if currency == "USD" else (currency + " ")
+    if currency == "USD":
+        symbol = "$"
+    elif currency == "INR":
+        symbol = "₹"
+    else:
+        symbol = currency + " "
     interval = plan.get("interval") or "month"
     interval_count = plan.get("interval_count") or 1
 
@@ -6392,7 +6688,9 @@ def _fetch_stripe_plans_from_api() -> list:
     plans = []
     if not _stripe_enabled():
         return plans
-    try:
+
+    def _list_and_normalize() -> list:
+        out = []
         prices = stripe.Price.list(
             active=True,
             # type="recurring",
@@ -6432,32 +6730,120 @@ def _fetch_stripe_plans_from_api() -> list:
                     ).lower()
                 except Exception:
                     pass
-            plans.append(plan)
+            out.append(plan)
+        out.sort(
+            key=lambda p: (p.get("sort_order", 999), p.get("unit_amount", 0))
+        )
+        return out
+
+    try:
+        default_timeout = '3' if not _ON_AZURE else '8'
+        timeout_seconds = float(
+            (os.getenv('STRIPE_HTTP_TIMEOUT_SECONDS') or default_timeout
+             ).strip() or default_timeout
+        )
+    except Exception:
+        timeout_seconds = 3.0 if not _ON_AZURE else 8.0
+    timeout_seconds = max(1.5, timeout_seconds)
+
+    # Hard wall-clock timeout: RequestsClient timeouts can still hang on bad TLS.
+    # Important: do not use `with ThreadPoolExecutor` — its shutdown(wait=True)
+    # would block until the hung Stripe call finishes anyway.
+    pool = None
+    try:
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(_list_and_normalize)
+        plans = future.result(timeout=timeout_seconds)
+    except FuturesTimeout:
+        logger.error(
+            "Stripe plan catalog timed out after %ss",
+            timeout_seconds,
+        )
+        plans = []
     except Exception as e:
         logger.error(f"Failed to fetch Stripe plan catalog: {str(e)}")
-    plans.sort(
-        key=lambda p: (p.get("sort_order", 999), p.get("unit_amount", 0))
-    )
+        plans = []
+    finally:
+        if pool is not None:
+            try:
+                pool.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                try:
+                    pool.shutdown(wait=False)
+                except Exception:
+                    pass
     return plans
 
 
-def _get_active_stripe_plans(force_refresh: bool = False) -> list:
-    """Return the cached dynamic plan catalog, refreshed periodically from Stripe."""
+def _refresh_stripe_plans_cache_async() -> None:
+    """Warm/refresh the Stripe plan catalog without blocking the request thread."""
+    with _STRIPE_PLAN_REFRESH_LOCK:
+        if _STRIPE_PLAN_CACHE.get("refreshing"):
+            return
+        _STRIPE_PLAN_CACHE["refreshing"] = True
+
+    def _run() -> None:
+        try:
+            fresh = _fetch_stripe_plans_from_api()
+            _STRIPE_PLAN_CACHE["plans"] = fresh
+            _STRIPE_PLAN_CACHE["fetched_at"] = time.time()
+            _STRIPE_PLAN_CACHE["fetch_attempted"] = True
+        except Exception as e:
+            logger.error("Background Stripe plan refresh failed: %s", e)
+            _STRIPE_PLAN_CACHE["fetched_at"] = time.time()
+            _STRIPE_PLAN_CACHE["fetch_attempted"] = True
+        finally:
+            _STRIPE_PLAN_CACHE["refreshing"] = False
+
+    try:
+        threading.Thread(
+            target=_run,
+            name="stripe-plans-refresh",
+            daemon=True,
+        ).start()
+    except Exception:
+        _STRIPE_PLAN_CACHE["refreshing"] = False
+
+
+def _get_active_stripe_plans(
+        force_refresh: bool = False,
+        *,
+        blocking: bool = True,
+) -> list:
+    """Return the cached dynamic plan catalog, refreshed periodically from Stripe.
+
+    blocking=False: return current cache immediately and refresh in a background
+    thread (used by /plans so a slow Stripe call doesn't delay page render).
+    """
     now = time.time()
     stale = (now - _STRIPE_PLAN_CACHE[
         "fetched_at"]) > _STRIPE_PLAN_CACHE_TTL_SECONDS
-    if force_refresh or not _STRIPE_PLAN_CACHE["plans"] or stale:
-        fresh = _fetch_stripe_plans_from_api()
-        if fresh or force_refresh:
-            _STRIPE_PLAN_CACHE["plans"] = fresh
-            _STRIPE_PLAN_CACHE["fetched_at"] = now
-    return _STRIPE_PLAN_CACHE["plans"]
+    never_fetched = not _STRIPE_PLAN_CACHE.get("fetch_attempted")
+    needs_refresh = force_refresh or never_fetched or stale
+
+    if not needs_refresh:
+        return list(_STRIPE_PLAN_CACHE.get("plans") or [])
+
+    if not blocking and not force_refresh:
+        _refresh_stripe_plans_cache_async()
+        return list(_STRIPE_PLAN_CACHE.get("plans") or [])
+
+    fresh = _fetch_stripe_plans_from_api()
+    # Always record the attempt so empty/failed fetches don't retry every request.
+    _STRIPE_PLAN_CACHE["plans"] = fresh
+    _STRIPE_PLAN_CACHE["fetched_at"] = now
+    _STRIPE_PLAN_CACHE["fetch_attempted"] = True
+    return list(_STRIPE_PLAN_CACHE.get("plans") or [])
 
 
 def _get_plan_by_price_id(price_id: str) -> Optional[dict]:
     """Look up a single plan by Stripe Price ID from the cached catalog."""
     pid = (price_id or "").strip()
     if not pid:
+        return None
+    # Internal plan aliases are not Stripe Price IDs; avoid catalog/Stripe I/O.
+    if not pid.startswith('price_'):
         return None
     for plan in _get_active_stripe_plans():
         if plan.get("price_id") == pid:
@@ -6654,6 +7040,24 @@ def _stripe_trial_end_ts_for_days(days: int, buffer_hours: int = 1) -> int:
 
 def _stripe_enabled() -> bool:
     return bool((os.getenv('STRIPE_SECRET_KEY') or '').strip())
+
+
+def _warm_stripe_plans_cache_on_startup() -> None:
+    """Prefetch the /plans Stripe catalog so first visitors are less likely to see fallbacks."""
+    try:
+        if not _stripe_enabled():
+            return
+        skip = str(
+            os.getenv('STRIPE_SKIP_PLAN_WARMUP') or ''
+        ).strip().lower()
+        if skip in ('1', 'true', 'yes', 'on'):
+            return
+        _refresh_stripe_plans_cache_async()
+    except Exception:
+        pass
+
+
+_warm_stripe_plans_cache_on_startup()
 
 
 def _get_stripe_customer_id_from_azure(user_id: str) -> str:
@@ -9232,11 +9636,15 @@ def _get_email_trial_hold_days(invite: Optional[dict] = None) -> int:
 
 def _get_trial_hold_days(plan_id: str = 'trial_7d') -> int:
     """Number of days for a trial authorization hold."""
-    plan = _get_plan_by_price_id(plan_id)
-    if plan and plan.get("trial_period_days"):
-        return plan["trial_period_days"]
-
     pid = _normalize_plan_id(plan_id) or 'trial_7d'
+    # Only resolve Stripe catalog for real Price IDs. Internal ids like
+    # trial_7d must not trigger Stripe.Price.list (hangs the whole site if
+    # outbound HTTPS is slow/broken).
+    if pid.startswith('price_'):
+        plan = _get_plan_by_price_id(pid)
+        if plan and plan.get("trial_period_days"):
+            return plan["trial_period_days"]
+
     if _is_email_trial_plan(pid):
         return _get_email_trial_hold_days()
     raw = (os.getenv('TRIAL_HOLD_DAYS') or os.getenv(
@@ -9418,8 +9826,66 @@ def _should_use_trial_authorization_hold(plan_id: str) -> bool:
     return pid in ('trial_7d', EMAIL_TRIAL_PLAN_ID)
 
 
+def _region_monthly_unit_amount_cents() -> int:
+    """Best-effort monthly plan unit_amount in the visitor's currency (minor units)."""
+    try:
+        plans = _filter_stripe_plans_for_region(
+            _get_active_stripe_plans(force_refresh=False, blocking=False)
+        )
+        for plan in list(plans or []):
+            role = str(plan.get('role') or '').strip().lower()
+            interval = str(plan.get('interval') or '').strip().lower()
+            if interval == 'month' and role != 'trial':
+                amt = int(plan.get('unit_amount') or 0)
+                if amt > 0:
+                    return amt
+    except Exception:
+        pass
+    try:
+        if _is_india_pricing_region():
+            return 89900  # ₹899 default
+    except Exception:
+        pass
+    return 1095  # $10.95
+
+
+def _format_exit_offer_price_label(
+        target_cents: int,
+        currency: str = '',
+) -> str:
+    cur = str(
+        currency or (
+            'inr' if _is_india_pricing_region() else 'usd'
+        )
+    ).strip().lower()
+    cents = max(0, int(target_cents or 0))
+    if cur == 'inr':
+        if cents % 100 == 0:
+            return f"₹{cents // 100:,}"
+        return f"₹{cents / 100.0:,.2f}"
+    return f"${cents / 100.0:.2f}"
+
+
 def _get_trial_exit_offer_target_cents() -> int:
-    """Target net charge for the first paid month after the trial."""
+    """Target net charge for the first paid month after the trial (minor units)."""
+    try:
+        india = _is_india_pricing_region()
+    except Exception:
+        india = False
+
+    if india:
+        raw_inr = (
+            os.getenv('TRIAL_EXIT_OFFER_TARGET_CENTS_INR') or ''
+        ).strip()
+        if raw_inr:
+            try:
+                return max(1, int(raw_inr))
+            except Exception:
+                pass
+        # ~36% off the India monthly price, rounded to whole rupees.
+        monthly = _region_monthly_unit_amount_cents()
+        return max(100, int(round((monthly * 0.64) / 100.0)) * 100)
+
     raw = (os.getenv('TRIAL_EXIT_OFFER_TARGET_CENTS') or '649').strip()
     try:
         target = int(raw)
@@ -9484,6 +9950,12 @@ def _trial_hold_checkout_template_context(
     hold_days = _get_trial_hold_days(pid)
     capture_days_before_end = _get_trial_capture_days_before_end(hold_days)
     capture_day = max(1, hold_days - capture_days_before_end)
+    try:
+        exit_cents = _get_trial_exit_offer_target_cents()
+        exit_label = _format_exit_offer_price_label(exit_cents)
+    except Exception:
+        exit_cents = 649
+        exit_label = '$6.49'
     return {
         'checkout_name': checkout_name,
         'checkout_description': checkout_description,
@@ -9492,6 +9964,9 @@ def _trial_hold_checkout_template_context(
         'trial_capture_day': capture_day,
         'trial_zero_label': zero_label,
         'india_pricing': _is_india_pricing_region(),
+        'exit_offer_cents': exit_cents,
+        'exit_offer_label': exit_label,
+        'plan_prices': _plans_price_display_context(),
         'trial_deposit_terms': (
             f'A temporary {amount_label} authorization hold is placed on your card. '
             f'If you cancel before day {capture_day}, the hold is released and you are not charged. '
@@ -9505,18 +9980,29 @@ def _trial_hold_checkout_template_context(
 def inject_trial_plan_context():
     """Expose configured trial duration to all Jinja templates."""
     try:
-        hold_days = _get_trial_hold_days()
+        # Env-only path: never call Stripe from a global context processor.
+        hold_days = max(
+            1,
+            min(
+                14,
+                int(
+                    (os.getenv('TRIAL_HOLD_DAYS')
+                     or os.getenv('TRIAL_DURATION_DAYS')
+                     or '7').strip() or '7'
+                ),
+            ),
+        )
+    except Exception:
+        hold_days = 7
+    try:
         capture_day = max(
             1,
-            hold_days - _get_trial_capture_days_before_end()
+            hold_days - _get_trial_capture_days_before_end(hold_days)
         )
-        trial_plan = _get_plan_config('trial_7d') or {}
         return {
             'trial_hold_days': hold_days,
             'trial_capture_day': capture_day,
-            'trial_deposit_terms': str(
-                trial_plan.get('trial_deposit_terms') or ''
-            ).strip(),
+            'trial_deposit_terms': '',
         }
     except Exception:
         return {
@@ -11334,9 +11820,9 @@ def _redirect_to_stripe_payment_link(
         offer_retention: bool = False
 ) -> Optional['Response']:
     """Redirect to Stripe Payment Link with useful prefill params so webhook can map back to user."""
-    # Trial plans must be subscriptions with pending SetupIntent / Checkout Session, not Payment Links.
+    # Email-trial invites keep the invite/hold checkout flow (not Payment Links).
     plan_id = _normalize_plan_id(plan_id)
-    if plan_id in ('trial_7d', EMAIL_TRIAL_PLAN_ID):
+    if plan_id == EMAIL_TRIAL_PLAN_ID:
         return None
     link = _get_stripe_payment_link(plan_id)
     if not link:
@@ -11544,6 +12030,23 @@ def checkout():
         )
 
     # 9. Flow: Trial Authorization Holds
+    # Prefer Stripe Payment Link (hosted) for the standard 7-day trial, matching
+    # monthly/annual. Email-trial invites still use the hold/invite checkout flow.
+    if _stripe_enabled() and not _is_email_trial_plan(plan_id):
+        is_standard_trial = (
+            plan_id == 'trial_7d'
+            or _normalize_plan_id(plan_id) == 'trial_7d'
+            or plan_role == 'trial'
+            or str(plan.get('plan_status') or '').strip().lower() == 'trial'
+        )
+        if is_standard_trial:
+            pl_redirect = _redirect_to_stripe_payment_link(
+                'trial_7d',
+                offer_retention=offer_retention
+            )
+            if pl_redirect:
+                return pl_redirect
+
     if _should_use_trial_authorization_hold(plan_id):
         current_year = datetime.now().year
         stripe_pub = (os.getenv('STRIPE_PUBLISHABLE_KEY') or '').strip()
@@ -12137,7 +12640,7 @@ def checkout_success():
         refreshed = False
 
     if refreshed or is_paid_user(current_user):
-        flash("Payment successful — your access is now active.", "success")
+        flash("Your subscription has successfully been created", "success")
         return redirect(url_for("my_revisions", checkout="success"))
 
     flash(
@@ -13402,6 +13905,10 @@ def api_claim_trial_exit_offer():
 
     target_cents = _get_trial_exit_offer_target_cents()
     try:
+        offer_label = _format_exit_offer_price_label(target_cents)
+    except Exception:
+        offer_label = f"${target_cents / 100:.2f}"
+    try:
         table_client = get_users_table_client()
         entity = {
             "PartitionKey": user_id,
@@ -13426,7 +13933,11 @@ def api_claim_trial_exit_offer():
         {
             "success": True,
             "target_price_cents": target_cents,
-            "message": f"Offer applied: if you keep the {_get_trial_hold_days()}-day trial, your first paid month will be ${target_cents / 100:.2f}.",
+            "target_price_label": offer_label,
+            "message": (
+                f"Offer applied: if you keep the {_get_trial_hold_days()}-day trial, "
+                f"your first paid month will be {offer_label}."
+            ),
         }
     )
 
@@ -26027,6 +26538,16 @@ Rules:
         raise
 
 
+
+@app.route("/naukri-resume-builder-alternative")
+def naukri_resume_builder_alternative():
+    current_year = datetime.now().year
+    return render_template(
+        "naukri_resume_builder_alternative.html",
+        year=current_year,
+        user=current_user if current_user.is_authenticated else None,
+    )
+
 if __name__ == "__main__":
     # Default to a single-process dev server (avoids confusing duplicate side-effects).
     # If you want auto-reload while iterating locally, set `FLASK_USE_RELOADER=1`.
@@ -26058,3 +26579,6 @@ if __name__ == "__main__":
         use_reloader
     )
     app.run(debug=True, host=host, port=port, use_reloader=use_reloader)
+
+
+

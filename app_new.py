@@ -12061,7 +12061,7 @@ def checkout_success():
         refreshed = False
 
     if refreshed or is_paid_user(current_user):
-        flash("Payment successful — your access is now active.", "success")
+        flash("Your subscription has successfully been created", "success")
         return redirect(url_for("my_revisions", checkout="success"))
 
     flash(

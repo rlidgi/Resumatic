@@ -2728,9 +2728,6 @@ export default function TemplateViewer() {
                             </a>
 
                             <nav className="hidden md:flex items-center gap-6 text-gray-700" aria-label="Primary">
-                                <a href="/" className="hover:text-indigo-600 font-semibold">Home</a>
-                                <a href="/blog" className="hover:text-indigo-600 font-semibold">Blog</a>
-                                <a href="/about" className="hover:text-indigo-600 font-semibold">About</a>
                                 {me?.is_authenticated ? (
                                     <>
                                         <a href="/my_revisions" className="text-white bg-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-700">
@@ -2787,9 +2784,6 @@ export default function TemplateViewer() {
                             </button>
                         </div>
                         <nav className="space-y-4">
-                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/" onClick={() => setMobileNavOpen(false)}>Home</a>
-                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/blog" onClick={() => setMobileNavOpen(false)}>Blog</a>
-                            <a className="block text-gray-600 hover:text-indigo-600 underline underline-offset-2 font-semibold" href="/about" onClick={() => setMobileNavOpen(false)}>About</a>
                             {me?.is_authenticated ? (
                                 <>
                                     <a className="block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-center" href="/my_revisions" onClick={() => setMobileNavOpen(false)}>Career Dashboard</a>
@@ -2922,6 +2916,7 @@ export default function TemplateViewer() {
                   #templateViewerPage .tv-inline-edit textarea {
                     -webkit-user-select: text;
                     user-select: text;
+                    cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADFklEQVR4nO3W70sTYRwA8O/z3M3ptnPeygpxir+yWctsTCmyZaL1IqWM+QdUGkFp9UKRrClRb4sICYXqRflCX4hUwtAJalEuxCyyLPoFvktkmjqdd883bmolVoRuGuUX7uDuHu7z/T53zw+A1fiHgwLYuRXDCQAohwMcdJltG+8Xtev3gD6m2H8HbPyy4RxR6gZrRdZJz+2CSwi6dcdgOXrCbrdzZBYvzTw2zMpdiJWPfDfyq1BniDvqfxKsJOz2bz+buTL71LBc3o7jZ1vkoZJmhhfc05f3l+HWqMQ0+pMk6FJxh8NBGxsb5U/PP4lHTlbfjdOuFSmnkr2yRNdoIuTHgy/4+++f1qpwfOC8H6/GpZrzcEoJIKJYU+9y33ngxkPF5dLV3DLE892+J0duYrzRUqu0Jf4xMXP6MQgsPhScMWYUU3eanafPlFpHJ4gk6FR8q8uFye+8pPmDu673TWdxg72BK2wsZACwoHq6WJwAMEHYIlKt3lm696X1YORFiQMvPzqOLD8vz9siDFcpOCLSX+GLDf8ko9ebRard4r7lMCE+S5pm7VH4ud0m1TfdY/sOn/ioVKbgS+zlP8B7E6bHnImIXRvZl9ZYKTfLigDxxy0WiwoAuCDj8TP4wwTmaUuUdmWYESCpiCOBH/P0d/hIW6KUmbEZAVKKOD8b2KmXruL0f8MJzOIqYWVwzmhMjlIJKe7r5SbEvuDidP6lRXmh7PHSigg9b81OlaZ8HsqHhQGOTBJ24Jya6+rGYo7218lMwTukQCZAAXqmw8NTDAAkU8UDjE6AOkRE2TMBmBcEfEEi+pgYUYg0uaOTd6AYm9ETFbNp0Fljwpzdwf3mRFk39PrYCKbWOHWCkB6q0SBP5ZK3fUPOUAPfNOmTr9Hx/lqGwamcRGwwxWKotlMXHp4eog6ZYLLEJqfYAIFXbzPMhm1kTMGVtoHF5xJgsoQFYRqtQa1WTRLKaxhDGancgwC0o6NDwtl2gcbnEoAvQ6+vROekxSHQ7QSxiBCsHOw3jsxuIkiw8L8uiLKG22w2Hr5vs4MeXwEieLnH68rzJAAAAABJRU5ErkJggg==") 2 28, text !important;
                   }
 
                   /* PDF preview page styling (HTML-only simulation of the PDF) */
@@ -3924,7 +3919,6 @@ function getTemplateDefaultAccent(rawTemplateName?: string): string {
             return '#243c6b';
     }
 }
-
 
 
 

@@ -492,6 +492,174 @@
             pointer-events: none;
         }
 
+        .exit-offer-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            padding: 12px 16px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: rgba(2, 6, 23, 0.55);
+            backdrop-filter: blur(4px);
+        }
+
+        .exit-offer-modal.is-open {
+            display: block;
+        }
+
+        .exit-offer-modal-inner {
+            display: flex;
+            min-height: 100%;
+            min-height: 100dvh;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 0;
+            box-sizing: border-box;
+        }
+
+        .exit-offer-card {
+            width: min(100%, 22rem);
+            max-height: calc(100vh - 24px);
+            max-height: calc(100dvh - 24px);
+            overflow-x: hidden;
+            overflow-y: auto;
+            border-radius: 16px;
+            border: 1px solid #fde68a;
+            background: #fff;
+            box-shadow: 0 25px 50px rgba(15, 23, 42, 0.28);
+        }
+
+        .exit-offer-header {
+            padding: 12px 16px 10px;
+            border-bottom: 1px solid #fef3c7;
+            background: linear-gradient(90deg, #fef3c7 0%, #fff1f2 48%, #ffffff 100%);
+        }
+
+        .exit-offer-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: #f59e0b;
+            color: #fff;
+            padding: 3px 10px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .exit-offer-header h3 {
+            margin: 8px 0 0;
+            font-size: 18px;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+        }
+
+        .exit-offer-header p {
+            margin: 6px 0 0;
+            font-size: 13px;
+            line-height: 1.4;
+            color: #475569;
+        }
+
+        .exit-offer-price {
+            display: inline-block;
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .exit-offer-body {
+            padding: 12px 16px 14px;
+        }
+
+        .exit-offer-note {
+            border-radius: 10px;
+            border: 1px solid #d1fae5;
+            background: #ecfdf5;
+            color: #065f46;
+            padding: 8px 12px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .exit-offer-why {
+            margin-top: 10px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 10px 12px;
+        }
+
+        .exit-offer-why strong {
+            display: block;
+            font-size: 12px;
+            color: #0f172a;
+        }
+
+        .exit-offer-why p {
+            margin: 4px 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #475569;
+        }
+
+        .exit-offer-accept {
+            margin-top: 12px;
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .exit-offer-accept:hover {
+            background: #1e293b;
+        }
+
+        .exit-offer-accept:disabled {
+            opacity: 0.65;
+            cursor: wait;
+        }
+
+        .exit-offer-close {
+            margin-top: 6px;
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #64748b;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .exit-offer-close:hover {
+            color: #334155;
+        }
+
+        .exit-offer-error {
+            display: none;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #dc2626;
+        }
+
+        .exit-offer-error.is-visible {
+            display: block;
+        }
+
+        body.exit-offer-open {
+            overflow: hidden;
+        }
+
         @media (max-width: 980px) {
             .layout {
                 grid-template-columns: 1fr;
@@ -605,14 +773,14 @@
                 </article>
 
                 <label class="plan-option {% if not trial_unavailable %}selected{% endif %}" data-plan-option
-                    data-plan="price_1TqJNn7wXBqOcDQ3mVlz4Cx7">
-                    <input type="radio" name="plan" value="price_1TqJNn7wXBqOcDQ3mVlz4Cx7" {% if not trial_unavailable %}checked{% else
+                    data-plan="trial_7d">
+                    <input type="radio" name="plan" value="trial_7d" {% if not trial_unavailable %}checked{% else
                         %}disabled{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if not trial_unavailable %}✓{% endif %}</span>
                         <p class="plan-text">7-Day Free Trial</p>
                         <div class="price-wrap">
-                            <span class="plan-title">$0</span>
+                            <span class="plan-title">{{ plan_prices.trial_zero_label or '$0' }}</span>
                         </div>
                     </div>
                     {% if trial_unavailable %}
@@ -621,20 +789,20 @@
                 </label>
 
                 <label class="plan-option simple {% if trial_unavailable %}selected{% endif %}" data-plan-option
-                    data-plan="price_1TpkGY7wXBqOcDQ3aSDy30Zk">
-                    <input type="radio" name="plan" value="price_1TpkGY7wXBqOcDQ3aSDy30Zk" {% if trial_unavailable %}checked{% endif %}>
+                    data-plan="monthly_10_95">
+                    <input type="radio" name="plan" value="monthly_10_95" {% if trial_unavailable %}checked{% endif %}>
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true">{% if trial_unavailable %}✓{% endif %}</span>
                         <p class="plan-text">Monthly Access</p>
                         <div class="price-wrap">
-                            <span class="plan-title">{{ plan_prices.monthly_pdf_main }}</span><span
-                                class="price-decimals">{{ plan_prices.monthly_pdf_decimals }}</span>
+                            <span class="plan-title">{{ plan_prices.monthly_pdf_main or '$10' }}</span><span
+                                class="price-decimals">{{ plan_prices.monthly_pdf_decimals or '.95 / month' }}</span>
                         </div>
                     </div>
                 </label>
 
-                <label class="plan-option simple" data-plan-option data-plan="price_1TpkGS7wXBqOcDQ3OAPw06Da">
-                    <input type="radio" name="plan" value="price_1TpkGS7wXBqOcDQ3OAPw06Da">
+                <label class="plan-option simple" data-plan-option data-plan="annual_6_95">
+                    <input type="radio" name="plan" value="annual_6_95">
                     <div class="plan-row">
                         <span class="selector" aria-hidden="true"></span>
                         <div class="plan-title-wrap">
@@ -642,8 +810,8 @@
                             <span class="badge">Best Value</span>
                         </div>
                         <div class="price-wrap">
-                            <span class="plan-title">{{ plan_prices.annual_pdf_main }}</span><span
-                                class="price-decimals">{{ plan_prices.annual_pdf_decimals }}</span>
+                            <span class="plan-title">{{ plan_prices.annual_pdf_main or '$6' }}</span><span
+                                class="price-decimals">{{ plan_prices.annual_pdf_decimals or '.95 / month' }}</span>
                         </div>
                     </div>
                 </label>
@@ -665,18 +833,54 @@
                 <p class="cancel-note"><strong>Cancel anytime</strong> online or by email</p>
 
                 <a id="continueButton" class="cta-btn {% if trial_unavailable and not next_url %}disabled{% endif %}"
-                    href="/checkout?plan={% if trial_unavailable %}price_1TpkGY7wXBqOcDQ3aSDy30Zk{% else %}price_1TqJNn7wXBqOcDQ3mVlz4Cx7{% endif %}">
+                    href="/checkout?plan={% if trial_unavailable %}monthly_10_95{% else %}trial_7d{% endif %}">
                     Continue
                 </a>
 
                 <div class="links">
                     {% if next_url %}
-                    <a href="{{ next_url }}">Return to resume</a>
+                    <a id="return-to-resume-link" href="{{ next_url }}">Return to resume</a>
                     {% endif %}
 
                 </div>
             </aside>
         </section>
+
+        {% if not trial_unavailable %}
+        <div id="exit-offer-modal" class="exit-offer-modal" role="dialog" aria-modal="true"
+            aria-labelledby="exit-offer-title" hidden>
+            <div class="exit-offer-modal-inner">
+                <div class="exit-offer-card">
+                    <div class="exit-offer-header">
+                        <div class="exit-offer-badge">Limited offer</div>
+                        <h3 id="exit-offer-title">Wait, don't leave your job search half-built</h3>
+                        <p>
+                            Keep your {{ trial_hold_days }}-day trial. If you do not cancel before end of trial,
+                            your first paid month is <span class="exit-offer-price">{{ plan_prices.exit_offer_label or '$6.49' }}</span>.
+                        </p>
+                    </div>
+                    <div class="exit-offer-body">
+                        <div class="exit-offer-note">
+                            Full trial access now. Discount applies only to month one.
+                        </div>
+                        <div class="exit-offer-why">
+                            <strong>Why stay?</strong>
+                            <p>
+                                Our research has shown that having access to unlimited job tailored resume revisions and a central location for all your job search efforts (the Job Search dashboard) is crucial in an effective job search campaign.
+                            </p>
+                        </div>
+                        <button id="exit-offer-accept" type="button" class="exit-offer-accept">
+                            Wait, keep my trial and claim {{ plan_prices.exit_offer_label or '$6.49' }}
+                        </button>
+                        <button id="exit-offer-close" type="button" class="exit-offer-close">
+                            Not now
+                        </button>
+                        <div id="exit-offer-error" class="exit-offer-error" role="alert"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <section class="faq-section">
             <h2>FAQ</h2>
@@ -721,28 +925,174 @@
         (function () {
             const options = Array.from(document.querySelectorAll('[data-plan-option]'));
             const continueButton = document.getElementById('continueButton');
-            if (!options.length || !continueButton) return;
+            if (options.length && continueButton) {
+                function setSelected(value) {
+                    options.forEach((option) => {
+                        const plan = option.getAttribute('data-plan');
+                        const input = option.querySelector('input[type="radio"]');
+                        const selector = option.querySelector('.selector');
+                        const selected = plan === value;
+                        option.classList.toggle('selected', selected);
+                        if (input) input.checked = selected;
+                        if (selector) selector.textContent = selected ? '✓' : '';
+                    });
+                    continueButton.setAttribute('href', `/checkout?plan=${encodeURIComponent(value)}`);
+                }
 
-            function setSelected(value) {
                 options.forEach((option) => {
-                    const plan = option.getAttribute('data-plan');
-                    const input = option.querySelector('input[type="radio"]');
-                    const selector = option.querySelector('.selector');
-                    const selected = plan === value;
-                    option.classList.toggle('selected', selected);
-                    if (input) input.checked = selected;
-                    if (selector) selector.textContent = selected ? '✓' : '';
+                    option.addEventListener('click', function () {
+                        const input = option.querySelector('input[type="radio"]');
+                        if (!input || input.disabled) return;
+                        setSelected(String(input.value || 'monthly_10_95'));
+                    });
                 });
-                continueButton.setAttribute('href', `/checkout?plan=${encodeURIComponent(value)}`);
             }
 
-            options.forEach((option) => {
-                option.addEventListener('click', function () {
-                    const input = option.querySelector('input[type="radio"]');
-                    if (!input || input.disabled) return;
-                    setSelected(String(input.value || 'price_1TpkGY7wXBqOcDQ3aSDy30Zk'));
+            const exitOfferModal = document.getElementById('exit-offer-modal');
+            if (!exitOfferModal) {
+                return;
+            }
+
+            const exitOfferAccept = document.getElementById('exit-offer-accept');
+            const exitOfferClose = document.getElementById('exit-offer-close');
+            const exitOfferError = document.getElementById('exit-offer-error');
+            const returnToResumeLink = document.getElementById('return-to-resume-link');
+            const trialCheckoutHref = '/checkout?plan=trial_7d';
+            let exitOfferClaimed = false;
+            let exitOfferBypass = false;
+            let exitOfferResolver = null;
+            let exitOfferClaiming = false;
+
+            function showExitOfferError(message) {
+                if (!exitOfferError) {
+                    return;
+                }
+                exitOfferError.textContent = message || '';
+                exitOfferError.classList.toggle('is-visible', !!message);
+            }
+
+            function openExitOfferModal() {
+                exitOfferModal.hidden = false;
+                exitOfferModal.classList.add('is-open');
+                document.body.classList.add('exit-offer-open');
+                showExitOfferError('');
+                if (exitOfferAccept) {
+                    exitOfferAccept.disabled = false;
+                }
+                return new Promise(function (resolve) {
+                    exitOfferResolver = resolve;
                 });
+            }
+
+            function closeExitOfferModal(choice) {
+                if (exitOfferClaiming && choice !== 'accept') {
+                    return;
+                }
+                exitOfferModal.classList.remove('is-open');
+                exitOfferModal.hidden = true;
+                document.body.classList.remove('exit-offer-open');
+                if (exitOfferResolver) {
+                    const resolve = exitOfferResolver;
+                    exitOfferResolver = null;
+                    resolve(choice);
+                }
+            }
+
+            async function claimExitOffer() {
+                const resp = await fetch('/api/billing/claim-trial-exit-offer', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source: 'template_pdf_plans_exit' })
+                });
+                const data = await resp.json().catch(function () { return {}; });
+                if (!resp.ok || !data.success) {
+                    throw new Error(data.error || 'Unable to apply the offer right now.');
+                }
+                exitOfferClaimed = true;
+                return data;
+            }
+
+            async function maybeHandleExitOffer(onLeave) {
+                if (exitOfferBypass || exitOfferClaimed) {
+                    onLeave();
+                    return;
+                }
+                const choice = await openExitOfferModal();
+                if (choice === 'accept') {
+                    window.location.href = trialCheckoutHref;
+                    return;
+                }
+                exitOfferBypass = true;
+                onLeave();
+            }
+
+            function attachExitOfferGuard(linkEl) {
+                if (!linkEl) {
+                    return;
+                }
+                linkEl.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    void maybeHandleExitOffer(function () {
+                        window.location.href = linkEl.href;
+                    });
+                });
+            }
+
+            attachExitOfferGuard(returnToResumeLink);
+
+            if (exitOfferAccept) {
+                exitOfferAccept.addEventListener('click', async function () {
+                    if (exitOfferClaiming) {
+                        return;
+                    }
+                    exitOfferClaiming = true;
+                    exitOfferAccept.disabled = true;
+                    showExitOfferError('');
+                    try {
+                        await claimExitOffer();
+                        closeExitOfferModal('accept');
+                    } catch (err) {
+                        exitOfferClaiming = false;
+                        exitOfferAccept.disabled = false;
+                        showExitOfferError(
+                            (err && err.message) ? err.message : 'Unable to apply the offer right now.'
+                        );
+                    }
+                });
+            }
+
+            if (exitOfferClose) {
+                exitOfferClose.addEventListener('click', function () {
+                    closeExitOfferModal('leave');
+                });
+            }
+
+            exitOfferModal.addEventListener('click', function (e) {
+                if (e.target === exitOfferModal) {
+                    closeExitOfferModal('leave');
+                }
             });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && exitOfferModal.classList.contains('is-open')) {
+                    closeExitOfferModal('leave');
+                }
+            });
+
+            if (window.history && window.history.pushState) {
+                window.history.pushState({ templatePdfExitOfferGuard: true }, '', window.location.href);
+                window.addEventListener('popstate', function () {
+                    if (exitOfferBypass || exitOfferClaimed) {
+                        return;
+                    }
+                    window.history.pushState({ templatePdfExitOfferGuard: true }, '', window.location.href);
+                    void maybeHandleExitOffer(function () {
+                        exitOfferBypass = true;
+                        window.history.back();
+                    });
+                });
+            }
         })();
     </script>
 </body>

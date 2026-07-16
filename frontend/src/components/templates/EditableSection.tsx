@@ -179,9 +179,9 @@ export function EditableText({
     const editClasses = editMode
         ? (layoutSafe
             // Layout-safe: do NOT add padding/margins that could change line-wrapping or page height.
-            ? 'cursor-text outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white'
+            ? 'tv-pencil-cursor outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white'
             // Default: slightly padded for easier click/visual affordance (may affect layout).
-            : 'cursor-text outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white rounded px-2 py-1 transition-colors')
+            : 'tv-pencil-cursor outline-none rounded transition-colors ring-1 ring-transparent hover:ring-2 hover:ring-amber-300 focus:ring-2 focus:ring-indigo-400 focus:bg-white rounded px-2 py-1 transition-colors')
         : '';
 
     const multilineWhitespace = multiline ? 'whitespace-pre-wrap' : '';

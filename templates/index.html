@@ -100,6 +100,126 @@
     <link rel="stylesheet" href="static/css/dashboard-layout.css" />
     <link rel="stylesheet" href="static/css/resumegx-home.css" />
 
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "ResumaticAI",
+      "url": "https://resumaticai.com/",
+      "logo": "https://resumaticai.com/static/images/logo23_small.webp"
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "ResumaticAI",
+      "url": "https://resumaticai.com/",
+      "publisher": {
+        "@type": "Organization",
+        "name": "ResumaticAI",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://resumaticai.com/static/images/logo23_small.webp"
+        }
+      }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ResumaticAI",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "image": "https://resumaticai.com/static/images/logo23_small.webp",
+      "description": "Build a modern resume with AI-powered content, ATS-friendly templates, and expert career tools.",
+      "url": "https://resumaticai.com/",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Free tier available; premium features available beyond free quotas."
+      },
+      "featureList": [
+        "AI-powered resume analysis",
+        "Instant resume enhancement",
+        "ATS optimization",
+        "Keyword optimization",
+        "Professional formatting",
+        "Resume templates",
+        "PDF and Word export"
+      ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is this service really free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "We offer premium features or usage beyond free quotas, but a free tier is available."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why couldn't my resume be processed?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "At times the complexity of formatting in your resume such as tables, images, or complex layouts may cause processing issues. When a resume fails to process, we provide the option of copying and pasting the text of your resume, which generally leads to equivalent revision quality."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the AI enhancement work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Our expertly engineered AI analyzes your resume content and suggests effective improvements in language, structure, and impact while maintaining your original information. The AI focuses on ATS optimization, keyword enhancement, and professional formatting."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do we compare with ChatGPT?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The quality of ChatGPT's output depends entirely on the prompt it receives, a practice known as prompt engineering. By combining research-backed resume optimization strategies with expert prompt engineering, we generate significantly more effective outputs from the AI language model. In addition, we use a finely tuned AI model specifically optimized for resume enhancement, ensuring results that are targeted, impactful, and recruiter-ready."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my data secure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutely. We take your privacy seriously and use industry-standard encryption to protect your information. We do not share, sell, or store your personal data beyond what is necessary to provide our services. Any data you input is used solely to generate your enhanced resume."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does the enhancement process take?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Our AI processes your resume in just seconds! Once you submit your resume, you'll receive your enhanced version almost instantly, along with detailed analysis and suggestions for improvement."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I download my resume in Word?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. You can export your resume in PDF, Word, or plain text formats. All formats are optimized for both digital and print use."
+          }
+        }
+      ]
+    }
+    </script>
+
 </head>
 
 <body class="resumegx-home">
@@ -238,12 +358,19 @@
             <div class="trust-row">
                 <div class="trust-row__label">Trusted by professionals from</div>
                 <div class="trust-row__logos" aria-label="Trusted by companies">
-                    <span>Google</span>
-                    <span>Microsoft</span>
-                    <span>amazon</span>
-                    <span>stripe</span>
-                    <span>airbnb</span>
-                    <span>Uber</span>
+                    <img src="static/images/companies/google.svg" alt="Google" class="trust-logo trust-logo--google"
+                        width="92" height="32" loading="lazy" decoding="async">
+                    <img src="static/images/companies/microsoft.svg" alt="Microsoft"
+                        class="trust-logo trust-logo--microsoft" width="120" height="26" loading="lazy"
+                        decoding="async">
+                    <img src="static/images/companies/amazon.svg" alt="Amazon" class="trust-logo trust-logo--amazon"
+                        width="88" height="28" loading="lazy" decoding="async">
+                    <img src="static/images/companies/stripe.svg" alt="Stripe" class="trust-logo trust-logo--stripe"
+                        width="72" height="30" loading="lazy" decoding="async">
+                    <img src="static/images/companies/airbnb.svg" alt="Airbnb" class="trust-logo trust-logo--airbnb"
+                        width="90" height="28" loading="lazy" decoding="async">
+                    <img src="static/images/companies/uber.svg" alt="Uber" class="trust-logo trust-logo--uber"
+                        width="96" height="28" loading="lazy" decoding="async">
                 </div>
             </div>
             <section class="section-block templates-showcase" id="templates">
@@ -817,9 +944,12 @@
                         <h4>Resources</h4>
                         <ul class="footer-links">
                             <li><a href="/blog">Resume Tips</a></li>
-                            <li><a href="#resources">Career Guide</a></li>
+
                             <li><a href="/blog">ATS Guide</a></li>
                             <li><a href="#">FAQ</a></li>
+                            <li>
+                                <a href="/discounts">Student/Graduate Discount</a>
+                            </li>
                         </ul>
                     </div>
 

@@ -72,3 +72,5 @@ timestamp_iso,signup_method,user_id,email,ref,utm_source,utm_medium,utm_campaign
 2026-07-08T04:36:13.226062+00:00,email_password,email_ac74ab456f924b1a,test51@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5001/react/template-viewer/classicrose,,,
 2026-07-09T00:58:41.394217+00:00,email_password,email_fd274beeb2be47a8,test54@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/,,,
 2026-07-10T08:25:51.419638+00:00,email_password,email_93392330942c4773,test2wadas8@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/,,,
+2026-07-14T02:23:07.766148+00:00,email_password,email_8637677fefac473e,test61@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/,,,
+2026-07-14T02:24:26.608132+00:00,email_password,email_f6f0c5a8f2204024,test63@resumaticai.com,,,,,,,organic,,http://127.0.0.1:5000/,,,

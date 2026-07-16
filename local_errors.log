@@ -6276,3 +6276,176 @@ jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'load'.
 [2026-07-10T08:10:24.997013+00:00] local_errors.log initialized
 
 [2026-07-10T09:10:51.013501+00:00] local_errors.log initialized
+
+[2026-07-11T00:07:08.712056+00:00] local_errors.log initialized
+
+[2026-07-11T00:17:35.207610+00:00] local_errors.log initialized
+[2026-07-11T06:05:39.697739Z] results_route POST: start
+[2026-07-11T06:05:40.636521Z] results_route POST: calling revise_resume resume_len=8 jd_len=0
+[2026-07-11T06:05:54.365545Z] results_route POST: revise_resume ok revised_len=1864
+[2026-07-11T06:05:55.841328Z] results_route POST: redirecting to results_get
+[2026-07-11T06:05:55.865462Z] results_get GET: start
+[2026-07-11T06:05:55.866460Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-07-11T06:58:44.225358+00:00] local_errors.log initialized
+
+[2026-07-11T07:19:09.510733+00:00] local_errors.log initialized
+
+[2026-07-11T07:22:37.768575Z] unhandled exception
+TypeError: Object of type Undefined is not JSON serializable
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6498, in plans_template_pdf
+    trial_stripe_checkout_url = _build_stripe_payment_link_url(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\plans_template_pdf.html", line 930, in top-level template code
+    const trialCheckoutUrl = {{ trial_stripe_checkout_url|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\filters.py", line 1721, in do_tojson
+    return htmlsafe_json_dumps(value, dumps=dumps, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\utils.py", line 669, in htmlsafe_json_dumps
+    dumps(obj, **kwargs)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\json\provider.py", line 180, in dumps
+    return json.dumps(obj, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\json\provider.py", line 120, in _default
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+TypeError: Object of type Undefined is not JSON serializable
+
+
+[2026-07-11T07:22:51.420566Z] unhandled exception
+TypeError: Object of type Undefined is not JSON serializable
+Traceback (most recent call last):
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\app.py", line 6498, in plans_template_pdf
+    trial_stripe_checkout_url = _build_stripe_payment_link_url(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\templates\plans_template_pdf.html", line 930, in top-level template code
+    const trialCheckoutUrl = {{ trial_stripe_checkout_url|tojson }};
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\filters.py", line 1721, in do_tojson
+    return htmlsafe_json_dumps(value, dumps=dumps, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\jinja2\utils.py", line 669, in htmlsafe_json_dumps
+    dumps(obj, **kwargs)
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\json\provider.py", line 180, in dumps
+    return json.dumps(obj, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\AppData\Local\Programs\Python\Python312\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\rliog\Desktop\Resumatic_website2\venv\Lib\site-packages\flask\json\provider.py", line 120, in _default
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+TypeError: Object of type Undefined is not JSON serializable
+
+
+[2026-07-11T07:26:22.106789+00:00] local_errors.log initialized
+
+[2026-07-11T08:37:45.330844+00:00] local_errors.log initialized
+
+[2026-07-12T04:15:20.191783+00:00] local_errors.log initialized
+
+[2026-07-12T04:27:24.477514+00:00] local_errors.log initialized
+
+[2026-07-12T23:31:16.723969+00:00] local_errors.log initialized
+
+[2026-07-13T02:14:50.389341+00:00] local_errors.log initialized
+
+[2026-07-13T02:33:43.661812+00:00] local_errors.log initialized
+
+[2026-07-14T02:23:40.379490+00:00] local_errors.log initialized
+
+[2026-07-14T04:45:02.551450+00:00] local_errors.log initialized
+
+[2026-07-14T06:47:42.156625+00:00] local_errors.log initialized
+
+[2026-07-15T04:20:01.268481+00:00] local_errors.log initialized
+
+[2026-07-15T04:21:06.870027+00:00] local_errors.log initialized
+
+[2026-07-15T04:22:16.423088+00:00] local_errors.log initialized
+
+[2026-07-15T04:25:17.778369+00:00] local_errors.log initialized
+
+[2026-07-15T04:26:34.881892+00:00] local_errors.log initialized
+
+[2026-07-15T04:29:44.962293+00:00] local_errors.log initialized
+
+[2026-07-15T04:33:10.451084+00:00] local_errors.log initialized
+
+[2026-07-15T04:35:16.959785+00:00] local_errors.log initialized
+
+[2026-07-15T04:36:03.460461+00:00] local_errors.log initialized
+
+[2026-07-15T04:55:18.094760+00:00] local_errors.log initialized
+
+[2026-07-15T05:16:54.392556+00:00] local_errors.log initialized
+
+[2026-07-15T05:20:05.064650+00:00] local_errors.log initialized
+[2026-07-15T06:32:46.960491Z] results_route POST: start
+[2026-07-15T06:32:47.948531Z] results_route POST: calling revise_resume resume_len=8 jd_len=0
+[2026-07-15T06:33:05.548218Z] results_route POST: revise_resume ok revised_len=1783
+[2026-07-15T06:33:06.980094Z] results_route POST: redirecting to results_get
+[2026-07-15T06:33:07.005706Z] results_get GET: start
+[2026-07-15T06:33:07.006712Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-07-15T23:38:13.027971Z] upload GET: pid=14692 build=1784092790
+[2026-07-15T23:43:39.965185Z] results_route POST: start
+[2026-07-15T23:43:40.108293Z] results_route POST: received upload filename=updated_actuarial_resume_4-internship.docx
+[2026-07-15T23:43:40.882778Z] results_route POST: extracted_text_len=2057
+[2026-07-15T23:43:40.894369Z] results_route POST: calling revise_resume resume_len=2057 jd_len=6
+[2026-07-15T23:44:06.775319Z] results_route POST: revise_resume ok revised_len=3005
+[2026-07-15T23:44:07.551871Z] results_route POST: redirecting to results_get
+[2026-07-15T23:44:09.200470Z] results_get GET: start
+[2026-07-15T23:44:09.220420Z] results_get GET: no results_data in session
+[2026-07-15T23:44:24.917177Z] results_route POST: start
+[2026-07-15T23:44:24.926739Z] results_route POST: calling revise_resume resume_len=9 jd_len=0
+[2026-07-15T23:44:45.291777Z] results_route POST: revise_resume ok revised_len=2496
+[2026-07-15T23:44:45.904550Z] results_route POST: redirecting to results_get
+[2026-07-15T23:44:45.943842Z] results_get GET: start
+[2026-07-15T23:44:45.948446Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id

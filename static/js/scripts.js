@@ -39,41 +39,37 @@
 			return 3;
 		}
 
-		function getStepWidth() {
+		function getCardWidth() {
 			if ($cards.length === 0) return 0;
-			var cardWidth = $cards.first().outerWidth();
-			var styles = window.getComputedStyle($track[0]);
-			var gap = parseFloat(styles.columnGap || styles.gap) || 0;
-			return cardWidth + gap;
+			return $cards.first().outerWidth(true);
 		}
 
 		function updateCarousel() {
-			if (totalCards === 0) return;
+			if (isAnimating || totalCards === 0) return;
 
 			var cardsToShow = getCardsToShow();
-			var maxIndex = Math.max(0, totalCards - cardsToShow);
-			if (currentIndex > maxIndex) currentIndex = maxIndex;
-			if (currentIndex < 0) currentIndex = 0;
-
-			var offset = currentIndex * getStepWidth();
+			var cardWidth = getCardWidth();
+			var offset = currentIndex * cardWidth;
 
 			isAnimating = true;
+
+			// Use CSS transitions for smooth animation
 			$track.css({
-				'transition': 'transform 0.35s ease-out',
+				'transition': 'transform 0.3s ease-out',
 				'transform': 'translateX(-' + offset + 'px)'
 			});
 
 			setTimeout(function() {
 				isAnimating = false;
-			}, 350);
+			}, 300);
 
-			$prevBtn.prop('disabled', currentIndex === 0);
-			$nextBtn.prop('disabled', currentIndex >= maxIndex);
+			// Update button states
+			$prevBtn.prop('disabled', currentIndex === 0).css('opacity', currentIndex === 0 ? 0.5 : 1);
+			$nextBtn.prop('disabled', currentIndex >= totalCards - cardsToShow).css('opacity', currentIndex >= totalCards - cardsToShow ? 0.5 : 1);
 		}
 
 		$nextBtn.on('click', function(e) {
 			e.preventDefault();
-			if (isAnimating) return;
 			var cardsToShow = getCardsToShow();
 			if (currentIndex < totalCards - cardsToShow) {
 				currentIndex++;
@@ -83,7 +79,6 @@
 
 		$prevBtn.on('click', function(e) {
 			e.preventDefault();
-			if (isAnimating) return;
 			if (currentIndex > 0) {
 				currentIndex--;
 				updateCarousel();
@@ -98,6 +93,10 @@
 		$(window).on('resize', function() {
 			clearTimeout(resizeTimer);
 			resizeTimer = setTimeout(function() {
+				var cardsToShow = getCardsToShow();
+				if (currentIndex > totalCards - cardsToShow) {
+					currentIndex = Math.max(0, totalCards - cardsToShow);
+				}
 				updateCarousel();
 			}, 250);
 		});
@@ -105,15 +104,16 @@
 		// Keyboard navigation for carousel
 		$(document).on('keydown', function(e) {
 			if (e.key === 'ArrowLeft') {
-				$prevBtn.trigger('click');
+				$prevBtn.click();
 			} else if (e.key === 'ArrowRight') {
-				$nextBtn.trigger('click');
+				$nextBtn.click();
 			}
 		});
 
 	});
 
 })(jQuery);
+
 
 
 document.addEventListener('DOMContentLoaded',function(){
@@ -123,92 +123,120 @@ document.addEventListener('DOMContentLoaded',function(){
   const HIW_STEPS = [
     {
       title: "Upload Your Resume",
-      desc: "Drop your existing resume file or paste the text directly into our editor. We accept PDF, DOC, DOCX, and plain text formats so you never have to reformat just to get started.",
+      desc: "Paste in a job description if you want tailored results, then drag and drop your PDF, DOC, or DOCX file — up to 10MB. Everything is SSL encrypted and privacy protected.",
       tint: "rgba(53,87,255,.08)",
       art: `
-        <svg class="hiw-art" viewBox="0 0 300 220" fill="none">
-          <rect x="90" y="30" width="120" height="150" rx="12" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
-          <rect x="106" y="46" width="70" height="9" rx="4.5" fill="#182033" opacity=".85"/>
-          <rect x="106" y="66" width="88" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="106" y="78" width="70" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="106" y="90" width="80" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="106" y="108" width="88" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="106" y="120" width="60" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
+        <svg class="hiw-art" viewBox="0 0 300 200" fill="none">
+          <rect x="10" y="6" width="280" height="188" rx="14" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
+          <rect x="24" y="20" width="10" height="10" rx="2" fill="#3557ff"/>
+          <text x="40" y="29" font-size="9" font-weight="700" fill="#182033" font-family="Inter, sans-serif">Job Description (Optional)</text>
+          <rect x="24" y="36" width="252" height="26" rx="6" fill="var(--hiw-wash)" stroke="rgba(96,119,180,.18)"/>
+          <text x="32" y="52" font-size="7" fill="#9aa5c0" font-family="Inter, sans-serif">Paste job description…</text>
+          <rect x="24" y="72" width="10" height="10" rx="2" fill="#3557ff"/>
+          <text x="40" y="81" font-size="9" font-weight="700" fill="#182033" font-family="Inter, sans-serif">Submit Your Resume</text>
+          <rect x="24" y="90" width="252" height="68" rx="10" fill="var(--hiw-wash)" stroke="#3557ff" stroke-width="2" stroke-dasharray="7 6" class="hiw-dash"/>
           <g class="hiw-floaty">
-            <circle cx="150" cy="26" r="26" fill="#3557ff"/>
-            <path d="M150 38V14M150 14l-9 9M150 14l9 9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="150" cy="112" r="14" fill="#dbe6ff"/>
+            <path d="M150 119v-14m0 0l-6 6m6-6l6 6" stroke="#3557ff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           </g>
-          <g>
-            <rect x="18" y="146" width="46" height="26" rx="6" fill="#fff" stroke="rgba(96,119,180,.18)"/>
-            <text x="41" y="163" font-size="10" font-weight="700" fill="#e5544d" text-anchor="middle" font-family="Inter, sans-serif">PDF</text>
-          </g>
-          <g>
-            <rect x="18" y="176" width="46" height="26" rx="6" fill="#fff" stroke="rgba(96,119,180,.18)"/>
-            <text x="41" y="193" font-size="10" font-weight="700" fill="#2f6fed" text-anchor="middle" font-family="Inter, sans-serif">DOC</text>
-          </g>
-          <g>
-            <rect x="236" y="160" width="52" height="26" rx="6" fill="#fff" stroke="rgba(96,119,180,.18)"/>
-            <text x="262" y="177" font-size="9" font-weight="700" fill="#7a5cf0" text-anchor="middle" font-family="Inter, sans-serif">DOCX</text>
-          </g>
+          <text x="150" y="138" font-size="9" font-weight="700" fill="#3557ff" text-anchor="middle" font-family="Inter, sans-serif">Click to upload</text>
+          <text x="150" y="148" font-size="7" fill="#8790ab" text-anchor="middle" font-family="Inter, sans-serif">or drag and drop your resume</text>
+          <text x="118" y="155" font-size="6.5" font-weight="700" fill="#e5544d" text-anchor="middle" font-family="Inter, sans-serif">PDF</text>
+          <text x="150" y="155" font-size="6.5" font-weight="700" fill="#2f6fed" text-anchor="middle" font-family="Inter, sans-serif">DOC</text>
+          <text x="184" y="155" font-size="6.5" font-weight="700" fill="#7a5cf0" text-anchor="middle" font-family="Inter, sans-serif">DOCX</text>
+          <rect x="24" y="168" width="252" height="20" rx="10" fill="url(#hiwBtnGrad1)"/>
+          <text x="150" y="181" font-size="8.5" font-weight="700" fill="#fff" text-anchor="middle" font-family="Inter, sans-serif">✦ Enhance My Resume Now</text>
+          <defs>
+            <linearGradient id="hiwBtnGrad1" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#3557ff"/>
+              <stop offset="1" stop-color="#008573"/>
+            </linearGradient>
+          </defs>
         </svg>`
     },
     {
       title: "AI Enhancement",
-      desc: "Our advanced AI analyzes your content, improves language, adds impactful keywords, and optimizes structure for ATS compatibility.",
+      desc: "Our AI reads your resume, finds the useful information, and rewrites it for clarity and ATS compatibility — processing usually finishes in under 30 seconds.",
       tint: "rgba(53,87,255,.08)",
       art: `
-        <svg class="hiw-art" viewBox="0 0 300 220" fill="none">
-          <rect x="30" y="18" width="150" height="184" rx="12" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
-          <rect x="46" y="34" width="70" height="9" rx="4.5" fill="#182033" opacity=".85"/>
-          <rect x="46" y="54" width="118" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="46" y="66" width="90" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="46" y="86" width="118" height="6" rx="3" fill="#cfe4ff"/>
-          <rect x="46" y="98" width="100" height="6" rx="3" fill="#cfe4ff"/>
-          <rect x="46" y="118" width="118" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="46" y="130" width="70" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
+        <svg class="hiw-art" viewBox="0 0 300 200" fill="none">
+          <rect x="10" y="6" width="280" height="188" rx="14" fill="var(--hiw-wash)"/>
+          <rect x="46" y="26" width="208" height="150" rx="14" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
+          <rect x="90" y="40" width="120" height="18" rx="9" fill="#eaf2ff"/>
+          <text x="150" y="52" font-size="7.5" font-weight="700" fill="#3557ff" text-anchor="middle" font-family="Inter, sans-serif">Finding useful information…</text>
           <g class="hiw-floaty">
-            <rect x="150" y="120" width="128" height="72" rx="14" fill="#fff" stroke="#2f6fed" stroke-width="2"/>
-            <circle cx="172" cy="142" r="10" fill="#2f6fed"/>
-            <path d="M167 142l4 4 7-8" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="190" y="136" width="72" height="7" rx="3.5" fill="#2f6fed"/>
-            <rect x="164" y="158" width="98" height="6" rx="3" fill="#8fa3ab"/>
-            <rect x="164" y="170" width="70" height="14" rx="7" fill="#eaf2ff"/>
-            <rect x="172" y="174" width="54" height="6" rx="3" fill="#2f6fed"/>
+            <rect x="132" y="66" width="30" height="38" rx="5" fill="#fff" stroke="#3557ff" stroke-width="2"/>
+            <rect x="138" y="76" width="18" height="3" rx="1.5" fill="rgba(53,87,255,.4)"/>
+            <rect x="138" y="83" width="18" height="3" rx="1.5" fill="rgba(53,87,255,.4)"/>
+            <rect x="138" y="90" width="12" height="3" rx="1.5" fill="rgba(53,87,255,.4)"/>
+            <circle cx="168" cy="98" r="9" fill="#fff" stroke="#008573" stroke-width="2.4"/>
+            <line x1="174" y1="104" x2="180" y2="110" stroke="#008573" stroke-width="2.4" stroke-linecap="round"/>
           </g>
-          <circle class="hiw-floaty" cx="248" cy="46" r="4" fill="#2f6fed"/>
-          <circle class="hiw-floaty" cx="264" cy="66" r="3" fill="#008573"/>
-          <circle class="hiw-floaty" cx="232" cy="70" r="3" fill="#a78bfa"/>
+          <text x="150" y="124" font-size="10" font-weight="800" fill="#182033" text-anchor="middle" font-family="Inter, sans-serif">Enhancing your resume</text>
+          <text x="150" y="136" font-size="8" fill="#4a5670" text-anchor="middle" font-family="Inter, sans-serif">Optimizing for ATS…</text>
+          <rect x="66" y="146" width="168" height="7" rx="3.5" fill="rgba(96,119,180,.15)"/>
+          <rect x="66" y="146" width="26" height="7" rx="3.5" fill="#3557ff" class="hiw-grow"/>
+          <text x="150" y="164" font-size="7.5" font-weight="700" fill="#4a5670" text-anchor="middle" font-family="Inter, sans-serif">15% complete</text>
+          <text x="150" y="176" font-size="6.5" fill="#8790ab" text-anchor="middle" font-family="Inter, sans-serif">Your data is processed securely</text>
         </svg>`
     },
     {
-      title: "Get Results",
-      desc: "Receive your enhanced resume with detailed analysis, improvement suggestions, and ATS score. Export and apply with confidence.",
+      title: "Get Your Results",
+      desc: "See your ATS score, how you compare to other applicants, a full category breakdown, and a side-by-side before-and-after — then pick a template and export.",
       tint: "rgba(0,133,115,.08)",
       art: `
-        <svg class="hiw-art" viewBox="0 0 300 220" fill="none">
-          <rect x="20" y="14" width="130" height="176" rx="12" fill="#fff" stroke="#3557ff" stroke-width="2"/>
-          <rect x="36" y="30" width="70" height="9" rx="4.5" fill="#182033" opacity=".85"/>
-          <rect x="36" y="50" width="98" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="36" y="62" width="80" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="36" y="82" width="98" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="36" y="94" width="70" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <rect x="36" y="114" width="98" height="6" rx="3" fill="rgba(96,119,180,.18)"/>
-          <circle cx="118" cy="20" r="12" fill="#3557ff"/>
-          <path d="M113 20l3.5 3.5L124 15" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg class="hiw-art" viewBox="0 0 300 200" fill="none">
+          <rect x="10" y="6" width="280" height="188" rx="14" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
+          <text x="26" y="26" font-size="8" font-weight="700" fill="#182033" font-family="Inter, sans-serif">Score</text>
           <g class="hiw-floaty">
-            <circle cx="212" cy="90" r="44" fill="#fff" stroke="rgba(96,119,180,.18)" stroke-width="2"/>
-            <circle cx="212" cy="90" r="44" fill="none" stroke="#3557ff" stroke-width="8" stroke-dasharray="207" stroke-dashoffset="35" stroke-linecap="round" transform="rotate(-90 212 90)"/>
-            <text x="212" y="86" font-size="20" font-weight="800" fill="#182033" text-anchor="middle" font-family="Inter, sans-serif">94</text>
-            <text x="212" y="102" font-size="9" font-weight="700" fill="#4a5670" text-anchor="middle" font-family="Inter, sans-serif">ATS SCORE</text>
+            <path d="M26 78 A38 38 0 0 1 102 78" stroke="url(#hiwGaugeGrad)" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <line x1="64" y1="78" x2="64" y2="46" stroke="#182033" stroke-width="2.4" stroke-linecap="round" transform="rotate(46 64 78)"/>
+            <circle cx="64" cy="78" r="3.5" fill="#182033"/>
           </g>
-          <rect x="176" y="152" width="36" height="36" rx="8" fill="#fff" stroke="rgba(96,119,180,.18)"/>
-          <rect x="184" y="160" width="20" height="4" rx="2" fill="#3557ff"/>
-          <rect x="184" y="168" width="14" height="4" rx="2" fill="rgba(96,119,180,.18)"/>
-          <rect x="184" y="176" width="16" height="4" rx="2" fill="rgba(96,119,180,.18)"/>
-          <rect x="222" y="152" width="36" height="36" rx="8" fill="#fff" stroke="rgba(96,119,180,.18)"/>
-          <rect x="230" y="160" width="20" height="4" rx="2" fill="#008573"/>
-          <rect x="230" y="168" width="14" height="4" rx="2" fill="rgba(96,119,180,.18)"/>
-          <rect x="230" y="176" width="16" height="4" rx="2" fill="rgba(96,119,180,.18)"/>
+          <text x="64" y="98" font-size="17" font-weight="800" fill="#182033" text-anchor="middle" font-family="Inter, sans-serif">74</text>
+          <text x="64" y="110" font-size="7.5" font-weight="700" fill="#008573" text-anchor="middle" font-family="Inter, sans-serif">Good</text>
+
+          <text x="150" y="26" font-size="8" font-weight="700" fill="#182033" font-family="Inter, sans-serif">How You Compare</text>
+          <text x="150" y="46" font-size="16" font-weight="800" fill="#182033" font-family="Inter, sans-serif">74<tspan font-size="9">%</tspan></text>
+          <text x="150" y="56" font-size="6.5" fill="#8790ab" font-family="Inter, sans-serif">Percentile Rank</text>
+          <rect x="150" y="66" width="120" height="6" rx="3" fill="url(#hiwGaugeGrad2)"/>
+          <g class="hiw-pulse">
+            <rect x="228" y="60" width="20" height="12" rx="6" fill="#008573"/>
+            <text x="238" y="69" font-size="6" font-weight="700" fill="#fff" text-anchor="middle" font-family="Inter, sans-serif">You</text>
+          </g>
+
+          <g font-family="Inter, sans-serif">
+            <rect x="26" y="128" width="118" height="24" rx="8" fill="var(--hiw-wash)" stroke="rgba(96,119,180,.18)"/>
+            <text x="36" y="143" font-size="8" font-weight="700" fill="#182033">Content</text>
+            <rect x="98" y="134" width="36" height="14" rx="7" fill="#eaf2ff"/>
+            <text x="116" y="144" font-size="7.5" font-weight="800" fill="#3557ff" text-anchor="middle">70</text>
+
+            <rect x="150" y="128" width="60" height="24" rx="8" fill="var(--hiw-wash)" stroke="rgba(96,119,180,.18)"/>
+            <text x="158" y="143" font-size="8" font-weight="700" fill="#182033">Format</text>
+            <text x="196" y="144" font-size="7.5" font-weight="800" fill="#008573" text-anchor="middle">82</text>
+
+            <rect x="216" y="128" width="66" height="24" rx="8" fill="var(--hiw-wash)" stroke="rgba(96,119,180,.18)"/>
+            <text x="224" y="143" font-size="7" font-weight="700" fill="#182033">Optimize</text>
+            <text x="268" y="144" font-size="7.5" font-weight="800" fill="#008573" text-anchor="middle">76</text>
+          </g>
+
+          <rect x="26" y="160" width="256" height="24" rx="8" fill="#eaf7f4"/>
+          <circle cx="38" cy="172" r="6" fill="#008573"/>
+          <path d="M35 172l2 2 4-4" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="50" y="175" font-size="7.5" font-weight="600" fill="#182033" font-family="Inter, sans-serif">Enhanced keywords, formatting &amp; ATS readiness</text>
+
+          <defs>
+            <linearGradient id="hiwGaugeGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#e5544d"/>
+              <stop offset="0.5" stop-color="#f5a623"/>
+              <stop offset="1" stop-color="#008573"/>
+            </linearGradient>
+            <linearGradient id="hiwGaugeGrad2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#e5544d"/>
+              <stop offset="0.5" stop-color="#f5a623"/>
+              <stop offset="1" stop-color="#008573"/>
+            </linearGradient>
+          </defs>
         </svg>`
     }
   ];

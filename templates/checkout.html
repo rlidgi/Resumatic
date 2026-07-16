@@ -325,7 +325,7 @@
                                 <p class="mt-2 text-sm leading-relaxed text-slate-600">
                                     Keep your {{ trial_hold_days }}-day trial. If you do not cancel before end of trial,
                                     your first paid month is <span
-                                        class="inline-block text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">$6.49</span>.
+                                        class="inline-block text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{{ exit_offer_label or (plan_prices.exit_offer_label if plan_prices else None) or '$6.49' }}</span>.
                                 </p>
                             </div>
                             <div class="px-6 py-5">
@@ -343,7 +343,7 @@
                                 <div class="mt-5 flex flex-col gap-3 sm:flex-row">
                                     <button id="exit-offer-accept" type="button"
                                         class="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                        Wait, keep my trial and claim $6.49
+                                        Wait, keep my trial and claim {{ exit_offer_label or (plan_prices.exit_offer_label if plan_prices else None) or '$6.49' }}
                                     </button>
                                 </div>
                                 <button id="exit-offer-close" type="button"

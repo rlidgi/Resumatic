@@ -68,9 +68,9 @@ export function UniversalEditableWrapper({
             // Only make editable if it's a leaf (no children) OR has direct text content
             if (!hasDirectText && !isLeafElement) return;
 
-            // Add hover effect
+            // Add hover effect (pencil cursor comes from .tv-pencil-cursor / [data-editable] CSS)
             element.style.transition = 'all 0.2s ease';
-            element.style.cursor = 'text';
+            element.classList.add('tv-pencil-cursor');
             element.setAttribute('data-editable', 'true');
             editableCount++;
 
@@ -160,7 +160,7 @@ export function UniversalEditableWrapper({
                     // @ts-ignore
                     delete element.__uewMakeEditable;
                 }
-                element.style.cursor = '';
+                element.classList.remove('tv-pencil-cursor');
                 element.style.outline = '';
                 element.style.background = '';
                 element.contentEditable = 'false';

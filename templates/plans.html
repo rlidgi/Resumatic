@@ -745,13 +745,23 @@
         {% macro render_card(plan, trial_unavailable, offer_retention) %}
         <article class="card{% if plan.badge %} popular{% endif %}">
             {% if plan.badge %}<span class="tag">{{ plan.badge }}</span>{% endif %}
-            <p class="plan">{% if plan.role == "trial" %}7-Day Free Trial{% else %}{{ plan.label }}{% endif %}</p>
+            <p class="plan">
+                {% if plan.role == "trial" %}
+                {{plan.trial_days}} - Day Free Trial
+                {% else %}
+                {{ plan.label }}
+                {% endif %}
+            </p>
 
             <div class="price-wrapper">
                 {% if plan.role == "trial" %}
                 <div class="price" style="margin-bottom: 0.25rem;">
-                    <strong>Free</strong>
-                    <span>for {{ plan.trial_days }} days</span>
+                    {% if plan.trial_fee_price_id and not plan.use_trial_hold %}
+                    <strong>{{ plan.trial_fee_price }}</strong>
+                        {% else %}
+                        <strong>Free</strong>
+                        <span>for {{ plan.trial_days }} days</span>
+                        {% endif %}
                 </div>
                 <div style="font-size: 0.9rem; color: #6b7280; font-weight: 400;">
                     then {{ plan.amount_display }} {{ plan.suffix_display }}
@@ -886,7 +896,7 @@
                 <p class="plan">Annual</p>
                 <div class="price"><strong>{{ plan_prices.annual_strong or '$6.95' }}</strong><span>/ month</span></div>
                 <p class="note">Lowest monthly cost. Great if you want ongoing access.</p>
-                <p class="micro"><b>Billed annually.</b> {{ plan_prices.annual_equiv or 'Billed as $83.40 yearly' }}</p>
+                <p class="micro"><b>Billed annually.</b></p>
                 <a class="btn primary" href="/checkout?plan=annual_6_95">Go annual</a>
 
                 <ul class="features">
