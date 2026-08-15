@@ -2,7 +2,7 @@
 # Add these to your .env file or environment variables
 
 # Gmail SMTP Configuration (recommended)
-NEWSLETTER_EMAIL=yaronyaronlid@gmail.com
+NEWSLETTER_EMAIL=admin@resumaticai.com
 NEWSLETTER_PASSWORD=ygiw rhji evux mhzc
 
 # Alternative SMTP providers:
@@ -11,7 +11,7 @@ NEWSLETTER_PASSWORD=ygiw rhji evux mhzc
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 
-CONTACT_RECIPIENT=ron.lidgi6323@my.riohondo.edu
+CONTACT_RECIPIENT=admin@resumaticai.com
 
 # For SendGrid:
 

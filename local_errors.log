@@ -6449,3 +6449,99 @@ TypeError: Object of type Undefined is not JSON serializable
 [2026-07-15T23:44:45.904550Z] results_route POST: redirecting to results_get
 [2026-07-15T23:44:45.943842Z] results_get GET: start
 [2026-07-15T23:44:45.948446Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-07-16T20:01:11.756860+00:00] local_errors.log initialized
+
+[2026-07-16T20:20:46.085928+00:00] local_errors.log initialized
+
+[2026-07-18T20:44:07.594649+00:00] local_errors.log initialized
+
+[2026-07-18T20:47:20.049193+00:00] local_errors.log initialized
+
+[2026-07-18T20:54:31.674116+00:00] local_errors.log initialized
+
+[2026-07-20T05:55:39.277071+00:00] local_errors.log initialized
+
+[2026-07-21T02:22:45.715603+00:00] local_errors.log initialized
+
+[2026-07-21T02:26:48.233560+00:00] local_errors.log initialized
+
+[2026-07-23T03:11:48.488772+00:00] local_errors.log initialized
+
+[2026-07-23T03:14:35.189093+00:00] local_errors.log initialized
+
+[2026-07-23T03:15:55.780668+00:00] local_errors.log initialized
+
+[2026-07-23T04:47:59.441264+00:00] local_errors.log initialized
+
+[2026-07-23T04:48:15.422477+00:00] local_errors.log initialized
+
+[2026-07-23T04:49:03.697545+00:00] local_errors.log initialized
+[2026-07-23T20:09:13.902738Z] results_route POST: start
+[2026-07-23T20:10:05.458744Z] results_route POST: start
+[2026-07-23T20:10:05.467073Z] results_route POST: calling revise_resume resume_len=5 jd_len=0
+[2026-07-23T20:10:28.639874Z] results_route POST: revise_resume ok revised_len=1991
+[2026-07-23T20:10:29.873109Z] results_route POST: redirecting to results_get
+[2026-07-23T20:10:29.884102Z] results_get GET: start
+[2026-07-23T20:10:29.884102Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-07-23T20:10:54.271212Z] results_get GET: start
+[2026-07-23T20:10:54.271212Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+[2026-07-23T20:10:59.679673Z] results_get GET: start
+[2026-07-23T20:10:59.680675Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-07-23T23:58:09.229621+00:00] local_errors.log initialized
+
+[2026-07-24T00:00:32.088052+00:00] local_errors.log initialized
+
+[2026-07-24T00:00:44.346819+00:00] local_errors.log initialized
+
+[2026-07-24T00:01:14.351135+00:00] local_errors.log initialized
+
+[2026-07-26T03:56:39.437590+00:00] local_errors.log initialized
+
+[2026-07-26T03:57:40.168913+00:00] local_errors.log initialized
+
+[2026-07-26T04:09:52.853793+00:00] local_errors.log initialized
+
+[2026-07-26T08:28:18.658350+00:00] local_errors.log initialized
+
+[2026-07-31T09:11:56.275122+00:00] local_errors.log initialized
+
+[2026-07-31T09:12:22.284384+00:00] local_errors.log initialized
+
+[2026-07-31T19:33:39.109904+00:00] local_errors.log initialized
+
+[2026-07-31T19:44:15.964714+00:00] local_errors.log initialized
+
+[2026-07-31T19:45:46.371316+00:00] local_errors.log initialized
+
+[2026-07-31T19:47:10.155325+00:00] local_errors.log initialized
+
+[2026-07-31T19:48:54.858404+00:00] local_errors.log initialized
+
+[2026-07-31T19:49:19.984915+00:00] local_errors.log initialized
+
+[2026-07-31T20:40:43.702860+00:00] local_errors.log initialized
+
+[2026-08-01T05:25:50.548961+00:00] local_errors.log initialized
+
+[2026-08-01T05:26:11.040937+00:00] local_errors.log initialized
+
+[2026-08-01T06:11:54.740174+00:00] local_errors.log initialized
+
+[2026-08-01T06:13:33.914486+00:00] local_errors.log initialized
+
+[2026-08-01T06:23:18.850418+00:00] local_errors.log initialized
+
+[2026-08-01T06:37:44.678308+00:00] local_errors.log initialized
+
+[2026-08-02T20:33:19.456188+00:00] local_errors.log initialized
+[2026-08-03T01:01:05.968959Z] upload GET: pid=21068 build=1785564247
+[2026-08-03T01:01:19.699438Z] results_route POST: start
+[2026-08-03T01:01:20.076209Z] results_route POST: calling revise_resume resume_len=9 jd_len=9
+[2026-08-03T01:01:37.955895Z] results_route POST: revise_resume ok revised_len=2026
+[2026-08-03T01:01:38.642773Z] results_route POST: redirecting to results_get
+[2026-08-03T01:01:38.694718Z] results_get GET: start
+[2026-08-03T01:01:38.705087Z] results_get GET: has results_data keys=feedback,job_description,original_resume,revised_resume,source_revision_id
+
+[2026-08-05T08:10:13.891976+00:00] local_errors.log initialized

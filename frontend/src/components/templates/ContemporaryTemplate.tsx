@@ -156,7 +156,7 @@ export default function ContemporaryTemplate({
     const location = String(editedData.location || "").trim();
 
     const summary = String(editedData.summary || "").trim();
-    const skills: string[] = Array.isArray(editedData.skills) ? editedData.skills : [];
+    const skills = normalizeList((editedData as any)?.skills);
     const languages = normalizeList((editedData as any)?.languages);
     const certifications = normalizeCertifications((editedData as any)?.certifications, editMode);
     const experience = Array.isArray(editedData.experience) ? editedData.experience : [];
@@ -222,9 +222,11 @@ export default function ContemporaryTemplate({
 
     const updateSkill = useCallback((index: number, value: string) => {
         setEditedData((prev) => {
-            const nextSkills = [...(prev.skills || [])];
-            nextSkills[index] = value;
-            const next = { ...prev, skills: nextSkills };
+            const list = normalizeList((prev as any)?.skills);
+            const nextList = [...list];
+            nextList[index] = value;
+            const cleaned = nextList.map((s) => String(s || '').trim()).filter(Boolean);
+            const next = { ...prev, skills: cleaned };
             onContentChange?.(next);
             return next;
         });

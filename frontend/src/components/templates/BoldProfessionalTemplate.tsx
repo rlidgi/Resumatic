@@ -149,7 +149,7 @@ export default function BoldProfessionalTemplate({
 
     const updateSkillName = useCallback((index: number, value: string) => {
         setEditedData((prev: any) => {
-            const priorSkills = Array.isArray(prev?.skills) ? prev.skills.map(String) : normalizeList(prev?.skills);
+            const priorSkills = normalizeList(prev?.skills);
             const nextSkills = [...priorSkills];
             const previousName = String(nextSkills[index] || '').trim();
             const nextName = String(value || '');
@@ -165,6 +165,8 @@ export default function BoldProfessionalTemplate({
                 delete nextRatings[previousName];
             }
 
+            const cleanedSkills = nextSkills.map((s) => String(s || '').trim()).filter(Boolean);
+
             setLocalRatings((current) => {
                 const updated = { ...(current || {}) };
                 if (previousName && previousName !== trimmedNextName && Object.prototype.hasOwnProperty.call(updated, previousName)) {
@@ -176,7 +178,7 @@ export default function BoldProfessionalTemplate({
 
             const next = {
                 ...(prev || {}),
-                skills: nextSkills,
+                skills: cleanedSkills,
                 skill_ratings: nextRatings,
             };
             emit(next);
@@ -265,7 +267,7 @@ export default function BoldProfessionalTemplate({
 
     const contactParts = [data.location, data.phone, data.email].filter(Boolean).map(String);
 
-    const skills: string[] = Array.isArray(data.skills) ? data.skills.map(String) : normalizeList(data.skills);
+    const skills: string[] = normalizeList(data.skills);
     const ratingsFromData: Record<string, number> = (data.skill_ratings && typeof data.skill_ratings === "object")
         ? data.skill_ratings
         : {};
@@ -976,7 +978,7 @@ function guessLevel(name: string): number {
 }
 
 function normalizeList(value: any): string[] {
-    if (Array.isArray(value)) return value.map((v) => String(v)).filter(Boolean);
+    if (Array.isArray(value)) return value.map((v) => String(v)).map((s) => s.trim()).filter(Boolean);
     if (typeof value === "string") {
         return value
             .split(/[,\u2022]|\\n/g)

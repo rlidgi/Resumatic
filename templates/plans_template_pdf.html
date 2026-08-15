@@ -98,6 +98,7 @@
             border: 0;
             box-shadow: none;
             border-radius: 0;
+            overflow: visible;
         }
 
         .preview-body {
@@ -105,7 +106,7 @@
             height: auto;
             background: transparent;
             padding: 0;
-            overflow: hidden;
+            overflow: visible;
             display: flex;
             align-items: flex-start;
             justify-content: center;
@@ -125,14 +126,28 @@
 
         .preview-overlay {
             position: absolute;
-            right: -14px;
-            bottom: 24px;
-            width: clamp(220px, 34%, 340px);
+            right: -28px;
+            bottom: -42px;
+            width: clamp(150px, 34%, 200px);
             height: auto;
             z-index: 3;
             pointer-events: none;
             user-select: none;
             opacity: 0.96;
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                #000 0%,
+                #000 78%,
+                rgba(0, 0, 0, 0.45) 90%,
+                transparent 100%
+            );
+            mask-image: linear-gradient(
+                to bottom,
+                #000 0%,
+                #000 78%,
+                rgba(0, 0, 0, 0.45) 90%,
+                transparent 100%
+            );
         }
 
         .missing-preview {
@@ -686,9 +701,9 @@
             }
 
             .preview-overlay {
-                width: clamp(160px, 36%, 260px);
-                right: -10px;
-                bottom: 12px;
+                width: clamp(120px, 32%, 160px);
+                right: -20px;
+                bottom: -32px;
             }
 
             .plan-text,
@@ -744,7 +759,7 @@
                     '?embed=1&flush=1&firstpage=1') %}
                     <iframe src="{{ preview_url }}" title="Resume preview"></iframe>
                     <img class="preview-overlay"
-                        src="{{ url_for('static', filename='images/preview-overlay-plant.svg') }}" alt=""
+                        src="{{ url_for('static', filename='images/plant_alternative.svg') }}" alt=""
                         aria-hidden="true" />
                     {% else %}
                     <div class="missing-preview">

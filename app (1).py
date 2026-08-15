@@ -2925,23 +2925,6 @@ def _login_audit_dedupe_window_seconds(login_method: str) -> float:
     return float(_RECENT_LOGIN_AUDIT_DEDUPE_SECONDS)
 
 
-def _is_localhost_request() -> bool:
-    """Return True for local-development hosts that must not affect login metrics."""
-    try:
-        raw_host = str(getattr(request, 'host', '') or '').strip().lower()
-        hostname = urlparse(f'//{raw_host}').hostname or ''
-    except Exception:
-        hostname = ''
-
-    hostname = hostname.strip().lower().rstrip('.')
-    if hostname == 'localhost' or hostname.endswith('.localhost'):
-        return True
-    try:
-        return ipaddress.ip_address(hostname).is_loopback
-    except ValueError:
-        return False
-
-
 def _should_skip_login_audit(
         *,
         user_id: str,
@@ -3222,14 +3205,8 @@ def _azure_login_audit_list(limit: int = 500) -> list[dict]:
                 except Exception:
                     continue
     except Exception:
-        # Enumeration failed partway through (e.g. transient Azure error).
-        # Return whatever rows were already collected instead of discarding
-        # them outright, since that's more accurate than the JSON fallback.
-        logger.exception(
-            "Error enumerating Azure login audit table (returning %d rows "
-            "collected so far)",
-            len(out),
-        )
+        # Surface as empty and let caller fallback.
+        return []
     try:
         out.sort(
             key=lambda r: (_parse_iso_datetime(
@@ -3752,11 +3729,6 @@ def _audit_login_start(user: "User", login_method: str) -> None:
     """Create a login audit record and pin it to the session."""
     try:
         import uuid
-
-        # Local development activity is not real product usage and must not
-        # appear in the admin dashboard's daily login history.
-        if _is_localhost_request():
-            return
 
         user_id = str(getattr(user, 'id', '') or '')
         email = _normalize_email(getattr(user, 'email', ''))
@@ -7865,10 +7837,37 @@ def _stripe_subscription_grants_access(sub) -> bool:
     ).strip().lower()
     if status in ('incomplete', 'incomplete_expired'):
         return False
-    if status in ('active', 'past_due', 'unpaid'):
+    if status == 'active':
         return True
     if status == 'trialing':
-        return True
+        dpm = _stripe_obj_get(sub, 'default_payment_method', None)
+        if not dpm:
+            try:
+                dpm = getattr(sub, 'default_payment_method', None)
+            except Exception:
+                dpm = None
+        if dpm:
+            return True
+        allow_trial_without_pm = False
+        try:
+            raw = str(
+                os.getenv('STRIPE_ALLOW_TRIALING_WITHOUT_PAYMENT_METHOD') or ''
+            ).strip().lower()
+            allow_trial_without_pm = raw in ('1', 'true', 'yes', 'on')
+        except Exception:
+            allow_trial_without_pm = False
+        # Local development should not block template PDF testing on pending SetupIntent.
+        if allow_trial_without_pm or (not _ON_AZURE):
+            return True
+        pending_si = _stripe_obj_get(sub, 'pending_setup_intent', None)
+        if not pending_si:
+            try:
+                pending_si = getattr(sub, 'pending_setup_intent', None)
+            except Exception:
+                pending_si = None
+        if pending_si:
+            return False
+        return False
     return False
 
 
@@ -12517,6 +12516,7 @@ def checkout():
 @login_required
 def checkout_trial_hold_success():
     """Return URL after Stripe Hosted Checkout authorizes the trial hold."""
+
     session_id = str(request.args.get('session_id') or '').strip()
     if not session_id or not _stripe_enabled():
         flash(
@@ -13793,9 +13793,7 @@ def billing_cancel_page():
         status = str(
             _stripe_obj_get(sub, "status", "") or ""
         ).strip().lower()
-        # past_due/unpaid still have a live Stripe subscription that users
-        # must be able to cancel (payment failed, but sub is not ended).
-        if status not in ("active", "trialing", "past_due", "unpaid"):
+        if status not in ("active", "trialing"):
             flash("Your subscription is not active.", "info")
             return redirect(url_for("settings_page"))
         cancel_scheduled = _stripe_subscription_cancel_scheduled(sub)
@@ -15788,8 +15786,6 @@ _TRANSLATE_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
 
 def _google_translate_request_auth():
     """Return (headers, query_params) for Translation v2: prefer OAuth2 (service account / ADC); optional API key fallback."""
-    # Local Windows + antivirus HTTPS scanning needs the OS trust store (AVG/etc.).
-    _ensure_local_truststore_ssl()
     req = google.auth.transport.requests.Request()
 
     sa_json = (os.environ.get(
@@ -15810,40 +15806,23 @@ def _google_translate_request_auth():
             info,
             scopes=_TRANSLATE_SCOPES
         )
-        try:
-            creds.refresh(req)
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to refresh Google Translate service-account token: {e}"
-            ) from e
+        creds.refresh(req)
         return ({"Authorization": f"Bearer {creds.token}"}, {})
 
     adc_path = (os.environ.get(
         "GOOGLE_APPLICATION_CREDENTIALS"
-    ) or "").strip().strip('"').strip("'")
-    if adc_path:
-        adc_path = os.path.normpath(os.path.expanduser(adc_path))
+    ) or "").strip()
     if adc_path and os.path.isfile(adc_path):
         try:
             creds = service_account.Credentials.from_service_account_file(
                 adc_path,
                 scopes=_TRANSLATE_SCOPES
             )
-        except ValueError:
-            # Not a service-account JSON file; fall through to Application Default Credentials.
-            creds = None
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load Google Translate credentials from {adc_path}: {e}"
-            ) from e
-        else:
-            try:
-                creds.refresh(req)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to refresh Google Translate token using {adc_path}: {e}"
-                ) from e
+            creds.refresh(req)
             return ({"Authorization": f"Bearer {creds.token}"}, {})
+        except Exception:
+            # Not a service-account JSON file; fall through to Application Default Credentials.
+            pass
 
     try:
         creds, _ = google.auth.default(scopes=_TRANSLATE_SCOPES)
@@ -20547,133 +20526,6 @@ BLOG_POSTS_METADATA = {
     }
 }
 
-# These articles are excluded from the /blog listing but included in the
-# sitemap so Google can discover them via direct URLs.
-UNPUBLISHED_BLOG_POSTS_METADATA = {
-    'best-ai-resume-builders-2026': {
-        'slug': 'best-ai-resume-builders-2026',
-        'headline': 'Best AI Resume Builders in 2026: Honest Comparison',
-        'read_time': '12 min read',
-        'title': 'Best AI Resume Builders in 2026: Honest Comparison | ResumaticAI',
-        'meta_description': 'Compare the 6 best AI resume builders in 2026. Honest reviews of Resumatic AI, Rezi, Kickresume, Jobscan, Teal, and NeuraCV — pricing, ATS features, and which one fits your job search.',
-        'keywords': 'best AI resume builder 2026, ATS resume builder, AI resume comparison, resume software',
-        'og_title': 'Best AI Resume Builders in 2026: Honest Comparison',
-        'og_description': 'An honest comparison of six AI resume builders, including ATS features, pricing, strengths, and limitations.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/best-ai-resume-builders-2026.png',
-        'hero_image': 'images/unpublished_blogposts/best-ai-resume-builders-2026.png',
-    },
-    'rezi-alternative-2026': {
-        'slug': 'rezi-alternative-2026',
-        'headline': 'Best Rezi Alternative in 2026: Resumatic AI vs Rezi Compared',
-        'read_time': '10 min read',
-        'title': 'Best Rezi Alternative in 2026: Resumatic AI vs Rezi | ResumaticAI',
-        'meta_description': 'Looking for a Rezi alternative? Compare Resumatic AI vs Rezi on ATS scoring, pricing, features, and application tracking to find the right resume builder for you.',
-        'keywords': 'Rezi alternative, Resumatic AI vs Rezi, AI resume builder comparison, ATS resume tool',
-        'og_title': 'Resumatic AI vs Rezi: 2026 Comparison',
-        'og_description': 'See where Resumatic AI and Rezi differ on ATS optimization, pricing, and career tools.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/rezi-alternative-2026.png',
-        'hero_image': 'images/unpublished_blogposts/rezi-alternative-2026.png',
-    },
-    'kickresume-alternative-2026': {
-        'slug': 'kickresume-alternative-2026',
-        'headline': 'Best Kickresume Alternative in 2026: Resumatic AI vs Kickresume Compared',
-        'read_time': '10 min read',
-        'title': 'Best Kickresume Alternative in 2026 | ResumaticAI',
-        'meta_description': 'Comparing Resumatic AI vs Kickresume? See how they stack up on ATS optimization, AI writing, templates, pricing, and mobile apps to pick the best fit.',
-        'keywords': 'Kickresume alternative, Resumatic AI vs Kickresume, resume builder comparison, ATS optimization',
-        'og_title': 'Resumatic AI vs Kickresume: 2026 Comparison',
-        'og_description': 'Compare ATS capabilities, templates, pricing, and workflow features in Resumatic AI and Kickresume.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/kickresume-alternative-2026.png',
-        'hero_image': 'images/unpublished_blogposts/kickresume-alternative-2026.png',
-    },
-    'beat-ats-2026': {
-        'slug': 'beat-ats-2026',
-        'headline': 'How to Beat ATS in 2026: What Actually Works',
-        'read_time': '11 min read',
-        'title': 'How to Beat ATS in 2026: What Actually Works | ResumaticAI',
-        'meta_description': '7 proven strategies to get your resume past Applicant Tracking Systems in 2026. Learn the exact formatting, keyword, and optimization rules that work.',
-        'keywords': 'beat ATS 2026, applicant tracking system, ATS resume, resume keywords, ATS optimization',
-        'og_title': 'How to Beat ATS in 2026',
-        'og_description': 'Seven practical strategies for keywords, formatting, file types, and ATS resume scoring.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/how-to-beat-ats-2026.png',
-        'hero_image': 'images/unpublished_blogposts/how-to-beat-ats-2026.png',
-    },
-    'ats-friendly-resume-2026': {
-        'slug': 'ats-friendly-resume-2026',
-        'headline': 'How to Create an ATS-Friendly Resume in 2026 (With Templates & Examples)',
-        'read_time': '13 min read',
-        'title': 'How to Create an ATS-Friendly Resume in 2026 | ResumaticAI',
-        'meta_description': 'Learn how to create an ATS-friendly resume with templates, formatting rules, and optimization tips. Covers what works across Workday, Greenhouse, Lever, and more.',
-        'keywords': 'ATS friendly resume 2026, ATS resume template, resume formatting, applicant tracking system',
-        'og_title': 'How to Create an ATS-Friendly Resume in 2026',
-        'og_description': 'A practical ATS-friendly resume guide with formatting rules, a template, and optimization tips.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/ats-friendly-resume-2026.png',
-        'hero_image': 'images/unpublished_blogposts/ats-friendly-resume-2026.png',
-    },
-    'resume-action-verbs-2026': {
-        'slug': 'resume-action-verbs-2026',
-        'headline': '240+ Resume Action Verbs & Power Words That Get Results in 2026',
-        'read_time': '9 min read',
-        'title': '240+ Resume Action Verbs & Power Words for 2026 | ResumaticAI',
-        'meta_description': '240+ resume action verbs and power words organized by category. Includes examples, words to avoid, and tips for matching ATS keyword requirements.',
-        'keywords': 'resume action verbs, resume power words, action words for resume, resume bullet points',
-        'og_title': '240+ Resume Action Verbs & Power Words for 2026',
-        'og_description': 'Choose stronger resume verbs by category and learn which weak phrases to remove.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/resume-action-verbs-2026.png',
-        'hero_image': 'images/unpublished_blogposts/resume-action-verbs-2026.png',
-    },
-    'resume-bullet-points-2026': {
-        'slug': 'resume-bullet-points-2026',
-        'headline': 'How to Write Resume Bullet Points That Get Interviews in 2026',
-        'read_time': '10 min read',
-        'title': 'How to Write Resume Bullet Points That Get Interviews | ResumaticAI',
-        'meta_description': 'How to write resume bullet points that get interviews. Includes the Action + Task + Result formula, examples by experience level, and common mistakes to avoid.',
-        'keywords': 'resume bullet points, resume achievements, action task result, resume examples, resume writing',
-        'og_title': 'How to Write Resume Bullet Points That Get Interviews',
-        'og_description': 'Use a simple formula and measurable results to turn job duties into compelling resume achievements.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/resume-bullet-points-2026.png',
-        'hero_image': 'images/unpublished_blogposts/resume-bullet-points-2026.png',
-    },
-    'resume-format-guide-2026': {
-        'slug': 'resume-format-guide-2026',
-        'headline': 'Resume Format Guide: How to Choose the Right Format in 2026',
-        'read_time': '12 min read',
-        'title': 'Resume Format Guide: Choose the Right Format in 2026 | ResumaticAI',
-        'meta_description': 'Choose the right resume format: reverse-chronological, functional, or combination. Includes templates, examples, and ATS compatibility rules for 2026.',
-        'keywords': 'resume format guide 2026, reverse chronological resume, functional resume, combination resume',
-        'og_title': 'How to Choose the Right Resume Format in 2026',
-        'og_description': 'Compare the three main resume formats and follow current ATS formatting rules.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/resume-format-guide-2026.png',
-        'hero_image': 'images/unpublished_blogposts/resume-format-guide-2026.png',
-    },
-    'how-to-write-a-resume-2026': {
-        'slug': 'how-to-write-a-resume-2026',
-        'headline': 'How to Write a Resume in 2026: Step-by-Step Guide',
-        'read_time': '14 min read',
-        'title': 'How to Write a Resume in 2026: Step-by-Step Guide | ResumaticAI',
-        'meta_description': 'Step-by-step guide to writing a resume in 2026. Covers format, summary, work experience, skills, education, and ATS optimization with examples.',
-        'keywords': 'how to write a resume 2026, resume writing guide, resume steps, ATS resume',
-        'og_title': 'How to Write a Resume in 2026',
-        'og_description': 'A ten-step guide to building an ATS-friendly, recruiter-ready resume.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/how-to-write-a-resume-2026.png',
-        'hero_image': 'images/unpublished_blogposts/how-to-write-a-resume-2026.png',
-    },
-    'resume-guide-by-career-level-2026': {
-        'slug': 'resume-guide-by-career-level-2026',
-        'headline': 'Resume Guide for Career Changers, Entry-Level, and Executives in 2026',
-        'read_time': '13 min read',
-        'title': 'Resume Guide by Career Level for 2026 | ResumaticAI',
-        'meta_description': 'Resume writing guide for career changers, entry-level candidates, and executives. Includes structure, examples, and common mistakes for each audience.',
-        'keywords': 'career change resume, entry level resume, executive resume, resume guide 2026',
-        'og_title': 'Resume Guide for Career Changers, Entry-Level, and Executives',
-        'og_description': 'Targeted resume guidance for three career situations that need different strategies.',
-        'og_image': 'https://resumaticai.com/static/images/unpublished_blogposts/resume-guide-by-career-level-2026.png',
-        'hero_image': 'images/unpublished_blogposts/resume-guide-by-career-level-2026.png',
-    },
-}
-
-BLOG_POSTS_METADATA.update(UNPUBLISHED_BLOG_POSTS_METADATA)
-
 
 @app.route("/blog/<post>")
 def blog_post(post):
@@ -20692,16 +20544,6 @@ def blog_post(post):
         "resume-format-2025": "resume-format-2026",
         "resume-format-2026": "resume-format-2026",
         "tailorresumejob": "tailorresumejob",
-        "best-ai-resume-builders-2026": "best-ai-resume-builders-2026",
-        "rezi-alternative-2026": "rezi-alternative-2026",
-        "kickresume-alternative-2026": "kickresume-alternative-2026",
-        "beat-ats-2026": "beat-ats-2026",
-        "ats-friendly-resume-2026": "ats-friendly-resume-2026",
-        "resume-action-verbs-2026": "resume-action-verbs-2026",
-        "resume-bullet-points-2026": "resume-bullet-points-2026",
-        "resume-format-guide-2026": "resume-format-guide-2026",
-        "how-to-write-a-resume-2026": "how-to-write-a-resume-2026",
-        "resume-guide-by-career-level-2026": "resume-guide-by-career-level-2026",
     }
 
     requested_slug = post.strip()
@@ -21176,55 +21018,36 @@ def _load_login_audit_sessions_for_admin() -> tuple[
     if _azure_login_audit_enabled():
         try:
             rows = _azure_login_audit_list(limit=0)
-            skipped_rows = 0
             for e in rows:
                 if not isinstance(e, dict):
                     continue
-                try:
-                    sessions_list.append(
-                        {
-                            'audit_id': str(e.get('audit_id') or ''),
-                            'user_id': str(e.get('user_id') or ''),
-                            'email': str(e.get('email') or ''),
-                            'login_at': _coerce_datetime_iso(
-                                e.get('login_at')
-                            ),
-                            'last_activity_at': _coerce_datetime_iso(
-                                e.get('last_activity_at')
-                            ),
-                            'logout_at': (_coerce_datetime_iso(
-                                e.get('logout_at')
-                            ) or None),
-                            'duration_seconds': e.get(
-                                'duration_seconds',
-                                None
-                            ),
-                            'login_method': str(
-                                e.get('login_method') or ''
-                            ) or None,
-                            'row_key': str(e.get('RowKey') or ''),
-                        }
-                    )
-                except Exception:
-                    # Don't let one malformed row blank out the whole list.
-                    skipped_rows += 1
-                    logger.exception(
-                        "Skipping malformed login audit row: %r", e
-                    )
-            if skipped_rows:
-                logger.warning(
-                    "Loaded login audit sessions from Azure with %d "
-                    "malformed row(s) skipped",
-                    skipped_rows,
+                sessions_list.append(
+                    {
+                        'audit_id': str(e.get('audit_id') or ''),
+                        'user_id': str(e.get('user_id') or ''),
+                        'email': str(e.get('email') or ''),
+                        'login_at': _coerce_datetime_iso(
+                            e.get('login_at')
+                        ),
+                        'last_activity_at': _coerce_datetime_iso(
+                            e.get('last_activity_at')
+                        ),
+                        'logout_at': (_coerce_datetime_iso(
+                            e.get('logout_at')
+                        ) or None),
+                        'duration_seconds': e.get(
+                            'duration_seconds',
+                            None
+                        ),
+                        'login_method': str(
+                            e.get('login_method') or ''
+                        ) or None,
+                        'row_key': str(e.get('RowKey') or ''),
+                    }
                 )
             source_label = f"Azure Table: {AZURE_LOGIN_AUDIT_TABLE}"
             store = {'version': _LOGIN_AUDIT_VERSION}
         except Exception:
-            logger.exception(
-                "Error loading login audit sessions from Azure; falling "
-                "back to %s",
-                LOGIN_AUDIT_FILE,
-            )
             sessions_list = []
             source_label = None
             store = None
@@ -22472,10 +22295,6 @@ def sitemap():
         'about': {'priority': '0.8', 'changefreq': 'monthly'},
         'resume_org_alternative': {'priority': '0.9',
                                    'changefreq': 'weekly'},
-        'naukri_resume_builder_alternative': {
-            'priority': '0.9',
-            'changefreq': 'weekly'
-        },
         'blog': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_templates': {'priority': '0.9', 'changefreq': 'weekly'},
         'resume_builder': {'priority': '0.9', 'changefreq': 'weekly'},
@@ -22505,7 +22324,6 @@ def sitemap():
             continue
 
     # Add blog posts (assuming they follow the pattern /blog/<post>)
-    # Include sitemap-only posts that are not listed on /blog.
     blog_posts = [
         'toptenmistakes',
         'ats-optimization',
@@ -22513,8 +22331,7 @@ def sitemap():
         'no-experience',
         'Power-words',
         'resume-format-2026',
-        'tailorresumejob',
-        *UNPUBLISHED_BLOG_POSTS_METADATA.keys(),
+        'tailorresumejob'
     ]
 
     for post in blog_posts:
@@ -22681,10 +22498,6 @@ def _collect_registered_users_from_azure_users_table(
                 # Copy all profile fields
                 profile_fields = dict(e)
                 profile_fields['id'] = uid
-                # Keep admin views consistent with live access gating logic.
-                profile_fields['is_paid'] = bool(
-                    _profile_indicates_paid(profile_fields)
-                )
                 user_profiles[uid] = profile_fields
 
             # Join with ResumeRevisions: get all revisions for each user, pick latest
@@ -22815,16 +22628,7 @@ def _profile_indicates_paid(prof: Optional[dict]) -> bool:
                 return True
             return paid_until >= datetime.now(timezone.utc)
         plan_status = str(prof.get('plan_status') or '').strip().lower()
-        if plan_status in (
-                'paid',
-                'active',
-                'trial',
-                'trialing',
-                'monthly',
-                'annual',
-                'past_due',
-                'unpaid',
-        ):
+        if plan_status in ('paid', 'active', 'trial', 'monthly', 'annual'):
             paid_until = _parse_iso_dt(
                 str(prof.get('paid_until') or '').strip()
             )
@@ -24119,13 +23923,7 @@ def settings_page():
 
 @app.route('/api/me')
 def api_me():
-    """Lightweight user info for the React frontend (plan gating, limits).
-
-    Fast by default: local/Azure paid check only.
-    Optional query params:
-      - sync_stripe=1: best-effort Stripe recovery (can be slow; use after checkout/focus)
-      - include_revisions=1: include revisions_used count (loads Azure revision rows)
-    """
+    """Lightweight user info for the React frontend (plan gating, limits)."""
     try:
         if not current_user.is_authenticated:
             return jsonify(
@@ -24137,13 +23935,10 @@ def api_me():
                 }
             )
         paid = is_paid_user(current_user)
-        sync_stripe = str(
-            request.args.get('sync_stripe') or ''
-        ).strip().lower() in ('1', 'true', 'yes')
-        # Safety net: only when explicitly requested (e.g. tab focus after checkout).
-        # Blocking Stripe calls on every Template Viewer load made Download show "Loading…".
-        if sync_stripe and (not paid) and _stripe_enabled():
+        # Safety net: if webhooks haven't updated Azure yet, try to recover paid status from Stripe.
+        if (not paid) and _stripe_enabled():
             try:
+                # Don't hammer Stripe on every poll; cache briefly in session.
                 now_ts = int(time.time())
                 last_ts = int(session.get('stripe_paid_refresh_at') or 0)
                 if now_ts - last_ts > 30:
@@ -24157,14 +23952,10 @@ def api_me():
             except Exception:
                 pass
         used = 0
-        include_revisions = str(
-            request.args.get('include_revisions') or ''
-        ).strip().lower() in ('1', 'true', 'yes')
-        if include_revisions:
-            try:
-                used = len(get_user_revisions(current_user.id))
-            except Exception:
-                used = 0
+        try:
+            used = len(get_user_revisions(current_user.id))
+        except Exception:
+            used = 0
         return jsonify(
             {
                 "is_authenticated": True,
@@ -26202,7 +25993,7 @@ def send_contact_email(name: str, sender_email: str, message: str) -> None:
     ).strip("'").replace(' ', '')
     recipient = os.getenv(
         'CONTACT_RECIPIENT',
-        'admin@resumaticai.com'
+        'yaronyaronlid@gmail.com'
     ).strip()
 
     if not auth_email or not auth_password:
@@ -26288,7 +26079,7 @@ def send_feedback_email(
     ).strip("'").replace(' ', '')
     recipient = os.getenv(
         'CONTACT_RECIPIENT',
-        'admin@resumaticai.com'
+        'yaronyaronlid@gmail.com'
     ).strip()
 
     if not auth_email or not auth_password:
@@ -26894,3 +26685,6 @@ if __name__ == "__main__":
         use_reloader
     )
     app.run(debug=True, host=host, port=port, use_reloader=use_reloader)
+
+
+

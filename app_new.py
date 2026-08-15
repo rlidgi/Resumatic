@@ -13086,7 +13086,9 @@ def billing_cancel_page():
         status = str(
             _stripe_obj_get(sub, "status", "") or ""
         ).strip().lower()
-        if status not in ("active", "trialing"):
+        # past_due/unpaid still have a live Stripe subscription that users
+        # must be able to cancel (payment failed, but sub is not ended).
+        if status not in ("active", "trialing", "past_due", "unpaid"):
             flash("Your subscription is not active.", "info")
             return redirect(url_for("settings_page"))
         cancel_scheduled = _stripe_subscription_cancel_scheduled(sub)
@@ -15071,6 +15073,8 @@ _TRANSLATE_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
 
 def _google_translate_request_auth():
     """Return (headers, query_params) for Translation v2: prefer OAuth2 (service account / ADC); optional API key fallback."""
+    # Local Windows + antivirus HTTPS scanning needs the OS trust store (AVG/etc.).
+    _ensure_local_truststore_ssl()
     req = google.auth.transport.requests.Request()
 
     sa_json = (os.environ.get(
@@ -15091,23 +15095,40 @@ def _google_translate_request_auth():
             info,
             scopes=_TRANSLATE_SCOPES
         )
-        creds.refresh(req)
+        try:
+            creds.refresh(req)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to refresh Google Translate service-account token: {e}"
+            ) from e
         return ({"Authorization": f"Bearer {creds.token}"}, {})
 
     adc_path = (os.environ.get(
         "GOOGLE_APPLICATION_CREDENTIALS"
-    ) or "").strip()
+    ) or "").strip().strip('"').strip("'")
+    if adc_path:
+        adc_path = os.path.normpath(os.path.expanduser(adc_path))
     if adc_path and os.path.isfile(adc_path):
         try:
             creds = service_account.Credentials.from_service_account_file(
                 adc_path,
                 scopes=_TRANSLATE_SCOPES
             )
-            creds.refresh(req)
-            return ({"Authorization": f"Bearer {creds.token}"}, {})
-        except Exception:
+        except ValueError:
             # Not a service-account JSON file; fall through to Application Default Credentials.
-            pass
+            creds = None
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load Google Translate credentials from {adc_path}: {e}"
+            ) from e
+        else:
+            try:
+                creds.refresh(req)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to refresh Google Translate token using {adc_path}: {e}"
+                ) from e
+            return ({"Authorization": f"Bearer {creds.token}"}, {})
 
     try:
         creds, _ = google.auth.default(scopes=_TRANSLATE_SCOPES)
@@ -23215,7 +23236,13 @@ def settings_page():
 
 @app.route('/api/me')
 def api_me():
-    """Lightweight user info for the React frontend (plan gating, limits)."""
+    """Lightweight user info for the React frontend (plan gating, limits).
+
+    Fast by default: local/Azure paid check only.
+    Optional query params:
+      - sync_stripe=1: best-effort Stripe recovery (can be slow; use after checkout/focus)
+      - include_revisions=1: include revisions_used count (loads Azure revision rows)
+    """
     try:
         if not current_user.is_authenticated:
             return jsonify(
@@ -23227,10 +23254,13 @@ def api_me():
                 }
             )
         paid = is_paid_user(current_user)
-        # Safety net: if webhooks haven't updated Azure yet, try to recover paid status from Stripe.
-        if (not paid) and _stripe_enabled():
+        sync_stripe = str(
+            request.args.get('sync_stripe') or ''
+        ).strip().lower() in ('1', 'true', 'yes')
+        # Safety net: only when explicitly requested (e.g. tab focus after checkout).
+        # Blocking Stripe calls on every Template Viewer load made Download show "Loading…".
+        if sync_stripe and (not paid) and _stripe_enabled():
             try:
-                # Don't hammer Stripe on every poll; cache briefly in session.
                 now_ts = int(time.time())
                 last_ts = int(session.get('stripe_paid_refresh_at') or 0)
                 if now_ts - last_ts > 30:
@@ -23244,10 +23274,14 @@ def api_me():
             except Exception:
                 pass
         used = 0
-        try:
-            used = len(get_user_revisions(current_user.id))
-        except Exception:
-            used = 0
+        include_revisions = str(
+            request.args.get('include_revisions') or ''
+        ).strip().lower() in ('1', 'true', 'yes')
+        if include_revisions:
+            try:
+                used = len(get_user_revisions(current_user.id))
+            except Exception:
+                used = 0
         return jsonify(
             {
                 "is_authenticated": True,
@@ -25285,7 +25319,7 @@ def send_contact_email(name: str, sender_email: str, message: str) -> None:
     ).strip("'").replace(' ', '')
     recipient = os.getenv(
         'CONTACT_RECIPIENT',
-        'yaronyaronlid@gmail.com'
+        'admin@resumaticai.com'
     ).strip()
 
     if not auth_email or not auth_password:
@@ -25371,7 +25405,7 @@ def send_feedback_email(
     ).strip("'").replace(' ', '')
     recipient = os.getenv(
         'CONTACT_RECIPIENT',
-        'yaronyaronlid@gmail.com'
+        'admin@resumaticai.com'
     ).strip()
 
     if not auth_email or not auth_password:

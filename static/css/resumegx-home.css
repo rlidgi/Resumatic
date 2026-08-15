@@ -126,7 +126,8 @@ body.resumegx-home .templates-showcase__preview img {
 
 .brand img {
   width: 204px;
-  height: 54px;
+  height: auto;
+  max-height: 64px;
   object-fit: contain;
 }
 
@@ -397,7 +398,7 @@ body.resumegx-home .offcanvas-body {
   background:
     radial-gradient(circle at 12% 20%, rgba(255, 255, 255, 0.16), transparent 28%),
     radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.12), transparent 22%),
-    linear-gradient(135deg, #2f54f3 0%, #3557ff 42%, var(--brand-2) 100%);
+    linear-gradient(135deg, #4f6cff 0%, #6b82ff 42%, #2aa694 100%);
 }
 
 .hero-panel {
@@ -1003,12 +1004,13 @@ body.resumegx-home .offcanvas-body {
   width: auto;
   height: 26px;
   object-fit: contain;
-  opacity: 0.92;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(48%);
+  transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 .trust-logo:hover {
-  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(36%);
   transform: translateY(-1px);
 }
 
@@ -2422,8 +2424,9 @@ body.resumegx-home .offcanvas-body {
   }
 
   .brand img {
-    height: 45px;
     width: 146px;
+    height: auto;
+    max-height: 48px;
   }
 
   .mobile-toggle {

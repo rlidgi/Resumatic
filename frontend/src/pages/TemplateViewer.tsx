@@ -142,35 +142,6 @@ function withTemplateViewerLayoutPatch(
     };
 }
 
-const TEMPLATE_DISPLAY_NAMES: Record<string, string> = {
-    classicrose: 'Classic',
-    classic_rose: 'Classic',
-    minimalsidebar: 'Stylish',
-    minimal_sidebar: 'Stylish',
-    creative2: 'Creative',
-    creative_2: 'Creative',
-    traditional: 'Contemporary',
-    bluelineclassic: 'Contemporary',
-};
-
-function formatTemplateDisplayName(raw?: string): string {
-    const key = String(raw || '').toLowerCase().replace(/[-_]/g, '');
-    if (TEMPLATE_DISPLAY_NAMES[key]) return TEMPLATE_DISPLAY_NAMES[key];
-
-    const normalized = String(raw || '')
-        .replace(/[_-]+/g, ' ')
-        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-        .trim();
-
-    if (!normalized) return '';
-
-    return normalized
-        .split(/\s+/g)
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
 function getTemplateSkillsLimit(rawTemplateName?: string): number | null {
     const key = String(rawTemplateName || '')
         .trim()
@@ -234,8 +205,6 @@ export default function TemplateViewer() {
             return false;
         }
     })();
-
-    const templateDisplayName = formatTemplateDisplayName(templateName);
 
     const qs = new URLSearchParams(location.search || '');
     const returnTo = String(qs.get('return') || '').trim();
@@ -966,17 +935,19 @@ export default function TemplateViewer() {
 
     useEffect(() => {
         let cancelled = false;
-        const loadMe = () => {
-            fetch('/api/me', { credentials: 'same-origin' })
+        const loadMe = (syncStripe = false) => {
+            // Fast path on initial load. Stripe sync only on focus (post-checkout recovery).
+            const url = syncStripe ? '/api/me?sync_stripe=1' : '/api/me';
+            fetch(url, { credentials: 'same-origin' })
                 .then(r => r.json())
                 .then(data => { if (!cancelled) setMe(data); })
                 .catch(() => { if (!cancelled) setMe({ is_authenticated: false, is_paid: false, free_revision_limit: 1, revisions_used: 0 }); });
         };
-        loadMe();
+        loadMe(false);
 
         // If the user purchases in another tab (or returns from Stripe), refresh plan gating on focus.
-        const onFocus = () => loadMe();
-        const onVis = () => { if (document.visibilityState === 'visible') loadMe(); };
+        const onFocus = () => loadMe(true);
+        const onVis = () => { if (document.visibilityState === 'visible') loadMe(true); };
         window.addEventListener('focus', onFocus);
         document.addEventListener('visibilitychange', onVis);
         return () => {
@@ -3130,10 +3101,9 @@ export default function TemplateViewer() {
 
                     {!isEmbed && !isDownloadOnly && (
                         <>
-                            {/* Header with back button and template name */}
+                            {/* Header with actions */}
                             <div id="templateViewerHeader" className="mb-3">
-                                <h1 className="text-2xl font-bold text-gray-800 break-words">{templateDisplayName || templateName} Template</h1>
-                                <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
                                     <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                                         {previewLanguageToolbar}
                                         {/* Edit Mode now available for ALL templates */}
@@ -3189,10 +3159,10 @@ export default function TemplateViewer() {
                                                             alert(`PDF download failed (${e?.message || 'unknown error'}).`);
                                                         }
                                                     }}
-                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${(downloadingPdf || redirectingToPlans) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                    className={`px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors ${(downloadingPdf || redirectingToPlans || !me) ? 'opacity-60 cursor-not-allowed' : ''}`}
                                                     disabled={downloadingPdf || redirectingToPlans || !me}
                                                 >
-                                                    {!me ? 'Loading…' : (redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF'))}
+                                                    {!me ? 'Loading...' : (redirectingToPlans ? 'Loading...' : (downloadingPdf ? 'Preparing…' : 'Download PDF'))}
                                                 </button>
                                             </div>
                                         )}

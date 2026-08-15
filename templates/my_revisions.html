@@ -1182,10 +1182,6 @@
             <a class="block text-gray-600 hover:text-primary" href="/blog">Blog</a>
             <a class="block text-gray-600 hover:text-primary" href="/plans">Pricing</a>
             {% if user and user.is_authenticated %}
-            <a class="block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-center"
-                href="/my_revisions">
-                Career Dashboard
-            </a>
             <a class="block px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 text-center mt-2"
                 href="/settings">
                 Settings
@@ -1223,9 +1219,6 @@
                         <a class="nav-link text-gray-600 hover:text-primary transition-colors" href="/blog">Blog</a>
                         <a class="nav-link text-gray-600 hover:text-primary transition-colors" href="/plans">Pricing</a>
                         {% if user and user.is_authenticated %}
-                        <a href="/my_revisions" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            Career Dashboard
-                        </a>
                         <a href="/settings" aria-label="Settings" title="Settings"
                             class="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
                             Settings
@@ -1496,7 +1489,7 @@
                             class="h-12 w-12 object-contain drop-shadow-md" />
                         <span
                             class="rounded-full border border-sky-200 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md transition-colors hover:border-sky-300 hover:bg-white">
-                            View comprehensive analysis
+                            View Resume Analysis
                         </span>
                     </a>
                     <div class="p-6">
@@ -1550,7 +1543,8 @@
                                             class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800">
                                             <i class="fas fa-clipboard-list text-indigo-600" aria-hidden="true"></i>
                                             Job Application Tracker
-                                            <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                                            <span
+                                                class="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-indigo-700">
                                                 {{ revision_app_count }} added
                                             </span>
                                         </span>
@@ -1563,7 +1557,7 @@
                                             class="h-10 w-10 object-contain drop-shadow-md" />
                                         <span
                                             class="rounded-full border border-sky-200 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md transition-colors hover:border-sky-300 hover:bg-white">
-                                            View comprehensive analysis
+                                            View Resume Analysis
                                         </span>
                                     </a>
 
@@ -1589,61 +1583,64 @@
 
                                     {% if rev.template_versions and rev.template_versions|length > 0 %}
                                     <div class="mt-3">
-                                        <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800">
+                                        <div
+                                            class="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800">
                                             <i class="fas fa-layer-group text-indigo-600" aria-hidden="true"></i>
                                             Resume Template Versions
                                         </div>
                                         <div class="flex flex-wrap gap-3">
-                                        {% set _tpl_label = {
-                                        'elegant': 'Elegant',
-                                        'minimalSidebar': 'Stylish',
-                                        'classicRose': 'Classic',
-                                        'creative2': 'Creative',
-                                        'boldProfessional': 'Bold Professional'
-                                        } %}
-                                        {% set _tpl_preview_asset = {
-                                        'professional': 'images/template_previews/professional.jpg',
-                                        'elegant': 'images/template_previews/classic.jpg',
-                                        'classicRose': 'images/template_previews/classic.jpg',
-                                        'creative': 'images/template_previews/creative.jpg',
-                                        'creative2': 'images/template_previews/creative.jpg',
-                                        'boldProfessional': 'images/template_previews/boldprofessional.jpg',
-                                        'traditional': 'images/template_previews/contemporary.jpg',
-                                        'contemporary': 'images/template_previews/contemporary.jpg',
-                                        'modern': 'images/template_previews/modern.jpg',
-                                        'executive': 'images/template_previews/executive.jpg',
-                                        'minimalSidebar': 'images/template_previews/stylish.jpg',
-                                        'stylish': 'images/template_previews/stylish.jpg'
-                                        } %}
-                                        {% for tv in rev.template_versions %}
-                                        {% set preview = tv.template_preview or {} %}
-                                        {% set template_id = tv.template_id or '' %}
-                                        {% set template_label = _tpl_label.get(template_id, tv.template_display_name) %}
-                                        {% set preview_asset = _tpl_preview_asset.get(template_id,
-                                        'images/template_previews/professional.jpg') %}
-                                        <a href="{{ url_for('edit_revision_template', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
-                                            class="group block w-[160px] flex-shrink-0 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-left shadow-sm transition-colors duration-200 hover:border-indigo-300 hover:bg-indigo-50">
-                                            <div
-                                                class="mx-auto w-full overflow-hidden rounded-lg border border-indigo-100 bg-white shadow-sm">
+                                            {% set _tpl_label = {
+                                            'elegant': 'Elegant',
+                                            'minimalSidebar': 'Stylish',
+                                            'classicRose': 'Classic',
+                                            'creative2': 'Creative',
+                                            'boldProfessional': 'Bold Professional'
+                                            } %}
+                                            {% set _tpl_preview_asset = {
+                                            'professional': 'images/template_previews/professional.jpg',
+                                            'elegant': 'images/template_previews/classic.jpg',
+                                            'classicRose': 'images/template_previews/classic.jpg',
+                                            'creative': 'images/template_previews/creative.jpg',
+                                            'creative2': 'images/template_previews/creative.jpg',
+                                            'boldProfessional': 'images/template_previews/boldprofessional.jpg',
+                                            'traditional': 'images/template_previews/contemporary.jpg',
+                                            'contemporary': 'images/template_previews/contemporary.jpg',
+                                            'modern': 'images/template_previews/modern.jpg',
+                                            'executive': 'images/template_previews/executive.jpg',
+                                            'minimalSidebar': 'images/template_previews/stylish.jpg',
+                                            'stylish': 'images/template_previews/stylish.jpg'
+                                            } %}
+                                            {% for tv in rev.template_versions %}
+                                            {% set preview = tv.template_preview or {} %}
+                                            {% set template_id = tv.template_id or '' %}
+                                            {% set template_label = _tpl_label.get(template_id,
+                                            tv.template_display_name) %}
+                                            {% set preview_asset = _tpl_preview_asset.get(template_id,
+                                            'images/template_previews/professional.jpg') %}
+                                            <a href="{{ url_for('edit_revision_template', revision_id=rev.revision_id) }}?template={{ tv.template_id }}"
+                                                class="group block w-[160px] flex-shrink-0 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-left shadow-sm transition-colors duration-200 hover:border-indigo-300 hover:bg-indigo-50">
                                                 <div
-                                                    class="relative flex h-[120px] items-center justify-center overflow-hidden bg-white p-2">
-                                                    <div class="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm"
-                                                        aria-hidden="true">
-                                                        <i class="fas fa-pen-to-square text-[11px]"></i>
+                                                    class="mx-auto w-full overflow-hidden rounded-lg border border-indigo-100 bg-white shadow-sm">
+                                                    <div
+                                                        class="relative flex h-[120px] items-center justify-center overflow-hidden bg-white p-2">
+                                                        <div class="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm"
+                                                            aria-hidden="true">
+                                                            <i class="fas fa-pen-to-square text-[11px]"></i>
+                                                        </div>
+                                                        <img src="{{ url_for('static', filename=preview_asset) }}"
+                                                            alt="{{ template_label }} thumbnail"
+                                                            class="max-h-full max-w-full object-contain"
+                                                            loading="lazy" />
                                                     </div>
-                                                    <img src="{{ url_for('static', filename=preview_asset) }}"
-                                                        alt="{{ template_label }} thumbnail"
-                                                        class="max-h-full max-w-full object-contain" loading="lazy" />
                                                 </div>
-                                            </div>
-                                            <div class="mt-2 text-center">
-                                                <div class="text-sm font-semibold text-indigo-900 truncate">{{
-                                                    template_label }}</div>
-                                                <div class="text-[11px] text-indigo-700">Click to edit this version
+                                                <div class="mt-2 text-center">
+                                                    <div class="text-sm font-semibold text-indigo-900 truncate">{{
+                                                        template_label }}</div>
+                                                    <div class="text-[11px] text-indigo-700">Click to edit this version
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </a>
-                                        {% endfor %}
+                                            </a>
+                                            {% endfor %}
                                         </div>
                                     </div>
                                     {% endif %}

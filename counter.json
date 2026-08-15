@@ -1,8 +1,8 @@
 {
-  "total_visits": 1413,
+  "total_visits": 1419,
   "facebook_ad_visits": 0,
-  "organic_visits": 694,
-  "total_conversions": 447,
+  "organic_visits": 697,
+  "total_conversions": 452,
   "facebook_ad_conversions": 0,
   "daily_stats": {
     "2025-07-22": {
@@ -1918,21 +1918,87 @@
       "other": 0,
       "conversions": 0,
       "facebook_ad_conversions": 0
+    },
+    "2026-07-23": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-24": {
+      "total": 1,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 2,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-26": {
+      "total": 0,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
+    },
+    "2026-07-31": {
+      "total": 1,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-08-02": {
+      "total": 2,
+      "facebook_ad": 0,
+      "organic": 1,
+      "direct": 1,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 0,
+      "facebook_ad_conversions": 0
+    },
+    "2026-08-03": {
+      "total": 0,
+      "facebook_ad": 0,
+      "organic": 0,
+      "direct": 0,
+      "search": 0,
+      "social": 0,
+      "other": 0,
+      "conversions": 1,
+      "facebook_ad_conversions": 0
     }
   },
   "utm_campaigns": {},
   "referrer_data": {
     "direct": {
-      "count": 718,
+      "count": 721,
       "conversions": 0,
       "conversion_rate": 0.0,
-      "last_seen": "2026-07-15"
+      "last_seen": "2026-08-02"
     },
     "http://127.0.0.1:5000/": {
-      "count": 309,
-      "conversions": 60,
-      "conversion_rate": 19.480519480519483,
-      "last_seen": "2026-07-16"
+      "count": 312,
+      "conversions": 65,
+      "conversion_rate": 20.833333333333336,
+      "last_seen": "2026-08-02"
     },
     "http://127.0.0.1:5000/my_revisions": {
       "count": 184,
@@ -2241,5 +2307,5 @@
       "last_seen": "2026-07-08"
     }
   },
-  "last_updated": "2026-07-16"
+  "last_updated": "2026-08-03"
 }
