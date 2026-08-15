@@ -18,8 +18,6 @@ Configure the following fields on the **Stripe Product metadata**:
 - `plan_role = "trial" | "monthly" | "pro"`  
   Defines the access level / plan category.
 
----
-
 ### Optional Fields
 
 - `sort_order = "0", "1", "2", ...`  
@@ -45,6 +43,18 @@ Configure the following fields on the **Stripe Product metadata**:
   Required when `plan_role = "trial"`, or when a product includes a trial period.  
   Defines the explicit trial duration in days used for UI display and billing logic.
 
+- `use_trial_hold = "true"`  
+  Signals that this product uses a temporary authorization hold.
+
+- `trial_fee_price_id = "price_..."`  
+  The specific Stripe `price_id` for the trial hold fee.
+
+- `trial_hold_ui = "stripe"`  
+  Defines the UI handling method for the trial hold.
+
+- `deposit_amount = "1095"`  
+  The numerical amount (in cents) for the trial authorization hold.
+
 ---
 
 ## Price Handling Rules
@@ -61,15 +71,13 @@ The UI automatically adapts:
 - Monthly → `/month`
 - Annual → normalized to `/month` equivalent display
 
----
-
 ### 2. Standalone Trial Tier
 
 Used for free or introductory access offers.
 
 - Must be configured as:
   - `type = "one_time"`
-  - `unit_amount = 0` (or equivalent trial pricing logic)
+  - `unit_amount = 0` (or the specific hold amount, e.g., 1095)
 - Must include:
   - `plan_role = "trial"`
 
@@ -103,5 +111,3 @@ This system is fully **Stripe-driven**:
 - No plans are hardcoded in the backend
 - All pricing, labels, and marketing text originate from Stripe metadata
 - The UI is a rendering layer only
-
----
